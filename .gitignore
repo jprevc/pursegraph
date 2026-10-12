@@ -24,3 +24,6 @@ venv/
 
 # OS
 .DS_Store
+
+# Real bank statements (sensitive) — never commit
+samples/
