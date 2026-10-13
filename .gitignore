@@ -21,9 +21,13 @@ venv/
 # Secrets / local config
 .env
 .env.*
+!.env.example
 
 # OS
 .DS_Store
 
 # Real bank statements (sensitive) — never commit
 samples/
+
+# Django
+staticfiles/

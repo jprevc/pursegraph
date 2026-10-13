@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Log in" %}{% endblock %}
+{% block body %}
+<main class="login">
+  <h1>Pursegraph</h1>
+  <form method="post" action="{% url 'login' %}" class="panel">
+    {% csrf_token %}
+    {% if form.errors %}
+      <p class="error">{% translate "Your username and password didn't match. Please try again." %}</p>
+    {% endif %}
+    <label for="{{ form.username.id_for_label }}">{% translate "Username" %}</label>
+    {{ form.username }}
+    <label for="{{ form.password.id_for_label }}">{% translate "Password" %}</label>
+    {{ form.password }}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit">{% translate "Log in" %}</button>
+  </form>
+</main>
+{% endblock %}

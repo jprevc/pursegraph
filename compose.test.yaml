@@ -1,0 +1,12 @@
+# PostgreSQL for running the test suite on the host: `docker compose -f compose.test.yaml up -d`
+services:
+  postgres-test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: pursegraph
+      POSTGRES_PASSWORD: pursegraph
+      POSTGRES_DB: pursegraph
+    ports:
+      - "127.0.0.1:5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data

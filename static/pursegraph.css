@@ -1,0 +1,38 @@
+:root {
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --ring: rgba(11,11,11,0.10); --bad: #d03b3b; --accent: #2a78d6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); text-decoration: none; }
+h1, h2, h3 { margin: 0; font-weight: 600; }
+h2 { font-size: 22px; margin-bottom: 16px; }
+.muted { color: var(--muted); }
+.error { color: var(--bad); }
+.panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 16px; }
+button, .button { font: inherit; display: inline-block; padding: 8px 14px; border-radius: 6px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+
+.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+aside { background: #1d1d1b; color: #e8e7e2; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+aside h1 { font-size: 18px; padding: 0 10px 16px; }
+aside a.nav { color: #c3c2b7; padding: 8px 10px; border-radius: 6px; display: block; }
+aside a.nav:hover { background: #2c2c2a; color: #fff; }
+aside a.nav.on { background: #f0efec; color: #0b0b0b; font-weight: 600; }
+aside .sep { margin: 12px 10px 6px; border-top: 1px solid #3a3a37; }
+aside .logout { margin-top: auto; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+aside .logout button { background: none; color: #c3c2b7; padding: 4px 0; }
+main { padding: 20px 28px 96px; }
+.empty { display: grid; place-items: center; gap: 12px; padding: 96px 16px; text-align: center; }
+
+.login { max-width: 360px; margin: 12vh auto; padding: 0 16px; }
+.login h1 { font-size: 22px; margin-bottom: 16px; }
+.login form { display: flex; flex-direction: column; gap: 6px; }
+.login input { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid var(--ring); margin-bottom: 8px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  aside { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  aside .sep { display: none; }
+  aside .logout { margin: 0 0 0 auto; }
+  main { padding: 16px 16px 96px; }
+}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block body %}
+<div class="shell">
+  <aside>
+    <h1>Pursegraph</h1>
+    <a class="nav {% if nav == 'dashboard' %}on{% endif %}" href="{% url 'dashboard' %}">{% translate "Spending by Category" %}</a>
+    <div class="sep"></div>
+    <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}">{% translate "Import" %}</a>
+    <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}">{% translate "Review queue" %}</a>
+    <form class="logout" method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <span class="muted">{{ user.get_username }}</span>
+      <button type="submit">{% translate "Log out" %}</button>
+    </form>
+  </aside>
+  <main>{% block main %}{% endblock %}</main>
+</div>
+{% endblock %}
