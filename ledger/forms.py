@@ -17,9 +17,10 @@ class MultipleFileField(forms.FileField):
     widget = MultipleFileInput
 
     def clean(self, data, initial=None):
+        clean_one = super().clean
         if not data:
-            return [super().clean(None, initial)]
-        return [super(MultipleFileField, self).clean(file, initial) for file in data]
+            return [clean_one(None, initial)]
+        return [clean_one(file, initial) for file in data]
 
 
 class ImportForm(forms.Form):

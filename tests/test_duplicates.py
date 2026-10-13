@@ -243,11 +243,11 @@ def test_summary_has_no_gap_warning_when_the_coverage_stays_continuous(logged_in
 def test_import_page_shows_each_accounts_coverage_with_its_gaps(logged_in_client, june_imported):
     later = revolut_csv("1000", [("2026-06-15", "Petrol", "-60"), ("2026-06-20", "Kiosk", "-2")])
     upload(logged_in_client, ("later.csv", later), account=str(june_imported.pk))
-    make_empty = Account.objects.create(name="Savings", bank="other")
+    savings = Account.objects.create(name="Savings", bank="other")
 
     page = import_page(logged_in_client)
 
-    account = page[page.index("<h4>Ana&#x27;s Revolut"):page.index(f"<h4>{make_empty.name}")]
+    account = page[page.index("<h4>Ana&#x27;s Revolut"):page.index(f"<h4>{savings.name}")]
     timeline = account[account.index('class="coverage"'):]
     assert "Covered 1 Jun 2026 – 10 Jun 2026" in timeline
     assert "Gap 11 Jun 2026 – 14 Jun 2026" in timeline
@@ -256,6 +256,29 @@ def test_import_page_shows_each_accounts_coverage_with_its_gaps(logged_in_client
     statements = account[account.index("<details"):]
     assert "1 Jun 2026 – 10 Jun 2026" in statements
     assert "15 Jun 2026 – 20 Jun 2026" in statements
-    savings = page[page.index(f"<h4>{make_empty.name}"):]
-    assert "No Statements yet." in savings
-    assert 'class="coverage"' not in savings
+    no_statements = page[page.index(f"<h4>{savings.name}"):]
+    assert "No Statements yet." in no_statements
+    assert 'class="coverage"' not in no_statements
+
+
+def test_a_statement_just_before_the_coverage_must_close_at_its_opening_balance(logged_in_client, june_imported):
+    # June 1–10 opens at 500, so the day before it must close there.
+    earlier = revolut_csv("1000", [("2026-05-30", "Kiosk", "-1"), ("2026-05-31", "Kiosk", "-0.50")])
+
+    page = upload(logged_in_client, ("may.csv", earlier), account=str(june_imported.pk)).content.decode()
+
+    assert "Not imported" in page
+    assert "998.50" in page
+    assert "500.00" in page
+    assert "Kiosk" not in transactions_page(logged_in_client)
+
+
+def test_no_gap_warning_for_a_gap_the_statement_does_not_border(logged_in_client, june_imported):
+    later = revolut_csv("1000", [("2026-06-15", "Petrol", "-60")])
+    upload(logged_in_client, ("later.csv", later), account=str(june_imported.pk))
+    inside = revolut_csv("2444.98", [("2026-06-08", "Bakery", "-3.20"), ("2026-06-10", "Mercator", "-12.34")])
+
+    page = upload(logged_in_client, ("inside.csv", inside), account=str(june_imported.pk)).content.decode()
+
+    assert "2 Duplicates skipped" in page
+    assert "No Statement covers" not in page

@@ -42,9 +42,9 @@ class DayMismatch:
     """A day inside the Account's Coverage whose rows don't match the Transactions already imported."""
 
     day: date
-    missing: list[Transaction] = field(default_factory=list)
+    missing: list[Transaction]
     """Already imported for this day, but not on the new Statement."""
-    unexpected: list[ParsedRow] = field(default_factory=list)
+    unexpected: list[ParsedRow]
     """On the new Statement, but not among the Transactions already imported for this day."""
 
 
@@ -74,7 +74,7 @@ class ImportSummary:
     duplicate_count: int
     skipped_count: int
     gaps: list[DateRange] = field(default_factory=list)
-    """The Coverage gaps right before and after the new Statement's stretch of Coverage."""
+    """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
 
 
 @dataclass(frozen=True)
@@ -164,8 +164,9 @@ def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -
         else:
             # Imports into one Account run one at a time, so each sees the Coverage the previous one left.
             account = Account.objects.select_for_update().get(pk=account.pk)
-        _check_opening_balance(account, parsed)
         duplicates, new_rows = _match_coverage(account, parsed)
+        _check_running_balance(account, parsed, new_rows)
+        gaps_before = set(gaps(coverage(account.statements.all())))
         statement = Statement(
             account=account, format=file.format, period_start=parsed.period_start, period_end=parsed.period_end,
             opening_balance=parsed.opening_balance, closing_balance=parsed.closing_balance,
@@ -183,7 +184,7 @@ def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
-            adjacent_gaps = _adjacent_gaps(account, statement)
+            gaps_left = sorted(set(gaps(coverage(account.statements.all()))) - gaps_before, key=lambda gap: gap.start)
         except IntegrityError:
             # The same file was imported concurrently (or twice in one upload), after the sha256 check.
             statement.file.delete(save=False)
@@ -194,42 +195,53 @@ def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -
 
     return ImportSummary(
         account, parsed.period_start, parsed.period_end, len(transactions), len(duplicates), parsed.skipped_count,
-        adjacent_gaps,
+        gaps_left,
     )
 
 
-def _adjacent_gaps(account: Account, statement: Statement) -> list[DateRange]:
-    ranges = coverage(account.statements.all())
-    [own] = [r for r in ranges if statement.period_start in r]
-    return [gap for gap in gaps(ranges) if gap.end + ONE_DAY == own.start or gap.start - ONE_DAY == own.end]
+def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: list[ParsedRow]):
+    """The new Statement must follow the Account's running balance wherever it runs into the Coverage.
 
+    That is where it starts after an existing Statement's first day (up to the day after its
+    last day), and where it reaches the first day of a Coverage range. `inserted` are the
+    Statement's rows that aren't Duplicates.
 
-def _check_opening_balance(account: Account, parsed: ParsedStatement):
-    """The new Statement must start from the Account's running balance where the Coverage already shows it.
-
-    That is where it starts after an existing Statement's first day, up to the day after its last
-    day. The existing Statement's own rows give the balance; rows other Statements added on its
-    last day (which follow its own rows) count too. Extra rows on its first day precede its
-    opening balance, so they don't.
+    An existing Statement's own rows give the balance after its first day; rows other Statements
+    added on its last day follow its own rows, so they count too, while rows added on its first
+    day precede its opening balance. Going into a Coverage range, the new Statement's rows added on
+    the range's first day therefore come before the opening balance of the Statement starting there.
     """
     start = parsed.period_start
     before = (
         account.statements.filter(period_start__lt=start, period_end__gte=start - ONE_DAY)
         .order_by("period_start", "id").first()
     )
-    if before is None:
-        return
-    rows_before = before.transactions.filter(date__lt=start).aggregate(total=Sum("amount"))["total"] or 0
-    added_on_last_day = (
-        account.transactions.filter(date=before.period_end, date__lt=start).exclude(statements=before)
-        .aggregate(total=Sum("amount"))["total"] or 0
-    )
-    expected = before.opening_balance + rows_before + added_on_last_day
-    if parsed.opening_balance != expected:
+    if before is not None:
+        added_on_last_day = account.transactions.filter(date=before.period_end, date__lt=start).exclude(statements=before)
+        expected = before.opening_balance + _total(before.transactions.filter(date__lt=start)) + _total(added_on_last_day)
+        _require_balance(start, parsed.opening_balance, expected)
+
+    for covered in coverage(account.statements.all()):
+        if not start <= covered.start <= parsed.period_end + ONE_DAY:
+            continue
+        # Of the Statements starting that day, the latest imported has every row of the day.
+        first = account.statements.filter(period_start=covered.start).latest("id")
+        reached = parsed.opening_balance + sum(
+            (row.amount for row in parsed.rows if row.date < covered.start), Decimal(0)
+        ) + sum((row.amount for row in inserted if row.date == covered.start), Decimal(0))
+        _require_balance(covered.start, reached, first.opening_balance)
+
+
+def _total(transactions) -> Decimal:
+    return transactions.aggregate(total=Sum("amount"))["total"] or Decimal(0)
+
+
+def _require_balance(day: date, balance: Decimal, expected: Decimal):
+    if balance != expected:
         raise ImportRejected(
-            _("The Statement opens at %(opening)s, but the Account's balance going into %(date)s was %(expected)s, "
+            _("The Statement's balance going into %(date)s is %(balance)s, but the Account's was %(expected)s, "
               "so it was not imported.")
-            % {"opening": parsed.opening_balance, "date": date_format(start), "expected": expected}
+            % {"date": date_format(day), "balance": balance, "expected": expected}
         )
 
 
@@ -281,10 +293,10 @@ def _match_day(existing: list[Transaction], new: list[ParsedRow]):
 
     Returns the matched existing Transactions, the unmatched existing ones and the unmatched new rows.
     """
-    with_balance = all(item.running_balance is not None for item in [*existing, *new])
+    with_balance = all(transaction_or_row.running_balance is not None for transaction_or_row in [*existing, *new])
 
-    def key(item):
-        return item.amount, item.running_balance if with_balance else None
+    def key(transaction_or_row):
+        return transaction_or_row.amount, transaction_or_row.running_balance if with_balance else None
 
     unmatched = list(existing)
     matched, unexpected = [], []
