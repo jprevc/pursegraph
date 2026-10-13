@@ -7,10 +7,28 @@ from .models import Account, Bank
 NEW = "new"
 
 
-class ImportForm(forms.Form):
-    """A Revolut CSV has no IBAN, so the Member picks the Account (or creates one) up front."""
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
 
-    file = forms.FileField(label=_("Statement file"))
+
+class MultipleFileField(forms.FileField):
+    """A file field that takes several files and cleans to a list of them."""
+
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        if not data:
+            return [super().clean(None, initial)]
+        return [super(MultipleFileField, self).clean(file, initial) for file in data]
+
+
+class ImportForm(forms.Form):
+    """A Revolut CSV has no IBAN, so the Member picks the Account (or creates one) up front.
+
+    Several Statement files can be uploaded at once; they all go into the chosen Account.
+    """
+
+    file = MultipleFileField(label=_("Statement files"))
     account = forms.ChoiceField(label=_("Account"))
     new_account_name = forms.CharField(label=_("New Account name"), max_length=100, required=False)
 

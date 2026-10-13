@@ -4,20 +4,26 @@
 {% block main %}
 <h2>{% translate "Import" %}</h2>
 
+{% for result in results %}{% with summary=result.summary rejection=result.rejection %}
 {% if summary %}
 <section class="panel notice">
   <h3>{% blocktranslate with account=summary.account.name %}Imported into {{ account }}{% endblocktranslate %}</h3>
-  <p>{{ summary.period_start|date:"j M Y" }} – {{ summary.period_end|date:"j M Y" }}</p>
+  <p><span class="muted">{{ result.filename }} ·</span> {{ summary.period_start|date:"j M Y" }} – {{ summary.period_end|date:"j M Y" }}</p>
   <ul>
     <li>{% blocktranslate count n=summary.imported_count %}{{ n }} Transaction imported{% plural %}{{ n }} Transactions imported{% endblocktranslate %}</li>
+    <li>{% blocktranslate count n=summary.duplicate_count %}{{ n }} Duplicate skipped{% plural %}{{ n }} Duplicates skipped{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.skipped_count %}{{ n }} non-completed row skipped{% plural %}{{ n }} non-completed rows skipped{% endblocktranslate %}</li>
   </ul>
+  {% for gap in summary.gaps %}
+  <p class="warning">{% blocktranslate with start=gap.start|date:"j M Y" end=gap.end|date:"j M Y" %}No Statement covers {{ start }} – {{ end }} yet.{% endblocktranslate %}</p>
+  {% endfor %}
 </section>
 {% endif %}
 
 {% if rejection %}
 <section class="panel notice rejected">
   <h3 class="error">{% translate "Not imported" %}</h3>
+  <p class="muted">{{ result.filename }}</p>
   <p>{{ rejection }}</p>
   {% if rejection.keep_file %}<p>{% translate "Please keep this file: it is needed to fix the parser." %}</p>{% endif %}
   {% with d=rejection.diagnosis %}{% if d %}
@@ -35,12 +41,28 @@
     </tbody>
   </table>
   {% endif %}{% endwith %}
+  {% if rejection.mismatch %}
+  <table class="mismatch">
+    <thead><tr><th>{% translate "Date" %}</th><th></th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th class="num">{% translate "Balance" %}</th></tr></thead>
+    <tbody>
+    {% for day in rejection.mismatch %}
+      {% for row in day.missing %}
+      <tr><td>{{ day.day|date:"Y-m-d" }}</td><td>{% translate "Already imported, missing from this file" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount }}</td><td class="num">{{ row.running_balance|default_if_none:"" }}</td></tr>
+      {% endfor %}
+      {% for row in day.unexpected %}
+      <tr><td>{{ day.day|date:"Y-m-d" }}</td><td>{% translate "In this file, not imported before" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount }}</td><td class="num">{{ row.running_balance|default_if_none:"" }}</td></tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </section>
 {% endif %}
+{% endwith %}{% endfor %}
 
 <form class="panel import-form" method="post" enctype="multipart/form-data">
   {% csrf_token %}
-  <p class="muted">{% translate "Revolut CSV exports can be imported." %}</p>
+  <p class="muted">{% translate "Revolut CSV exports can be imported, several at once." %}</p>
   {{ form.as_div }}
   <button type="submit">{% translate "Import" %}</button>
 </form>
@@ -49,7 +71,24 @@
 {% for account in accounts %}
 <section class="account">
   <h4>{{ account.name }} <span class="muted">· {{ account.get_bank_display }} · {% for owner in account.owners.all %}{{ owner.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></h4>
-  {% if account.statements.all %}
+  {% with segments=account.coverage_timeline %}{% if segments %}
+  <div class="coverage" role="list">
+    {% for segment in segments %}
+    {% with start=segment.range.start|date:"j M Y" end=segment.range.end|date:"j M Y" %}
+    <span role="listitem" class="{% if segment.is_gap %}gap{% else %}covered{% endif %}" style="flex-grow: {{ segment.range.days }}"
+      title="{% if segment.is_gap %}{% blocktranslate %}Gap {{ start }} – {{ end }}{% endblocktranslate %}{% else %}{% blocktranslate %}Covered {{ start }} – {{ end }}{% endblocktranslate %}{% endif %}"></span>
+    {% endwith %}
+    {% endfor %}
+  </div>
+  <p class="coverage-legend muted">
+    <span>{{ segments.0.range.start|date:"j M Y" }}</span>
+    {% for segment in segments %}{% if segment.is_gap %}
+    <span class="error">{% blocktranslate with start=segment.range.start|date:"j M Y" end=segment.range.end|date:"j M Y" %}Gap {{ start }} – {{ end }}{% endblocktranslate %}</span>
+    {% endif %}{% endfor %}
+    {% with last=segments|last %}<span>{% blocktranslate with date=last.range.end|date:"j M Y" %}Last Statement ends {{ date }}{% endblocktranslate %}</span>{% endwith %}
+  </p>
+  <details>
+    <summary>{% blocktranslate count n=account.statements.all|length %}{{ n }} Statement{% plural %}{{ n }} Statements{% endblocktranslate %}</summary>
   <table>
     <thead><tr><th>{% translate "Period" %}</th><th>{% translate "Format" %}</th><th class="num">{% translate "Transactions" %}</th><th>{% translate "Imported" %}</th></tr></thead>
     <tbody>
@@ -63,9 +102,10 @@
     {% endfor %}
     </tbody>
   </table>
+  </details>
   {% else %}
   <p class="muted">{% translate "No Statements yet." %}</p>
-  {% endif %}
+  {% endif %}{% endwith %}
 </section>
 {% empty %}
 <p class="muted">{% translate "No Accounts yet." %}</p>

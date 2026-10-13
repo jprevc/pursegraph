@@ -24,7 +24,9 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 
 ## Importing Statements
 
-The Import page takes Revolut CSV exports. Each Statement is checked (opening balance + all rows = closing balance) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
+The Import page takes Revolut CSV exports, several files at once; each file is accepted or rejected on its own, in period order. Each Statement is checked (opening balance + all rows = closing balance) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
+
+Statements may overlap the Account's Coverage (the dates already imported). The overlapping rows must match the Transactions already imported for those days (date, amount, and running balance where printed); they are then skipped as Duplicates. If they don't match, or the new Statement's opening balance doesn't continue the Account's running balance, the file is rejected. On the first and last day of the existing Coverage, a Statement may add rows the earlier one didn't have, such as a CSV exported in the middle of a day. The Import page shows each Account's Coverage, with its gaps.
 
 ## Recovering a locked-out admin
 
