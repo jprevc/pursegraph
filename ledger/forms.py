@@ -24,8 +24,8 @@ class StatementFileForm(forms.Form):
         elif data.get("content") and data.get("filename"):
             try:
                 data["content"] = base64.b64decode(data["content"], validate=True)
-            except binascii.Error:
-                raise forms.ValidationError(_("Upload the Statement file again."))
+            except binascii.Error as err:
+                raise forms.ValidationError(_("Upload the Statement file again.")) from err
         else:
             self.add_error("file", _("Choose a Statement file."))
         return data

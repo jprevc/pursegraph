@@ -14,5 +14,5 @@ def extract_text(content: bytes) -> str:
     try:
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             return "\n".join(page.extract_text() or "" for page in pdf.pages)
-    except PdfminerException:
-        raise ParseError(_("The file is not a readable PDF."))
+    except PdfminerException as err:
+        raise ParseError(_("The file is not a readable PDF.")) from err

@@ -44,7 +44,14 @@ def test_imported_transactions_appear_in_the_transactions_view(logged_in_client)
 
     page = logged_in_client.get("/transactions/").content.decode()
 
-    for text in ("Hiša kave", "Payment from Ana Novak", "Fee: Corner Shop", "-0.50", "Mercator Žalec", "2000.00"):
+    for text in (
+        "Hiša kave",
+        "Payment from Ana Novak",
+        "Fee: Corner Shop",
+        "-0.50",
+        "Mercator Žalec",
+        "2000.00",
+    ):
         assert text in page
     assert "Bakery" not in page  # pending
 
@@ -74,7 +81,9 @@ def test_reuploading_the_same_file_is_rejected(logged_in_client):
     assert logged_in_client.get("/transactions/").content.decode().count("Hiša kave") == 1
 
 
-def test_statement_whose_balances_dont_add_up_is_rejected_with_a_diagnosis(logged_in_client, statement_files):
+def test_statement_whose_balances_dont_add_up_is_rejected_with_a_diagnosis(
+    logged_in_client, statement_files
+):
     # Drop the refund row: the balances after it no longer follow from the rows.
     content = b"\n".join(line for line in FIXTURE.split(b"\n") if b"Card Refund" not in line)
 

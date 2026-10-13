@@ -47,10 +47,43 @@ STATEMENT_TEXT = re.compile(
 NAME_WITH_AMOUNT = re.compile(rf" {MONEY}$|^{MONEY}$")
 # IBAN lengths of the SEPA countries, so that a wrapped IBAN's first part never passes as a whole one.
 IBAN_LENGTHS = {
-    "AD": 24, "AT": 20, "BE": 16, "BG": 22, "CH": 21, "CY": 28, "CZ": 24, "DE": 22, "DK": 18, "EE": 20,
-    "ES": 24, "FI": 18, "FR": 27, "GB": 22, "GI": 23, "GR": 27, "HR": 21, "HU": 28, "IE": 22, "IS": 26,
-    "IT": 27, "LI": 21, "LT": 20, "LU": 20, "LV": 21, "MC": 27, "MT": 31, "NL": 18, "NO": 15, "PL": 28,
-    "PT": 25, "RO": 24, "SE": 24, "SI": 19, "SK": 24, "SM": 27, "VA": 22,
+    "AD": 24,
+    "AT": 20,
+    "BE": 16,
+    "BG": 22,
+    "CH": 21,
+    "CY": 28,
+    "CZ": 24,
+    "DE": 22,
+    "DK": 18,
+    "EE": 20,
+    "ES": 24,
+    "FI": 18,
+    "FR": 27,
+    "GB": 22,
+    "GI": 23,
+    "GR": 27,
+    "HR": 21,
+    "HU": 28,
+    "IE": 22,
+    "IS": 26,
+    "IT": 27,
+    "LI": 21,
+    "LT": 20,
+    "LU": 20,
+    "LV": 21,
+    "MC": 27,
+    "MT": 31,
+    "NL": 18,
+    "NO": 15,
+    "PL": 28,
+    "PT": 25,
+    "RO": 24,
+    "SE": 24,
+    "SI": 19,
+    "SK": 24,
+    "SM": 27,
+    "VA": 22,
 }
 
 
@@ -60,12 +93,20 @@ def parse(text: str) -> ParsedStatement:
         raise ParseError(_("The Sparkasse Statement has no IBAN, period or EUR totals."))
     opening, money_out, count_out, money_in, count_in, closing = summary.groups()
     return ParsedStatement(
-        bank="sparkasse_si", iban=iban[1].replace(" ", ""),
+        bank="sparkasse_si",
+        iban=iban[1].replace(" ", ""),
         # The period runs from the day after the previous Statement.
-        period_start=_date(period[1]) + timedelta(days=1), period_end=_date(period[2]),
-        opening_balance=_money(opening), closing_balance=_money(closing), rows=_rows(text), skipped_count=0,
+        period_start=_date(period[1]) + timedelta(days=1),
+        period_end=_date(period[2]),
+        opening_balance=_money(opening),
+        closing_balance=_money(closing),
+        rows=_rows(text),
+        skipped_count=0,
         printed_totals=Totals(
-            money_in=_money(money_in), money_out=_money(money_out), count_in=int(count_in), count_out=int(count_out),
+            money_in=_money(money_in),
+            money_out=_money(money_out),
+            count_in=int(count_in),
+            count_out=int(count_out),
         ),
     )
 
@@ -116,20 +157,26 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
     dated = [i for i, line in enumerate(lines) if DATED.match(line)]
     first = FIRST_LINE.match(lines[0])
     if (
-        len(dated) != 2 or not first
+        len(dated) != 2
+        or not first
         or any(STATEMENT_TEXT.match(line) for line in lines)
-        or any(NAME_WITH_AMOUNT.search(line) for line in lines[1:dated[1]])
+        or any(NAME_WITH_AMOUNT.search(line) for line in lines[1 : dated[1]])
     ):
         raise ParseError.unsupported_row(text)
     booking_date, name, amount, reference = first.groups()
-    name = " ".join([name or "", *lines[1:dated[1]]]).strip()
+    name = " ".join([name or "", *lines[1 : dated[1]]]).strip()
     value_date, rest = SECOND_LINE.match(lines[dated[1]]).groups()
-    rest, after = rest or "", lines[dated[1] + 1:]
+    rest, after = rest or "", lines[dated[1] + 1 :]
 
     iban = ""
     if match := IBAN.match(rest):
         iban, rest = match[1], match[2] or ""
-        if not _valid_iban(iban) and after and IBAN_TAIL.match(after[0]) and _valid_iban(iban + after[0]):
+        if (
+            not _valid_iban(iban)
+            and after
+            and IBAN_TAIL.match(after[0])
+            and _valid_iban(iban + after[0])
+        ):
             iban, after = iban + after[0], after[1:]
         if not _valid_iban(iban):
             raise ParseError.unsupported_row(text)
@@ -140,8 +187,12 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
     purpose = " ".join([rest, *after]).strip() if name else " ".join(after)
 
     return ParsedRow(
-        date=_date(booking_date), amount=sign * _money(amount), description=description,
-        counterparty_name=name, counterparty_iban=iban, reference=reference or "",
+        date=_date(booking_date),
+        amount=sign * _money(amount),
+        description=description,
+        counterparty_name=name,
+        counterparty_iban=iban,
+        reference=reference or "",
         raw={"value_date": _date(value_date).isoformat(), "purpose": purpose, "lines": lines},
     )
 
@@ -159,5 +210,5 @@ def _date(text: str):
 
 
 def _money(text: str) -> Decimal:
-    """"1.234,56" -> Decimal("1234.56")."""
+    """ "1.234,56" -> Decimal("1234.56")."""
     return Decimal(text.replace(".", "").replace(",", "."))

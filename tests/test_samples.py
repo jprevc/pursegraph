@@ -30,5 +30,9 @@ def test_sample_pdf_adds_up(path):
     assert statement.opening_balance + sum(r.amount for r in rows) == statement.closing_balance
     assert statement.printed_totals.count_in == sum(1 for r in rows if r.amount > 0)
     assert statement.printed_totals.count_out == sum(1 for r in rows if r.amount < 0)
-    assert statement.printed_totals.money_in == sum((r.amount for r in rows if r.amount > 0), Decimal(0))
-    assert statement.printed_totals.money_out == -sum((r.amount for r in rows if r.amount < 0), Decimal(0))
+    assert statement.printed_totals.money_in == sum(
+        (r.amount for r in rows if r.amount > 0), Decimal(0)
+    )
+    assert statement.printed_totals.money_out == -sum(
+        (r.amount for r in rows if r.amount < 0), Decimal(0)
+    )

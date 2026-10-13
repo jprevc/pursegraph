@@ -23,27 +23,49 @@ def import_statements(request):
                 checked = check_statement(content=content, filename=filename)
                 choosing = "account" in request.POST
                 if checked.account and not choosing:
-                    summary = commit_statement(checked, member=request.user, account=checked.account)
+                    summary = commit_statement(
+                        checked, member=request.user, account=checked.account
+                    )
                 else:
-                    account_form = AccountForm(request.POST if choosing else None, statement=checked)
+                    account_form = AccountForm(
+                        request.POST if choosing else None, statement=checked
+                    )
                     if choosing and account_form.is_valid():
-                        summary = commit_statement(checked, member=request.user, account=account_form.chosen_account())
+                        summary = commit_statement(
+                            checked, member=request.user, account=account_form.chosen_account()
+                        )
                     else:
                         pending = {
-                            "form": StatementFileForm(initial={
-                                "content": base64.b64encode(content).decode(), "filename": filename,
-                            }),
-                            "statement": checked.parsed, "bank": Bank(checked.parsed.bank).label,
+                            "form": StatementFileForm(
+                                initial={
+                                    "content": base64.b64encode(content).decode(),
+                                    "filename": filename,
+                                }
+                            ),
+                            "statement": checked.parsed,
+                            "bank": Bank(checked.parsed.bank).label,
                         }
             except ImportRejected as error:
                 rejection = error
 
-    statements = Statement.objects.select_related("imported_by").annotate(transaction_count=Count("transactions"))
-    accounts = Account.objects.prefetch_related("owners", "ibans", Prefetch("statements", queryset=statements))
-    return render(request, "ledger/import.html", {
-        "form": form, "summary": summary, "rejection": rejection, "accounts": accounts,
-        "account_form": account_form, "pending": pending,
-    })
+    statements = Statement.objects.select_related("imported_by").annotate(
+        transaction_count=Count("transactions")
+    )
+    accounts = Account.objects.prefetch_related(
+        "owners", "ibans", Prefetch("statements", queryset=statements)
+    )
+    return render(
+        request,
+        "ledger/import.html",
+        {
+            "form": form,
+            "summary": summary,
+            "rejection": rejection,
+            "accounts": accounts,
+            "account_form": account_form,
+            "pending": pending,
+        },
+    )
 
 
 def transactions(request):

@@ -50,7 +50,9 @@ class ImportRejected(Exception):
     set when the numbers didn't add up.
     """
 
-    def __init__(self, message: str, *, keep_file: bool = False, diagnosis: Diagnosis | None = None):
+    def __init__(
+        self, message: str, *, keep_file: bool = False, diagnosis: Diagnosis | None = None
+    ):
         super().__init__(message)
         self.keep_file = keep_file or diagnosis is not None
         self.diagnosis = diagnosis
@@ -93,35 +95,55 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     try:
         parsed = parse(content, format)
     except ParseError as error:
-        raise ImportRejected(str(error), keep_file=True)
+        raise ImportRejected(str(error), keep_file=True) from error
 
     rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
     parsed_totals = _totals(parsed.rows)
     balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
     if not balances_add_up or parsed.printed_totals not in (None, parsed_totals):
         raise ImportRejected(
-            _("The Statement's balances don't add up, so it was not imported.") if not balances_add_up
+            _("The Statement's balances don't add up, so it was not imported.")
+            if not balances_add_up
             else _("The Statement's rows don't match its printed totals, so it was not imported."),
             diagnosis=Diagnosis(
-                parsed.opening_balance, rows_total, parsed.closing_balance, parsed.rows,
-                parsed.printed_totals, parsed_totals,
+                parsed.opening_balance,
+                rows_total,
+                parsed.closing_balance,
+                parsed.rows,
+                parsed.printed_totals,
+                parsed_totals,
             ),
         )
 
-    known = AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first() if parsed.iban else None
-    return CheckedStatement(content, filename, sha256, format, parsed, known.account if known else None)
+    known = (
+        AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first()
+        if parsed.iban
+        else None
+    )
+    return CheckedStatement(
+        content, filename, sha256, format, parsed, known.account if known else None
+    )
 
 
-def commit_statement(checked: CheckedStatement, *, member, account: Account | NewAccount) -> ImportSummary:
+def commit_statement(
+    checked: CheckedStatement, *, member, account: Account | NewAccount
+) -> ImportSummary:
     parsed = checked.parsed
     if isinstance(account, Account) and account.bank != parsed.bank:
         raise ImportRejected(
-            _("This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account.")
-            % {"statement_bank": Bank(parsed.bank).label, "account": account, "account_bank": account.get_bank_display()}
+            _(
+                "This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account."
+            )
+            % {
+                "statement_bank": Bank(parsed.bank).label,
+                "account": account,
+                "account_bank": account.get_bank_display(),
+            }
         )
     if checked.account and account != checked.account:
         raise ImportRejected(
-            _("This Statement's IBAN %(iban)s belongs to %(account)s.") % {"iban": parsed.iban, "account": checked.account}
+            _("This Statement's IBAN %(iban)s belongs to %(account)s.")
+            % {"iban": parsed.iban, "account": checked.account}
         )
 
     with transaction.atomic():
@@ -129,11 +151,18 @@ def commit_statement(checked: CheckedStatement, *, member, account: Account | Ne
             account = Account.objects.create(name=account.name, bank=parsed.bank)
             account.owners.add(member)
         statement = Statement(
-            account=account, format=checked.format, period_start=parsed.period_start, period_end=parsed.period_end,
-            opening_balance=parsed.opening_balance, closing_balance=parsed.closing_balance,
-            imported_by=member, sha256=checked.sha256,
+            account=account,
+            format=checked.format,
+            period_start=parsed.period_start,
+            period_end=parsed.period_end,
+            opening_balance=parsed.opening_balance,
+            closing_balance=parsed.closing_balance,
+            imported_by=member,
+            sha256=checked.sha256,
         )
-        statement.file.save(PurePath(checked.filename).name, ContentFile(checked.content), save=False)
+        statement.file.save(
+            PurePath(checked.filename).name, ContentFile(checked.content), save=False
+        )
         try:
             if parsed.iban and not checked.account:
                 # An unknown IBAN now identifies the Account it was imported into.
@@ -141,26 +170,36 @@ def commit_statement(checked: CheckedStatement, *, member, account: Account | Ne
             statement.save()
             transactions = Transaction.objects.bulk_create(
                 Transaction(
-                    account=account, date=row.date, amount=row.amount, description=row.description,
-                    counterparty_name=row.counterparty_name, counterparty_iban=row.counterparty_iban,
-                    reference=row.reference, running_balance=row.running_balance, raw=row.raw,
+                    account=account,
+                    date=row.date,
+                    amount=row.amount,
+                    description=row.description,
+                    counterparty_name=row.counterparty_name,
+                    counterparty_iban=row.counterparty_iban,
+                    reference=row.reference,
+                    running_balance=row.running_balance,
+                    raw=row.raw,
                 )
                 for row in parsed.rows
             )
             statement.transactions.add(*transactions)
-        except IntegrityError:
+        except IntegrityError as err:
             # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)
-            raise ImportRejected(_("This Statement was already imported."))
+            raise ImportRejected(_("This Statement was already imported.")) from err
         except BaseException:
             statement.file.delete(save=False)
             raise
 
-    return ImportSummary(account, parsed.period_start, parsed.period_end, len(transactions), parsed.skipped_count)
+    return ImportSummary(
+        account, parsed.period_start, parsed.period_end, len(transactions), parsed.skipped_count
+    )
 
 
 def _totals(rows: list[ParsedRow]) -> Totals:
     """The parsed rows' money in/out and counts, to compare with the printed ones."""
     money_in = [row.amount for row in rows if row.amount > 0]
     money_out = [-row.amount for row in rows if row.amount < 0]
-    return Totals(sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out))
+    return Totals(
+        sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out)
+    )
