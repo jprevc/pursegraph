@@ -53,6 +53,10 @@ th { color: var(--ink-2); font-weight: 600; }
 .import-form input, .import-form select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
 .import-form .errorlist { color: var(--bad); margin: 0; padding: 0; list-style: none; }
 .import-form button { align-self: flex-start; }
+.totals { margin: 12px 0; width: auto; }
+.import-form .actions { flex-direction: row; align-items: center; gap: 16px; }
+.import-form h3 { margin-top: 0; }
+.iban { margin: 0 0 6px; font-size: 13px; }
 input, select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); background: #fff; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.danger { background: none; color: var(--bad); }

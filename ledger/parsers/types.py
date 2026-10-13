@@ -30,8 +30,8 @@ class ParsedRow:
 
 
 @dataclass(frozen=True)
-class PrintedTotals:
-    """The money-in/out totals and row counts a Statement prints about itself."""
+class Totals:
+    """Money in and out, and how many rows of each: as a Statement prints them, or as its rows add up."""
 
     money_in: Decimal
     money_out: Decimal
@@ -50,4 +50,4 @@ class ParsedStatement:
     rows: list[ParsedRow]
     skipped_count: int
     """Rows left out because they aren't completed (pending, reverted, declined)."""
-    printed_totals: PrintedTotals | None = None
+    printed_totals: Totals | None = None

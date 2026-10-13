@@ -6,7 +6,14 @@ from tests.test_import import upload
 pytestmark = pytest.mark.django_db
 
 # The fixture's eight Transactions, less its two fees.
-UNRESOLVED = ["Hiša kave", "Payment from Ana Novak", "Corner Shop", "To Janez Kranjc", "Čevljar", "Mercator Žalec"]
+UNRESOLVED = [
+    "Hiša kave",
+    "Payment from Ana Novak",
+    "Corner Shop",
+    "To Janez Kranjc",
+    "Čevljar",
+    "Mercator Žalec",
+]
 
 
 def test_review_queue_lists_unresolved_transactions_oldest_first(logged_in_client):
@@ -23,7 +30,9 @@ def test_review_queue_lists_unresolved_transactions_oldest_first(logged_in_clien
 def test_resolved_transactions_leave_the_queue(logged_in_client):
     upload(logged_in_client)
 
-    logged_in_client.post(f"/transactions/{transaction_id('To Janez Kranjc')}/outcome/", {"outcome": "transfer"})
+    logged_in_client.post(
+        f"/transactions/{transaction_id('To Janez Kranjc')}/outcome/", {"outcome": "transfer"}
+    )
 
     page = logged_in_client.get("/review/").content.decode()
     assert ">To Janez Kranjc<" not in page
@@ -35,7 +44,9 @@ def test_sidebar_shows_the_review_queue_count(logged_in_client):
     upload(logged_in_client)
     assert review_queue_count(logged_in_client.get("/").content.decode()) == 6
 
-    logged_in_client.post(f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": "transfer"})
+    logged_in_client.post(
+        f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": "transfer"}
+    )
 
     assert review_queue_count(logged_in_client.get("/transactions/").content.decode()) == 5
 

@@ -25,9 +25,19 @@ def test_revolut_csv_statement():
 def test_revolut_csv_rows():
     rows = parse(FIXTURE, "csv").rows
 
-    assert [(r.date, r.amount, r.description, r.counterparty_name, r.running_balance, r.is_fee) for r in rows] == [
+    assert [
+        (r.date, r.amount, r.description, r.counterparty_name, r.running_balance, r.is_fee)
+        for r in rows
+    ] == [
         (date(2026, 6, 1), Decimal("-4.50"), "Hiša kave", "", Decimal("495.50"), False),
-        (date(2026, 6, 3), Decimal("2000.00"), "Payment from Ana Novak", "Ana Novak", Decimal("2495.50"), False),
+        (
+            date(2026, 6, 3),
+            Decimal("2000.00"),
+            "Payment from Ana Novak",
+            "Ana Novak",
+            Decimal("2495.50"),
+            False,
+        ),
         (date(2026, 6, 6), Decimal("-50.02"), "Corner Shop", "", Decimal("2445.48"), False),
         (date(2026, 6, 6), Decimal("-0.50"), "Fee: Corner Shop", "", Decimal("2444.98"), True),
         (date(2026, 6, 8), Decimal("-300.00"), "To Janez Kranjc", "", Decimal("2144.98"), False),
@@ -61,12 +71,15 @@ def test_revolut_csv_skips_every_row_that_is_not_completed():
     assert statement.period_end == date(2026, 6, 11)
 
 
-@pytest.mark.parametrize("line", [
-    "Card Payment,Savings,2026-06-12 9:00:00,2026-06-12 9:00:01,Bakery,-3.2,0,EUR,COMPLETED,2149.44",
-    "Card Payment,Current,2026-06-12 9:00:00,2026-06-12 9:00:01,Bakery,-3.2,0,USD,COMPLETED,2149.44",
-    "Card Payment,Current,2026-06-12 9:00:00,yesterday,Bakery,-3.2,0,EUR,COMPLETED,2149.44",
-    "Card Payment,Current,2026-06-12 9:00:00,2026-06-12 9:00:01,Bakery,-3.2,0,EUR,COMPLETED",
-])
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Card Payment,Savings,2026-06-12 9:00:00,2026-06-12 9:00:01,Bakery,-3.2,0,EUR,COMPLETED,2149.44",
+        "Card Payment,Current,2026-06-12 9:00:00,2026-06-12 9:00:01,Bakery,-3.2,0,USD,COMPLETED,2149.44",
+        "Card Payment,Current,2026-06-12 9:00:00,yesterday,Bakery,-3.2,0,EUR,COMPLETED,2149.44",
+        "Card Payment,Current,2026-06-12 9:00:00,2026-06-12 9:00:01,Bakery,-3.2,0,EUR,COMPLETED",
+    ],
+)
 def test_revolut_csv_rejects_an_unrecognised_row(line):
     with pytest.raises(ParseError) as error:
         parse(FIXTURE + line.encode() + b"\n", "csv")

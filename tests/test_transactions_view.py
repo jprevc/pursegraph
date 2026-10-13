@@ -9,8 +9,14 @@ from tests.test_import import upload
 pytestmark = pytest.mark.django_db
 
 ALL = [
-    "Hiša kave", "Payment from Ana Novak", "Corner Shop", "Fee: Corner Shop", "To Janez Kranjc",
-    "Fee: To Janez Kranjc", "Čevljar", "Mercator Žalec",
+    "Hiša kave",
+    "Payment from Ana Novak",
+    "Corner Shop",
+    "Fee: Corner Shop",
+    "To Janez Kranjc",
+    "Fee: To Janez Kranjc",
+    "Čevljar",
+    "Mercator Žalec",
 ]
 
 
@@ -44,12 +50,21 @@ def test_filter_by_account(logged_in_client):
 
 def test_filter_by_outcome(logged_in_client):
     upload(logged_in_client)
-    logged_in_client.post(f"/transactions/{transaction_id('To Janez Kranjc')}/outcome/", {"outcome": "transfer"})
+    logged_in_client.post(
+        f"/transactions/{transaction_id('To Janez Kranjc')}/outcome/", {"outcome": "transfer"}
+    )
     groceries = Subcategory.objects.get(category__name="Food", name="Groceries")
-    logged_in_client.post(f"/transactions/{transaction_id('Mercator Žalec')}/outcome/", {"outcome": groceries.pk})
+    logged_in_client.post(
+        f"/transactions/{transaction_id('Mercator Žalec')}/outcome/", {"outcome": groceries.pk}
+    )
     food = Category.objects.get(name="Food")
 
-    assert shown(logged_in_client, outcome="unresolved") == ["Hiša kave", "Payment from Ana Novak", "Corner Shop", "Čevljar"]
+    assert shown(logged_in_client, outcome="unresolved") == [
+        "Hiša kave",
+        "Payment from Ana Novak",
+        "Corner Shop",
+        "Čevljar",
+    ]
     assert shown(logged_in_client, outcome="transfer") == ["To Janez Kranjc"]
     assert shown(logged_in_client, outcome=f"category-{food.pk}") == ["Mercator Žalec"]
     assert shown(logged_in_client, outcome=f"subcategory-{groceries.pk}") == ["Mercator Žalec"]
@@ -58,7 +73,9 @@ def test_filter_by_outcome(logged_in_client):
 def test_filters_combine_and_stay_filled_in(logged_in_client):
     upload(logged_in_client)
 
-    page = logged_in_client.get("/transactions/", {"q": "corner", "outcome": "unresolved"}).content.decode()
+    page = logged_in_client.get(
+        "/transactions/", {"q": "corner", "outcome": "unresolved"}
+    ).content.decode()
 
     assert ">Corner Shop<" in page
     assert ">Fee: Corner Shop<" not in page
@@ -78,7 +95,9 @@ def test_no_matches_says_so(logged_in_client):
 def test_long_lists_are_paged_newest_first(logged_in_client):
     account = Account.objects.create(name="Joint N26", bank="n26")
     Transaction.objects.bulk_create(
-        Transaction(account=account, date=date(2026, 1, 1 + i % 28), amount=-1, description=f"Row {i:03}")
+        Transaction(
+            account=account, date=date(2026, 1, 1 + i % 28), amount=-1, description=f"Row {i:03}"
+        )
         for i in range(120)
     )
 

@@ -8,7 +8,18 @@ from tests.test_import import upload
 
 pytestmark = pytest.mark.django_db
 
-DEFAULTS = ["Food", "Home", "Transport", "Health", "Children", "Shopping", "Leisure", "Finance", "Other", "Income"]
+DEFAULTS = [
+    "Food",
+    "Home",
+    "Transport",
+    "Health",
+    "Children",
+    "Shopping",
+    "Leisure",
+    "Finance",
+    "Other",
+    "Income",
+]
 
 
 def category_id(name):
@@ -38,14 +49,23 @@ def test_the_default_categories_are_seeded_in_order(admin_client):
     page = admin_client.get("/categories/").content.decode()
 
     assert category_order(admin_client) == DEFAULTS
-    for subcategory in ("Groceries", "Rent / mortgage", "Bank fees", "Cash withdrawal", "Payments to people", "Salary"):
+    for subcategory in (
+        "Groceries",
+        "Rent / mortgage",
+        "Bank fees",
+        "Cash withdrawal",
+        "Payments to people",
+        "Salary",
+    ):
         assert f'value="{subcategory}"' in page
     assert page.count('<span class="muted">catch-all</span>') == 10
 
 
 def test_every_default_category_has_exactly_one_catch_all(admin_client):
     assert catch_alls(admin_client) == {
-        **{name: ["Other"] for name in DEFAULTS[:8]}, "Other": ["Miscellaneous"], "Income": ["Other income"],
+        **{name: ["Other"] for name in DEFAULTS[:8]},
+        "Other": ["Miscellaneous"],
+        "Income": ["Other income"],
     }
 
 
@@ -92,7 +112,9 @@ def test_an_income_category_gets_an_other_income_catch_all(admin_client):
 
 
 def test_a_category_needs_a_name(admin_client):
-    response = admin_client.post("/categories/add/", {"name": "  ", "kind": "spending"}, follow=True)
+    response = admin_client.post(
+        "/categories/add/", {"name": "  ", "kind": "spending"}, follow=True
+    )
 
     assert "Name the Category." in response.content.decode()
     assert category_order(admin_client) == DEFAULTS
@@ -103,7 +125,9 @@ def test_new_subcategories_are_offered_as_outcomes(admin_client):
 
     admin_client.post(f"/categories/{category_id('Food')}/subcategories/add/", {"name": "Snacks"})
     snacks = subcategory_id("Food", "Snacks")
-    admin_client.post(f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": snacks})
+    admin_client.post(
+        f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": snacks}
+    )
 
     page = admin_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Corner Shop") == "Food → Snacks"
@@ -115,7 +139,9 @@ def test_renaming_shows_everywhere(admin_client):
     upload(admin_client)
 
     admin_client.post(f"/categories/{category_id('Finance')}/rename/", {"name": "Money"})
-    admin_client.post(f"/subcategories/{subcategory_id('Money', 'Bank fees')}/rename/", {"name": "Fees"})
+    admin_client.post(
+        f"/subcategories/{subcategory_id('Money', 'Bank fees')}/rename/", {"name": "Fees"}
+    )
 
     page = admin_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Fee: Corner Shop") == "Money → Fees"
@@ -125,20 +151,40 @@ def test_reordering_categories(admin_client):
     admin_client.post(f"/categories/{category_id('Income')}/move/", {"direction": "up"})
     admin_client.post(f"/categories/{category_id('Food')}/move/", {"direction": "down"})
     admin_client.post(f"/categories/{category_id('Food')}/move/", {"direction": "up"})
-    admin_client.post(f"/categories/{category_id('Food')}/move/", {"direction": "up"})  # already first
+    admin_client.post(
+        f"/categories/{category_id('Food')}/move/", {"direction": "up"}
+    )  # already first
 
     assert category_order(admin_client) == [
-        "Food", "Home", "Transport", "Health", "Children", "Shopping", "Leisure", "Finance", "Income", "Other",
+        "Food",
+        "Home",
+        "Transport",
+        "Health",
+        "Children",
+        "Shopping",
+        "Leisure",
+        "Finance",
+        "Income",
+        "Other",
     ]
 
 
 def test_reordering_subcategories_keeps_the_catch_all_last(admin_client):
-    admin_client.post(f"/subcategories/{subcategory_id('Finance', 'Bank fees')}/move/", {"direction": "down"})
-    admin_client.post(f"/subcategories/{subcategory_id('Finance', 'Taxes & fines')}/move/", {"direction": "down"})
+    admin_client.post(
+        f"/subcategories/{subcategory_id('Finance', 'Bank fees')}/move/", {"direction": "down"}
+    )
+    admin_client.post(
+        f"/subcategories/{subcategory_id('Finance', 'Taxes & fines')}/move/", {"direction": "down"}
+    )
 
     page = admin_client.get("/categories/").content.decode()
-    finance = page[page.index('<h3 class="category">Finance'):page.index('<h3 class="category">Other')]
-    positions = [finance.index(f'value="{name}"') for name in ("Insurance (non-health)", "Bank fees", "Taxes &amp; fines", "Other")]
+    finance = page[
+        page.index('<h3 class="category">Finance') : page.index('<h3 class="category">Other')
+    ]
+    positions = [
+        finance.index(f'value="{name}"')
+        for name in ("Insurance (non-health)", "Bank fees", "Taxes &amp; fines", "Other")
+    ]
     assert positions == sorted(positions)
 
 
@@ -154,7 +200,9 @@ def test_deleting_a_subcategory_moves_its_transactions_to_the_catch_all(admin_cl
 
 
 def test_a_catch_all_cant_be_deleted(admin_client):
-    response = admin_client.post(f"/subcategories/{subcategory_id('Food', 'Other')}/delete/", follow=True)
+    response = admin_client.post(
+        f"/subcategories/{subcategory_id('Food', 'Other')}/delete/", follow=True
+    )
 
     assert "A catch-all Subcategory can&#x27;t be deleted." in response.content.decode()
     assert catch_alls(admin_client)["Food"] == ["Other"]

@@ -21,7 +21,8 @@ def test_inline_change_returns_the_updated_row_marked_manual(logged_in_client):
 
     response = logged_in_client.post(
         f"/transactions/{transaction_id('Corner Shop')}/outcome/",
-        {"outcome": subcategory_id("Food", "Groceries")}, HTTP_HX_REQUEST="true",
+        {"outcome": subcategory_id("Food", "Groceries")},
+        HTTP_HX_REQUEST="true",
     )
 
     row = response.content.decode()
@@ -63,7 +64,8 @@ def test_changing_an_automatic_outcome_makes_it_manual(logged_in_client):
     assert "Manual" not in page
 
     logged_in_client.post(
-        f"/transactions/{transaction_id('Fee: Corner Shop')}/outcome/", {"outcome": subcategory_id("Finance", "Other")},
+        f"/transactions/{transaction_id('Fee: Corner Shop')}/outcome/",
+        {"outcome": subcategory_id("Finance", "Other")},
     )
 
     page = logged_in_client.get("/transactions/").content.decode()
@@ -86,7 +88,8 @@ def test_an_offsite_next_url_is_ignored(logged_in_client):
     upload(logged_in_client)
 
     response = logged_in_client.post(
-        f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": "transfer", "next": "https://evil.example/"},
+        f"/transactions/{transaction_id('Corner Shop')}/outcome/",
+        {"outcome": "transfer", "next": "https://evil.example/"},
     )
 
     assert response.url == "/transactions/"

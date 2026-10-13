@@ -1,0 +1,105 @@
+BANKA SPARKASSE, d. d.
+Cesta v Kleče 15, 1000 Ljubljana
+www.sparkasse.si info@sparkasse.si
+Podpora strankam: 01/ 583 66 66
+Matična št.: 2211254000
+Vpisana pri okrož. sodišču v Lj.
+Osn. kapital: 10.015.200,00 EUR
+Datum: 12.10.2026
+Novak Ana Novak Ana
+Glavna ulica 1 Glavna ulica 1
+1000 Ljubljana 1000 Ljubljana
+DŠ: 12345678
+IZPISEK TRANSAKCIJSKEGA RAČUNA 34000-1234567864
+št. 9/2026
+IBAN SI56 3400 0123 4567 864
+Datum predhodnega izpiska: 31.08.2026 Datum izpiska: 30.09.2026
+Skupni promet na TRR
+Valuta Začetno Promet v Št. Promet v Št. Končno
+stanje breme transakcij dobro transakcij stanje
+EUR 4.321,90 1.842,85 10 1.250,02 2 3.729,07
+CHF 0,00 0,00 0 25,00 1 25,00
+GBP 0,00 0,00 0 0,00 0 0,00
+USD 0,00 0,00 0 0,00 0 0,00
+1 od 4
+Promet na TRR 340001234567864 v EUR
+Začetno stanje 4.321,90 EUR
+PRILIVI
+Dat.knj. Nalogodajalec Referenca prejemnika Referenca plačnika
+Dat.val. Račun plačnika Znesek Namen plačila Opomba
+15.09.2026 ZAVOD ZA ZDRAVSTVENO 1.250,00 SI00 15092026-10001
+ZAVAROVANJE SLOVENIJE
+15.09.2026 SI56011006000012342
+30.09.2026 0,02
+30.09.2026 Pozitivne obresti
+Prilivi skupaj št. 2 1.250,02EUR
+ODLIVI
+Dat.knj. Prejemnik Referenca prejemnika Referenca plačnika
+Dat.val. Račun prejemnika Znesek Namen plačila Opomba
+02.09.2026 MARKO K 85,00
+02.09.2026 SI56020100001234582 Flik plačilo
+08.09.2026 ORDINACIJA ZA 180,00 SI12 2026001234500
+DRUŽINSKO MEDICINO,
+DR. JANA HORVAT
+08.09.2026 SI56040010012345664 Račun št. 2026-00123
+08.09.2026 Banka Sparkasse, d. d. 0,40
+08.09.2026 SI56340005000500035 plačilo provizije
+10.09.2026 Ana Novak 1.500,00 SI00 0000000
+10.09.2026 LT63325000123456789 Prenos sredstev
+0
+10.09.2026 Banka Sparkasse, d. d. 0,40
+10.09.2026 SI56340005000500035 plačilo provizije
+15.09.2026 DARS d.d. 60,00 SI12 9002600100001
+15.09.2026 SI56101000098765492 GLOBA ZA PREKRŠEK
+15.09.2026 Banka Sparkasse, d. d. 0,40
+15.09.2026 SI56340005000500035 plačilo provizije
+15.09.2026 DARS d.d. 16,00 SI12 7112600100002
+15.09.2026 SI56051008000123473 Poravnava
+kupoprodajnih poslov
+15.09.2026 Banka Sparkasse, d. d. 0,40
+15.09.2026 SI56340005000500035 plačilo provizije
+2 od 4
+30.09.2026 Banka Sparkasse, d. d. 0,25 1600 12345
+30.09.2026 SI56340005000500035 NetStik pogodba
+51234567890
+Odlivi skupaj št. 10 1.842,85EUR
+Končno stanje 3.729,07 EUR
+Promet na TRR 340001234567864 v CHF
+Začetno stanje 0,00 CHF
+PRILIVI
+Dat.knj. Nalogodajalec Referenca prejemnika Referenca plačnika
+Dat.val. Račun plačnika Znesek Namen plačila Opomba
+20.09.2026 Ana Novak 25,00
+20.09.2026 CH9300762011623852957 Prenos
+Prilivi skupaj št. 1 25,00CHF
+Končno stanje 25,00 CHF
+Promet na TRR 340001234567864 v GBP
+Začetno stanje 0,00 GBP
+Končno stanje 0,00 GBP
+Promet na TRR 340001234567864 v USD
+Začetno stanje 0,00 USD
+Končno stanje 0,00 USD
+Reklamacije In/ali pripombe lahko posredujete v roku 15 (petnajstih) dni v Oddelek
+podpora strankam v pisni obliki na naslov Banka Sparkasse, d. d., Oddelek
+podpora strankam, p.p. 570, 1001 Ljubljana ali v ustni obliki po telefonu
+01/583-66-66. Identifikacijska številka za DDV Banka Sparkasse, d. d. je
+SI77752252. BIC koda naše banke je KSPKSI22XXX.
+Vaša zgoraj navedena terjatev do banke je upravičena do jamstva v okviru sistema
+jamstva za vloge razen, v kolikor gre za: 1. vlogo, ki se glasi na prinosnika, vključno
+z vlogo, za katero banka do presečnega datuma za izračun jamstva ni pridobila
+ustreznih podatkov za identifikacijo dejanskih upravičencev; 2. vlogo banke in/ali
+investicijskega podjetja ter druge finančne institucije, ki jo je vložila v svojem
+imenu in za svoj račun; 3. vlogo zavarovalnice, pozavarovalnice in/ali
+zavarovalnega holdinga; 4. vlogo kolektivnega naložbenega podjema, vključno z
+naložbenimi podjemi zaprtega tipa; 5. vlogo pokojninskih skladov in pokojninskih
+družb; 6. vlogo držav in centralnih bank ter vlogo subjektov, ki so neposredni ali
+posredni uporabniki državnega proračuna; 7. vlogo lokalnih skupnosti in vloge
+neposrednih in posrednih uporabnikov proračuna lokalnih skupnosti.
+Vaša terjatev je zajamčena do zneska 100.000,00 EUR, nad navedenim zneskom
+pa le pod zakonsko določenimi pogoji. Podrobnejše informacije lahko pridobite v
+banki pri svojem referentu oziroma pri vodji poslovalnice in na spletni strani Banke
+Slovenije www.bsi.si – Jamstvo za vloge v bankah.
+3 od 4
+V skladu s 4. točko 44. člena ZDDV-1 davek na dodano vrednost ni obračunan.
+Velja brez podpisa.
+4 od 4
