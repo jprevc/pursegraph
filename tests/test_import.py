@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from ledger.models import Account
+from tests.conftest import assert_nothing_stored, make_account
 
 pytestmark = pytest.mark.django_db
 
@@ -61,12 +61,6 @@ def test_the_original_file_is_stored(logged_in_client, statement_files):
     assert stored.read_bytes() == FIXTURE
 
 
-def assert_nothing_stored(client, statement_files):
-    assert "No Accounts yet" in client.get("/import/").content.decode()
-    assert "No Transactions yet" in client.get("/transactions/").content.decode()
-    assert not list(statement_files.rglob("*.*"))
-
-
 def test_reuploading_the_same_file_is_rejected(logged_in_client):
     upload(logged_in_client)
 
@@ -114,35 +108,41 @@ def test_unknown_file_type_is_rejected(logged_in_client, statement_files):
     assert_nothing_stored(logged_in_client, statement_files)
 
 
-def make_account(name, bank="revolut", owner=None):
-    account = Account.objects.create(name=name, bank=bank)
-    if owner:
-        account.owners.add(owner)
-    return account
+def upload_without_account(client):
+    """Upload the CSV alone; the response asks for the Account."""
+    return client.post("/import/", {"file": SimpleUploadedFile(FILENAME, FIXTURE)}).content.decode()
+
+
+def test_a_csv_asks_for_the_account(logged_in_client):
+    page = upload_without_account(logged_in_client)
+
+    assert "Choose the Account" in page
+    assert "a Revolut Statement, 1 Jun 2026 – 11 Jun 2026" in page
+    assert "No Transactions yet" in logged_in_client.get("/transactions/").content.decode()
 
 
 def test_with_no_revolut_account_a_new_one_is_preselected(logged_in_client):
-    page = logged_in_client.get("/import/").content.decode()
+    page = upload_without_account(logged_in_client)
 
     assert '<option value="new" selected>' in page
     assert 'value="Revolut"' in page
 
 
 def test_the_only_revolut_account_is_preselected(logged_in_client, member):
-    make_account("Joint N26", bank="n26", owner=member)
-    account = make_account("Ana's Revolut", owner=member)
+    make_account("Joint N26", "n26", member)
+    account = make_account("Ana's Revolut", "revolut", member)
 
-    page = logged_in_client.get("/import/").content.decode()
+    page = upload_without_account(logged_in_client)
 
     assert f'<option value="{account.pk}" selected>' in page
     assert "Joint N26</option>" not in page
 
 
 def test_with_several_revolut_accounts_the_member_must_choose(logged_in_client, member):
-    make_account("Ana's Revolut", owner=member)
-    make_account("Bor's Revolut", owner=member)
+    make_account("Ana's Revolut", "revolut", member)
+    make_account("Bor's Revolut", "revolut", member)
 
-    page = logged_in_client.get("/import/").content.decode()
+    page = upload_without_account(logged_in_client)
 
     assert "selected>" not in page.replace('<option value="" selected>', "")
     assert upload(logged_in_client, account="").status_code == 200
@@ -150,8 +150,8 @@ def test_with_several_revolut_accounts_the_member_must_choose(logged_in_client, 
 
 
 def test_import_into_an_existing_revolut_account(logged_in_client, member):
-    make_account("Ana's Revolut", owner=member)
-    account = make_account("Bor's Revolut", owner=member)
+    make_account("Ana's Revolut", "revolut", member)
+    account = make_account("Bor's Revolut", "revolut", member)
 
     response = upload(logged_in_client, account=str(account.pk))
 
@@ -162,7 +162,7 @@ def test_import_into_an_existing_revolut_account(logged_in_client, member):
 
 
 def test_statement_bank_must_match_the_account_bank(logged_in_client, member, statement_files):
-    account = make_account("Joint N26", bank="n26", owner=member)
+    account = make_account("Joint N26", "n26", member)
 
     response = upload(logged_in_client, account=str(account.pk))
 

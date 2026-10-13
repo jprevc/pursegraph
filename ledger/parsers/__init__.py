@@ -6,9 +6,9 @@ ParseError; it never returns a partial result, and anything it doesn't recognise
 
 from django.utils.translation import gettext as _
 
-from .types import ParsedRow, ParsedStatement, ParseError, PrintedTotals
+from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
-__all__ = ["parse", "ParsedRow", "ParsedStatement", "ParseError", "PrintedTotals"]
+__all__ = ["parse", "parse_pdf_text", "ParsedRow", "ParsedStatement", "ParseError", "Totals"]
 
 
 def parse(content: bytes, format: str) -> ParsedStatement:
@@ -17,4 +17,15 @@ def parse(content: bytes, format: str) -> ParsedStatement:
         from . import revolut_csv
 
         return revolut_csv.parse(content)
-    raise ParseError(_("PDF Statements can't be imported yet."))
+    from . import pdf_text
+
+    return parse_pdf_text(pdf_text.extract_text(content))
+
+
+def parse_pdf_text(text: str) -> ParsedStatement:
+    """Parse a PDF Statement's extracted text, detecting the bank from it."""
+    if "BANKA SPARKASSE" in text and "IZPISEK TRANSAKCIJSKEGA RAČUNA" in text:
+        from . import sparkasse_pdf
+
+        return sparkasse_pdf.parse(text)
+    raise ParseError(_("This PDF is not a Statement of a supported bank."))

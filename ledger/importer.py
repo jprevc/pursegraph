@@ -1,8 +1,14 @@
 """The import pipeline: one Statement file in, committed Statement and Transactions out.
 
-Steps, for one file: sha256 re-import check, parse, balance check, Account resolution, the
-opening balance and Duplicate checks against the Account's Coverage, then commit (Statement,
-Transactions and the original file). Any failure rejects that file and stores nothing of it.
+It runs in two calls, because the Account may have to be asked for after parsing:
+
+- `check_statement`: sha256 re-import check, parse, balance check, printed totals check, then
+  Account detection from the Statement's own IBAN;
+- `commit_statement`: into the detected Account, or one the Member picked or creates (whom it
+  then belongs to), checks the opening balance and Duplicates against the Account's Coverage,
+  then stores the Statement, its Transactions (less the Duplicates) and the original file.
+
+Any failure raises ImportRejected and stores nothing of that Statement.
 """
 
 import hashlib
@@ -18,8 +24,8 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
 from .coverage import ONE_DAY, DateRange, coverage, gaps
-from .models import Account, Bank, Statement, Transaction
-from .parsers import ParsedRow, ParsedStatement, ParseError, parse
+from .models import Account, AccountIBAN, Bank, Statement, Transaction
+from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
 
 
 @dataclass(frozen=True)
@@ -30,11 +36,15 @@ class NewAccount:
 
 
 @dataclass(frozen=True)
-class BalanceDiagnosis:
+class Diagnosis:
+    """Why a Statement's numbers didn't add up: its balances and printed totals against its rows."""
+
     opening_balance: Decimal
     rows_total: Decimal
     closing_balance: Decimal
     rows: list[ParsedRow]
+    printed_totals: Totals | None
+    parsed_totals: Totals
 
 
 @dataclass(frozen=True)
@@ -52,17 +62,30 @@ class ImportRejected(Exception):
     """The Statement was not imported.
 
     `keep_file` asks the Member to keep the file because a parser fix needs it; `diagnosis` is
-    set when the balances didn't add up, `mismatch` when rows inside the Coverage didn't match.
+    set when the numbers didn't add up, `mismatch` when rows inside the Coverage didn't match.
     """
 
     def __init__(
-        self, message: str, *, keep_file: bool = False, diagnosis: BalanceDiagnosis | None = None,
+        self, message: str, *, keep_file: bool = False, diagnosis: Diagnosis | None = None,
         mismatch: list[DayMismatch] | None = None,
     ):
         super().__init__(message)
         self.keep_file = keep_file or diagnosis is not None
         self.diagnosis = diagnosis
         self.mismatch = mismatch or []
+
+
+@dataclass(frozen=True)
+class CheckedStatement:
+    """A parsed Statement that passed every check, waiting to be committed into an Account."""
+
+    content: bytes
+    filename: str
+    sha256: str
+    format: str
+    parsed: ParsedStatement
+    account: Account | None
+    """The Account detected from the Statement's IBAN, if any."""
 
 
 @dataclass(frozen=True)
@@ -86,44 +109,7 @@ class FileResult:
     rejection: ImportRejected | None = None
 
 
-@dataclass(frozen=True)
-class _CheckedFile:
-    """A file that parsed and whose balances add up, ready to be checked against its Account."""
-
-    filename: str
-    content: bytes
-    sha256: str
-    format: str
-    parsed: ParsedStatement
-
-
-def import_statements(*, files: list[tuple[str, bytes]], member, account: Account | NewAccount) -> list[FileResult]:
-    """Import each of `files` (filename, content) into `account`, independently of the others.
-
-    Files that can't be parsed are rejected first; the rest are imported in period order, so
-    each one's Duplicate check sees the Coverage the earlier ones left. A NewAccount is created
-    by the first file imported, and the later files go into it.
-    """
-    results: list[FileResult] = []
-    checked: list[_CheckedFile] = []
-    for filename, content in files:
-        try:
-            checked.append(_check_file(filename, content))
-        except ImportRejected as rejection:
-            results.append(FileResult(filename, rejection=rejection))
-    for file in sorted(checked, key=lambda f: (f.parsed.period_start, f.parsed.period_end)):
-        try:
-            summary = _import_checked(file, member, account)
-        except ImportRejected as rejection:
-            results.append(FileResult(file.filename, rejection=rejection))
-        else:
-            results.append(FileResult(file.filename, summary=summary))
-            account = summary.account
-    return results
-
-
-def _check_file(filename: str, content: bytes) -> _CheckedFile:
-    """The checks that need nothing but the file: sha256 re-import, parse, balance check."""
+def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     sha256 = hashlib.sha256(content).hexdigest()
     existing = Statement.objects.filter(sha256=sha256).select_related("account").first()
     if existing:
@@ -141,20 +127,32 @@ def _check_file(filename: str, content: bytes) -> _CheckedFile:
         raise ImportRejected(str(error), keep_file=True)
 
     rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
-    if parsed.opening_balance + rows_total != parsed.closing_balance:
+    parsed_totals = _totals(parsed.rows)
+    balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
+    if not balances_add_up or parsed.printed_totals not in (None, parsed_totals):
         raise ImportRejected(
-            _("The Statement's balances don't add up, so it was not imported."),
-            diagnosis=BalanceDiagnosis(parsed.opening_balance, rows_total, parsed.closing_balance, parsed.rows),
+            _("The Statement's balances don't add up, so it was not imported.") if not balances_add_up
+            else _("The Statement's rows don't match its printed totals, so it was not imported."),
+            diagnosis=Diagnosis(
+                parsed.opening_balance, rows_total, parsed.closing_balance, parsed.rows,
+                parsed.printed_totals, parsed_totals,
+            ),
         )
-    return _CheckedFile(filename, content, sha256, format, parsed)
+
+    known = AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first() if parsed.iban else None
+    return CheckedStatement(content, filename, sha256, format, parsed, known.account if known else None)
 
 
-def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -> ImportSummary:
-    parsed = file.parsed
+def commit_statement(checked: CheckedStatement, *, member, account: Account | NewAccount) -> ImportSummary:
+    parsed = checked.parsed
     if isinstance(account, Account) and account.bank != parsed.bank:
         raise ImportRejected(
             _("This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account.")
             % {"statement_bank": Bank(parsed.bank).label, "account": account, "account_bank": account.get_bank_display()}
+        )
+    if checked.account and account != checked.account:
+        raise ImportRejected(
+            _("This Statement's IBAN %(iban)s belongs to %(account)s.") % {"iban": parsed.iban, "account": checked.account}
         )
 
     with transaction.atomic():
@@ -168,12 +166,15 @@ def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -
         _check_running_balance(account, parsed, new_rows)
         gaps_before = set(gaps(coverage(account.statements.all())))
         statement = Statement(
-            account=account, format=file.format, period_start=parsed.period_start, period_end=parsed.period_end,
+            account=account, format=checked.format, period_start=parsed.period_start, period_end=parsed.period_end,
             opening_balance=parsed.opening_balance, closing_balance=parsed.closing_balance,
-            imported_by=member, sha256=file.sha256,
+            imported_by=member, sha256=checked.sha256,
         )
-        statement.file.save(PurePath(file.filename).name, ContentFile(file.content), save=False)
+        statement.file.save(PurePath(checked.filename).name, ContentFile(checked.content), save=False)
         try:
+            if parsed.iban and not checked.account:
+                # An unknown IBAN now identifies the Account it was imported into.
+                AccountIBAN.objects.create(account=account, iban=parsed.iban)
             statement.save()
             transactions = Transaction.objects.bulk_create(
                 Transaction(
@@ -186,7 +187,7 @@ def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -
             statement.transactions.add(*transactions, *duplicates)
             gaps_left = sorted(set(gaps(coverage(account.statements.all()))) - gaps_before, key=lambda gap: gap.start)
         except IntegrityError:
-            # The same file was imported concurrently (or twice in one upload), after the sha256 check.
+            # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)
             raise ImportRejected(_("This Statement was already imported."))
         except BaseException:
@@ -197,6 +198,13 @@ def _import_checked(file: _CheckedFile, member, account: Account | NewAccount) -
         account, parsed.period_start, parsed.period_end, len(transactions), len(duplicates), parsed.skipped_count,
         gaps_left,
     )
+
+
+def _totals(rows: list[ParsedRow]) -> Totals:
+    """The parsed rows' money in/out and counts, to compare with the printed ones."""
+    money_in = [row.amount for row in rows if row.amount > 0]
+    money_out = [-row.amount for row in rows if row.amount < 0]
+    return Totals(sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out))
 
 
 def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: list[ParsedRow]):
@@ -266,7 +274,8 @@ def _match_coverage(account: Account, parsed: ParsedStatement) -> tuple[list[Tra
     for row in rows:
         new_by_day.setdefault(row.date, []).append(row)
     existing_by_day: dict[date, list[Transaction]] = {}
-    for existing in account.transactions.filter(date__range=(parsed.period_start, parsed.period_end)):
+    days = [parsed.period_start, parsed.period_end, *new_by_day]
+    for existing in account.transactions.filter(date__range=(min(days), max(days))):
         existing_by_day.setdefault(existing.date, []).append(existing)
 
     duplicates: list[Transaction] = []
