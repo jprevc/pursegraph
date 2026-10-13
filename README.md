@@ -48,6 +48,7 @@ Dependencies are managed with [uv](https://docs.astral.sh/uv/).
 uv sync
 docker compose -f compose.test.yaml up -d   # throwaway PostgreSQL on 127.0.0.1:5433
 uv run pytest
+uv run ruff check && uv run ruff format --check   # lint + formatting
 ```
 
 The tests run against a real PostgreSQL database, never SQLite. Parser tests use anonymized extracted-text fixtures in `tests/fixtures/`; `PURSEGRAPH_SAMPLES=1 uv run pytest tests/test_samples.py` also runs the parsers against the real Statements in the gitignored `samples/` directory.

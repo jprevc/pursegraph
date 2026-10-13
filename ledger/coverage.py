@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import pairwise
 
 ONE_DAY = timedelta(days=1)
 
@@ -36,7 +37,9 @@ def coverage(statements: Iterable) -> list[DateRange]:
 
 def gaps(ranges: list[DateRange]) -> list[DateRange]:
     """The missing days between the date ranges of a Coverage."""
-    return [DateRange(before.end + ONE_DAY, after.start - ONE_DAY) for before, after in zip(ranges, ranges[1:])]
+    return [
+        DateRange(before.end + ONE_DAY, after.start - ONE_DAY) for before, after in pairwise(ranges)
+    ]
 
 
 @dataclass(frozen=True)
@@ -49,9 +52,10 @@ class Segment:
 
 def timeline(ranges: list[DateRange]) -> list[Segment]:
     """The Coverage from its first to its last day, as covered stretches with the gaps between them."""
-    segments = []
-    for covered, gap in zip(ranges, [*gaps(ranges), None]):
-        segments.append(Segment(covered, is_gap=False))
-        if gap:
-            segments.append(Segment(gap, is_gap=True))
+    if not ranges:
+        return []
+    segments = [Segment(ranges[0], is_gap=False)]
+    # Each gap is followed by the range after it.
+    for gap, covered in zip(gaps(ranges), ranges[1:], strict=True):
+        segments += [Segment(gap, is_gap=True), Segment(covered, is_gap=False)]
     return segments

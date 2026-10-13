@@ -66,7 +66,11 @@ class ImportRejected(Exception):
     """
 
     def __init__(
-        self, message: str, *, keep_file: bool = False, diagnosis: Diagnosis | None = None,
+        self,
+        message: str,
+        *,
+        keep_file: bool = False,
+        diagnosis: Diagnosis | None = None,
         mismatch: list[DayMismatch] | None = None,
     ):
         super().__init__(message)
@@ -124,35 +128,55 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     try:
         parsed = parse(content, format)
     except ParseError as error:
-        raise ImportRejected(str(error), keep_file=True)
+        raise ImportRejected(str(error), keep_file=True) from error
 
     rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
     parsed_totals = _totals(parsed.rows)
     balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
     if not balances_add_up or parsed.printed_totals not in (None, parsed_totals):
         raise ImportRejected(
-            _("The Statement's balances don't add up, so it was not imported.") if not balances_add_up
+            _("The Statement's balances don't add up, so it was not imported.")
+            if not balances_add_up
             else _("The Statement's rows don't match its printed totals, so it was not imported."),
             diagnosis=Diagnosis(
-                parsed.opening_balance, rows_total, parsed.closing_balance, parsed.rows,
-                parsed.printed_totals, parsed_totals,
+                parsed.opening_balance,
+                rows_total,
+                parsed.closing_balance,
+                parsed.rows,
+                parsed.printed_totals,
+                parsed_totals,
             ),
         )
 
-    known = AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first() if parsed.iban else None
-    return CheckedStatement(content, filename, sha256, format, parsed, known.account if known else None)
+    known = (
+        AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first()
+        if parsed.iban
+        else None
+    )
+    return CheckedStatement(
+        content, filename, sha256, format, parsed, known.account if known else None
+    )
 
 
-def commit_statement(checked: CheckedStatement, *, member, account: Account | NewAccount) -> ImportSummary:
+def commit_statement(
+    checked: CheckedStatement, *, member, account: Account | NewAccount
+) -> ImportSummary:
     parsed = checked.parsed
     if isinstance(account, Account) and account.bank != parsed.bank:
         raise ImportRejected(
-            _("This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account.")
-            % {"statement_bank": Bank(parsed.bank).label, "account": account, "account_bank": account.get_bank_display()}
+            _(
+                "This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account."
+            )
+            % {
+                "statement_bank": Bank(parsed.bank).label,
+                "account": account,
+                "account_bank": account.get_bank_display(),
+            }
         )
     if checked.account and account != checked.account:
         raise ImportRejected(
-            _("This Statement's IBAN %(iban)s belongs to %(account)s.") % {"iban": parsed.iban, "account": checked.account}
+            _("This Statement's IBAN %(iban)s belongs to %(account)s.")
+            % {"iban": parsed.iban, "account": checked.account}
         )
 
     with transaction.atomic():
@@ -166,11 +190,18 @@ def commit_statement(checked: CheckedStatement, *, member, account: Account | Ne
         _check_running_balance(account, parsed, new_rows)
         gaps_before = set(gaps(account.coverage()))
         statement = Statement(
-            account=account, format=checked.format, period_start=parsed.period_start, period_end=parsed.period_end,
-            opening_balance=parsed.opening_balance, closing_balance=parsed.closing_balance,
-            imported_by=member, sha256=checked.sha256,
+            account=account,
+            format=checked.format,
+            period_start=parsed.period_start,
+            period_end=parsed.period_end,
+            opening_balance=parsed.opening_balance,
+            closing_balance=parsed.closing_balance,
+            imported_by=member,
+            sha256=checked.sha256,
         )
-        statement.file.save(PurePath(checked.filename).name, ContentFile(checked.content), save=False)
+        statement.file.save(
+            PurePath(checked.filename).name, ContentFile(checked.content), save=False
+        )
         try:
             if parsed.iban and not checked.account:
                 # An unknown IBAN now identifies the Account it was imported into.
@@ -178,24 +209,37 @@ def commit_statement(checked: CheckedStatement, *, member, account: Account | Ne
             statement.save()
             transactions = Transaction.objects.bulk_create(
                 Transaction(
-                    account=account, date=row.date, amount=row.amount, description=row.description,
-                    counterparty_name=row.counterparty_name, counterparty_iban=row.counterparty_iban,
-                    reference=row.reference, running_balance=row.running_balance, raw=row.raw,
+                    account=account,
+                    date=row.date,
+                    amount=row.amount,
+                    description=row.description,
+                    counterparty_name=row.counterparty_name,
+                    counterparty_iban=row.counterparty_iban,
+                    reference=row.reference,
+                    running_balance=row.running_balance,
+                    raw=row.raw,
                 )
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
-            gaps_left = sorted(set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start)
-        except IntegrityError:
+            gaps_left = sorted(
+                set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
+            )
+        except IntegrityError as err:
             # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)
-            raise ImportRejected(_("This Statement was already imported."))
+            raise ImportRejected(_("This Statement was already imported.")) from err
         except BaseException:
             statement.file.delete(save=False)
             raise
 
     return ImportSummary(
-        account, parsed.period_start, parsed.period_end, len(transactions), len(duplicates), parsed.skipped_count,
+        account,
+        parsed.period_start,
+        parsed.period_end,
+        len(transactions),
+        len(duplicates),
+        parsed.skipped_count,
         gaps_left,
     )
 
@@ -204,7 +248,9 @@ def _totals(rows: list[ParsedRow]) -> Totals:
     """The parsed rows' money in/out and counts, to compare with the printed ones."""
     money_in = [row.amount for row in rows if row.amount > 0]
     money_out = [-row.amount for row in rows if row.amount < 0]
-    return Totals(sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out))
+    return Totals(
+        sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out)
+    )
 
 
 def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: list[ParsedRow]):
@@ -222,11 +268,18 @@ def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: 
     start = parsed.period_start
     before = (
         account.statements.filter(period_start__lt=start, period_end__gte=start - ONE_DAY)
-        .order_by("period_start", "id").first()
+        .order_by("period_start", "id")
+        .first()
     )
     if before is not None:
-        added_on_last_day = account.transactions.filter(date=before.period_end, date__lt=start).exclude(statements=before)
-        expected = before.opening_balance + _total(before.transactions.filter(date__lt=start)) + _total(added_on_last_day)
+        added_on_last_day = account.transactions.filter(
+            date=before.period_end, date__lt=start
+        ).exclude(statements=before)
+        expected = (
+            before.opening_balance
+            + _total(before.transactions.filter(date__lt=start))
+            + _total(added_on_last_day)
+        )
         _require_balance(start, parsed.opening_balance, expected)
 
     for covered in account.coverage():
@@ -234,9 +287,11 @@ def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: 
             continue
         # Of the Statements starting that day, the latest imported has every row of the day.
         first = account.statements.filter(period_start=covered.start).latest("id")
-        reached = parsed.opening_balance + sum(
-            (row.amount for row in parsed.rows if row.date < covered.start), Decimal(0)
-        ) + sum((row.amount for row in inserted if row.date == covered.start), Decimal(0))
+        reached = (
+            parsed.opening_balance
+            + sum((row.amount for row in parsed.rows if row.date < covered.start), Decimal(0))
+            + sum((row.amount for row in inserted if row.date == covered.start), Decimal(0))
+        )
         _require_balance(covered.start, reached, first.opening_balance)
 
 
@@ -247,13 +302,17 @@ def _total(transactions) -> Decimal:
 def _require_balance(day: date, balance: Decimal, expected: Decimal):
     if balance != expected:
         raise ImportRejected(
-            _("The Statement's balance going into %(date)s is %(balance)s, but the Account's was %(expected)s, "
-              "so it was not imported.")
+            _(
+                "The Statement's balance going into %(date)s is %(balance)s, but the Account's was %(expected)s, "
+                "so it was not imported."
+            )
             % {"date": date_format(day), "balance": balance, "expected": expected}
         )
 
 
-def _match_coverage(account: Account, parsed: ParsedStatement) -> tuple[list[Transaction], list[ParsedRow]]:
+def _match_coverage(
+    account: Account, parsed: ParsedStatement
+) -> tuple[list[Transaction], list[ParsedRow]]:
     """Split a new Statement's rows against the Account's Coverage.
 
     Returns the already imported Transactions the rows inside the Coverage matched (the
@@ -284,14 +343,18 @@ def _match_coverage(account: Account, parsed: ParsedStatement) -> tuple[list[Tra
     for day in sorted(set(new_by_day) | set(existing_by_day)):
         if not covered(day):
             continue
-        matched, missing, unexpected = _match_day(existing_by_day.get(day, []), new_by_day.get(day, []))
+        matched, missing, unexpected = _match_day(
+            existing_by_day.get(day, []), new_by_day.get(day, [])
+        )
         if missing or (unexpected and day not in edge_days):
             mismatch.append(DayMismatch(day, missing, unexpected))
         duplicates += matched
         to_insert += unexpected
     if mismatch:
         raise ImportRejected(
-            _("Rows inside the Account's Coverage don't match the Transactions already imported, so it was not imported."),
+            _(
+                "Rows inside the Account's Coverage don't match the Transactions already imported, so it was not imported."
+            ),
             mismatch=mismatch,
         )
     return duplicates, to_insert
@@ -302,10 +365,15 @@ def _match_day(existing: list[Transaction], new: list[ParsedRow]):
 
     Returns the matched existing Transactions, the unmatched existing ones and the unmatched new rows.
     """
-    with_balance = all(transaction_or_row.running_balance is not None for transaction_or_row in [*existing, *new])
+    with_balance = all(
+        transaction_or_row.running_balance is not None for transaction_or_row in [*existing, *new]
+    )
 
     def key(transaction_or_row):
-        return transaction_or_row.amount, transaction_or_row.running_balance if with_balance else None
+        return (
+            transaction_or_row.amount,
+            transaction_or_row.running_balance if with_balance else None,
+        )
 
     unmatched = list(existing)
     matched, unexpected = [], []
