@@ -117,11 +117,12 @@ def _rows(text: str) -> list[ParsedRow]:
     if not any(EUR_BLOCK.match(line) for line in lines):
         raise ParseError(_("The Sparkasse Statement has no EUR block."))
     rows: list[ParsedRow] = []
-    sign = None
+    sign: int | None = None
     row: list[str] = []  # the lines of the row being read
 
     def finish_row():
         if row:
+            assert sign is not None  # a row is only started inside a PRILIVI/ODLIVI section
             rows.append(_row(row.copy(), sign))
             row.clear()
 
@@ -165,7 +166,10 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
         raise ParseError.unsupported_row(text)
     booking_date, name, amount, reference = first.groups()
     name = " ".join([name or "", *lines[1 : dated[1]]]).strip()
-    value_date, rest = SECOND_LINE.match(lines[dated[1]]).groups()
+    second = SECOND_LINE.match(lines[dated[1]])
+    if not second:
+        raise ParseError.unsupported_row(text)
+    value_date, rest = second.groups()
     rest, after = rest or "", lines[dated[1] + 1 :]
 
     iban = ""
