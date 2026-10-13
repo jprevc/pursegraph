@@ -3,7 +3,7 @@
 import os
 
 from .settings import *  # noqa: F403
-from .settings import DATABASES
+from .settings import DATABASES, STORAGES
 
 DATABASES["default"].update(
     HOST=os.environ.get("POSTGRES_HOST", "localhost"),
@@ -12,7 +12,4 @@ DATABASES["default"].update(
 )
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
-STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
-}
+STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}

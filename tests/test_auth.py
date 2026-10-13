@@ -1,13 +1,9 @@
 import pytest
 from django.conf import settings
 
-from tests.conftest import PASSWORD
+from tests.conftest import log_in
 
 pytestmark = pytest.mark.django_db
-
-
-def log_in(client, username="ana", password=PASSWORD):
-    return client.post("/login/", {"username": username, "password": password})
 
 
 def test_unauthenticated_request_redirects_to_login(client):
@@ -30,7 +26,7 @@ def test_login_takes_member_to_dashboard(client, member):
 
     assert response.status_code == 302
     assert response["Location"] == "/"
-    assert client.get("/").status_code == 200
+    assert b"Import your first Statement" in client.get("/").content
 
 
 def test_login_session_lasts_30_days(client, member):

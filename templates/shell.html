@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% block body %}
+{% with nav=request.resolver_match.url_name %}
 <div class="shell">
   <aside>
     <h1>Pursegraph</h1>
@@ -16,4 +17,5 @@
   </aside>
   <main>{% block main %}{% endblock %}</main>
 </div>
+{% endwith %}
 {% endblock %}

@@ -20,7 +20,7 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
    docker compose exec web python manage.py create_admin <username>
    ```
 
-   It prompts for the password. Then open `http://<host>:8000/` and log in.
+   It prompts for the password. Then open `http://<host>:8000/` (or the `PURSEGRAPH_PORT` you set) and log in.
 
 ## Recovering a locked-out admin
 
