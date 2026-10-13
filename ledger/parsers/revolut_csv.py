@@ -15,15 +15,26 @@ from django.utils.translation import gettext as _
 
 from .types import ParsedRow, ParsedStatement, ParseError
 
-HEADER = ["Type", "Product", "Started Date", "Completed Date", "Description", "Amount", "Fee", "Currency", "State", "Balance"]
+HEADER = [
+    "Type",
+    "Product",
+    "Started Date",
+    "Completed Date",
+    "Description",
+    "Amount",
+    "Fee",
+    "Currency",
+    "State",
+    "Balance",
+]
 CENT = Decimal("0.01")
 
 
 def parse(content: bytes) -> ParsedStatement:
     try:
         lines = list(csv.reader(io.StringIO(content.decode("utf-8-sig"))))
-    except (UnicodeDecodeError, csv.Error):
-        raise ParseError(_("The file is not a Revolut CSV Statement."))
+    except (UnicodeDecodeError, csv.Error) as err:
+        raise ParseError(_("The file is not a Revolut CSV Statement.")) from err
     if not lines or lines[0] != HEADER:
         raise ParseError.unsupported_row(",".join(lines[0]) if lines else "")
 
@@ -36,7 +47,7 @@ def parse(content: bytes) -> ParsedStatement:
         text = ",".join(fields)
         if len(fields) != len(HEADER):
             raise ParseError.unsupported_row(text)
-        line = {name: _repair(value) for name, value in zip(HEADER, fields)}
+        line = {name: _repair(value) for name, value in zip(HEADER, fields, strict=True)}
         if line["State"] != "COMPLETED":
             skipped += 1
             continue
@@ -45,31 +56,51 @@ def parse(content: bytes) -> ParsedStatement:
         try:
             day = datetime.strptime(line["Completed Date"], "%Y-%m-%d %H:%M:%S").date()
             amount, fee, balance = (_money(line[name]) for name in ("Amount", "Fee", "Balance"))
-        except (ValueError, InvalidOperation):
-            raise ParseError.unsupported_row(text)
+        except (ValueError, InvalidOperation) as err:
+            raise ParseError.unsupported_row(text) from err
 
         if opening is None:
             opening = balance - amount + fee
         closing = balance
         description = line["Description"]
-        counterparty = description.removeprefix("Payment from ") if description.startswith("Payment from ") else ""
-        rows.append(ParsedRow(
-            date=day, amount=amount, description=description, counterparty_name=counterparty,
-            running_balance=balance + fee, raw=line,
-        ))
+        counterparty = (
+            description.removeprefix("Payment from ")
+            if description.startswith("Payment from ")
+            else ""
+        )
+        rows.append(
+            ParsedRow(
+                date=day,
+                amount=amount,
+                description=description,
+                counterparty_name=counterparty,
+                running_balance=balance + fee,
+                raw=line,
+            )
+        )
         if fee:
-            rows.append(ParsedRow(
-                # Stored data, so not translated.
-                date=day, amount=-fee, description=f"Fee: {description}",
-                running_balance=balance, raw=line,
-            ))
+            rows.append(
+                ParsedRow(
+                    # Stored data, so not translated.
+                    date=day,
+                    amount=-fee,
+                    description=f"Fee: {description}",
+                    running_balance=balance,
+                    raw=line,
+                )
+            )
 
     if not rows:
         raise ParseError(_("The Statement has no completed rows."))
     return ParsedStatement(
-        bank="revolut", iban=None,
-        period_start=min(row.date for row in rows), period_end=max(row.date for row in rows),
-        opening_balance=opening, closing_balance=closing, rows=rows, skipped_count=skipped,
+        bank="revolut",
+        iban=None,
+        period_start=min(row.date for row in rows),
+        period_end=max(row.date for row in rows),
+        opening_balance=opening,
+        closing_balance=closing,
+        rows=rows,
+        skipped_count=skipped,
     )
 
 

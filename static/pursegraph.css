@@ -57,3 +57,7 @@ th { color: var(--ink-2); font-weight: 600; }
 form.inline { display: inline; }
 button.link { background: none; color: var(--accent); padding: 0 0 0 6px; }
 tr.muted td { color: var(--muted); }
+.totals { margin: 12px 0; width: auto; }
+.stack-form .actions { flex-direction: row; align-items: center; gap: 16px; }
+.stack-form h3 { margin-top: 0; }
+.iban { margin: 0 0 6px; font-size: 13px; }

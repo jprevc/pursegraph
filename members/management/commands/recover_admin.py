@@ -11,7 +11,9 @@ class Command(AdminCommand):
         try:
             return Member.objects.select_for_update().get(username=username)
         except Member.DoesNotExist:
-            raise CommandError(f"No Member named {username!r}. Use create_admin to make one.") from None
+            raise CommandError(
+                f"No Member named {username!r}. Use create_admin to make one."
+            ) from None
 
     def success_message(self, username):
         return f"Recovered admin {username!r}."

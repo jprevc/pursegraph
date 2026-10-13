@@ -6,7 +6,9 @@ class Command(AdminCommand):
 
     def get_member(self, Member, username):
         if Member.objects.filter(username=username).exists():
-            raise CommandError(f"A Member named {username!r} already exists. Use recover_admin to regain access.")
+            raise CommandError(
+                f"A Member named {username!r} already exists. Use recover_admin to regain access."
+            )
         return Member(username=username)
 
     def success_message(self, username):
