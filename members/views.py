@@ -21,6 +21,7 @@ def admin_required(view):
         if not request.user.is_admin:
             raise PermissionDenied
         return view(request, *args, **kwargs)
+
     return wrapper
 
 
@@ -36,9 +37,15 @@ def new_member(request):
         form = NewMemberForm(request.POST)
         if form.is_valid():
             member = form.save()
-            return render(request, "members/link.html", {
-                "member": member, "link": set_password_link(request, member), "invite": True,
-            })
+            return render(
+                request,
+                "members/link.html",
+                {
+                    "member": member,
+                    "link": set_password_link(request, member),
+                    "invite": True,
+                },
+            )
     else:
         form = NewMemberForm()
     return render(request, "members/new_member.html", {"form": form})
@@ -48,7 +55,9 @@ def new_member(request):
 @require_POST
 def reset_link(request, pk):
     member = get_object_or_404(get_user_model(), pk=pk, is_active=True)
-    return render(request, "members/link.html", {"member": member, "link": set_password_link(request, member)})
+    return render(
+        request, "members/link.html", {"member": member, "link": set_password_link(request, member)}
+    )
 
 
 @admin_required
@@ -58,9 +67,13 @@ def set_active(request, pk):
         member = _locked_member(pk)
         active = request.POST.get("active") == "1"
         if not active and _is_last_active_admin(member):
-            messages.error(request, _("%(name)s is the last active admin and can't be deactivated.") % {
-                "name": member.get_username(),
-            })
+            messages.error(
+                request,
+                _("%(name)s is the last active admin and can't be deactivated.")
+                % {
+                    "name": member.get_username(),
+                },
+            )
         else:
             # An inactive Member's session stops working: the auth backend no longer returns them.
             member.is_active = active
@@ -75,9 +88,13 @@ def set_admin(request, pk):
         member = _locked_member(pk)
         admin = request.POST.get("admin") == "1"
         if not admin and _is_last_active_admin(member):
-            messages.error(request, _("%(name)s is the last active admin and can't lose the admin flag.") % {
-                "name": member.get_username(),
-            })
+            messages.error(
+                request,
+                _("%(name)s is the last active admin and can't lose the admin flag.")
+                % {
+                    "name": member.get_username(),
+                },
+            )
         else:
             member.is_admin = admin
             member.save(update_fields=["is_admin"])

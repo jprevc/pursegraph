@@ -46,7 +46,9 @@ def set_password(link, password=NEW_PASSWORD):
     form = visitor.get(link, follow=True)
     if b'name="new_password1"' not in form.content:
         return form
-    return visitor.post(form.redirect_chain[-1][0], {"new_password1": password, "new_password2": password})
+    return visitor.post(
+        form.redirect_chain[-1][0], {"new_password1": password, "new_password2": password}
+    )
 
 
 # Creating Members and invite links
@@ -243,7 +245,9 @@ def test_demoting_the_last_active_admin_is_refused(admin_client, admin, member):
     assert admin.is_admin
 
 
-def test_an_inactive_admin_does_not_count_as_another_active_admin(admin_client, admin, django_user_model):
+def test_an_inactive_admin_does_not_count_as_another_active_admin(
+    admin_client, admin, django_user_model
+):
     django_user_model.objects.create_user(username="dora", is_admin=True, is_active=False)
 
     admin_client.post(f"/members/{admin.pk}/admin/", {"admin": "0"})
@@ -277,16 +281,21 @@ def test_sidebar_links_to_members_for_admins_only(admin_client, logged_in_client
     assert b'href="/members/"' not in logged_in_client.get("/").content
 
 
-@pytest.mark.parametrize("method, path", [
-    ("get", "/members/"),
-    ("get", "/members/new/"),
-    ("post", "/members/new/"),
-    ("post", "/members/{pk}/reset-link/"),
-    ("post", "/members/{pk}/active/"),
-    ("post", "/members/{pk}/admin/"),
-])
+@pytest.mark.parametrize(
+    "method, path",
+    [
+        ("get", "/members/"),
+        ("get", "/members/new/"),
+        ("post", "/members/new/"),
+        ("post", "/members/{pk}/reset-link/"),
+        ("post", "/members/{pk}/active/"),
+        ("post", "/members/{pk}/admin/"),
+    ],
+)
 def test_admin_pages_are_forbidden_to_non_admins(logged_in_client, member, method, path):
-    response = getattr(logged_in_client, method)(path.format(pk=member.pk), {"active": "0", "admin": "1"})
+    response = getattr(logged_in_client, method)(
+        path.format(pk=member.pk), {"active": "0", "admin": "1"}
+    )
 
     assert response.status_code == 403
     member.refresh_from_db()

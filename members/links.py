@@ -11,8 +11,11 @@ from django.utils.http import urlsafe_base64_encode
 
 
 def set_password_link(request, member) -> str:
-    path = reverse("set_password", kwargs={
-        "uidb64": urlsafe_base64_encode(force_bytes(member.pk)),
-        "token": default_token_generator.make_token(member),
-    })
+    path = reverse(
+        "set_password",
+        kwargs={
+            "uidb64": urlsafe_base64_encode(force_bytes(member.pk)),
+            "token": default_token_generator.make_token(member),
+        },
+    )
     return request.build_absolute_uri(path)
