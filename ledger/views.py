@@ -1,9 +1,24 @@
+from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch
-from django.shortcuts import render
+from django.http import HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
-from .forms import ImportForm
+from . import categories as category_list
+from .forms import CategoryForm, ImportForm, NameForm, OutcomeForm, TransactionFilterForm
+from members.permissions import admin_required
+
 from .importer import ImportRejected, import_statement
-from .models import Account, Statement, Transaction
+from .models import Account, Category, Statement, Subcategory, Transaction
+
+TRANSACTIONS_PER_PAGE = 100
+
+
+def outcome_choices():
+    """The Categories with their Subcategories, for the row component's outcome dropdown."""
+    return list(Category.objects.prefetch_related("subcategories"))
 
 
 def import_statements(request):
@@ -30,5 +45,115 @@ def import_statements(request):
 
 
 def transactions(request):
-    rows = Transaction.objects.select_related("account").order_by("-date", "-id")
-    return render(request, "ledger/transactions.html", {"transactions": rows})
+    categories = outcome_choices()
+    form = TransactionFilterForm(request.GET, categories=categories)
+    rows = form.filter(Transaction.objects.select_related("account").order_by("-date", "-id"))
+    page = Paginator(rows, TRANSACTIONS_PER_PAGE).get_page(request.GET.get("page"))
+    query = request.GET.copy()
+    query.pop("page", None)
+    return render(request, "ledger/transactions.html", {
+        "form": form, "page": page, "query": query.urlencode(), "categories": categories,
+        "any_transactions": page.paginator.count or Transaction.objects.exists(),
+    })
+
+
+def review_queue(request):
+    rows = Transaction.objects.unresolved().select_related("account").order_by("date", "id")
+    return render(request, "ledger/review_queue.html", {"transactions": rows, "categories": outcome_choices()})
+
+
+@require_POST
+def transaction_outcome(request, pk):
+    """Sets a Transaction's outcome by hand. HTMX gets the updated row back; a plain form post goes back to `next`."""
+    transaction = get_object_or_404(Transaction.objects.select_related("account"), pk=pk)
+    form = OutcomeForm(request.POST)
+    if not form.is_valid():
+        return HttpResponseBadRequest(form.errors.as_text())
+    form.save(transaction)
+    if request.headers.get("HX-Request"):
+        return render(request, "ledger/_transaction_row.html", {"t": transaction, "categories": outcome_choices()})
+    next_url = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        next_url = "transactions"
+    return redirect(next_url)
+
+
+@admin_required
+def categories(request):
+    return render(request, "ledger/categories.html", {
+        "categories": outcome_choices(), "kinds": Category.Kind.choices,
+    })
+
+
+def _category_edit(view):
+    """An admin-only POST that edits the Category list, then goes back to the Categories page with any refusal
+    or form error shown."""
+
+    @admin_required
+    @require_POST
+    def wrapper(request, *args, **kwargs):
+        try:
+            view(request, *args, **kwargs)
+        except category_list.CategoryEditRefused as refusal:
+            messages.error(request, str(refusal))
+        return redirect("categories")
+
+    return wrapper
+
+
+def _valid(request, form):
+    if not form.is_valid():
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
+        return None
+    return form.cleaned_data
+
+
+@_category_edit
+def add_category(request):
+    if data := _valid(request, CategoryForm(request.POST)):
+        category_list.add_category(data["name"].strip(), data["kind"])
+
+
+@_category_edit
+def rename_category(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if data := _valid(request, NameForm(request.POST)):
+        category.name = data["name"].strip()
+        category.save(update_fields=["name"])
+
+
+@_category_edit
+def move_category(request, pk):
+    category_list.move_category(get_object_or_404(Category, pk=pk), request.POST.get("direction"))
+
+
+@_category_edit
+def delete_category(request, pk):
+    category_list.delete_category(get_object_or_404(Category, pk=pk))
+
+
+@_category_edit
+def add_subcategory(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if data := _valid(request, NameForm(request.POST)):
+        category_list.add_subcategory(category, data["name"].strip())
+
+
+@_category_edit
+def rename_subcategory(request, pk):
+    subcategory = get_object_or_404(Subcategory, pk=pk)
+    if data := _valid(request, NameForm(request.POST)):
+        subcategory.name = data["name"].strip()
+        subcategory.save(update_fields=["name"])
+
+
+@_category_edit
+def move_subcategory(request, pk):
+    category_list.move_subcategory(get_object_or_404(Subcategory, pk=pk), request.POST.get("direction"))
+
+
+@_category_edit
+def delete_subcategory(request, pk):
+    category_list.delete_subcategory(get_object_or_404(Subcategory, pk=pk))

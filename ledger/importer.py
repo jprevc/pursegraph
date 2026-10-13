@@ -15,7 +15,7 @@ from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.utils.translation import gettext as _
 
-from .models import Account, Bank, Statement, Transaction
+from .models import Account, Bank, Source, Statement, Subcategory, Transaction
 from .parsers import ParsedRow, ParseError, parse
 
 
@@ -86,6 +86,8 @@ def import_statement(*, content: bytes, filename: str, member, account: Account 
             % {"statement_bank": Bank(parsed.bank).label, "account": account, "account_bank": account.get_bank_display()}
         )
 
+    # Found by name: if an admin renamed or deleted it, fees wait in the Review queue instead.
+    bank_fees = Subcategory.objects.filter(category__name="Finance", name="Bank fees").first()
     with transaction.atomic():
         if isinstance(account, NewAccount):
             account = Account.objects.create(name=account.name, bank=parsed.bank)
@@ -103,6 +105,7 @@ def import_statement(*, content: bytes, filename: str, member, account: Account 
                     account=account, date=row.date, amount=row.amount, description=row.description,
                     counterparty_name=row.counterparty_name, counterparty_iban=row.counterparty_iban,
                     reference=row.reference, running_balance=row.running_balance, raw=row.raw,
+                    **({"subcategory": bank_fees, "source": Source.PARSER} if row.is_fee and bank_fees else {}),
                 )
                 for row in parsed.rows
             )

@@ -26,6 +26,10 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 
 The Import page takes Revolut CSV exports. Each Statement is checked (opening balance + all rows = closing balance) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
 
+## Categories and the Review queue
+
+Every Transaction gets an outcome: a Subcategory of the two-level Category list, or Transfer. A default list is seeded on the first migration; admins edit it on the Categories page. Bank fees are categorized Finance → Bank fees at import (while that Subcategory keeps its name). Everything else waits in the Review queue, where a Member picks the outcome; the same inline editor appears on every row of the Transactions view.
+
 ## Recovering a locked-out admin
 
 If an admin forgot their password, was deactivated, lost the admin flag, or is locked out after too many failed logins (5 failures lock that username from that IP for an hour):

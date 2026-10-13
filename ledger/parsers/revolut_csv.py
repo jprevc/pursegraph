@@ -61,7 +61,7 @@ def parse(content: bytes) -> ParsedStatement:
             rows.append(ParsedRow(
                 # Stored data, so not translated.
                 date=day, amount=-fee, description=f"Fee: {description}",
-                running_balance=balance, raw=line,
+                running_balance=balance, raw=line, is_fee=True,
             ))
 
     if not rows:

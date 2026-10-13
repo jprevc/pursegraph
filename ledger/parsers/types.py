@@ -25,6 +25,8 @@ class ParsedRow:
     reference: str = ""
     running_balance: Decimal | None = None
     raw: dict = field(default_factory=dict)
+    # A bank fee split off its payment; categorized Finance → Bank fees at import.
+    is_fee: bool = False
 
 
 @dataclass(frozen=True)

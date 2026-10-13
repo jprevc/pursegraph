@@ -73,6 +73,22 @@ class Statement(models.Model):
         return f"{self.account} {self.period_start}–{self.period_end}"
 
 
+class Source(models.TextChoices):
+    RULE = "rule", _("Rule")
+    LLM = "llm", _("LLM")
+    MANUAL = "manual", _("Manual")
+    IBAN = "iban", _("IBAN")
+    PAIRING = "pairing", _("Pairing")
+    # Set by the parser itself, such as a bank fee row.
+    PARSER = "parser", _("Parser")
+
+
+class TransactionQuerySet(models.QuerySet):
+    def unresolved(self):
+        """The Review queue: neither a Subcategory nor a Transfer."""
+        return self.filter(subcategory__isnull=True, is_transfer=False)
+
+
 class Transaction(models.Model):
     account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="transactions", verbose_name=_("account"))
     # The booking date: the day the bank applied it to the balance.
@@ -88,10 +104,71 @@ class Transaction(models.Model):
     raw = models.JSONField(_("raw"), default=dict)
     statements = models.ManyToManyField(Statement, related_name="transactions", verbose_name=_("statements"))
 
+    # The outcome: a Subcategory or a Transfer, never both; neither means unresolved.
+    subcategory = models.ForeignKey(
+        "Subcategory", on_delete=models.PROTECT, null=True, blank=True, related_name="transactions",
+        verbose_name=_("subcategory"),
+    )
+    is_transfer = models.BooleanField(_("transfer"), default=False)
+    # The other side of a paired Transfer.
+    counterpart = models.OneToOneField(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("counterpart"),
+    )
+    # What set the outcome; blank while unresolved. Automatic processing never overwrites MANUAL.
+    source = models.CharField(_("source"), max_length=10, choices=Source.choices, blank=True)
+
+    objects = TransactionQuerySet.as_manager()
+
     class Meta:
         ordering = ["date", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(subcategory__isnull=False, is_transfer=True), name="subcategory_or_transfer",
+            ),
+        ]
         verbose_name = _("transaction")
         verbose_name_plural = _("transactions")
 
     def __str__(self):
         return f"{self.date} {self.amount} {self.description}"
+
+
+class Category(models.Model):
+    class Kind(models.TextChoices):
+        SPENDING = "spending", _("Spending")
+        INCOME = "income", _("Income")
+
+    name = models.CharField(_("name"), max_length=100)
+    kind = models.CharField(_("kind"), max_length=10, choices=Kind.choices)
+    # Display order, lowest first.
+    position = models.PositiveIntegerField(_("position"), default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        verbose_name = _("category")
+        verbose_name_plural = _("categories")
+
+    def __str__(self):
+        return self.name
+
+
+class Subcategory(models.Model):
+    """A Transaction's Category, one level down. Every Category has exactly one catch-all."""
+
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="subcategories", verbose_name=_("category"))
+    name = models.CharField(_("name"), max_length=100)
+    # Takes the Transactions of a deleted sibling; can't be deleted itself.
+    is_catch_all = models.BooleanField(_("catch-all"), default=False)
+    position = models.PositiveIntegerField(_("position"), default=0)
+
+    class Meta:
+        # The catch-all is always listed last.
+        ordering = ["is_catch_all", "position", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["category"], condition=models.Q(is_catch_all=True), name="one_catch_all_per_category"),
+        ]
+        verbose_name = _("subcategory")
+        verbose_name_plural = _("subcategories")
+
+    def __str__(self):
+        return f"{self.category} → {self.name}"
