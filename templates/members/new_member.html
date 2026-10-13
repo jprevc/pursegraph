@@ -1,0 +1,12 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "New Member" %}{% endblock %}
+{% block main %}
+<h2>{% translate "New Member" %}</h2>
+<form class="panel stack-form" method="post">
+  {% csrf_token %}
+  <p class="muted">{% translate "You'll get a one-time invite link to give them. They choose their own password through it." %}</p>
+  {{ form.as_div }}
+  <button type="submit">{% translate "Create Member" %}</button>
+</form>
+{% endblock %}

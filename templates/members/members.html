@@ -1,0 +1,47 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Members" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Members" %}</h2>
+{% for message in messages %}<p class="panel notice {{ message.tags }}">{{ message }}</p>{% endfor %}
+<p><a class="button" href="{% url 'new_member' %}">{% translate "New Member" %}</a></p>
+<table>
+  <thead><tr><th>{% translate "Name" %}</th><th>{% translate "Username" %}</th><th>{% translate "Status" %}</th><th>{% translate "Admin" %}</th><th></th></tr></thead>
+  <tbody>
+  {% for m in members %}
+    <tr{% if not m.is_active %} class="muted"{% endif %}>
+      <td>{{ m.get_full_name }}</td>
+      <td>{{ m.get_username }}</td>
+      <td>
+        <form method="post" action="{% url 'member_active' m.pk %}" class="inline">
+          {% csrf_token %}
+          {% if m.is_active %}
+            {% translate "Active" %} <input type="hidden" name="active" value="0"><button type="submit" class="link">{% translate "Deactivate" %}</button>
+          {% else %}
+            {% translate "Deactivated" %} <input type="hidden" name="active" value="1"><button type="submit" class="link">{% translate "Reactivate" %}</button>
+          {% endif %}
+        </form>
+      </td>
+      <td>
+        <form method="post" action="{% url 'member_admin' m.pk %}" class="inline">
+          {% csrf_token %}
+          {% if m.is_admin %}
+            {% translate "Admin" %} <input type="hidden" name="admin" value="0"><button type="submit" class="link">{% translate "Remove admin" %}</button>
+          {% else %}
+            <input type="hidden" name="admin" value="1"><button type="submit" class="link">{% translate "Make admin" %}</button>
+          {% endif %}
+        </form>
+      </td>
+      <td>
+        {% if m.is_active %}
+        <form method="post" action="{% url 'member_reset_link' m.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="submit" class="link">{% translate "Password-reset link" %}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

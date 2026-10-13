@@ -10,6 +10,10 @@
     <div class="sep"></div>
     <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}">{% translate "Import" %}</a>
     <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}">{% translate "Review queue" %}</a>
+    {% if user.is_admin %}
+    <div class="sep"></div>
+    <a class="nav {% if nav == 'members' %}on{% endif %}" href="{% url 'members' %}">{% translate "Members" %}</a>
+    {% endif %}
     <form class="logout" method="post" action="{% url 'logout' %}">
       {% csrf_token %}
       <span class="muted">{{ user.get_username }}</span>

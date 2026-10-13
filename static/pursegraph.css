@@ -53,3 +53,12 @@ th { color: var(--ink-2); font-weight: 600; }
 .import-form input, .import-form select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
 .import-form .errorlist { color: var(--bad); margin: 0; padding: 0; list-style: none; }
 .import-form button { align-self: flex-start; }
+.stack-form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
+.stack-form div { display: flex; flex-direction: column; gap: 4px; }
+.stack-form input { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
+.stack-form .errorlist, .login .errorlist { color: var(--bad); margin: 0; padding: 0; list-style: none; }
+.stack-form button { align-self: flex-start; }
+.success { color: #2f7d32; }
+form.inline { display: inline; }
+button.link { background: none; color: var(--accent); padding: 0 0 0 6px; }
+tr.muted td { color: var(--muted); }

@@ -22,6 +22,10 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 
    It prompts for the password. Then open `http://<host>:8000/` (or the `PURSEGRAPH_PORT` you set) and log in.
 
+## Members
+
+Admins manage the Household's Members on the Members page. There is no email server, so creating a Member gives you a one-time invite link to hand over yourself; through it they choose their own password. A password-reset link works the same way. Both links work once and expire after 7 days. Members are never deleted, only deactivated: they can no longer log in but stay on their Statements and Accounts. The last active admin can't be deactivated or lose the admin flag.
+
 ## Importing Statements
 
 The Import page takes Revolut CSV exports. Each Statement is checked (opening balance + all rows = closing balance) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
