@@ -24,7 +24,7 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 
 ## Importing Statements
 
-The Import page takes Revolut CSV exports. Each Statement is checked (opening balance + all rows = closing balance) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
+The Import page takes Sparkasse SI PDF Statements and Revolut CSV exports. A PDF's Account is found from the IBAN printed on it; for an IBAN no Account has yet (and for a CSV, which has none) the page asks which Account it goes into, or creates one owned by the importing Member. Each Statement is checked (opening balance + all rows = closing balance, and a PDF's rows against its printed money in/out totals and row counts) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
 
 ## Recovering a locked-out admin
 
@@ -48,7 +48,7 @@ docker compose -f compose.test.yaml up -d   # throwaway PostgreSQL on 127.0.0.1:
 uv run pytest
 ```
 
-The tests run against a real PostgreSQL database, never SQLite.
+The tests run against a real PostgreSQL database, never SQLite. Parser tests use anonymized extracted-text fixtures in `tests/fixtures/`; `PURSEGRAPH_SAMPLES=1 uv run pytest tests/test_samples.py` also runs the parsers against the real Statements in the gitignored `samples/` directory.
 
 HTMX and ECharts are vendored under `static/vendor/` so the app works without internet access. To upgrade one, replace its file there.
 
