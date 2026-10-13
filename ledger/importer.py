@@ -360,23 +360,27 @@ def _match_coverage(
     return duplicates, to_insert
 
 
-def _match_day(existing: list[Transaction], new: list[ParsedRow]):
+def _match_day(
+    existing: list[Transaction], new: list[ParsedRow]
+) -> tuple[list[Transaction], list[Transaction], list[ParsedRow]]:
     """Match one day's rows as a multiset on (amount, plus running balance where printed).
 
     Returns the matched existing Transactions, the unmatched existing ones and the unmatched new rows.
     """
+    both: list[Transaction | ParsedRow] = [*existing, *new]
     with_balance = all(
-        transaction_or_row.running_balance is not None for transaction_or_row in [*existing, *new]
+        transaction_or_row.running_balance is not None for transaction_or_row in both
     )
 
-    def key(transaction_or_row):
+    def key(transaction_or_row: Transaction | ParsedRow):
         return (
             transaction_or_row.amount,
             transaction_or_row.running_balance if with_balance else None,
         )
 
     unmatched = list(existing)
-    matched, unexpected = [], []
+    matched: list[Transaction] = []
+    unexpected: list[ParsedRow] = []
     for row in new:
         match = next((t for t in unmatched if key(t) == key(row)), None)
         if match is None:

@@ -14,6 +14,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "django-stubs[compatible-mypy]>=6.1.2",
+    "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-django>=4.14.0",
     "ruff>=0.17.0",
@@ -35,3 +37,20 @@ extend-exclude = ["*/migrations/*"]
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "DJ", "SIM"]
 ignore = ["E501"]  # line length is the formatter's job
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+# Most code isn't annotated; still type-check the bodies of unannotated functions.
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = ["/migrations/"]
+
+[[tool.mypy.overrides]]
+# django-axes ships no type information.
+module = ["axes.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "pursegraph.settings_test"

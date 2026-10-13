@@ -27,7 +27,7 @@ def import_statements(request):
     """
     form = StatementFileForm()
     results: list[FileResult] = []
-    pending = []
+    pending: list[dict] = []
     if request.method == "POST":
         posted = StatementFileForm(request.POST, request.FILES)
         if not posted.is_valid():
@@ -44,6 +44,7 @@ def import_statements(request):
             for statement in sorted(
                 checked, key=lambda c: (c.parsed.period_start, c.parsed.period_end)
             ):
+                account: Account | NewAccount
                 if statement.account and not choosing:
                     account = statement.account
                 else:

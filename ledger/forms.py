@@ -1,5 +1,6 @@
 import base64
 import binascii
+from typing import cast
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
@@ -35,7 +36,8 @@ class StatementFileForm(forms.Form):
     filename = forms.CharField(widget=forms.HiddenInput, required=False)
 
     def clean(self):
-        data = super().clean()
+        super().clean()
+        data = self.cleaned_data
         if uploads := data.get("file"):
             data["files"] = [(upload.name, upload.read()) for upload in uploads]
         elif data.get("content") and data.get("filename"):
@@ -61,7 +63,7 @@ class AccountForm(forms.Form):
         super().__init__(*args, **kwargs)
         bank = Bank(statement.parsed.bank)
         accounts = Account.objects.filter(bank=bank)
-        self.fields["account"].choices = [
+        cast(forms.ChoiceField, self.fields["account"]).choices = [
             ("", _("Choose an Account")),
             *((str(a.pk), a.name) for a in accounts),
             (NEW, _("New %(bank)s Account") % {"bank": bank.label}),
@@ -73,7 +75,8 @@ class AccountForm(forms.Form):
             self.initial["account"] = str(accounts[0].pk)
 
     def clean(self):
-        data = super().clean()
+        super().clean()
+        data = self.cleaned_data
         if data.get("account") == NEW and not data.get("new_account_name", "").strip():
             self.add_error("new_account_name", _("Name the new Account."))
         return data
