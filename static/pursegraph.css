@@ -1,6 +1,6 @@
 :root {
   --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --ring: rgba(11,11,11,0.10); --bad: #d03b3b; --accent: #2a78d6;
+  --grid: #e1e0d9; --ring: rgba(11,11,11,0.10); --bad: #d03b3b; --good: #2f7d32; --accent: #2a78d6;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -48,17 +48,12 @@ th { color: var(--ink-2); font-weight: 600; }
 .rejected { border-color: var(--bad); }
 .diagnosis { display: grid; grid-template-columns: max-content max-content; gap: 2px 16px; }
 .diagnosis dd { margin: 0; }
-.import-form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
-.import-form div { display: flex; flex-direction: column; gap: 4px; }
-.import-form input, .import-form select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
-.import-form .errorlist { color: var(--bad); margin: 0; padding: 0; list-style: none; }
-.import-form button { align-self: flex-start; }
 .stack-form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
 .stack-form div { display: flex; flex-direction: column; gap: 4px; }
-.stack-form input { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
+.stack-form input, .stack-form select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
 .stack-form .errorlist, .login .errorlist { color: var(--bad); margin: 0; padding: 0; list-style: none; }
 .stack-form button { align-self: flex-start; }
-.success { color: #2f7d32; }
+.success { color: var(--good); }
 form.inline { display: inline; }
 button.link { background: none; color: var(--accent); padding: 0 0 0 6px; }
 tr.muted td { color: var(--muted); }

@@ -87,7 +87,7 @@ def set_admin(request, pk):
 def _locked_member(pk):
     # Lock every active admin too, so two admins can't demote each other at the same time.
     Member = get_user_model()
-    list(Member.objects.select_for_update().filter(is_active=True, is_admin=True))
+    list(Member.objects.select_for_update().filter(is_active=True, is_admin=True).order_by("pk"))
     return get_object_or_404(Member.objects.select_for_update(), pk=pk)
 
 

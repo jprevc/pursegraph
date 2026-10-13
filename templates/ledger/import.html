@@ -38,7 +38,7 @@
 </section>
 {% endif %}
 
-<form class="panel import-form" method="post" enctype="multipart/form-data">
+<form class="panel stack-form" method="post" enctype="multipart/form-data">
   {% csrf_token %}
   <p class="muted">{% translate "Revolut CSV exports can be imported." %}</p>
   {{ form.as_div }}
