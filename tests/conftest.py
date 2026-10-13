@@ -1,6 +1,9 @@
 import re
 
 import pytest
+from django.test import Client
+
+from ledger.models import Subcategory, Transaction
 
 USERNAME = "ana"
 PASSWORD = "correct horse battery"
@@ -43,6 +46,21 @@ def outcome_shown(page, description):
 
 
 @pytest.fixture
-def admin_client(client, django_user_model):
+def admin_client(django_user_model):
+    """A client of its own, so a test can act as a Member and as an admin side by side."""
+    client = Client()
     client.force_login(django_user_model.objects.create_user(username="bor", password=PASSWORD, is_admin=True))
     return client
+
+
+def transaction_id(description):
+    return Transaction.objects.get(description=description).pk
+
+
+def subcategory_id(category, name):
+    return Subcategory.objects.get(category__name=category, name=name).pk
+
+
+def review_queue_count(page):
+    """The count the sidebar shows next to "Review queue"."""
+    return int(re.search(r'<span id="review-queue-count"[^>]*>\((\d+)\)</span>', page)[1])

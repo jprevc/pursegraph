@@ -1,8 +1,7 @@
 import pytest
 
-from tests.conftest import outcome_shown
+from tests.conftest import outcome_shown, review_queue_count, transaction_id
 from tests.test_import import upload
-from tests.test_outcomes import transaction_id
 
 pytestmark = pytest.mark.django_db
 
@@ -32,13 +31,13 @@ def test_resolved_transactions_leave_the_queue(logged_in_client):
 
 
 def test_sidebar_shows_the_review_queue_count(logged_in_client):
-    assert "Review queue (0)" in logged_in_client.get("/").content.decode()
+    assert review_queue_count(logged_in_client.get("/").content.decode()) == 0
     upload(logged_in_client)
-    assert "Review queue (6)" in logged_in_client.get("/").content.decode()
+    assert review_queue_count(logged_in_client.get("/").content.decode()) == 6
 
     logged_in_client.post(f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": "transfer"})
 
-    assert "Review queue (5)" in logged_in_client.get("/transactions/").content.decode()
+    assert review_queue_count(logged_in_client.get("/transactions/").content.decode()) == 5
 
 
 def test_an_empty_review_queue_says_so(logged_in_client):

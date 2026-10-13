@@ -1,7 +1,6 @@
 import pytest
 
-from ledger.models import Subcategory, Transaction
-from tests.conftest import outcome_shown
+from tests.conftest import outcome_shown, review_queue_count, subcategory_id, transaction_id
 from tests.test_import import upload
 
 pytestmark = pytest.mark.django_db
@@ -17,14 +16,6 @@ def test_fee_transactions_are_categorized_as_bank_fees_at_import(logged_in_clien
     assert outcome_shown(page, "Corner Shop") == "Awaiting review"
 
 
-def transaction_id(description):
-    return Transaction.objects.get(description=description).pk
-
-
-def subcategory_id(category, name):
-    return Subcategory.objects.get(category__name=category, name=name).pk
-
-
 def test_inline_change_returns_the_updated_row_marked_manual(logged_in_client):
     upload(logged_in_client)
 
@@ -38,6 +29,7 @@ def test_inline_change_returns_the_updated_row_marked_manual(logged_in_client):
     assert row.lstrip().startswith("<tr")
     assert outcome_shown(row, "Corner Shop") == "Food → Groceries"
     assert "Manual" in row
+    assert review_queue_count(row) == 5  # swapped into the sidebar out of band
 
 
 def test_inline_change_without_htmx_goes_back_to_the_page(logged_in_client):

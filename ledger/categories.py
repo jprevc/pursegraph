@@ -14,16 +14,26 @@ class CategoryEditRefused(Exception):
 
 def add_category(name: str, kind: str) -> Category:
     with transaction.atomic():
-        last = Category.objects.aggregate(last=Max("position"))["last"]
-        category = Category.objects.create(name=name, kind=kind, position=0 if last is None else last + 1)
-        catch_all = _("Other income") if kind == Category.Kind.INCOME else _("Other")
+        category = Category.objects.create(name=name, kind=kind, position=_next_position(Category.objects.all()))
+        # Stored data, so not translated; named like the seeded catch-alls.
+        catch_all = "Other income" if kind == Category.Kind.INCOME else "Other"
         Subcategory.objects.create(category=category, name=catch_all, is_catch_all=True)
     return category
 
 
 def add_subcategory(category: Category, name: str) -> Subcategory:
-    last = category.subcategories.filter(is_catch_all=False).aggregate(last=Max("position"))["last"]
-    return Subcategory.objects.create(category=category, name=name, position=0 if last is None else last + 1)
+    position = _next_position(category.subcategories.filter(is_catch_all=False))
+    return Subcategory.objects.create(category=category, name=name, position=position)
+
+
+def rename(item: Category | Subcategory, name: str) -> None:
+    item.name = name
+    item.save(update_fields=["name"])
+
+
+def _next_position(siblings) -> int:
+    last = siblings.aggregate(last=Max("position"))["last"]
+    return 0 if last is None else last + 1
 
 
 def move_category(category: Category, direction: str) -> None:

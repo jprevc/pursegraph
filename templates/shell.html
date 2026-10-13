@@ -9,7 +9,7 @@
     <a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{% url 'transactions' %}">{% translate "Transactions" %}</a>
     <div class="sep"></div>
     <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}">{% translate "Import" %}</a>
-    <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}">{% blocktranslate with n=review_queue_count %}Review queue ({{ n }}){% endblocktranslate %}</a>
+    <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}">{% translate "Review queue" %} <span id="review-queue-count">({{ review_queue_count }})</span></a>
     {% if user.is_admin %}
     <div class="sep"></div>
     <a class="nav {% if nav == 'categories' %}on{% endif %}" href="{% url 'categories' %}">{% translate "Categories" %}</a>

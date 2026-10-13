@@ -58,11 +58,8 @@ class OutcomeForm(forms.Form):
 
     def save(self, transaction: Transaction) -> None:
         value = self.cleaned_data["outcome"]
-        transaction.is_transfer = value == TRANSFER
-        transaction.subcategory_id = None if transaction.is_transfer else int(value)
-        transaction.source = Source.MANUAL
-        transaction.save(update_fields=["is_transfer", "subcategory", "source"])
-
+        subcategory = None if value == TRANSFER else Subcategory.objects.get(pk=value)
+        transaction.set_outcome(subcategory, source=Source.MANUAL)
 
 class TransactionFilterForm(forms.Form):
     """The Transactions view's search and filters, from the query string."""

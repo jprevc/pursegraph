@@ -2,10 +2,9 @@ import re
 
 import pytest
 
-from ledger.models import Category, Subcategory
-from tests.conftest import outcome_shown
+from ledger.models import Category
+from tests.conftest import outcome_shown, subcategory_id, transaction_id
 from tests.test_import import upload
-from tests.test_outcomes import subcategory_id, transaction_id
 
 pytestmark = pytest.mark.django_db
 
@@ -22,6 +21,19 @@ def category_order(client):
     return [name.strip() for name in re.findall(r'<h3 class="category">([^<]*)<', page)]
 
 
+def catch_alls(client):
+    """Each Category's catch-all Subcategory, as the Categories page shows them."""
+    page = client.get("/categories/").content.decode()
+    sections = page.split('<h3 class="category">')[1:]
+    return {
+        section.split("<", 1)[0].strip(): re.findall(
+            r'value="([^"]*)"[^>]*>\s*<button type="submit">Rename</button>\s*</form>\s*<span class="muted">catch-all</span>',
+            section,
+        )
+        for section in sections
+    }
+
+
 def test_the_default_categories_are_seeded_in_order(admin_client):
     page = admin_client.get("/categories/").content.decode()
 
@@ -31,13 +43,13 @@ def test_the_default_categories_are_seeded_in_order(admin_client):
     assert page.count('<span class="muted">catch-all</span>') == 10
 
 
-def test_every_default_category_has_exactly_one_catch_all():
-    catch_alls = {s.category.name: s.name for s in Subcategory.objects.filter(is_catch_all=True)}
+def test_every_default_category_has_exactly_one_catch_all(admin_client):
+    assert catch_alls(admin_client) == {
+        **{name: ["Other"] for name in DEFAULTS[:8]}, "Other": ["Miscellaneous"], "Income": ["Other income"],
+    }
 
-    assert catch_alls == {**{name: "Other" for name in DEFAULTS[:8]}, "Other": "Miscellaneous", "Income": "Other income"}
 
-
-def test_non_admins_are_forbidden(logged_in_client):
+def test_non_admins_are_forbidden(logged_in_client, admin_client):
     food = category_id("Food")
     groceries = subcategory_id("Food", "Groceries")
 
@@ -54,15 +66,14 @@ def test_non_admins_are_forbidden(logged_in_client):
     ]:
         response = logged_in_client.get(url) if data is None else logged_in_client.post(url, data)
         assert response.status_code == 403, url
-    assert Category.objects.filter(name="Food").exists()
-    assert Subcategory.objects.filter(name="Groceries").exists()
+    assert category_order(admin_client) == DEFAULTS
+    page = admin_client.get("/categories/").content.decode()
+    assert 'value="Groceries"' in page
+    assert "Snacks" not in page
 
 
 def test_only_admins_see_the_categories_link(logged_in_client, admin_client):
     assert b'href="/categories/"' in admin_client.get("/").content
-
-
-def test_members_dont_see_the_categories_link(logged_in_client):
     assert b'href="/categories/"' not in logged_in_client.get("/").content
 
 
@@ -71,20 +82,20 @@ def test_adding_a_category_gives_it_a_catch_all_and_puts_it_last(admin_client):
 
     assert response.status_code == 302
     assert category_order(admin_client)[-1] == "Pets"
-    assert Subcategory.objects.get(category__name="Pets").name == "Other"
+    assert catch_alls(admin_client)["Pets"] == ["Other"]
 
 
 def test_an_income_category_gets_an_other_income_catch_all(admin_client):
     admin_client.post("/categories/add/", {"name": "Pets", "kind": "income"})
 
-    assert Subcategory.objects.get(category__name="Pets").name == "Other income"
+    assert catch_alls(admin_client)["Pets"] == ["Other income"]
 
 
 def test_a_category_needs_a_name(admin_client):
     response = admin_client.post("/categories/add/", {"name": "  ", "kind": "spending"}, follow=True)
 
     assert "Name the Category." in response.content.decode()
-    assert Category.objects.count() == 10
+    assert category_order(admin_client) == DEFAULTS
 
 
 def test_new_subcategories_are_offered_as_outcomes(admin_client):
@@ -146,7 +157,7 @@ def test_a_catch_all_cant_be_deleted(admin_client):
     response = admin_client.post(f"/subcategories/{subcategory_id('Food', 'Other')}/delete/", follow=True)
 
     assert "A catch-all Subcategory can&#x27;t be deleted." in response.content.decode()
-    assert Subcategory.objects.filter(category__name="Food", name="Other").exists()
+    assert catch_alls(admin_client)["Food"] == ["Other"]
 
 
 def test_a_category_with_transactions_cant_be_deleted(admin_client):

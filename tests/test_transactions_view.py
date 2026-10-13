@@ -3,8 +3,8 @@ from datetime import date
 import pytest
 
 from ledger.models import Account, Category, Subcategory, Transaction
+from tests.conftest import transaction_id
 from tests.test_import import upload
-from tests.test_outcomes import transaction_id
 
 pytestmark = pytest.mark.django_db
 

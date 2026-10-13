@@ -132,6 +132,16 @@ class Transaction(models.Model):
     def __str__(self):
         return f"{self.date} {self.amount} {self.description}"
 
+    def set_outcome(self, subcategory: "Subcategory | None", *, source: str) -> None:
+        """Sets the outcome to `subcategory`, or to Transfer when it is None. Leaving Transfer unpairs both sides."""
+        self.subcategory = subcategory
+        self.is_transfer = subcategory is None
+        self.source = source
+        if not self.is_transfer and self.counterpart_id:
+            Transaction.objects.filter(pk=self.counterpart_id).update(counterpart=None)
+            self.counterpart = None
+        self.save(update_fields=["subcategory", "is_transfer", "source", "counterpart"])
+
 
 class Category(models.Model):
     class Kind(models.TextChoices):
