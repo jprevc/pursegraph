@@ -1,0 +1,8 @@
+Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
+Card Payment,Current,2026-05-31 21:10:09,2026-06-01 8:46:04,HiÅ¡a kave,-4.5,0,EUR,COMPLETED,495.5
+Deposit,Current,2026-06-03 8:19:29,2026-06-03 8:19:29,Payment from Ana Novak,2000,0,EUR,COMPLETED,2495.5
+Card Payment,Current,2026-06-05 18:08:41,2026-06-06 9:13:32,Corner Shop,-50.02,0.5,EUR,COMPLETED,2444.98
+Card Payment,Current,2026-06-07 10:00:00,,Bakery,-3.2,0,EUR,PENDING,
+Transfer,Current,2026-06-08 14:00:00,2026-06-08 14:00:05,To Janez Kranjc,-300,5,EUR,COMPLETED,2139.98
+Card Refund,Current,2026-06-09 12:00:00,2026-06-10 7:01:00,Äevljar,25,0,EUR,COMPLETED,2164.98
+Card Payment,Current,2026-06-10 21:15:00,2026-06-11 6:30:12,Mercator Å½alec,-12.34,0,EUR,COMPLETED,2152.64

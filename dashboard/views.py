@@ -1,13 +1,11 @@
 from django.shortcuts import render
 
+from ledger.models import Statement
+
 
 def dashboard(request):
-    # No Statements can be imported yet, so the dashboard is always empty.
-    return render(request, "dashboard/dashboard.html")
-
-
-def import_statements(request):
-    return render(request, "dashboard/import.html")
+    # The charts aren't built yet; the dashboard only tells an empty installation where to start.
+    return render(request, "dashboard/dashboard.html", {"has_statements": Statement.objects.exists()})
 
 
 def review_queue(request):

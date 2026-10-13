@@ -1,0 +1,21 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Transactions" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Transactions" %}</h2>
+{% if transactions %}
+<table>
+  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
+  <tbody>
+  {% for t in transactions %}
+    <tr><td>{{ t.date|date:"Y-m-d" }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">
+  <p>{% translate "No Transactions yet." %}</p>
+  <a class="button" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
+</div>
+{% endif %}
+{% endblock %}

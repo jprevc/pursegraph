@@ -16,7 +16,8 @@ RUN uv sync --locked --no-dev
 COPY . .
 RUN DJANGO_SECRET_KEY=build python manage.py collectstatic --noinput
 
-RUN useradd --system --create-home pursegraph
+RUN useradd --system --create-home pursegraph \
+    && mkdir -p /data/statement-files && chown pursegraph /data/statement-files
 USER pursegraph
 
 EXPOSE 8000

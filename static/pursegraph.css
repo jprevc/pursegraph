@@ -36,3 +36,20 @@ main { padding: 20px 28px 96px; }
   aside .logout { margin: 0 0 0 auto; }
   main { padding: 16px 16px 96px; }
 }
+
+h3 { font-size: 17px; margin: 24px 0 10px; }
+h4 { font-size: 15px; margin: 16px 0 6px; font-weight: 600; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); }
+th { color: var(--ink-2); font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.notice { margin-bottom: 16px; }
+.notice h3 { margin-top: 0; }
+.rejected { border-color: var(--bad); }
+.diagnosis { display: grid; grid-template-columns: max-content max-content; gap: 2px 16px; }
+.diagnosis dd { margin: 0; }
+.import-form { display: flex; flex-direction: column; gap: 10px; max-width: 480px; }
+.import-form div { display: flex; flex-direction: column; gap: 4px; }
+.import-form input, .import-form select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); }
+.import-form .errorlist { color: var(--bad); margin: 0; padding: 0; list-style: none; }
+.import-form button { align-self: flex-start; }

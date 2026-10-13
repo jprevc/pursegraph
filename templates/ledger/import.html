@@ -1,0 +1,73 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Import" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Import" %}</h2>
+
+{% if summary %}
+<section class="panel notice">
+  <h3>{% blocktranslate with account=summary.account.name %}Imported into {{ account }}{% endblocktranslate %}</h3>
+  <p>{{ summary.period_start|date:"j M Y" }} – {{ summary.period_end|date:"j M Y" }}</p>
+  <ul>
+    <li>{% blocktranslate count n=summary.imported_count %}{{ n }} Transaction imported{% plural %}{{ n }} Transactions imported{% endblocktranslate %}</li>
+    <li>{% blocktranslate count n=summary.skipped_count %}{{ n }} non-completed row skipped{% plural %}{{ n }} non-completed rows skipped{% endblocktranslate %}</li>
+  </ul>
+</section>
+{% endif %}
+
+{% if rejection %}
+<section class="panel notice rejected">
+  <h3 class="error">{% translate "Not imported" %}</h3>
+  <p>{{ rejection }}</p>
+  {% if rejection.keep_file %}<p>{% translate "Please keep this file: it is needed to fix the parser." %}</p>{% endif %}
+  {% with d=rejection.diagnosis %}{% if d %}
+  <dl class="diagnosis">
+    <dt>{% translate "Opening balance" %}</dt><dd class="num">{{ d.opening_balance }}</dd>
+    <dt>{% translate "Σ rows" %}</dt><dd class="num">{{ d.rows_total }}</dd>
+    <dt>{% translate "Closing balance" %}</dt><dd class="num">{{ d.closing_balance }}</dd>
+  </dl>
+  <table>
+    <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th class="num">{% translate "Balance" %}</th></tr></thead>
+    <tbody>
+    {% for row in d.rows %}
+      <tr><td>{{ row.date|date:"Y-m-d" }}</td><td>{{ row.description }}</td><td class="num">{{ row.amount }}</td><td class="num">{{ row.running_balance|default_if_none:"" }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}{% endwith %}
+</section>
+{% endif %}
+
+<form class="panel import-form" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <p class="muted">{% translate "Revolut CSV exports can be imported." %}</p>
+  {{ form.as_div }}
+  <button type="submit">{% translate "Import" %}</button>
+</form>
+
+<h3>{% translate "Accounts" %}</h3>
+{% for account in accounts %}
+<section class="account">
+  <h4>{{ account.name }} <span class="muted">· {{ account.get_bank_display }} · {% for owner in account.owners.all %}{{ owner.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></h4>
+  {% if account.statements.all %}
+  <table>
+    <thead><tr><th>{% translate "Period" %}</th><th>{% translate "Format" %}</th><th class="num">{% translate "Transactions" %}</th><th>{% translate "Imported" %}</th></tr></thead>
+    <tbody>
+    {% for statement in account.statements.all %}
+      <tr>
+        <td>{{ statement.period_start|date:"j M Y" }} – {{ statement.period_end|date:"j M Y" }}</td>
+        <td>{{ statement.get_format_display }}</td>
+        <td class="num">{{ statement.transaction_count }}</td>
+        <td>{{ statement.imported_at|date:"j M Y" }}, {{ statement.imported_by.get_username }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">{% translate "No Statements yet." %}</p>
+  {% endif %}
+</section>
+{% empty %}
+<p class="muted">{% translate "No Accounts yet." %}</p>
+{% endfor %}
+{% endblock %}

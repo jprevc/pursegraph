@@ -5,6 +5,9 @@ services:
     env_file: .env
     environment:
       POSTGRES_HOST: postgres
+      PURSEGRAPH_STATEMENT_FILES: /data/statement-files
+    volumes:
+      - statement-files:/data/statement-files
     ports:
       - "${PURSEGRAPH_PORT:-8000}:8000"
     depends_on:
@@ -25,3 +28,5 @@ services:
 
 volumes:
   postgres-data:
+  # The original Statement files, kept so they can be re-parsed after a parser fix.
+  statement-files:

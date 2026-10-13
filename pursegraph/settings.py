@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "axes",
     "members",
     "dashboard",
+    "ledger",
 ]
 
 MIDDLEWARE = [
@@ -104,6 +105,10 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 USE_I18N = True
 TIME_ZONE = "Europe/Ljubljana"
 USE_TZ = True
+
+# The original Statement files, kept so they can be re-parsed after a parser fix. Never served.
+
+MEDIA_ROOT = Path(os.environ.get("PURSEGRAPH_STATEMENT_FILES", BASE_DIR / "statement-files"))
 
 # Static files: HTMX and ECharts are vendored under static/vendor and served by WhiteNoise.
 

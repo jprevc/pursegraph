@@ -22,6 +22,10 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 
    It prompts for the password. Then open `http://<host>:8000/` (or the `PURSEGRAPH_PORT` you set) and log in.
 
+## Importing Statements
+
+The Import page takes Revolut CSV exports. Each Statement is checked (opening balance + all rows = closing balance) and rejected as a whole if it doesn't add up. The original files are kept on the `statement-files` Docker volume, so they can be re-parsed after a parser fix.
+
 ## Recovering a locked-out admin
 
 If an admin forgot their password, was deactivated, lost the admin flag, or is locked out after too many failed logins (5 failures lock that username from that IP for an hour):
