@@ -1,0 +1,52 @@
+{# Variant B's view panel: rendered inline on first load, and swapped in alone by HTMX afterwards. #}
+<div class="split">
+  <div class="panel"><div class="chart" id="b-chart"></div></div>
+  <div class="panel">
+    {% if view == "spending" %}
+      <h2>Spent in {{ data.monthLabel }}</h2>
+      {% for c in data.byCategory %}
+        <details><summary><span style="color:{{ c.color }}">■</span> {{ c.name }} <span class="num" style="float:right">€{{ c.value|floatformat:2 }}</span></summary>
+          <table class="tx">{% for s in c.subs %}<tr><td>{{ s.name }}</td><td class="amt">€{{ s.value|floatformat:2 }}</td></tr>{% endfor %}</table>
+        </details>
+      {% endfor %}
+    {% elif view == "cashflow" %}
+      <h2>By month</h2>
+      <table class="tx"><thead><tr><th>Month</th><th style="text-align:right">In</th><th style="text-align:right">Out</th><th style="text-align:right">Net</th></tr></thead>
+        <tbody id="b-cf-rows"></tbody></table>
+    {% elif view == "trends" %}
+      <h2>{{ data.monthLabel }} vs 12-month average</h2>
+      <table class="tx"><thead><tr><th>Category</th><th style="text-align:right">This month</th><th style="text-align:right">Avg</th></tr></thead>
+        <tbody id="b-tr-rows"></tbody></table>
+    {% elif view == "members" %}
+      <h2>{{ data.monthLabel }}</h2>
+      <table class="tx"><thead><tr><th></th><th style="text-align:right">In</th><th style="text-align:right">Spent</th></tr></thead><tbody>
+        {% for n in data.members.names %}<tr><td>{{ n }}</td><td class="amt" data-i="{{ forloop.counter0 }}" data-k="income"></td><td class="amt" data-i="{{ forloop.counter0 }}" data-k="spending"></td></tr>{% endfor %}
+      </tbody></table>
+      <p class="muted" style="font-size:12px">“Joint” is spending from jointly owned Accounts. Transfers between Members’ Accounts are excluded.</p>
+    {% elif view == "sankey" %}
+      <h2>How to read this</h2>
+      <p class="muted">Income on the left flows into the Household, then out into spending Categories. Anything left over is “Saved”; a shortfall shows up as “From savings”. Click a Category to see its Transactions.</p>
+    {% endif %}
+  </div>
+</div>
+{{ data|json_script:"pg-view-data" }}
+<script>
+(() => {
+  const run = () => {
+    PG_DATA = JSON.parse(document.getElementById('pg-view-data').textContent);
+    const view = '{{ view }}';
+    document.getElementById('view-title').textContent = {{ b_views_json|safe }}[view];
+    document.getElementById('drill').innerHTML = '';
+    PG[view](document.getElementById('b-chart'), PG_DATA);
+    const cf = PG_DATA.cashflow;
+    const fill = (id, rows) => { const el = document.getElementById(id); if (el) el.innerHTML = rows.join(''); };
+    fill('b-cf-rows', cf.keys.map((_, i) => `<tr><td>${cf.months[i]}</td><td class="amt">${eur(cf.in[i])}</td><td class="amt">${eur(cf.out[i])}</td><td class="amt ${cf.net[i] >= 0 ? 'pos' : ''}">${eur(cf.net[i])}</td></tr>`).reverse());
+    fill('b-tr-rows', PG_DATA.trends.series.map(s => {
+      const avg = s.data.reduce((a, b) => a + b, 0) / s.data.length, cur = s.data.at(-1);
+      return `<tr><td><span style="color:${s.color}">■</span> ${s.name}</td><td class="amt">${eur(cur)}</td><td class="amt muted">${eur(avg)}</td></tr>`;
+    }));
+    document.querySelectorAll('td[data-k]').forEach(td => td.textContent = eur(PG_DATA.members[td.dataset.k][+td.dataset.i]));
+  };
+  typeof PG === 'undefined' ? addEventListener('DOMContentLoaded', run) : run();
+})();
+</script>

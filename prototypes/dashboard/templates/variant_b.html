@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{# Variant B, "Sidebar + HTMX": one view at a time, full width, with its numbers as a table. The sidebar swaps views via HTMX. Landing view: Spending by Category. #}
+{% block style %}
+  .shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+  aside { background: #1d1d1b; color: #e8e7e2; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+  aside h1 { font-size: 18px; padding: 0 10px 16px; }
+  aside a.nav { color: #c3c2b7; padding: 8px 10px; border-radius: 6px; display: block; cursor: pointer; }
+  aside a.nav:hover { background: #2c2c2a; color: #fff; }
+  aside a.nav.on { background: #f0efec; color: #0b0b0b; font-weight: 600; }
+  aside .sep { margin: 16px 10px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #898781; }
+  aside .stat { padding: 2px 10px; font-size: 13px; display: flex; justify-content: space-between; }
+  main { padding: 20px 28px 96px; }
+  .bar { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .bar h2 { font-size: 22px; margin-right: auto; }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
+  .split .chart { height: 460px; }
+  details summary { cursor: pointer; }
+  details table { margin: 4px 0 8px 12px; width: calc(100% - 12px); }
+  .htmx-request #view { opacity: .5; }
+  @media (max-width: 900px) { .shell { grid-template-columns: 1fr; } aside { flex-direction: row; flex-wrap: wrap; } aside .sep, aside .stat { display: none; } .split { grid-template-columns: 1fr; } main { padding: 16px 16px 96px; } }
+{% endblock %}
+{% block body %}
+<div class="shell">
+  <aside>
+    <h1>Pursegraph</h1>
+    {% for key, name in b_views %}
+      <a class="nav {% if key == view %}on{% endif %}" hx-get="?variant=B&month={{ month }}&view={{ key }}" hx-target="#view" hx-push-url="true"
+         onclick="document.querySelectorAll('aside a.nav').forEach(a => a.classList.toggle('on', a === this))">{{ name }}</a>
+    {% endfor %}
+    <div class="sep">{{ data.monthLabel }}</div>
+    <div class="stat"><span>In</span><span class="num">€{{ data.kpis.income|floatformat:"0g" }}</span></div>
+    <div class="stat"><span>Spent</span><span class="num">€{{ data.kpis.spending|floatformat:"0g" }}</span></div>
+    <div class="stat"><span>Net</span><span class="num">€{{ data.kpis.net|floatformat:"0g" }}</span></div>
+    <div class="sep">Review queue</div>
+    <div class="stat"><span>Waiting</span><span class="badge">{{ data.kpis.reviewCount }}</span></div>
+  </aside>
+  <main>
+    <div class="bar">
+      <h2 id="view-title">{% for key, name in b_views %}{% if key == view %}{{ name }}{% endif %}{% endfor %}</h2>
+      {% include "_monthnav.html" %}
+    </div>
+    <div id="view">{% include "b_view.html" %}</div>
+    <div id="drill"></div>
+  </main>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+  // month links keep the current view, which HTMX may have changed since the page loaded
+  document.querySelectorAll('.monthnav a').forEach(a => a.addEventListener('click', () => {
+    a.href = a.href.replace(/view=[a-z]+/, 'view=' + new URLSearchParams(location.search).get('view'));
+  }));
+</script>
+{% endblock %}

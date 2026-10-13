@@ -1,0 +1,23 @@
+<div class="panel">
+  <div class="drill-head">
+    <h2>{{ title }} <span class="muted">· {{ rows|length }} Transaction{{ rows|length|pluralize }}</span></h2>
+    <a href="#" onclick="document.getElementById('drill').innerHTML=''; return false;">close ✕</a>
+  </div>
+  <table class="tx">
+    <thead><tr><th>Date</th><th>Description</th><th>Subcategory</th><th>Account</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td class="num">{{ row.t.date|date:"j M" }}</td>
+        <td>{{ row.t.description }}</td>
+        <td>{% if row.t.subcategory %}{{ row.t.category }} › {{ row.t.subcategory }}{% else %}<span class="badge">Review</span>{% endif %}</td>
+        <td class="muted">{{ row.account }}</td>
+        <td class="amt {% if row.t.amount > 0 %}pos{% endif %}">{{ row.t.amount|floatformat:2 }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="muted">No Transactions.</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><td colspan="4" class="muted">Total</td><td class="amt">{{ total|floatformat:2 }}</td></tr></tfoot>
+  </table>
+</div>

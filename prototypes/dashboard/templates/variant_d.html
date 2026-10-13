@@ -1,0 +1,4 @@
+{% extends "variant_a.html" %}
+{# Variant D: exactly A's layout, rendered with Plotly instead of ECharts, to compare the libraries side by side. #}
+{% block libs %}<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>{% endblock %}
+{% block charts %}<script>{% include "charts_plotly.js" %}</script>{% endblock %}

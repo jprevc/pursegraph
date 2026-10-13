@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{# Variant A, "Overview grid": the landing page shows all five views at once, KPI strip on top. #}
+{% block style %}
+  .top { display: flex; align-items: center; gap: 16px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--ring); position: sticky; top: 0; z-index: 10; }
+  .top h1 { font-size: 18px; margin-right: auto; }
+  main { max-width: 1320px; margin: 0 auto; padding: 20px 24px 96px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+  .kpi .label { font-size: 13px; color: var(--ink-2); }
+  .kpi .value { font-size: 28px; font-weight: 600; margin-top: 2px; }
+  .kpi .sub { font-size: 12px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .wide { grid-column: 1 / -1; }
+  @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; } .top { flex-wrap: wrap; padding: 12px 16px; } main { padding: 16px 16px 96px; } }
+{% endblock %}
+{% block body %}
+<header class="top">
+  <h1>Pursegraph</h1>
+  {% include "_monthnav.html" %}
+  {% if data.kpis.reviewCount %}<a class="badge" href="#">{{ data.kpis.reviewCount }} to review</a>{% endif %}
+</header>
+<main>
+  <section class="kpis">
+    <div class="panel kpi"><div class="label">Money in</div><div class="value" id="k-in"></div><div class="sub">Income Categories only, Transfers excluded</div></div>
+    <div class="panel kpi"><div class="label">Spending</div><div class="value" id="k-out"></div><div class="sub" id="k-out-sub"></div></div>
+    <div class="panel kpi"><div class="label">Net</div><div class="value" id="k-net"></div><div class="sub">money in − spending</div></div>
+    <div class="panel kpi"><div class="label">Review queue</div><div class="value">{{ data.kpis.reviewCount }}</div><div class="sub">{{ data.kpis.monthReview }} from {{ data.monthLabel }}, shown as “Awaiting review”</div></div>
+  </section>
+  <section class="grid">
+    <div class="panel"><h2>Spending by Category</h2><div class="chart" id="c-spending"></div></div>
+    <div class="panel"><h2>Money flow</h2><div class="chart" id="c-sankey"></div></div>
+    <div class="panel wide"><h2>Cashflow, last 12 months</h2><div class="chart" id="c-cashflow" style="height:260px"></div></div>
+    <div class="panel"><h2>Category trends</h2><div class="chart" id="c-trends"></div></div>
+    <div class="panel"><h2>Per Member</h2><div class="chart" id="c-members"></div></div>
+  </section>
+  <div id="drill"></div>
+</main>
+{% endblock %}
+{% block script %}
+<script>
+  const k = PG_DATA.kpis;
+  document.getElementById('k-in').textContent = eur(k.income);
+  document.getElementById('k-out').textContent = eur(k.spending);
+  const net = document.getElementById('k-net');
+  net.textContent = (k.net < 0 ? '−' : '') + eur(Math.abs(k.net));
+  net.style.color = k.net < 0 ? 'var(--bad)' : 'var(--good)';
+  if (k.prevSpending) {
+    const pct = Math.round((k.spending / k.prevSpending - 1) * 100);
+    document.getElementById('k-out-sub').textContent = `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs previous month` + (PG_DATA.partial ? ' (partial month)' : '');
+  }
+  PG.spending(document.getElementById('c-spending'), PG_DATA);
+  PG.sankey(document.getElementById('c-sankey'), PG_DATA);
+  PG.cashflow(document.getElementById('c-cashflow'), PG_DATA);
+  PG.trends(document.getElementById('c-trends'), PG_DATA);
+  PG.members(document.getElementById('c-members'), PG_DATA);
+</script>
+{% endblock %}

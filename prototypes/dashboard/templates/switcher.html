@@ -1,0 +1,24 @@
+<div id="proto-bar" title="Prototype variant switcher (← / → keys)">
+  <button type="button" data-step="-1" aria-label="Previous variant">←</button>
+  <span class="lbl"><span class="tag">PROTOTYPE</span>{{ variant }} ({{ variant_name }})</span>
+  <button type="button" data-step="1" aria-label="Next variant">→</button>
+</div>
+<script>
+(() => {
+  const variants = {{ variants_json|safe }}.map(v => v[0]);
+  const go = step => {
+    const u = new URL(location.href);
+    const i = variants.indexOf(u.searchParams.get('variant')?.toUpperCase() ?? 'A');
+    u.searchParams.set('variant', variants[(i + step + variants.length) % variants.length]);
+    u.searchParams.delete('view');
+    location.replace(u);
+  };
+  document.querySelectorAll('#proto-bar button').forEach(b => b.onclick = () => go(+b.dataset.step));
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (t.closest('input, textarea, select, [contenteditable]')) return;
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+  });
+})();
+</script>

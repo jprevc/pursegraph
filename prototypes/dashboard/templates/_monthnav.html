@@ -1,0 +1,8 @@
+<span class="monthnav">
+  {% if prev_month %}<a href="?variant={{ variant }}&month={{ prev_month }}{% if variant == 'B' %}&view={{ view }}{% endif %}" aria-label="Previous month">‹</a>{% else %}<span class="off">‹</span>{% endif %}
+  <select onchange="location.search='?variant={{ variant }}&month='+this.value{% if variant == 'B' %}+'&view={{ view }}'{% endif %}">
+    {% for m, lbl in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ lbl }}</option>{% endfor %}
+  </select>
+  {% if next_month %}<a href="?variant={{ variant }}&month={{ next_month }}{% if variant == 'B' %}&view={{ view }}{% endif %}" aria-label="Next month">›</a>{% else %}<span class="off">›</span>{% endif %}
+  {% if data.partial %}<span class="muted" style="font-size:12px">so far, to {{ data.asOf }}</span>{% endif %}
+</span>
