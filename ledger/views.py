@@ -3,7 +3,6 @@ import base64
 from django.db.models import Count, Prefetch
 from django.shortcuts import render
 
-from .coverage import coverage, timeline
 from .forms import AccountForm, StatementFileForm
 from .importer import CheckedStatement, FileResult, ImportRejected, NewAccount, check_statement, commit_statement
 from .models import Account, Bank, Statement, Transaction
@@ -59,8 +58,6 @@ def import_statements(request):
 
     statements = Statement.objects.select_related("imported_by").annotate(transaction_count=Count("transactions"))
     accounts = Account.objects.prefetch_related("owners", "ibans", Prefetch("statements", queryset=statements))
-    for account in accounts:
-        account.coverage_timeline = timeline(coverage(account.statements.all()))
     return render(request, "ledger/import.html", {
         "form": form, "results": results, "pending": pending, "accounts": accounts,
     })

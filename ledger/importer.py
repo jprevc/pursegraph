@@ -23,7 +23,7 @@ from django.db.models import Sum
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
-from .coverage import ONE_DAY, DateRange, coverage, gaps
+from .coverage import ONE_DAY, DateRange, gaps
 from .models import Account, AccountIBAN, Bank, Statement, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
 
@@ -164,7 +164,7 @@ def commit_statement(checked: CheckedStatement, *, member, account: Account | Ne
             account = Account.objects.select_for_update().get(pk=account.pk)
         duplicates, new_rows = _match_coverage(account, parsed)
         _check_running_balance(account, parsed, new_rows)
-        gaps_before = set(gaps(coverage(account.statements.all())))
+        gaps_before = set(gaps(account.coverage()))
         statement = Statement(
             account=account, format=checked.format, period_start=parsed.period_start, period_end=parsed.period_end,
             opening_balance=parsed.opening_balance, closing_balance=parsed.closing_balance,
@@ -185,7 +185,7 @@ def commit_statement(checked: CheckedStatement, *, member, account: Account | Ne
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
-            gaps_left = sorted(set(gaps(coverage(account.statements.all()))) - gaps_before, key=lambda gap: gap.start)
+            gaps_left = sorted(set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start)
         except IntegrityError:
             # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)
@@ -229,7 +229,7 @@ def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: 
         expected = before.opening_balance + _total(before.transactions.filter(date__lt=start)) + _total(added_on_last_day)
         _require_balance(start, parsed.opening_balance, expected)
 
-    for covered in coverage(account.statements.all()):
+    for covered in account.coverage():
         if not start <= covered.start <= parsed.period_end + ONE_DAY:
             continue
         # Of the Statements starting that day, the latest imported has every row of the day.
@@ -262,7 +262,7 @@ def _match_coverage(account: Account, parsed: ParsedStatement) -> tuple[list[Tra
     a Coverage range may the new Statement add rows, as long as it matches every existing one.
     """
     rows = parsed.rows
-    ranges = coverage(account.statements.all())
+    ranges = account.coverage()
     if not ranges:
         return [], rows
     edge_days = {r.start for r in ranges} | {r.end for r in ranges}
