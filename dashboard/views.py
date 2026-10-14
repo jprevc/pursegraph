@@ -8,7 +8,3 @@ def dashboard(request):
     return render(
         request, "dashboard/dashboard.html", {"has_statements": Statement.objects.exists()}
     )
-
-
-def review_queue(request):
-    return render(request, "dashboard/review_queue.html")

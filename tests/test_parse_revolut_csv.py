@@ -26,22 +26,24 @@ def test_revolut_csv_rows():
     rows = parse(FIXTURE, "csv").rows
 
     assert [
-        (r.date, r.amount, r.description, r.counterparty_name, r.running_balance) for r in rows
+        (r.date, r.amount, r.description, r.counterparty_name, r.running_balance, r.is_fee)
+        for r in rows
     ] == [
-        (date(2026, 6, 1), Decimal("-4.50"), "Hiša kave", "", Decimal("495.50")),
+        (date(2026, 6, 1), Decimal("-4.50"), "Hiša kave", "", Decimal("495.50"), False),
         (
             date(2026, 6, 3),
             Decimal("2000.00"),
             "Payment from Ana Novak",
             "Ana Novak",
             Decimal("2495.50"),
+            False,
         ),
-        (date(2026, 6, 6), Decimal("-50.02"), "Corner Shop", "", Decimal("2445.48")),
-        (date(2026, 6, 6), Decimal("-0.50"), "Fee: Corner Shop", "", Decimal("2444.98")),
-        (date(2026, 6, 8), Decimal("-300.00"), "To Janez Kranjc", "", Decimal("2144.98")),
-        (date(2026, 6, 8), Decimal("-5.00"), "Fee: To Janez Kranjc", "", Decimal("2139.98")),
-        (date(2026, 6, 10), Decimal("25.00"), "Čevljar", "", Decimal("2164.98")),
-        (date(2026, 6, 11), Decimal("-12.34"), "Mercator Žalec", "", Decimal("2152.64")),
+        (date(2026, 6, 6), Decimal("-50.02"), "Corner Shop", "", Decimal("2445.48"), False),
+        (date(2026, 6, 6), Decimal("-0.50"), "Fee: Corner Shop", "", Decimal("2444.98"), True),
+        (date(2026, 6, 8), Decimal("-300.00"), "To Janez Kranjc", "", Decimal("2144.98"), False),
+        (date(2026, 6, 8), Decimal("-5.00"), "Fee: To Janez Kranjc", "", Decimal("2139.98"), True),
+        (date(2026, 6, 10), Decimal("25.00"), "Čevljar", "", Decimal("2164.98"), False),
+        (date(2026, 6, 11), Decimal("-12.34"), "Mercator Žalec", "", Decimal("2152.64"), False),
     ]
     assert all(r.counterparty_iban == "" and r.reference == "" for r in rows)
 

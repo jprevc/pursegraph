@@ -24,7 +24,7 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
 from .coverage import ONE_DAY, DateRange, gaps
-from .models import Account, AccountIBAN, Bank, Statement, Transaction
+from .models import Account, AccountIBAN, Bank, Source, Statement, Subcategory, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
 
 
@@ -179,6 +179,8 @@ def commit_statement(
             % {"iban": parsed.iban, "account": checked.account}
         )
 
+    # None once an admin deleted it; fees then wait in the Review queue.
+    bank_fees = Subcategory.objects.filter(is_bank_fees=True).first()
     with transaction.atomic():
         if isinstance(account, NewAccount):
             account = Account.objects.create(name=account.name, bank=parsed.bank)
@@ -218,6 +220,11 @@ def commit_statement(
                     reference=row.reference,
                     running_balance=row.running_balance,
                     raw=row.raw,
+                    **(
+                        {"subcategory": bank_fees, "source": Source.PARSER}
+                        if row.is_fee and bank_fees
+                        else {}
+                    ),
                 )
                 for row in new_rows
             )

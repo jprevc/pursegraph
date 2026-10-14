@@ -1,0 +1,17 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Review queue" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Review queue" %}</h2>
+{% if transactions %}
+<p class="muted">{% translate "Transactions that still need an outcome, oldest first." %}</p>
+<table>
+  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
+  <tbody>
+  {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty"><p>{% translate "Nothing to review." %}</p></div>
+{% endif %}
+{% endblock %}

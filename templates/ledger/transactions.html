@@ -3,15 +3,30 @@
 {% block title %}{% translate "Transactions" %}{% endblock %}
 {% block main %}
 <h2>{% translate "Transactions" %}</h2>
-{% if transactions %}
+{% if any_transactions %}
+<form class="filters" method="get">
+  {{ form.q.as_field_group }}
+  {{ form.account.as_field_group }}
+  {{ form.outcome.as_field_group }}
+  <button type="submit">{% translate "Filter" %}</button>
+</form>
+{% if page.object_list %}
 <table>
-  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
+  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
   <tbody>
-  {% for t in transactions %}
-    <tr><td>{{ t.date|date:"Y-m-d" }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount }}</td></tr>
-  {% endfor %}
+  {% for t in page.object_list %}{% include "ledger/_transaction_row.html" %}{% endfor %}
   </tbody>
 </table>
+{% if page.has_other_pages %}
+<nav class="pages">
+  {% if page.has_previous %}<a href="?{% if query %}{{ query }}&{% endif %}page={{ page.previous_page_number }}">{% translate "Newer" %}</a>{% endif %}
+  <span class="muted">{% blocktranslate with n=page.number total=page.paginator.num_pages %}Page {{ n }} of {{ total }}{% endblocktranslate %}</span>
+  {% if page.has_next %}<a href="?{% if query %}{{ query }}&{% endif %}page={{ page.next_page_number }}">{% translate "Older" %}</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<p class="muted">{% translate "No Transactions match." %}</p>
+{% endif %}
 {% else %}
 <div class="empty">
   <p>{% translate "No Transactions yet." %}</p>

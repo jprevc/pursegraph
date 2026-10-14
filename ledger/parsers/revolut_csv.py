@@ -87,6 +87,7 @@ def parse(content: bytes) -> ParsedStatement:
                     description=f"Fee: {description}",
                     running_balance=balance,
                     raw=line,
+                    is_fee=True,
                 )
             )
 

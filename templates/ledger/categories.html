@@ -1,0 +1,61 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Categories" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Categories" %}</h2>
+{% for message in messages %}<p class="panel notice rejected error">{{ message }}</p>{% endfor %}
+<p class="muted">{% translate "Deleting a Subcategory moves its Transactions to its Category's catch-all. A catch-all can't be deleted, and a Category can be deleted only when it has no Transactions." %}</p>
+
+{% for category in categories %}
+<section class="panel category-edit">
+  <h3 class="category">{{ category.name }} <span class="muted">· {{ category.get_kind_display }}</span></h3>
+  <div class="edit-row">
+    <form method="post" action="{% url 'rename_category' category.pk %}">{% csrf_token %}
+      <input name="name" value="{{ category.name }}" aria-label="{% translate 'Category name' %}" required>
+      <button type="submit">{% translate "Rename" %}</button>
+    </form>
+    <form method="post" action="{% url 'move_category' category.pk %}">{% csrf_token %}
+      <button type="submit" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>↑</button>
+      <button type="submit" name="direction" value="down" aria-label="{% translate 'Move down' %}"{% if forloop.last %} disabled{% endif %}>↓</button>
+    </form>
+    <form method="post" action="{% url 'delete_category' category.pk %}">{% csrf_token %}
+      <button type="submit" class="danger">{% translate "Delete" %}</button>
+    </form>
+  </div>
+  <ul class="subcategories">
+    {% for s in category.subcategories.all %}
+    <li class="edit-row">
+      <form method="post" action="{% url 'rename_subcategory' s.pk %}">{% csrf_token %}
+        <input name="name" value="{{ s.name }}" aria-label="{% translate 'Subcategory name' %}" required>
+        <button type="submit">{% translate "Rename" %}</button>
+      </form>
+      {% if s.is_bank_fees %}<span class="muted">{% translate "bank fees at import" %}</span>{% endif %}
+      {% if s.is_catch_all %}
+      <span class="muted">{% translate "catch-all" %}</span>
+      {% else %}
+      <form method="post" action="{% url 'move_subcategory' s.pk %}">{% csrf_token %}
+        <button type="submit" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>↑</button>
+        <button type="submit" name="direction" value="down" aria-label="{% translate 'Move down' %}">↓</button>
+      </form>
+      <form method="post" action="{% url 'delete_subcategory' s.pk %}">{% csrf_token %}
+        <button type="submit" class="danger">{% translate "Delete" %}</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+    <li class="edit-row">
+      <form method="post" action="{% url 'add_subcategory' category.pk %}">{% csrf_token %}
+        <input name="name" placeholder="{% translate 'New Subcategory' %}" aria-label="{% translate 'New Subcategory' %}" required>
+        <button type="submit">{% translate "Add" %}</button>
+      </form>
+    </li>
+  </ul>
+</section>
+{% endfor %}
+
+<form class="panel edit-row" method="post" action="{% url 'add_category' %}">{% csrf_token %}
+  <input name="name" placeholder="{% translate 'New Category' %}" aria-label="{% translate 'New Category' %}" required>
+  <select name="kind" aria-label="{% translate 'Kind' %}">{% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+  <button type="submit">{% translate "Add Category" %}</button>
+</form>
+{% endblock %}

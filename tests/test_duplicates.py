@@ -185,7 +185,7 @@ def test_identical_rows_on_one_statement_are_both_imported_and_both_matched_late
     twice = [("2026-06-01", "Parking", "-2"), ("2026-06-01", "Parking", "-2")]
     upload(logged_in_client, ("first.csv", revolut_csv("100", twice)))
     account = Account.objects.get()
-    assert transactions_page(logged_in_client).count("Parking") == 2
+    assert transactions_page(logged_in_client).count("<td>Parking</td>") == 2
 
     page = upload(
         logged_in_client,
@@ -195,7 +195,7 @@ def test_identical_rows_on_one_statement_are_both_imported_and_both_matched_late
 
     assert "1 Transaction imported" in page
     assert "2 Duplicates skipped" in page
-    assert transactions_page(logged_in_client).count("Parking") == 2
+    assert transactions_page(logged_in_client).count("<td>Parking</td>") == 2
 
 
 def statement_row(page, period):

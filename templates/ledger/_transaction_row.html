@@ -1,0 +1,25 @@
+{% load i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`. #}
+<tr id="transaction-{{ t.pk }}">
+  <td>{{ t.date|date:"Y-m-d" }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount }}</td>
+  <td>
+    <form class="outcome" method="post" action="{% url 'transaction_outcome' t.pk %}"
+          hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change" hx-target="closest tr" hx-swap="outerHTML">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <select name="outcome" aria-label="{% translate 'Outcome' %}">
+        {% if not t.subcategory_id and not t.is_transfer %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}
+        {% for category in categories %}
+        <optgroup label="{{ category.name }}">
+          {% for s in category.subcategories.all %}
+          <option value="{{ s.pk }}"{% if s.pk == t.subcategory_id %} selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+        <option value="transfer"{% if t.is_transfer %} selected{% endif %}>{% translate "Transfer" %}</option>
+      </select>
+      <noscript><button type="submit">{% translate "Save" %}</button></noscript>
+      {% if t.source %}<span class="muted source">{{ t.get_source_display }}</span>{% endif %}
+    </form>
+  </td>
+</tr>
+{% if refresh_review_queue_count %}<span id="review-queue-count" hx-swap-oob="true">({{ review_queue_count }})</span>{% endif %}
