@@ -296,7 +296,7 @@ def test_summary_has_no_gap_warning_when_the_coverage_stays_continuous(
 def test_import_page_shows_each_accounts_coverage_with_its_gaps(logged_in_client, june_imported):
     later = revolut_csv("1000", [("2026-06-15", "Petrol", "-60"), ("2026-06-20", "Kiosk", "-2")])
     upload(logged_in_client, ("later.csv", later), account=str(june_imported.pk))
-    savings = Account.objects.create(name="Savings", bank="other")
+    savings = Account.objects.create(name="Savings", bank="revolut")
 
     page = import_page(logged_in_client)
 

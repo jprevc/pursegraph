@@ -1,6 +1,7 @@
 import base64
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction as db_transaction
@@ -18,6 +19,7 @@ from members.permissions import admin_required
 from . import categories as category_edits
 from . import rules as rule_edits
 from .forms import (
+    AccountAdminForm,
     AccountForm,
     CategoryForm,
     NameForm,
@@ -128,6 +130,58 @@ def _account_step(statement: CheckedStatement, account_form: AccountForm) -> dic
         "bank": Bank(statement.parsed.bank).label,
         "account_form": account_form,
     }
+
+
+@admin_required
+def accounts(request):
+    return render(
+        request,
+        "ledger/accounts.html",
+        {
+            "accounts": Account.objects.prefetch_related(
+                Prefetch("owners", queryset=get_user_model().objects.order_by("username")), "ibans"
+            ).annotate(statement_count=Count("statements"))
+        },
+    )
+
+
+@admin_required
+def new_account(request):
+    return _account_form(request, Account())
+
+
+@admin_required
+def edit_account(request, pk):
+    return _account_form(request, get_object_or_404(Account, pk=pk))
+
+
+def _account_form(request, account):
+    form = AccountAdminForm(request.POST or None, instance=account)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("accounts")
+    return render(request, "ledger/account_form.html", {"form": form})
+
+
+@admin_required
+@require_POST
+def delete_account(request, pk):
+    """Deletes an Account, refused while it has Statements: their Transactions would go with it."""
+    with db_transaction.atomic():
+        # Serialized with imports into the Account.
+        account = get_object_or_404(Account.objects.select_for_update(), pk=pk)
+        if account.statements.exists():
+            messages.error(
+                request,
+                _(
+                    "%(account)s has Statements, so it can't be deleted. Delete its Statements first."
+                )
+                % {"account": account.name},
+            )
+        else:
+            account.delete()
+            messages.success(request, _("Deleted %(account)s.") % {"account": account.name})
+    return redirect("accounts")
 
 
 @require_http_methods(["GET", "POST"])

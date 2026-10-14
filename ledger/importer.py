@@ -178,6 +178,11 @@ def commit_statement(
     checked: CheckedStatement, *, member, account: Account | NewAccount
 ) -> ImportSummary:
     parsed = checked.parsed
+    if isinstance(account, Account) and not account.receives_statements:
+        raise ImportRejected(
+            _("%(account)s is an Account with no Statements, so none can be imported into it.")
+            % {"account": account}
+        )
     if isinstance(account, Account) and account.bank != parsed.bank:
         raise ImportRejected(
             _(

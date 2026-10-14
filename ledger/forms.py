@@ -3,11 +3,23 @@ import binascii
 from typing import cast
 
 from django import forms
+from django.contrib.auth import get_user_model
+from django.db import transaction as db_transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from .importer import CheckedStatement, NewAccount
-from .models import Account, Bank, Category, Rule, Source, Subcategory, Transaction
+from .models import (
+    Account,
+    AccountIBAN,
+    Bank,
+    Category,
+    Rule,
+    Source,
+    Subcategory,
+    Transaction,
+)
+from .parsers.iban import valid_iban
 from .rules import place_at_top
 from .transfers import pair_by_hand
 
@@ -88,6 +100,88 @@ class AccountForm(forms.Form):
         if self.cleaned_data["account"] == NEW:
             return NewAccount(self.cleaned_data["new_account_name"].strip())
         return Account.objects.get(pk=self.cleaned_data["account"])
+
+
+class AccountAdminForm(forms.ModelForm):
+    """An Account as admins edit it: its name, bank, owners and IBANs, one per line.
+
+    An Account keeps its bank while it has Statements, and one with no Statements needs an IBAN, since only
+    an IBAN makes money moved to it a Transfer."""
+
+    ibans = forms.CharField(
+        label=_("IBANs"),
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("One per line; several when the bank re-issued the Account."),
+    )
+
+    class Meta:
+        model = Account
+        fields = ["name", "bank", "owners"]
+        widgets = {"owners": forms.CheckboxSelectMultiple}
+        error_messages = {"owners": {"required": _("Choose at least one owner.")}}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        cast(
+            forms.ModelChoiceField, self.fields["owners"]
+        ).queryset = get_user_model().objects.order_by("username")
+        if self.instance.pk:
+            self.initial["ibans"] = "\n".join(self.instance.ibans.values_list("iban", flat=True))
+
+    def clean_name(self):
+        return self.cleaned_data["name"].strip()
+
+    def clean_bank(self):
+        bank = self.cleaned_data["bank"]
+        if self.instance.pk and bank != self.instance.bank and self.instance.statements.exists():
+            raise forms.ValidationError(_("An Account with Statements keeps its bank."))
+        return bank
+
+    def clean_ibans(self) -> list[str]:
+        ibans = list(
+            dict.fromkeys(
+                "".join(line.split()).upper() for line in self.cleaned_data["ibans"].splitlines()
+            )
+        )
+        ibans = [iban for iban in ibans if iban]
+        errors = [
+            _("%(iban)s is not a valid IBAN.") % {"iban": iban}
+            for iban in ibans
+            if not valid_iban(iban)
+        ]
+        taken = AccountIBAN.objects.filter(iban__in=ibans).select_related("account")
+        if self.instance.pk:
+            taken = taken.exclude(account=self.instance)
+        errors += [
+            _("%(iban)s is already an IBAN of %(account)s.")
+            % {"iban": t.iban, "account": t.account}
+            for t in taken
+        ]
+        if errors:
+            raise forms.ValidationError(errors)
+        return ibans
+
+    def clean(self):
+        super().clean()
+        data = self.cleaned_data
+        if data.get("bank") == Bank.OTHER and data.get("ibans") == []:
+            self.add_error(
+                "ibans",
+                _("An Account with no Statements needs an IBAN to recognise Transfers to it."),
+            )
+        return data
+
+    def save(self, commit=True) -> Account:
+        with db_transaction.atomic():
+            account = super().save()
+            ibans = self.cleaned_data["ibans"]
+            account.ibans.exclude(iban__in=ibans).delete()
+            kept = set(account.ibans.values_list("iban", flat=True))
+            AccountIBAN.objects.bulk_create(
+                AccountIBAN(account=account, iban=iban) for iban in ibans if iban not in kept
+            )
+        return account
 
 
 TRANSFER = "transfer"
