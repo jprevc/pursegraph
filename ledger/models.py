@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
 from .coverage import DateRange, Segment, coverage, timeline
@@ -90,6 +90,30 @@ class Statement(models.Model):
 
     def __str__(self):
         return f"{self.account} {self.period_start}–{self.period_end}"
+
+    def can_be_deleted_by(self, member) -> bool:
+        return member.is_admin or member.pk == self.imported_by_id
+
+    def own_transactions(self) -> "TransactionQuerySet":
+        """The Transactions that appear on this Statement only, and go when it is deleted."""
+        on_other_statements = Transaction.statements.through.objects.exclude(statement=self)
+        return self.transactions.exclude(pk__in=on_other_statements.values("transaction"))
+
+    def lost_manual_outcomes(self) -> int:
+        """How many outcomes a Member set by hand deleting this Statement would lose."""
+        return self.own_transactions().filter(source=Source.MANUAL).count()
+
+    def delete_with_transactions(self) -> None:
+        """Deletes this Statement, its own Transactions and its stored file; the Account's Coverage shrinks with it.
+
+        A paired Transfer side that survives loses its counterpart and stays a one-sided Transfer.
+        """
+        with transaction.atomic():
+            # Serialized with imports into the Account, whose Duplicate check reads these Transactions.
+            Account.objects.select_for_update().get(pk=self.account_id)
+            self.own_transactions().delete()  # the counterpart link is SET_NULL
+            self.delete()
+        self.file.delete(save=False)
 
 
 class Source(models.TextChoices):

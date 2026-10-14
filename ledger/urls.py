@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path("import/", views.import_statements, name="import"),
+    path("statements/<int:pk>/delete/", views.delete_statement, name="delete_statement"),
     path("transactions/", views.transactions, name="transactions"),
     path("review/", views.review_queue, name="review_queue"),
     path("transactions/<int:pk>/outcome/", views.transaction_outcome, name="transaction_outcome"),

@@ -1,11 +1,14 @@
 import base64
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Prefetch
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.formats import date_format
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from members.permissions import admin_required
@@ -121,6 +124,34 @@ def _account_step(statement: CheckedStatement, account_form: AccountForm) -> dic
         "bank": Bank(statement.parsed.bank).label,
         "account_form": account_form,
     }
+
+
+def delete_statement(request, pk):
+    """Deletes a Statement after a confirmation; only its importer or an admin may."""
+    statement = get_object_or_404(Statement.objects.select_related("account"), pk=pk)
+    if not statement.can_be_deleted_by(request.user):
+        raise PermissionDenied
+    if request.method == "POST":
+        statement.delete_with_transactions()
+        messages.success(
+            request,
+            _("Deleted the %(account)s Statement %(start)s – %(end)s.")
+            % {
+                "account": statement.account,
+                "start": date_format(statement.period_start, "j M Y"),
+                "end": date_format(statement.period_end, "j M Y"),
+            },
+        )
+        return redirect("import")
+    return render(
+        request,
+        "ledger/delete_statement.html",
+        {
+            "statement": statement,
+            "transaction_count": statement.own_transactions().count(),
+            "manual_outcome_count": statement.lost_manual_outcomes(),
+        },
+    )
 
 
 def transactions(request):
