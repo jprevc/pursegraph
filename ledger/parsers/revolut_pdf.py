@@ -18,12 +18,13 @@ footer and the next one starts with a header; both are skipped, even inside a ro
 """
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.utils.translation import gettext as _
 
 from .iban import valid_iban
+from .revolut import counterparty_name, fee_row
 from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
 MONEY = r"€(\d{1,3}(?:,\d{3})*\.\d\d)"
@@ -71,7 +72,8 @@ def parse(text: str) -> ParsedStatement:
     )
 
 
-def _rows(text: str, opening: Decimal):
+def _rows(text: str, opening: Decimal) -> tuple[tuple[date, date], list[ParsedRow]]:
+    """The printed period and the rows, signed from the balance as it runs from `opening`."""
     lines = iter(text.splitlines())
     # Consumes everything up to the transactions' heading.
     period = next((match for line in lines if (match := PERIOD.match(line))), None)
@@ -91,8 +93,9 @@ def _rows(text: str, opening: Decimal):
 
     for line in lines:
         if FOOTER_START.match(line):
+            # Consumes the rest of the footer.
             if not any(FOOTER_END.match(footer) for footer in lines):
-                raise ParseError.unsupported_row(line)
+                raise ParseError(_("The Revolut Statement has a page footer without its end."))
         elif PAGE_HEADER.match(line):
             continue
         elif DATED.match(line):
@@ -103,7 +106,11 @@ def _rows(text: str, opening: Decimal):
         else:
             raise ParseError.unsupported_row(line)
     finish_row()
-    return (_date(period[1], "%B %d, %Y"), _date(period[2], "%B %d, %Y")), rows
+    try:
+        start, end = (datetime.strptime(day, "%B %d, %Y").date() for day in period.groups())
+    except ValueError as err:
+        raise ParseError(_("The Revolut Statement has no transactions heading.")) from err
+    return (start, end), rows
 
 
 def _row(lines: list[str], balance_before: Decimal) -> list[ParsedRow]:
@@ -148,15 +155,15 @@ def _row(lines: list[str], balance_before: Decimal) -> list[ParsedRow]:
     if iban and not valid_iban(iban):
         raise ParseError.unsupported_row(text)
 
-    date = _date(day, "%b %d, %Y")
+    try:
+        booked = datetime.strptime(day, "%b %d, %Y").date()
+    except ValueError as err:
+        raise ParseError.unsupported_row(text) from err
     payment = ParsedRow(
-        date=date,
+        date=booked,
         amount=sign * amount,
         description=description,
-        # As the Revolut CSV gives it, which has only the description.
-        counterparty_name=description.removeprefix("Payment from ")
-        if description.startswith("Payment from ")
-        else "",
+        counterparty_name=counterparty_name(description),
         counterparty_iban=iban,
         reference=raw.get("reference", ""),
         running_balance=balance + fee,
@@ -164,25 +171,7 @@ def _row(lines: list[str], balance_before: Decimal) -> list[ParsedRow]:
     )
     if not fee:
         return [payment]
-    return [
-        payment,
-        ParsedRow(
-            # Stored data, so not translated.
-            date=date,
-            amount=-fee,
-            description=f"Fee: {description}",
-            running_balance=balance,
-            raw=raw,
-            is_fee=True,
-        ),
-    ]
-
-
-def _date(text: str, format: str):
-    try:
-        return datetime.strptime(text, format).date()
-    except ValueError as err:
-        raise ParseError.unsupported_row(text) from err
+    return [payment, fee_row(booked, fee, description, balance, raw)]
 
 
 def _money(text: str) -> Decimal:
