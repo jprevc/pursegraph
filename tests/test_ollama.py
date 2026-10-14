@@ -7,7 +7,7 @@ import pytest
 
 from ledger.models import Subcategory
 from ledger.ollama import OllamaSuggester, answer_confidence, label
-from ledger.suggestions import Example, Query, SuggestionsUnavailable
+from ledger.suggestions import Example, NoSuggestion, Query, SuggestionsUnavailable
 
 pytestmark = pytest.mark.django_db
 
@@ -105,6 +105,18 @@ def test_an_answer_in_thinking_is_read_too(monkeypatch):
     suggestion = OllamaSuggester("http://ollama.invalid:11434").suggest(query())
 
     assert (suggestion.subcategory.name, suggestion.confidence) == ("Groceries", pytest.approx(0.5))
+
+
+def test_an_answer_outside_the_subcategories_is_no_suggestion(monkeypatch):
+    content = '{"subcategory": "Food > Caviar"}'
+    monkeypatch.setattr(
+        OllamaSuggester,
+        "_post",
+        lambda self, body: {"message": {"content": content}, "logprobs": []},
+    )
+
+    with pytest.raises(NoSuggestion):
+        OllamaSuggester("http://ollama.invalid:11434").suggest(query())
 
 
 def test_an_unreachable_server_is_unavailable():

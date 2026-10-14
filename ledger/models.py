@@ -183,7 +183,8 @@ class Transaction(models.Model):
         related_name="transactions",
         verbose_name=_("rule"),
     )
-    # The local LLM's suggestion, kept apart from the outcome; the worker asks for one while both are None.
+    # The local LLM's suggestion, kept apart from the outcome. The worker asks for one while both are None;
+    # confidence 0 with no Subcategory means the LLM's answer was unusable.
     suggested_subcategory = models.ForeignKey(
         "Subcategory",
         on_delete=models.SET_NULL,
@@ -192,7 +193,7 @@ class Transaction(models.Model):
         related_name="+",
         verbose_name=_("suggested subcategory"),
     )
-    # The model's own probability of `suggested_subcategory`, from 0 to 1.
+    # The LLM's own probability of `suggested_subcategory`, from 0 to 1.
     confidence = models.FloatField(_("confidence"), null=True, blank=True)
 
     objects = TransactionQuerySet.as_manager()

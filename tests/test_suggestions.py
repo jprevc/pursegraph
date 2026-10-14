@@ -4,7 +4,14 @@ from decimal import Decimal
 import pytest
 
 from ledger.models import Setting, Source, Subcategory, Transaction
-from ledger.suggestions import Query, Suggestion, SuggestionsUnavailable, backoff, run_once
+from ledger.suggestions import (
+    NoSuggestion,
+    Query,
+    Suggestion,
+    SuggestionsUnavailable,
+    backoff,
+    run_once,
+)
 from tests.conftest import outcome_shown, review_queue_count, subcategory_id, transaction_id
 from tests.test_import import upload
 from tests.test_rules import make_rule, make_transaction
@@ -179,6 +186,52 @@ def test_unavailable_suggestions_show_in_the_sidebar_until_they_recover(logged_i
 
     assert "Suggestions unavailable" not in review_page(logged_in_client)
     assert Transaction.objects.filter(suggested_subcategory__isnull=False).count() == 6
+
+
+def test_an_unusable_answer_leaves_that_transaction_to_review_and_goes_on(logged_in_client):
+    upload(logged_in_client)
+
+    class UnusableFirst(FakeSuggester):
+        def suggest(self, query):
+            if query.description == "Hiša kave":
+                self.queries.append(query)
+                raise NoSuggestion("not one of the Subcategories")
+            return super().suggest(query)
+
+    first = UnusableFirst()
+    run_once(first)
+    again = FakeSuggester()
+    run_once(again)
+
+    assert len(first.asked()) == 6
+    assert again.asked() == []  # not asked again
+    page = review_page(logged_in_client)
+    assert "Suggestions unavailable" not in page
+    assert outcome_shown(page, "Hiša kave") == "Awaiting review"
+
+
+def test_a_merchant_counts_once_whatever_its_case(logged_in_client):
+    groceries = Subcategory.objects.get(name="Groceries")
+    make_transaction("SPAR", subcategory=groceries, source=Source.MANUAL)
+    make_transaction("Spar", subcategory=groceries, source=Source.MANUAL)
+    make_transaction("Hiša kave")
+    suggester = FakeSuggester()
+
+    run_once(suggester)
+
+    (query,) = suggester.queries
+    assert len(query.examples) == 1
+
+
+def test_deleting_a_suggested_subcategory_asks_again(admin_client):
+    make_transaction("Hiša kave")
+    run_once(FakeSuggester({"Hiša kave": ("Food", "Restaurants & cafés", 0.5)}))
+
+    admin_client.post(f"/subcategories/{subcategory_id('Food', 'Restaurants & cafés')}/delete/")
+    again = FakeSuggester()
+    run_once(again)
+
+    assert again.asked() == ["Hiša kave"]
 
 
 def test_the_suggestions_shown_can_be_accepted_in_bulk(logged_in_client):

@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Protocol
 
 from django.db import transaction
+from django.db.models.functions import Lower
 
 from .models import Setting, Source, Subcategory, Transaction
 
@@ -60,12 +61,16 @@ class Suggestion:
 
 
 class SuggestionsUnavailable(Exception):
-    """The Suggester couldn't answer, such as when Ollama is unreachable."""
+    """The Suggester can't answer at all, such as when Ollama is unreachable."""
+
+
+class NoSuggestion(Exception):
+    """The Suggester answered about one Transaction, but unusably; it goes to the Review queue unsuggested."""
 
 
 class Suggester(Protocol):
     def suggest(self, query: Query) -> Suggestion:
-        """Raises SuggestionsUnavailable when it can't answer."""
+        """Raises SuggestionsUnavailable when it can't answer, NoSuggestion when its answer is unusable."""
         ...
 
 
@@ -73,8 +78,8 @@ class Suggester(Protocol):
 class Run:
     """What one `run_once` did."""
 
-    suggested: int
-    """Transactions it stored a suggestion for, or found decided meanwhile."""
+    asked: int
+    """Transactions it asked the Suggester about."""
     error: SuggestionsUnavailable | None = None
     """Why it stopped early, if the Suggester failed."""
 
@@ -90,10 +95,12 @@ def run_once(suggester: Suggester) -> Run:
     threshold = float(Setting.get(Setting.AUTO_ACCEPT_THRESHOLD))
     for done, candidate in enumerate(pending):
         try:
-            suggestion = suggester.suggest(_query(candidate, subcategories))
+            suggestion: Suggestion | None = suggester.suggest(_query(candidate, subcategories))
         except SuggestionsUnavailable as error:
             Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "1")
             return Run(done, error)
+        except NoSuggestion:
+            suggestion = None
         Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
         _store(candidate.pk, suggestion, threshold)
     return Run(len(pending))
@@ -110,15 +117,22 @@ def backoff(attempt: int) -> int:
 
 
 def _awaiting_suggestion():
-    return Transaction.objects.unresolved().filter(suggested_subcategory__isnull=True)
+    return Transaction.objects.unresolved().filter(
+        suggested_subcategory__isnull=True, confidence__isnull=True
+    )
 
 
-def _store(pk: int, suggestion: Suggestion, threshold: float) -> None:
+def _store(pk: int, suggestion: Suggestion | None, threshold: float) -> None:
     """Stores the suggestion, and accepts it if it's confident enough, unless the Transaction got
-    an outcome or a suggestion meanwhile, such as from a Member."""
+    an outcome or a suggestion meanwhile, such as from a Member. With no suggestion, it stores
+    confidence 0 so the Transaction isn't asked about again."""
     with transaction.atomic():
         candidate = _awaiting_suggestion().select_for_update().filter(pk=pk).first()
-        if candidate is None or not Subcategory.objects.filter(pk=suggestion.subcategory.pk):
+        if candidate is None:
+            return
+        if suggestion is None or not Subcategory.objects.filter(pk=suggestion.subcategory.pk):
+            candidate.confidence = 0
+            candidate.save(update_fields=["confidence"])
             return
         candidate.suggested_subcategory = suggestion.subcategory
         candidate.confidence = suggestion.confidence
@@ -142,11 +156,12 @@ def _examples(candidate: Transaction) -> list[Example]:
     """The latest manual Subcategory of each merchant other than `candidate`'s; that one would be a Rule's job."""
     latest_per_merchant = (
         Transaction.objects.filter(source=Source.MANUAL, subcategory__isnull=False)
-        .exclude(description__iexact=candidate.description)
-        .order_by("description", "-date", "-id")
-        .distinct("description")
+        .annotate(merchant=Lower("description"))
+        .exclude(merchant=candidate.description.lower())
+        .order_by("merchant", "-date", "-id")
+        .distinct("merchant")
     )
-    latest = Transaction.objects.filter(pk__in=latest_per_merchant.values("pk"))
+    latest = Transaction.objects.filter(pk__in=[t.pk for t in latest_per_merchant.only("pk")])
     return [
         Example(_direction(t), t.description, _detail(t), t.subcategory)
         for t in latest.select_related("subcategory__category").order_by("-date", "-id")[

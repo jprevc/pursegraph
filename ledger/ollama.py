@@ -11,17 +11,17 @@ import urllib.error
 import urllib.request
 
 from .models import Subcategory
-from .suggestions import Query, Suggestion, SuggestionsUnavailable
+from .suggestions import NoSuggestion, Query, Suggestion, SuggestionsUnavailable
 
 MODEL = "qwen3-vl:8b"
 
 # Stored data, so not translated. The household's conventions, from the default Category list.
-SYSTEM = """You categorize one household bank Transaction (a family in Slovenia; merchant names and
+SYSTEM = """You categorize one household bank Transaction (a Household in Slovenia; merchant names and
 purposes are often Slovenian) into exactly one Subcategory from this list:
 {options}
 
-Conventions of this household:
-- Transfers between the household's own accounts have no Category and never reach you.
+Conventions of this Household:
+- Transfers between the Household's own Accounts have no Category and never reach you.
 - Money in at a shop is a Refund: use the shop's spending Subcategory, not income.
 - Payments to a private person: categorize by purpose if the purpose text makes it clear,
   otherwise "Other > Payments to people".
@@ -68,9 +68,7 @@ class OllamaSuggester:
             answer = json.loads(message.get("content") or message.get("thinking"))["subcategory"]
             subcategory = by_label[answer]
         except (KeyError, TypeError, ValueError) as err:
-            raise SuggestionsUnavailable(
-                f"unexpected answer from Ollama: {response!r:.200}"
-            ) from err
+            raise NoSuggestion(f"unusable answer from Ollama: {response!r:.200}") from err
         return Suggestion(subcategory, answer_confidence(response.get("logprobs") or [], answer))
 
     def _post(self, body: dict) -> dict:
@@ -110,7 +108,7 @@ def answer_confidence(logprobs: list[dict], answer: str) -> float:
 def _prompt(query: Query) -> str:
     lines = []
     if query.examples:
-        lines.append("Earlier corrections by this household (other merchants):")
+        lines.append("Earlier corrections by this Household (other merchants):")
         for example in query.examples:
             detail = f" ({example.detail})" if example.detail else ""
             lines.append(

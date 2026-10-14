@@ -236,12 +236,9 @@ def commit_statement(
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
-            rule_count = apply_rules(
-                Transaction.objects.filter(pk__in=[t.pk for t in transactions])
-            )
-            awaiting_count = (
-                Transaction.objects.filter(pk__in=[t.pk for t in transactions]).unresolved().count()
-            )
+            new = Transaction.objects.filter(pk__in=[t.pk for t in transactions])
+            rule_count = apply_rules(new)
+            awaiting_count = new.unresolved().count()
             gaps_left = sorted(
                 set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
             )

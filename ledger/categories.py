@@ -71,6 +71,10 @@ def delete_subcategory(subcategory: Subcategory) -> None:
         catch_all = subcategory.category.subcategories.get(is_catch_all=True)
         subcategory.transactions.update(subcategory=catch_all)
         subcategory.rules.update(subcategory=catch_all)
+        # Its suggestions are cleared, so the LLM is asked again.
+        Transaction.objects.filter(suggested_subcategory=subcategory).update(
+            suggested_subcategory=None, confidence=None
+        )
         subcategory.delete()
 
 

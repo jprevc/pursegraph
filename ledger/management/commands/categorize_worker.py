@@ -35,7 +35,7 @@ class Command(BaseCommand):
             if failures:
                 self.stdout.write("Suggestions available again.")
             failures = 0
-            if run.suggested:
-                self.stdout.write(f"Suggested for {run.suggested} Transactions.")
+            if run.asked:
+                self.stdout.write(f"Asked about {run.asked} Transactions.")
             else:
                 time.sleep(IDLE_POLL)
