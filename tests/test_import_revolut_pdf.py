@@ -58,6 +58,6 @@ def test_rows_that_dont_match_the_printed_money_in_are_rejected(logged_in_client
     page = upload(logged_in_client, text.encode(), "revolut-june.pdf").content.decode()
 
     assert "rows don&#x27;t match its printed totals" in page
-    assert '<tr><th>Printed</th><td class="num">2026.00</td><td class="num">–</td>' in page
+    assert '<tr><th>Printed</th><td class="num">2026.00</td><td class="num">—</td>' in page
     assert '<tr><th>Parsed rows</th><td class="num">2025.00</td><td class="num">2</td>' in page
     assert_nothing_stored(logged_in_client, statement_files)

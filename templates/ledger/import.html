@@ -36,7 +36,7 @@
   <table class="totals">
     <thead><tr><th></th><th class="num">{% translate "Money in" %}</th><th class="num">{% translate "Rows in" %}</th><th class="num">{% translate "Money out" %}</th><th class="num">{% translate "Rows out" %}</th></tr></thead>
     <tbody>
-    {% with t=d.printed_totals %}<tr><th>{% translate "Printed" %}</th><td class="num">{{ t.money_in }}</td><td class="num">{{ t.count_in|default_if_none:"–" }}</td><td class="num">{{ t.money_out }}</td><td class="num">{{ t.count_out|default_if_none:"–" }}</td></tr>{% endwith %}
+    {% with t=d.printed_totals %}<tr><th>{% translate "Printed" %}</th><td class="num">{{ t.money_in }}</td><td class="num">{{ t.count_in|default_if_none:"—" }}</td><td class="num">{{ t.money_out }}</td><td class="num">{{ t.count_out|default_if_none:"—" }}</td></tr>{% endwith %}
     {% with t=d.parsed_totals %}<tr><th>{% translate "Parsed rows" %}</th><td class="num">{{ t.money_in }}</td><td class="num">{{ t.count_in }}</td><td class="num">{{ t.money_out }}</td><td class="num">{{ t.count_out }}</td></tr>{% endwith %}
     </tbody>
   </table>
@@ -70,7 +70,7 @@
 {% endwith %}{% endfor %}
 
 {% for pending in pending %}
-<form class="panel import-form" method="post">
+<form class="panel stack-form" method="post">
   {% csrf_token %}
   <h3>{% translate "Choose the Account" %}</h3>
   {% with s=pending.statement %}
@@ -87,7 +87,7 @@
   </div>
 </form>
 {% empty %}
-<form class="panel import-form" method="post" enctype="multipart/form-data">
+<form class="panel stack-form" method="post" enctype="multipart/form-data">
   {% csrf_token %}
   <p class="muted">{% translate "Sparkasse SI PDF Statements and Revolut CSV exports can be imported, several at once." %}</p>
   {{ form.file.errors }}

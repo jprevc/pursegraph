@@ -92,6 +92,9 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
+# Invite and password-reset links (see members/links.py) are valid for 7 days.
+PASSWORD_RESET_TIMEOUT = int(timedelta(days=7).total_seconds())
+
 SESSION_COOKIE_AGE = int(timedelta(days=30).total_seconds())
 
 # Failed-login lockout: a username is locked from an IP after 5 failures, for an hour.

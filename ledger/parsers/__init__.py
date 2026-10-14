@@ -28,6 +28,11 @@ def parse_pdf_text(text: str) -> ParsedStatement:
         from . import sparkasse_pdf
 
         return sparkasse_pdf.parse(text)
+    if "Bank Statement Nr." in text and "• BIC: NTSBDEB1" in text:
+        from . import n26_pdf
+
+        return n26_pdf.parse(text)
+    # After N26, whose rows may name Revolut as a counterparty's bank.
     if "Revolut Bank UAB" in text:
         from . import revolut_pdf
 

@@ -12,7 +12,7 @@ Any failure raises ImportRejected and stores nothing of that Statement.
 """
 
 import hashlib
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from pathlib import PurePath
@@ -133,7 +133,8 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
     parsed_totals = _totals(parsed.rows)
     balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
-    if not balances_add_up or not _agrees(parsed.printed_totals, parsed_totals):
+    totals_match = parsed.printed_totals is None or parsed.printed_totals.matches(parsed_totals)
+    if not balances_add_up or not totals_match:
         raise ImportRejected(
             _("The Statement's balances don't add up, so it was not imported.")
             if not balances_add_up
@@ -258,15 +259,6 @@ def _totals(rows: list[ParsedRow]) -> Totals:
     return Totals(
         sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out)
     )
-
-
-def _agrees(printed: Totals | None, parsed: Totals) -> bool:
-    """The printed totals match the parsed rows', comparing the counts only when they're printed."""
-    if printed is None:
-        return True
-    if printed.count_in is None and printed.count_out is None:
-        parsed = replace(parsed, count_in=None, count_out=None)
-    return printed == parsed
 
 
 def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: list[ParsedRow]):
