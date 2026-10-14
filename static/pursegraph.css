@@ -85,3 +85,9 @@ a.danger { color: var(--bad); }
 .edit-row form { display: flex; align-items: center; gap: 6px; }
 .edit-row button { padding: 5px 10px; }
 .subcategories { list-style: none; margin: 10px 0 0; padding: 0 0 0 16px; display: flex; flex-direction: column; gap: 6px; }
+.rules tr[draggable] { cursor: grab; }
+.rules tr.dragging { opacity: 0.4; }
+.rules .handle { color: var(--muted); user-select: none; }
+.rules .actions { display: flex; align-items: center; gap: 6px; }
+.rules .actions form { display: flex; gap: 4px; }
+.rules .actions button { padding: 3px 8px; }

@@ -1,0 +1,15 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Apply Rule" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Apply the Rule to existing Transactions?" %}</h2>
+<form class="panel stack-form" method="post">{% csrf_token %}
+  <p>{% blocktranslate count n=count %}{{ n }} existing Transaction matches this Rule.{% plural %}{{ n }} existing Transactions match this Rule.{% endblocktranslate %}
+  {% if rule.subcategory %}{% blocktranslate with outcome=rule.subcategory %}Applying it categorizes them as {{ outcome }}.{% endblocktranslate %}{% else %}{% translate "Applying it marks them as Transfers." %}{% endif %}</p>
+  <p class="muted">{% translate "Only Transactions awaiting review or categorized by the LLM or a Rule change; outcomes set by hand, by IBAN, by pairing or by the parser stay." %}</p>
+  <div class="actions">
+    <button type="submit">{% translate "Apply" %}</button>
+    <a href="{% url 'rules' %}">{% translate "Not now" %}</a>
+  </div>
+</form>
+{% endblock %}

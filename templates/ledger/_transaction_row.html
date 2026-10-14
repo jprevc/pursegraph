@@ -19,6 +19,7 @@
       </select>
       <noscript><button type="submit">{% translate "Save" %}</button></noscript>
       {% if t.source %}<span class="muted source">{{ t.get_source_display }}</span>{% endif %}
+      {% if t.source == "manual" %}<a class="source" href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
     </form>
   </td>
 </tr>

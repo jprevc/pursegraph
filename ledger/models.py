@@ -174,6 +174,15 @@ class Transaction(models.Model):
     )
     # What set the outcome; blank while unresolved. Automatic processing never overwrites MANUAL.
     source = models.CharField(_("source"), max_length=10, choices=Source.choices, blank=True)
+    # The Rule that set the outcome, while `source` is RULE.
+    rule = models.ForeignKey(
+        "Rule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
+        verbose_name=_("rule"),
+    )
 
     objects = TransactionQuerySet.as_manager()
 
@@ -191,15 +200,20 @@ class Transaction(models.Model):
     def __str__(self):
         return f"{self.date} {self.amount} {self.description}"
 
-    def set_outcome(self, subcategory: "Subcategory | None", *, source: str) -> None:
-        """Sets the outcome to `subcategory`, or to Transfer when it is None. Leaving Transfer unpairs both sides."""
+    def set_outcome(
+        self, subcategory: "Subcategory | None", *, source: str, rule: "Rule | None" = None
+    ) -> None:
+        """Sets the outcome to `subcategory`, or to Transfer when it is None. Leaving Transfer unpairs both sides.
+
+        `rule` is the Rule that set it; any other change, such as a manual one, clears the link."""
         self.subcategory = subcategory
         self.is_transfer = subcategory is None
         self.source = source
+        self.rule = rule
         if not self.is_transfer and self.counterpart_id:
             Transaction.objects.filter(pk=self.counterpart_id).update(counterpart=None)
             self.counterpart = None
-        self.save(update_fields=["subcategory", "is_transfer", "source", "counterpart"])
+        self.save(update_fields=["subcategory", "is_transfer", "source", "rule", "counterpart"])
 
 
 class Category(models.Model):
@@ -254,3 +268,67 @@ class Subcategory(models.Model):
 
     def __str__(self):
         return f"{self.category} → {self.name}"
+
+
+class Rule(models.Model):
+    """Categorizes matching Transactions at import. The first match in `position` order wins.
+
+    Every condition that is set must hold; at least one is set."""
+
+    class Direction(models.TextChoices):
+        IN = "in", _("In")
+        OUT = "out", _("Out")
+
+    DESCRIPTION_LENGTH = 200
+
+    # Case- and accent-insensitive.
+    description_contains = models.CharField(
+        _("description contains"), max_length=DESCRIPTION_LENGTH, blank=True
+    )
+    # Stored without spaces, in capitals, like the parsers' IBANs.
+    counterparty_iban = models.CharField(_("counterparty IBAN"), max_length=34, blank=True)
+    direction = models.CharField(
+        _("direction"), max_length=3, choices=Direction.choices, blank=True
+    )
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="rules",
+        verbose_name=_("account"),
+    )
+    # The outcome: a Subcategory, or Transfer when None.
+    subcategory = models.ForeignKey(
+        Subcategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="rules",
+        verbose_name=_("subcategory"),
+    )
+    # Lowest first; the first matching Rule wins.
+    position = models.IntegerField(_("position"), default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        verbose_name = _("rule")
+        verbose_name_plural = _("rules")
+
+    def __str__(self):
+        return self.description_contains or self.counterparty_iban or str(self.pk)
+
+    def condition(self) -> models.Q:
+        """The Transactions this Rule matches."""
+        q = models.Q()
+        if self.description_contains:
+            q &= models.Q(description__unaccent__icontains=self.description_contains)
+        if self.counterparty_iban:
+            q &= models.Q(counterparty_iban=self.counterparty_iban)
+        if self.direction == self.Direction.IN:
+            q &= models.Q(amount__gt=0)
+        elif self.direction == self.Direction.OUT:
+            q &= models.Q(amount__lt=0)
+        if self.account_id:
+            q &= models.Q(account_id=self.account_id)
+        return q

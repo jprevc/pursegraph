@@ -9,16 +9,19 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.formats import date_format
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 from django.views.decorators.http import require_http_methods, require_POST
 
 from members.permissions import admin_required
 
 from . import categories as category_edits
+from . import rules as rule_edits
 from .forms import (
     AccountForm,
     CategoryForm,
     NameForm,
     OutcomeForm,
+    RuleForm,
     StatementFileForm,
     TransactionFilterForm,
 )
@@ -30,7 +33,7 @@ from .importer import (
     check_statement,
     commit_statement,
 )
-from .models import Account, Bank, Category, Statement, Subcategory, Transaction
+from .models import Account, Bank, Category, Rule, Statement, Subcategory, Transaction
 
 TRANSACTIONS_PER_PAGE = 100
 
@@ -292,3 +295,84 @@ def move_subcategory(request, pk):
 @_category_edit
 def delete_subcategory(request, pk):
     category_edits.delete_subcategory(get_object_or_404(Subcategory, pk=pk))
+
+
+def rules(request):
+    return render(
+        request,
+        "ledger/rules.html",
+        {"rules": Rule.objects.select_related("account", "subcategory__category")},
+    )
+
+
+def new_rule(request):
+    """A new Rule; `?transaction=<pk>` pre-fills it from a corrected Transaction ("Make a Rule")."""
+    if request.method == "POST":
+        return _save_rule(request, RuleForm(request.POST))
+    transaction_pk = request.GET.get("transaction", "")
+    if transaction_pk.isdigit():
+        form = RuleForm.from_transaction(get_object_or_404(Transaction, pk=transaction_pk))
+    else:
+        form = RuleForm()
+    return render(request, "ledger/rule_form.html", {"form": form})
+
+
+def edit_rule(request, pk):
+    rule = get_object_or_404(Rule, pk=pk)
+    if request.method == "POST":
+        return _save_rule(request, RuleForm(request.POST, instance=rule))
+    return render(request, "ledger/rule_form.html", {"form": RuleForm(instance=rule)})
+
+
+def _save_rule(request, form):
+    """Saves the Rule, then offers to apply it to the existing Transactions it matches, if any."""
+    if not form.is_valid():
+        return render(request, "ledger/rule_form.html", {"form": form})
+    rule = form.save()
+    if rule_edits.overwritable_matches(rule).exists():
+        return redirect("apply_rule", rule.pk)
+    return redirect("rules")
+
+
+def apply_rule(request, pk):
+    """GET offers to apply the Rule to the existing Transactions it matches; POST applies it."""
+    rule = get_object_or_404(Rule.objects.select_related("account", "subcategory__category"), pk=pk)
+    if request.method == "POST":
+        count = rule_edits.apply_to_existing(rule)
+        messages.success(
+            request,
+            ngettext(
+                "%(count)d Transaction categorized by the Rule.",
+                "%(count)d Transactions categorized by the Rule.",
+                count,
+            )
+            % {"count": count},
+        )
+        return redirect("rules")
+    return render(
+        request,
+        "ledger/apply_rule.html",
+        {"rule": rule, "count": rule_edits.overwritable_matches(rule).count()},
+    )
+
+
+@require_POST
+def delete_rule(request, pk):
+    get_object_or_404(Rule, pk=pk).delete()
+    return redirect("rules")
+
+
+@require_POST
+def move_rule(request, pk):
+    rule_edits.move(get_object_or_404(Rule, pk=pk), request.POST.get("direction", ""))
+    return redirect("rules")
+
+
+@require_POST
+def reorder_rules(request):
+    """The order after a drag: every Rule's id, top first."""
+    ids = request.POST.getlist("rule")
+    if not all(pk.isdigit() for pk in ids):
+        return HttpResponseBadRequest()
+    rule_edits.reorder([int(pk) for pk in ids])
+    return redirect("rules")

@@ -36,6 +36,10 @@ Statements may overlap the Account's Coverage (the dates already imported). The 
 
 Every Transaction gets an outcome: a Subcategory of the two-level Category list, or Transfer. A default list is seeded on the first migration; admins edit it on the Categories page. Bank fees that a parser splits off their payment are categorized Finance → Bank fees at import, even after that Subcategory is renamed. Everything else waits in the Review queue, where a Member picks the outcome; the same inline editor appears on every row of the Transactions view.
 
+## Rules
+
+Rules categorize Transactions at import. Any Member manages them on the Rules page. A Rule has conditions (description contains, ignoring case and accents; counterparty IBAN; direction in or out; Account), every one it sets must hold, and an outcome: a Subcategory or Transfer. At import, each Transaction still awaiting review gets the outcome of the first Rule it matches, in the order the Rules page lists them (drag to reorder). After correcting a Transaction by hand, "Make a Rule" opens a new Rule pre-filled from it; a new Rule goes to the top. Saving a Rule offers to apply it to existing Transactions, changing only those awaiting review or categorized by the LLM or a Rule. Deleting a Subcategory moves its Rules to the catch-all.
+
 ## Recovering a locked-out admin
 
 If an admin forgot their password, was deactivated, lost the admin flag, or is locked out after too many failed logins (5 failures lock that username from that IP for an hour):

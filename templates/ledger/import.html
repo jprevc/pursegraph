@@ -14,6 +14,7 @@
     <li>{% blocktranslate count n=summary.imported_count %}{{ n }} Transaction imported{% plural %}{{ n }} Transactions imported{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.duplicate_count %}{{ n }} Duplicate skipped{% plural %}{{ n }} Duplicates skipped{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.skipped_count %}{{ n }} non-completed row skipped{% plural %}{{ n }} non-completed rows skipped{% endblocktranslate %}</li>
+    <li>{% blocktranslate count n=summary.rule_count %}{{ n }} Transaction categorized by Rules{% plural %}{{ n }} Transactions categorized by Rules{% endblocktranslate %}</li>
   </ul>
   {% for gap in summary.gaps %}
   <p class="warning">{% blocktranslate with start=gap.start|date:"j M Y" end=gap.end|date:"j M Y" %}No Statement covers {{ start }} – {{ end }} yet.{% endblocktranslate %}</p>

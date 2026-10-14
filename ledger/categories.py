@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils.translation import gettext as _
 
-from .models import Category, Subcategory, Transaction
+from .models import Category, Rule, Subcategory, Transaction
 
 
 class CategoryEditRefused(Exception):
@@ -64,12 +64,13 @@ def _move(siblings, item, direction):
 
 
 def delete_subcategory(subcategory: Subcategory) -> None:
-    """Moves its Transactions to the Category's catch-all, keeping their source."""
+    """Moves its Transactions and Rules to the Category's catch-all, keeping the Transactions' source."""
     if subcategory.is_catch_all:
         raise CategoryEditRefused(_("A catch-all Subcategory can't be deleted."))
     with transaction.atomic():
         catch_all = subcategory.category.subcategories.get(is_catch_all=True)
         subcategory.transactions.update(subcategory=catch_all)
+        subcategory.rules.update(subcategory=catch_all)
         subcategory.delete()
 
 
@@ -77,6 +78,11 @@ def delete_category(category: Category) -> None:
     if Transaction.objects.filter(subcategory__category=category).exists():
         raise CategoryEditRefused(
             _("%(category)s still has Transactions, so it can't be deleted.")
+            % {"category": category.name}
+        )
+    if Rule.objects.filter(subcategory__category=category).exists():
+        raise CategoryEditRefused(
+            _("Rules still categorize into %(category)s, so it can't be deleted.")
             % {"category": category.name}
         )
     category.delete()
