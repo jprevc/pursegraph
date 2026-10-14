@@ -1,0 +1,29 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "LLM suggestions" %}{% endblock %}
+{% block main %}
+<h2>{% translate "LLM suggestions" %}</h2>
+{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
+
+{% if clearing_count %}
+<form class="panel notice stack-form" method="post" action="{% url 'accept_clearing_suggestions' %}">{% csrf_token %}
+  <p>{% blocktranslate count n=clearing_count %}{{ n }} queued Transaction now clears the threshold, accept it?{% plural %}{{ n }} queued Transactions now clear the threshold, accept them?{% endblocktranslate %}</p>
+  <div class="actions">
+    <button type="submit">{% translate "Accept" %}</button>
+    <span class="muted">{% translate "Or leave them in the Review queue with the suggestion preselected." %}</span>
+  </div>
+</form>
+{% endif %}
+
+<form class="panel stack-form" method="post">{% csrf_token %}
+  {{ form.as_div }}
+  <p class="muted">{% translate "Outcomes the LLM already set stay when you raise it." %}</p>
+  <div class="actions"><button type="submit">{% translate "Save" %}</button></div>
+</form>
+
+<form class="panel stack-form" method="post" action="{% url 'resuggest' %}">{% csrf_token %}
+  <h3>{% translate "Re-suggest" %}</h3>
+  <p class="muted">{% translate "After changing the model or the prompt: clears the suggestions of the Transactions in the Review queue, so the LLM is asked about them again. Outcomes already set stay." %}</p>
+  <div class="actions"><button type="submit">{% translate "Re-suggest the Review queue" %}</button></div>
+</form>
+{% endblock %}

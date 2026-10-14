@@ -17,6 +17,7 @@ from members.permissions import admin_required
 
 from . import categories as category_edits
 from . import rules as rule_edits
+from . import suggestions
 from .forms import (
     AccountForm,
     CategoryForm,
@@ -24,6 +25,7 @@ from .forms import (
     OutcomeForm,
     RuleForm,
     StatementFileForm,
+    ThresholdForm,
     TransactionFilterForm,
 )
 from .importer import (
@@ -327,6 +329,51 @@ def move_subcategory(request, pk):
 @_category_edit
 def delete_subcategory(request, pk):
     category_edits.delete_subcategory(get_object_or_404(Subcategory, pk=pk))
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def suggestion_settings(request):
+    """The auto-accept threshold, with an offer to accept the queued suggestions that clear it, and re-suggesting."""
+    form = ThresholdForm(
+        request.POST or None, initial={"threshold": f"{suggestions.threshold():.2f}"}
+    )
+    if form.is_valid():
+        suggestions.set_threshold(form.cleaned_data["threshold"])
+        return redirect("suggestion_settings")
+    return render(
+        request,
+        "ledger/suggestion_settings.html",
+        {"form": form, "clearing_count": suggestions.clearing_threshold().count()},
+    )
+
+
+@admin_required
+@require_POST
+def accept_clearing_suggestions(request):
+    count = suggestions.accept_clearing_threshold()
+    messages.success(
+        request,
+        ngettext("%(count)d suggestion accepted.", "%(count)d suggestions accepted.", count)
+        % {"count": count},
+    )
+    return redirect("suggestion_settings")
+
+
+@admin_required
+@require_POST
+def resuggest(request):
+    count = suggestions.resuggest_queue()
+    messages.success(
+        request,
+        ngettext(
+            "%(count)d suggestion cleared; the LLM will be asked again.",
+            "%(count)d suggestions cleared; the LLM will be asked again.",
+            count,
+        )
+        % {"count": count},
+    )
+    return redirect("suggestion_settings")
 
 
 def rules(request):

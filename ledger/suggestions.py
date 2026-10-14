@@ -92,7 +92,7 @@ def run_once(suggester: Suggester) -> Run:
     if not pending:
         return Run(0)
     subcategories = list(Subcategory.objects.select_related("category").order_by("category"))
-    threshold = float(Setting.get(Setting.AUTO_ACCEPT_THRESHOLD))
+    auto_accept = threshold()
     for done, candidate in enumerate(pending):
         try:
             suggestion: Suggestion | None = suggester.suggest(_query(candidate, subcategories))
@@ -102,8 +102,48 @@ def run_once(suggester: Suggester) -> Run:
         except NoSuggestion:
             suggestion = None
         Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
-        _store(candidate.pk, suggestion, threshold)
+        _store(candidate.pk, suggestion, auto_accept)
     return Run(len(pending))
+
+
+def threshold() -> float:
+    """The auto-accept threshold: a suggestion at least this confident sets the outcome by itself."""
+    return float(Setting.get(Setting.AUTO_ACCEPT_THRESHOLD))
+
+
+def set_threshold(value: Decimal) -> None:
+    """Changes the threshold for suggestions from now on; outcomes already set stay, whichever way it moves."""
+    Setting.put(Setting.AUTO_ACCEPT_THRESHOLD, str(value))
+
+
+def clearing_threshold():
+    """The queued Transactions whose stored suggestion is at least as confident as the threshold, such as
+    after it was lowered."""
+    return Transaction.objects.unresolved().filter(
+        suggested_subcategory__isnull=False, confidence__gte=threshold()
+    )
+
+
+def accept_clearing_threshold() -> int:
+    """Accepts the suggestions that clear the threshold, as the worker would have (`source = llm`).
+    Returns how many."""
+    with transaction.atomic():
+        clearing = list(
+            clearing_threshold().select_for_update().select_related("suggested_subcategory")
+        )
+        for candidate in clearing:
+            candidate.set_outcome(candidate.suggested_subcategory, source=Source.LLM)
+    return len(clearing)
+
+
+def resuggest_queue() -> int:
+    """Clears the stored suggestions of the queued Transactions, so the worker asks about them again,
+    such as after a model or prompt change. Returns how many it cleared."""
+    return (
+        Transaction.objects.unresolved()
+        .filter(confidence__isnull=False)
+        .update(suggested_subcategory=None, confidence=None)
+    )
 
 
 def suggestions_unavailable() -> bool:
