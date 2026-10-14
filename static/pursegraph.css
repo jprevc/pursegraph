@@ -72,6 +72,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; margin-
 input, select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); background: #fff; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.danger { background: none; color: var(--bad); }
+a.danger { color: var(--bad); }
 .outcome { display: flex; align-items: center; gap: 8px; }
 .outcome select { max-width: 260px; padding: 3px 6px; }
 .outcome .source { font-size: 12px; }

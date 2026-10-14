@@ -3,6 +3,7 @@
 {% block title %}{% translate "Import" %}{% endblock %}
 {% block main %}
 <h2>{% translate "Import" %}</h2>
+{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 
 {% for result in results %}{% with summary=result.summary rejection=result.rejection %}
 {% if summary %}
@@ -122,7 +123,7 @@
   <details>
     <summary>{% blocktranslate count n=account.statements.all|length %}{{ n }} Statement{% plural %}{{ n }} Statements{% endblocktranslate %}</summary>
   <table>
-    <thead><tr><th>{% translate "Period" %}</th><th>{% translate "Format" %}</th><th class="num">{% translate "Transactions" %}</th><th>{% translate "Imported" %}</th></tr></thead>
+    <thead><tr><th>{% translate "Period" %}</th><th>{% translate "Format" %}</th><th class="num">{% translate "Transactions" %}</th><th>{% translate "Imported" %}</th><th></th></tr></thead>
     <tbody>
     {% for statement in account.statements.all %}
       <tr>
@@ -130,6 +131,7 @@
         <td>{{ statement.get_format_display }}</td>
         <td class="num">{{ statement.transaction_count }}</td>
         <td>{{ statement.imported_at|date:"j M Y" }}, {{ statement.imported_by.get_username }}</td>
+        <td>{% if user.is_admin or statement.imported_by_id == user.pk %}<a class="danger" href="{% url 'delete_statement' statement.pk %}">{% translate "Delete" %}</a>{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
