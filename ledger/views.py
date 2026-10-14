@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import IntegrityError
 from django.db import transaction as db_transaction
 from django.db.models import Count, Prefetch
 from django.http import HttpResponseBadRequest
@@ -158,8 +159,13 @@ def edit_account(request, pk):
 def _account_form(request, account):
     form = AccountAdminForm(request.POST or None, instance=account)
     if request.method == "POST" and form.is_valid():
-        form.save()
-        return redirect("accounts")
+        try:
+            form.save()
+        except IntegrityError:
+            # Another admin gave one of the IBANs to an Account in the meantime.
+            form.add_error("ibans", _("One of these IBANs was just added to another Account."))
+        else:
+            return redirect("accounts")
     return render(request, "ledger/account_form.html", {"form": form})
 
 

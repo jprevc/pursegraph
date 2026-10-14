@@ -19,9 +19,9 @@ from .models import (
     Subcategory,
     Transaction,
 )
-from .parsers.iban import valid_iban
+from .parsers.iban import tidy_iban, valid_iban
 from .rules import place_at_top
-from .transfers import pair_by_hand
+from .transfers import pair_by_hand, recognise_transfers_to
 
 NEW = "new"
 
@@ -119,7 +119,7 @@ class AccountAdminForm(forms.ModelForm):
         model = Account
         fields = ["name", "bank", "owners"]
         widgets = {"owners": forms.CheckboxSelectMultiple}
-        error_messages = {"owners": {"required": _("Choose at least one owner.")}}
+        error_messages = {"owners": {"required": _("Choose at least one Member.")}}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -139,12 +139,8 @@ class AccountAdminForm(forms.ModelForm):
         return bank
 
     def clean_ibans(self) -> list[str]:
-        ibans = list(
-            dict.fromkeys(
-                "".join(line.split()).upper() for line in self.cleaned_data["ibans"].splitlines()
-            )
-        )
-        ibans = [iban for iban in ibans if iban]
+        lines = map(tidy_iban, self.cleaned_data["ibans"].splitlines())
+        ibans = list(dict.fromkeys(iban for iban in lines if iban))
         errors = [
             _("%(iban)s is not a valid IBAN.") % {"iban": iban}
             for iban in ibans
@@ -165,7 +161,7 @@ class AccountAdminForm(forms.ModelForm):
     def clean(self):
         super().clean()
         data = self.cleaned_data
-        if data.get("bank") == Bank.OTHER and data.get("ibans") == []:
+        if data.get("bank") == Bank.OTHER and not data.get("ibans", True):
             self.add_error(
                 "ibans",
                 _("An Account with no Statements needs an IBAN to recognise Transfers to it."),
@@ -173,14 +169,18 @@ class AccountAdminForm(forms.ModelForm):
         return data
 
     def save(self, commit=True) -> Account:
+        """Saves the Account and its IBANs; the Transactions already imported that pay to or from an IBAN it
+        adds become Transfers. Always commits."""
         with db_transaction.atomic():
             account = super().save()
             ibans = self.cleaned_data["ibans"]
             account.ibans.exclude(iban__in=ibans).delete()
             kept = set(account.ibans.values_list("iban", flat=True))
+            added = [iban for iban in ibans if iban not in kept]
             AccountIBAN.objects.bulk_create(
-                AccountIBAN(account=account, iban=iban) for iban in ibans if iban not in kept
+                AccountIBAN(account=account, iban=iban) for iban in added
             )
+            recognise_transfers_to(added)
         return account
 
 
@@ -337,7 +337,7 @@ class RuleForm(forms.ModelForm):
         return self.cleaned_data["description_contains"].strip()
 
     def clean_counterparty_iban(self):
-        return "".join(self.cleaned_data["counterparty_iban"].split()).upper()
+        return tidy_iban(self.cleaned_data["counterparty_iban"])
 
     def clean(self):
         super().clean()

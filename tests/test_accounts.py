@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from ledger.models import Account
+from ledger.models import Account, Transaction
 from tests.conftest import make_account
 from tests.test_import import upload as upload_csv
 from tests.test_import import upload_without_account
@@ -248,3 +248,22 @@ def test_deleting_an_account_is_refused_while_it_has_statements(admin_client):
 
     assert Account.objects.filter(pk=account.pk).exists()
     assert "has Statements" in response.content.decode()
+
+
+# Recognising Transfers to IBANs added later
+
+REVOLUT_IBAN = "LT633250001234567890"
+
+
+def test_payments_already_imported_to_an_added_iban_become_transfers(admin_client, admin):
+    """The Sparkasse fixture pays 1500.00 to REVOLUT_IBAN, as "Ana Novak"."""
+    make_account("Sparkasse", "sparkasse_si", admin, [SPARKASSE_IBAN])
+    upload_pdf(admin_client)
+    assert Transaction.objects.get(description="Ana Novak").is_unresolved
+
+    save_account(admin_client, owners=[admin.pk], ibans=REVOLUT_IBAN)
+
+    payment = Transaction.objects.get(description="Ana Novak")
+    assert payment.is_transfer
+    assert payment.source == "iban"
+    assert Transaction.objects.filter(is_transfer=True).count() == 1
