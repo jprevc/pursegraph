@@ -1,5 +1,6 @@
 import pytest
 
+from ledger.models import Category
 from tests.conftest import outcome_shown, review_queue_count, subcategory_id, transaction_id
 from tests.test_import import upload
 
@@ -93,3 +94,28 @@ def test_an_offsite_next_url_is_ignored(logged_in_client):
     )
 
     assert response.url == "/transactions/"
+
+
+def test_fees_follow_the_bank_fees_subcategory_when_an_admin_renames_it(
+    logged_in_client, admin_client
+):
+    admin_client.post(
+        f"/categories/{Category.objects.get(name='Finance').pk}/rename/", {"name": "Money"}
+    )
+    admin_client.post(
+        f"/subcategories/{subcategory_id('Money', 'Bank fees')}/rename/", {"name": "Fees"}
+    )
+
+    upload(logged_in_client)
+
+    page = logged_in_client.get("/transactions/").content.decode()
+    assert outcome_shown(page, "Fee: Corner Shop") == "Money → Fees"
+
+
+def test_fees_wait_for_review_once_bank_fees_is_deleted(logged_in_client, admin_client):
+    admin_client.post(f"/subcategories/{subcategory_id('Finance', 'Bank fees')}/delete/")
+
+    upload(logged_in_client)
+
+    page = logged_in_client.get("/transactions/").content.decode()
+    assert outcome_shown(page, "Fee: Corner Shop") == "Awaiting review"

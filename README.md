@@ -30,7 +30,7 @@ Statements may overlap the Account's Coverage (the dates already imported). The 
 
 ## Categories and the Review queue
 
-Every Transaction gets an outcome: a Subcategory of the two-level Category list, or Transfer. A default list is seeded on the first migration; admins edit it on the Categories page. Bank fees are categorized Finance → Bank fees at import (while that Subcategory keeps its name). Everything else waits in the Review queue, where a Member picks the outcome; the same inline editor appears on every row of the Transactions view.
+Every Transaction gets an outcome: a Subcategory of the two-level Category list, or Transfer. A default list is seeded on the first migration; admins edit it on the Categories page. Bank fees that a parser splits off their payment are categorized Finance → Bank fees at import, even after that Subcategory is renamed. Everything else waits in the Review queue, where a Member picks the outcome; the same inline editor appears on every row of the Transactions view.
 
 ## Recovering a locked-out admin
 

@@ -29,6 +29,7 @@
         <input name="name" value="{{ s.name }}" aria-label="{% translate 'Subcategory name' %}" required>
         <button type="submit">{% translate "Rename" %}</button>
       </form>
+      {% if s.is_bank_fees %}<span class="muted">{% translate "bank fees at import" %}</span>{% endif %}
       {% if s.is_catch_all %}
       <span class="muted">{% translate "catch-all" %}</span>
       {% else %}

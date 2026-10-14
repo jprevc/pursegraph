@@ -179,8 +179,8 @@ def commit_statement(
             % {"iban": parsed.iban, "account": checked.account}
         )
 
-    # Found by name: if an admin renamed or deleted it, fees wait in the Review queue instead.
-    bank_fees = Subcategory.objects.filter(category__name="Finance", name="Bank fees").first()
+    # None once an admin deleted it; fees then wait in the Review queue.
+    bank_fees = Subcategory.objects.filter(is_bank_fees=True).first()
     with transaction.atomic():
         if isinstance(account, NewAccount):
             account = Account.objects.create(name=account.name, bank=parsed.bank)

@@ -59,6 +59,10 @@ def test_the_default_categories_are_seeded_in_order(admin_client):
     ):
         assert f'value="{subcategory}"' in page
     assert page.count('<span class="muted">catch-all</span>') == 10
+    finance = page[
+        page.index('<h3 class="category">Finance') : page.index('<h3 class="category">Other')
+    ]
+    assert page.count("bank fees at import") == finance.count("bank fees at import") == 1
 
 
 def test_every_default_category_has_exactly_one_catch_all(admin_client):

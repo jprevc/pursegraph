@@ -205,6 +205,8 @@ class Subcategory(models.Model):
     name = models.CharField(_("name"), max_length=100)
     # Takes the Transactions of a deleted sibling; can't be deleted itself.
     is_catch_all = models.BooleanField(_("catch-all"), default=False)
+    # Bank fees split off their payment by the parsers are categorized here at import, whatever its name.
+    is_bank_fees = models.BooleanField(_("bank fees"), default=False)
     position = models.PositiveIntegerField(_("position"), default=0)
 
     class Meta:
@@ -215,6 +217,11 @@ class Subcategory(models.Model):
                 fields=["category"],
                 condition=models.Q(is_catch_all=True),
                 name="one_catch_all_per_category",
+            ),
+            models.UniqueConstraint(
+                fields=["is_bank_fees"],
+                condition=models.Q(is_bank_fees=True),
+                name="one_bank_fees_subcategory",
             ),
         ]
         verbose_name = _("subcategory")
