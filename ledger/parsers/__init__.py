@@ -28,4 +28,8 @@ def parse_pdf_text(text: str) -> ParsedStatement:
         from . import sparkasse_pdf
 
         return sparkasse_pdf.parse(text)
+    if "Revolut Bank UAB" in text:
+        from . import revolut_pdf
+
+        return revolut_pdf.parse(text)
     raise ParseError(_("This PDF is not a Statement of a supported bank."))

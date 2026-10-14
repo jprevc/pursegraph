@@ -31,12 +31,15 @@ class ParsedRow:
 
 @dataclass(frozen=True)
 class Totals:
-    """Money in and out, and how many rows of each: as a Statement prints them, or as its rows add up."""
+    """Money in and out, and how many rows of each: as a Statement prints them, or as its rows add up.
+
+    The counts are None when a Statement prints only the money (Revolut).
+    """
 
     money_in: Decimal
     money_out: Decimal
-    count_in: int
-    count_out: int
+    count_in: int | None = None
+    count_out: int | None = None
 
 
 @dataclass(frozen=True)

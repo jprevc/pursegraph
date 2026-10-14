@@ -22,6 +22,7 @@ from decimal import Decimal
 
 from django.utils.translation import gettext as _
 
+from .iban import valid_iban
 from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
 MONEY = r"\d{1,3}(?:\.\d{3})*,\d\d"
@@ -45,46 +46,6 @@ STATEMENT_TEXT = re.compile(
     r"^(?:BANKA SPARKASSE|IZPISEK|IBAN |Datum|Skupni promet|Valuta |Promet na TRR|Začetno stanje|Končno stanje)"
 )
 NAME_WITH_AMOUNT = re.compile(rf" {MONEY}$|^{MONEY}$")
-# IBAN lengths of the SEPA countries, so that a wrapped IBAN's first part never passes as a whole one.
-IBAN_LENGTHS = {
-    "AD": 24,
-    "AT": 20,
-    "BE": 16,
-    "BG": 22,
-    "CH": 21,
-    "CY": 28,
-    "CZ": 24,
-    "DE": 22,
-    "DK": 18,
-    "EE": 20,
-    "ES": 24,
-    "FI": 18,
-    "FR": 27,
-    "GB": 22,
-    "GI": 23,
-    "GR": 27,
-    "HR": 21,
-    "HU": 28,
-    "IE": 22,
-    "IS": 26,
-    "IT": 27,
-    "LI": 21,
-    "LT": 20,
-    "LU": 20,
-    "LV": 21,
-    "MC": 27,
-    "MT": 31,
-    "NL": 18,
-    "NO": 15,
-    "PL": 28,
-    "PT": 25,
-    "RO": 24,
-    "SE": 24,
-    "SI": 19,
-    "SK": 24,
-    "SM": 27,
-    "VA": 22,
-}
 
 
 def parse(text: str) -> ParsedStatement:
@@ -176,13 +137,13 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
     if match := IBAN.match(rest):
         iban, rest = match[1], match[2] or ""
         if (
-            not _valid_iban(iban)
+            not valid_iban(iban)
             and after
             and IBAN_TAIL.match(after[0])
-            and _valid_iban(iban + after[0])
+            and valid_iban(iban + after[0])
         ):
             iban, after = iban + after[0], after[1:]
-        if not _valid_iban(iban):
+        if not valid_iban(iban):
             raise ParseError.unsupported_row(text)
     elif name or not rest:
         raise ParseError.unsupported_row(text)
@@ -199,14 +160,6 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
         reference=reference or "",
         raw={"value_date": _date(value_date).isoformat(), "purpose": purpose, "lines": lines},
     )
-
-
-def _valid_iban(iban: str) -> bool:
-    """The country's IBAN length, when known, and the ISO 13616 mod-97 check."""
-    if len(iban) != IBAN_LENGTHS.get(iban[:2], len(iban)):
-        return False
-    digits = "".join(str(int(char, 36)) for char in iban[4:] + iban[:4])
-    return int(digits) % 97 == 1
 
 
 def _date(text: str):

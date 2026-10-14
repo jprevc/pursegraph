@@ -1,0 +1,55 @@
+EUR Statement
+Generated on Jun 12, 2026
+Revolut Bank UAB
+ANA NOVAK
+Glavna ulica 1 IBAN LT121000011101001000
+1000 BIC REVOLT21
+Ljubljana
+Balance summary
+Closing
+Product Opening balance Money out Money in
+balance
+Account (Current Account) €500.00 €372.36 €2,025.00 €2,152.64
+Total €500.00 €372.36 €2,025.00 €2,152.64
+The balance on your statement might differ from the balance shown in your app. The statement balance only reflects completed transactions, while the app shows the balance available for use, which accounts for pending transactions.
+Account transactions from June 1, 2026 to June 11, 2026
+Date Description Money out Money in Balance
+Jun 1, 2026 Hiša kave €4.50 €495.50
+To: Hisa Kave, Ljubljana
+Card: 123456******7890
+Jun 3, 2026 Payment from Ana Novak €2,000.00 €2,495.50
+Reference: SI00 12345
+From: Ana Novak, SI56020100001234582
+Jun 6, 2026 Corner Shop €50.52 €2,444.98
+Fee: €0.50 €50.02
+Revolut Rate €1.00 = £0.85 (ECB rate* €1.00 = £0.86) £42.52
+To: Corner Shop, London
+Card: 123456******7890
+Report lost or stolen card Revolut Bank UAB is a bank licensed in the Republic of Lithuania with company number 304580906 and authorization code
+LB002119. Its registered address is Konstitucijos Ave. 21B, LT-08130 Vilnius, Republic of Lithuania. Revolut Bank UAB is authorized
++370 5 214 3608 by the European Central Bank and regulated by the Bank of Lithuania and the European Central Bank. Deposits are protected by the
+Get help directly in-app Lithuanian deposit guarantee program, but some exceptions may apply. Please see our information document on deposit protection
+here. For more information on the Public Institution Deposit and Investment Insurance (Viešoji įstaiga “Indėlių ir investicijų
+Scan the QR code draudimas”), please visit www.iidraudimas.lt. If you have any questions, please contact us via the in-app chat in the Revolut app.
+© 2026 Revolut Bank UAB Page 1 of 2
+EUR Statement
+Generated on Jun 12, 2026
+Revolut Bank UAB
+Date Description Money out Money in Balance
+Jun 8, 2026 To Janez Kranjc €305.00 €2,139.98
+Reference: rent June
+Fee: €5.00 €300.00
+$345.00
+To: Janez Kranjc, DE89370400440532013000
+Jun 10, 2026 Čevljar €25.00 €2,164.98
+Card: 123456******7890
+Jun 11, 2026 Mercator Žalec €12.34 €2,152.64
+To: Mercator Zalec, Zalec
+Card: 123456******7890
+Report lost or stolen card Revolut Bank UAB is a bank licensed in the Republic of Lithuania with company number 304580906 and authorization code
+LB002119. Its registered address is Konstitucijos Ave. 21B, LT-08130 Vilnius, Republic of Lithuania. Revolut Bank UAB is authorized
++370 5 214 3608 by the European Central Bank and regulated by the Bank of Lithuania and the European Central Bank. Deposits are protected by the
+Get help directly in-app Lithuanian deposit guarantee program, but some exceptions may apply. Please see our information document on deposit protection
+here. For more information on the Public Institution Deposit and Investment Insurance (Viešoji įstaiga “Indėlių ir investicijų
+Scan the QR code draudimas”), please visit www.iidraudimas.lt. If you have any questions, please contact us via the in-app chat in the Revolut app.
+© 2026 Revolut Bank UAB Page 2 of 2
