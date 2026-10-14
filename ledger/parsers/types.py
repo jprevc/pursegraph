@@ -31,12 +31,24 @@ class ParsedRow:
 
 @dataclass(frozen=True)
 class Totals:
-    """Money in and out, and how many rows of each: as a Statement prints them, or as its rows add up."""
+    """Money in and out, and how many rows of each: as a Statement prints them, or as its rows add up.
+
+    A Statement that prints no row counts (N26) leaves them None.
+    """
 
     money_in: Decimal
     money_out: Decimal
-    count_in: int
-    count_out: int
+    count_in: int | None = None
+    count_out: int | None = None
+
+    def matches(self, parsed: "Totals") -> bool:
+        """These printed totals agree with the `parsed` rows' totals, comparing counts only where printed."""
+        return (
+            self.money_in == parsed.money_in
+            and self.money_out == parsed.money_out
+            and self.count_in in (None, parsed.count_in)
+            and self.count_out in (None, parsed.count_out)
+        )
 
 
 @dataclass(frozen=True)
