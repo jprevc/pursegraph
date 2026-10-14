@@ -1,10 +1,7 @@
-from functools import wraps
-
 from axes.utils import reset
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
-from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -13,16 +10,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import NewMemberForm
 from .links import set_password_link
-
-
-def admin_required(view):
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_admin:
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
-
-    return wrapper
+from .permissions import admin_required
 
 
 @admin_required
@@ -126,6 +114,6 @@ class SetPasswordView(auth_views.PasswordResetConfirmView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        reset(username=self.user.get_username())
+        reset(username=form.user.get_username())
         messages.success(self.request, _("Your password is set. Log in with it."))
         return response

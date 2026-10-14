@@ -68,9 +68,12 @@ def test_creating_the_account_for_an_unknown_iban_imports_the_statement(logged_i
 
 
 def october(text=FIXTURE):
-    """The next month's Statement of the same Account: a different file with the same IBAN."""
+    """A later Statement of the same Account: a different file with the same IBAN.
+
+    Its period leaves a gap after September's, so its (unchanged) balances needn't continue September's.
+    """
     return text.replace(
-        "31.08.2026 Datum izpiska: 30.09.2026", "30.09.2026 Datum izpiska: 31.10.2026"
+        "31.08.2026 Datum izpiska: 30.09.2026", "30.11.2026 Datum izpiska: 31.12.2026"
     )
 
 

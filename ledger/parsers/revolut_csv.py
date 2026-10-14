@@ -87,10 +87,11 @@ def parse(content: bytes) -> ParsedStatement:
                     description=f"Fee: {description}",
                     running_balance=balance,
                     raw=line,
+                    is_fee=True,
                 )
             )
 
-    if not rows:
+    if opening is None or closing is None:  # set by the first completed row
         raise ParseError(_("The Statement has no completed rows."))
     return ParsedStatement(
         bank="revolut",
