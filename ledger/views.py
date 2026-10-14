@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.formats import date_format
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from members.permissions import admin_required
 
@@ -126,6 +126,7 @@ def _account_step(statement: CheckedStatement, account_form: AccountForm) -> dic
     }
 
 
+@require_http_methods(["GET", "POST"])
 def delete_statement(request, pk):
     """Deletes a Statement after a confirmation; only its importer or an admin may."""
     statement = get_object_or_404(Statement.objects.select_related("account"), pk=pk)
@@ -137,7 +138,7 @@ def delete_statement(request, pk):
             request,
             _("Deleted the %(account)s Statement %(start)s – %(end)s.")
             % {
-                "account": statement.account,
+                "account": statement.account.name,
                 "start": date_format(statement.period_start, "j M Y"),
                 "end": date_format(statement.period_end, "j M Y"),
             },
@@ -149,7 +150,7 @@ def delete_statement(request, pk):
         {
             "statement": statement,
             "transaction_count": statement.own_transactions().count(),
-            "manual_outcome_count": statement.lost_manual_outcomes(),
+            "manual_outcome_count": statement.lost_manual_outcome_count(),
         },
     )
 

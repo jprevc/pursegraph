@@ -99,8 +99,8 @@ class Statement(models.Model):
         on_other_statements = Transaction.statements.through.objects.exclude(statement=self)
         return self.transactions.exclude(pk__in=on_other_statements.values("transaction"))
 
-    def lost_manual_outcomes(self) -> int:
-        """How many outcomes a Member set by hand deleting this Statement would lose."""
+    def lost_manual_outcome_count(self) -> int:
+        """How many of the Transactions deleting this Statement would delete have a manual outcome."""
         return self.own_transactions().filter(source=Source.MANUAL).count()
 
     def delete_with_transactions(self) -> None:
@@ -113,7 +113,8 @@ class Statement(models.Model):
             Account.objects.select_for_update().get(pk=self.account_id)
             self.own_transactions().delete()  # the counterpart link is SET_NULL
             self.delete()
-        self.file.delete(save=False)
+            # Only once the rows are gone for good; a rollback keeps the file.
+            transaction.on_commit(lambda: self.file.delete(save=False))
 
 
 class Source(models.TextChoices):

@@ -3,8 +3,8 @@
 import pytest
 from django.test import Client
 
-from ledger.models import Source, Statement, Transaction
-from tests.conftest import PASSWORD
+from ledger.models import Bank, Source, Statement, Transaction
+from tests.conftest import PASSWORD, make_account
 from tests.test_duplicates import (
     JUNE_1_TO_10,
     import_page,
@@ -63,9 +63,10 @@ def test_confirmation_names_the_statement(logged_in_client, june):
 
 
 def test_deleting_removes_the_statement_its_transactions_and_its_file(
-    logged_in_client, june, statement_files
+    logged_in_client, june, statement_files, django_capture_on_commit_callbacks
 ):
-    response = logged_in_client.post(delete_url(june))
+    with django_capture_on_commit_callbacks(execute=True):
+        response = logged_in_client.post(delete_url(june))
 
     assert response.status_code == 302
     assert response.url == "/import/"
@@ -119,20 +120,21 @@ def test_confirmation_counts_the_manual_outcomes_that_will_be_lost(logged_in_cli
     assert "2 manual outcomes will be lost" in page
 
 
-def test_a_surviving_transfer_side_loses_its_counterpart(logged_in_client, june, overlap):
+def test_a_surviving_transfer_side_loses_its_counterpart(logged_in_client, june):
+    savings = make_account("Savings", Bank.OTHER)
     salary = Transaction.objects.get(description="Salary")
-    petrol = Transaction.objects.get(description="Petrol")
-    Transaction.objects.filter(pk__in=[salary.pk, petrol.pk]).update(
-        is_transfer=True, source=Source.MANUAL
+    deposit = Transaction.objects.create(
+        account=savings, date=salary.date, amount=-salary.amount, description="From Revolut"
     )
-    Transaction.objects.filter(pk=salary.pk).update(counterpart=petrol)
-    Transaction.objects.filter(pk=petrol.pk).update(counterpart=salary)
+    for side, other in ((salary, deposit), (deposit, salary)):
+        side.is_transfer, side.counterpart, side.source = True, other, Source.PAIRING
+        side.save()
 
     logged_in_client.post(delete_url(june))
 
-    petrol.refresh_from_db()
-    assert petrol.is_transfer
-    assert petrol.counterpart is None
+    deposit.refresh_from_db()
+    assert deposit.is_transfer
+    assert deposit.counterpart is None
 
 
 def test_an_admin_can_delete_another_members_statement(admin_client, june):
