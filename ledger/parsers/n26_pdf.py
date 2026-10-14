@@ -10,7 +10,7 @@ takes several lines:
     Value Date <value date>
 
 The overview page after them prints the opening and closing balances and the money in and out
-totals, but no row counts. Every page ends in a footer with the Member's name and address and the
+totals, but no row counts. Every page ends in a footer with the Account holder's name and address and the
 Statement's own IBAN.
 """
 
@@ -22,7 +22,8 @@ from django.utils.translation import gettext as _
 
 from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
-MONEY = r"[+-]?\d{1,3}(?:\.\d{3})*,\d\d"
+UNSIGNED = r"\d{1,3}(?:\.\d{3})*,\d\d"
+MONEY = rf"[+-]?{UNSIGNED}"
 DATE = r"\d\d\.\d\d\.\d{4}"
 OWN_IBAN = re.compile(r"^IBAN: ([A-Z]{2}\d{2}[A-Z0-9]+) • BIC: \S+ Nr\. \d\d/\d{4}$", re.M)
 PERIOD = re.compile(rf"^({DATE}) until ({DATE})$", re.M)
@@ -31,14 +32,15 @@ MONEY_OUT = re.compile(rf"^Outgoing transactions ({MONEY})€$", re.M)
 MONEY_IN = re.compile(rf"^Incoming transactions ({MONEY})€$", re.M)
 CLOSING = re.compile(rf"^Your new balance ({MONEY})€$", re.M)
 OVERVIEW = re.compile(r"^Overview Nr\. \d\d/\d{4}$")
-# The page footer's first line; the next one is the Member's address and the issue date.
+# The page footer's first line; the next one is the Account holder's address and the issue date.
 FOOTER = re.compile(r"^.* Issued on$")
 # Lines that carry no row: page headers and the rest of the page footer.
 NOISE = re.compile(
     rf"^(?:Bank Statement Nr\. \d\d/\d{{4}}|{DATE} until {DATE}|Description Booking Date Amount"
     rf"|{OWN_IBAN.pattern[1:-1]}|\d+ / \d+)$"
 )
-FIRST_LINE = re.compile(rf"^(.+) ({DATE}) ({MONEY})€$")
+# A row's amount always carries its sign.
+FIRST_LINE = re.compile(rf"^(.+) ({DATE}) ([+-]{UNSIGNED})€$")
 VALUE_DATE = re.compile(rf"^Value Date ({DATE})$")
 IBAN = re.compile(r"^IBAN: ([A-Z]{2}\d{2}[A-Z0-9]+) • BIC: \S+$")
 
@@ -60,7 +62,7 @@ def parse(text: str) -> ParsedStatement:
         rows=_rows(text),
         skipped_count=0,
         # The overview prints money out as negative, or unsigned when it's zero.
-        printed_totals=Totals(money_in=_money(money_in[1]), money_out=abs(_money(money_out[1]))),
+        printed_totals=Totals(money_in=_money(money_in[1]), money_out=-_money(money_out[1])),
     )
 
 
@@ -109,7 +111,7 @@ def _row(lines: list[str]) -> ParsedRow:
         counterparty_name=description,
         counterparty_iban=ibans[0] if ibans else "",
         raw={
-            "category": category,
+            "n26_category": category,
             "purpose": " ".join(line for line in rest if not IBAN.match(line)),
             "value_date": _date(value_date[1]).isoformat(),
             "lines": lines,

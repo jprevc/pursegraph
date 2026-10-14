@@ -51,7 +51,7 @@ def test_n26_rows():
 def test_n26_keeps_its_category_line_purpose_and_value_date_in_raw():
     rows = parse_pdf_text(FIXTURE).rows
 
-    assert [(r.raw["category"], r.raw["purpose"], r.raw["value_date"]) for r in rows] == [
+    assert [(r.raw["n26_category"], r.raw["purpose"], r.raw["value_date"]) for r in rows] == [
         ("Mastercard • Groceries", "", "2026-09-01"),
         ("Incoming Transfers", "Placa september", "2026-09-05"),
         ("Mastercard • Car", "", "2026-09-07"),
@@ -100,6 +100,12 @@ def replace(old, new):
             "ZABEC MARKET 02.09.2026",
             "ZABEC MARKET 02.09.2026",
         ),
+        # An unsigned amount.
+        (
+            "ZABEC MARKET 02.09.2026 -12,40€",
+            "ZABEC MARKET 02.09.2026 12,40€",
+            "ZABEC MARKET 02.09.2026 12,40€",
+        ),
         # A row with no value-date line.
         (
             "Mastercard • Groceries\nValue Date 01.09.2026\n",
@@ -128,6 +134,13 @@ def test_n26_rejects_an_unrecognised_row(old, new, row):
         parse_pdf_text(replace(old, new))
 
     assert str(error.value) == f"unsupported row: {row}"
+
+
+def test_n26_money_out_printed_as_positive_doesnt_match_the_rows():
+    statement = parse_pdf_text(replace("-1.077,73€", "+1.077,73€"))
+
+    assert statement.printed_totals is not None
+    assert statement.printed_totals.money_out == Decimal("-1077.73")
 
 
 def test_n26_statement_without_an_overview_is_rejected():
