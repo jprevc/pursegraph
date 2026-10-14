@@ -70,7 +70,7 @@
 {% endwith %}{% endfor %}
 
 {% for pending in pending %}
-<form class="panel import-form" method="post">
+<form class="panel stack-form" method="post">
   {% csrf_token %}
   <h3>{% translate "Choose the Account" %}</h3>
   {% with s=pending.statement %}
@@ -87,7 +87,7 @@
   </div>
 </form>
 {% empty %}
-<form class="panel import-form" method="post" enctype="multipart/form-data">
+<form class="panel stack-form" method="post" enctype="multipart/form-data">
   {% csrf_token %}
   <p class="muted">{% translate "Sparkasse SI PDF Statements and Revolut CSV exports can be imported, several at once." %}</p>
   {{ form.file.errors }}

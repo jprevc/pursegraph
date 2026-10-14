@@ -6,6 +6,7 @@
   <h1>Pursegraph</h1>
   <form method="post" action="{% url 'login' %}" class="panel">
     {% csrf_token %}
+    {% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}
     {% if form.errors %}
       <p class="error">{% translate "Your username and password didn't match. Please try again." %}</p>
     {% endif %}

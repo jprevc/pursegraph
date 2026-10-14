@@ -1,0 +1,12 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% if invite %}{% translate "Invite link" %}{% else %}{% translate "Password-reset link" %}{% endif %}{% endblock %}
+{% block main %}
+<h2>{% if invite %}{% translate "Invite link" %}{% else %}{% translate "Password-reset link" %}{% endif %}</h2>
+<section class="panel stack-form">
+  <p>{% blocktranslate with name=member.get_full_name|default:member.get_username %}Give this link to {{ name }}. They set their own password through it.{% endblocktranslate %}</p>
+  <input type="text" readonly value="{{ link }}" onfocus="this.select()">
+  <p class="muted">{% translate "It works once and expires in 7 days. There is no email: pass it on yourself." %}</p>
+</section>
+<p><a href="{% url 'members' %}">{% translate "Back to Members" %}</a></p>
+{% endblock %}
