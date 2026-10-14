@@ -33,7 +33,7 @@ class ParsedRow:
 class Totals:
     """Money in and out, and how many rows of each: as a Statement prints them, or as its rows add up.
 
-    A Statement that prints no row counts (N26) leaves them None.
+    A Statement that prints no row counts (N26, Revolut) leaves them None.
     """
 
     money_in: Decimal

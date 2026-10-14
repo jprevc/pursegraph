@@ -32,4 +32,9 @@ def parse_pdf_text(text: str) -> ParsedStatement:
         from . import n26_pdf
 
         return n26_pdf.parse(text)
+    # After N26, whose rows may name Revolut as a counterparty's bank.
+    if "Revolut Bank UAB" in text:
+        from . import revolut_pdf
+
+        return revolut_pdf.parse(text)
     raise ParseError(_("This PDF is not a Statement of a supported bank."))

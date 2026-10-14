@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.utils.translation import gettext as _
 
+from .revolut import counterparty_name, fee_row
 from .types import ParsedRow, ParsedStatement, ParseError
 
 HEADER = [
@@ -63,33 +64,18 @@ def parse(content: bytes) -> ParsedStatement:
             opening = balance - amount + fee
         closing = balance
         description = line["Description"]
-        counterparty = (
-            description.removeprefix("Payment from ")
-            if description.startswith("Payment from ")
-            else ""
-        )
         rows.append(
             ParsedRow(
                 date=day,
                 amount=amount,
                 description=description,
-                counterparty_name=counterparty,
+                counterparty_name=counterparty_name(description),
                 running_balance=balance + fee,
                 raw=line,
             )
         )
         if fee:
-            rows.append(
-                ParsedRow(
-                    # Stored data, so not translated.
-                    date=day,
-                    amount=-fee,
-                    description=f"Fee: {description}",
-                    running_balance=balance,
-                    raw=line,
-                    is_fee=True,
-                )
-            )
+            rows.append(fee_row(day, fee, description, balance, line))
 
     if opening is None or closing is None:  # set by the first completed row
         raise ParseError(_("The Statement has no completed rows."))
