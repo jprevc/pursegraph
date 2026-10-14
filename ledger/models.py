@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from .coverage import DateRange, Segment, coverage, timeline
+
 
 class Bank(models.TextChoices):
     SPARKASSE_SI = "sparkasse_si", _("Sparkasse SI")
@@ -26,6 +28,14 @@ class Account(models.Model):
 
     def __str__(self):
         return self.name
+
+    def coverage(self) -> list[DateRange]:
+        """The dates this Account's Statements cover, as separate date ranges. Derived, not stored."""
+        return coverage(self.statements.all())
+
+    def coverage_timeline(self) -> list[Segment]:
+        """The Coverage as covered stretches with the gaps between them, for the Import page."""
+        return timeline(self.coverage())
 
 
 class AccountIBAN(models.Model):

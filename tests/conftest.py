@@ -69,7 +69,9 @@ def subcategory_id(category, name):
 
 def review_queue_count(page):
     """The count the sidebar shows next to "Review queue"."""
-    return int(re.search(r'<span id="review-queue-count"[^>]*>\((\d+)\)</span>', page)[1])
+    count = re.search(r'<span id="review-queue-count"[^>]*>\((\d+)\)</span>', page)
+    assert count, "no Review queue count"
+    return int(count[1])
 
 
 def make_account(name, bank, owner=None, ibans=()):

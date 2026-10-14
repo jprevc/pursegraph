@@ -1,5 +1,6 @@
 import base64
 import binascii
+from typing import cast
 
 from django import forms
 from django.db.models import Q
@@ -11,20 +12,40 @@ from .models import Account, Bank, Category, Source, Subcategory, Transaction
 NEW = "new"
 
 
-class StatementFileForm(forms.Form):
-    """The Statement file: uploaded, or carried along by the Account step as base64 `content`."""
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
 
-    file = forms.FileField(label=_("Statement file"), required=False)
+
+class MultipleFileField(forms.FileField):
+    """A file field that takes several files and cleans to a list of them."""
+
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        clean_one = super().clean
+        if not data:
+            return [clean_one(None, initial)] if self.required else []
+        return [clean_one(file, initial) for file in data]
+
+
+class StatementFileForm(forms.Form):
+    """The Statement files: uploaded (several at once), or one carried along by the Account step as
+    base64 `content`. Cleans to `files`, a list of (filename, content)."""
+
+    file = MultipleFileField(label=_("Statement files"), required=False)
     content = forms.CharField(widget=forms.HiddenInput, required=False)
     filename = forms.CharField(widget=forms.HiddenInput, required=False)
 
     def clean(self):
-        data = super().clean()
-        if upload := data.get("file"):
-            data.update(content=upload.read(), filename=upload.name)
+        super().clean()
+        data = self.cleaned_data
+        if uploads := data.get("file"):
+            data["files"] = [(upload.name, upload.read()) for upload in uploads]
         elif data.get("content") and data.get("filename"):
             try:
-                data["content"] = base64.b64decode(data["content"], validate=True)
+                data["files"] = [
+                    (data["filename"], base64.b64decode(data["content"], validate=True))
+                ]
             except binascii.Error as err:
                 raise forms.ValidationError(_("Upload the Statement file again.")) from err
         else:
@@ -43,7 +64,7 @@ class AccountForm(forms.Form):
         super().__init__(*args, **kwargs)
         bank = Bank(statement.parsed.bank)
         accounts = Account.objects.filter(bank=bank)
-        self.fields["account"].choices = [
+        cast(forms.ChoiceField, self.fields["account"]).choices = [
             ("", _("Choose an Account")),
             *((str(a.pk), a.name) for a in accounts),
             (NEW, _("New %(bank)s Account") % {"bank": bank.label}),
@@ -55,7 +76,8 @@ class AccountForm(forms.Form):
             self.initial["account"] = str(accounts[0].pk)
 
     def clean(self):
-        data = super().clean()
+        super().clean()
+        data = self.cleaned_data
         if data.get("account") == NEW and not data.get("new_account_name", "").strip():
             self.add_error("new_account_name", _("Name the new Account."))
         return data
@@ -76,7 +98,7 @@ class OutcomeForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["outcome"].choices = [
+        cast(forms.ChoiceField, self.fields["outcome"]).choices = [
             *((str(s.pk), s.name) for s in Subcategory.objects.all()),
             (TRANSFER, _("Transfer")),
         ]
@@ -102,7 +124,7 @@ class TransactionFilterForm(forms.Form):
 
     def __init__(self, *args, categories, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["outcome"].choices = [
+        cast(forms.ChoiceField, self.fields["outcome"]).choices = [
             ("", _("All outcomes")),
             ("unresolved", _("Awaiting review")),
             (TRANSFER, _("Transfer")),

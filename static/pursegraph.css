@@ -57,6 +57,14 @@ th { color: var(--ink-2); font-weight: 600; }
 .import-form .actions { flex-direction: row; align-items: center; gap: 16px; }
 .import-form h3 { margin-top: 0; }
 .iban { margin: 0 0 6px; font-size: 13px; }
+.warning { color: var(--bad); margin-bottom: 0; }
+.mismatch { margin-top: 12px; }
+.coverage { display: flex; gap: 1px; height: 14px; margin: 8px 0 4px; border-radius: 4px; overflow: hidden; }
+.coverage span { flex-basis: 0; min-width: 3px; }
+.coverage .covered { background: var(--accent); }
+.coverage .gap { background: repeating-linear-gradient(45deg, var(--bad) 0 3px, transparent 3px 6px); opacity: 0.6; }
+.coverage-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin: 0 0 8px; font-size: 13px; }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 14px; margin-bottom: 6px; }
 input, select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid var(--ring); background: #fff; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.danger { background: none; color: var(--bad); }
