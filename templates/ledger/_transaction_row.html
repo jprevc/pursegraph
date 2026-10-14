@@ -1,26 +1,34 @@
 {% load i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`. #}
+{# An unresolved Transaction with an LLM suggestion has it preselected, to accept with one click. #}
+{% with suggested=t.pending_suggestion_id %}
 <tr id="transaction-{{ t.pk }}">
   <td>{{ t.date|date:"Y-m-d" }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount }}</td>
   <td>
     <form class="outcome" method="post" action="{% url 'transaction_outcome' t.pk %}"
-          hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change" hx-target="closest tr" hx-swap="outerHTML">
+          hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change, submit" hx-target="closest tr" hx-swap="outerHTML">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <select name="outcome" aria-label="{% translate 'Outcome' %}">
-        {% if not t.subcategory_id and not t.is_transfer %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}
+        {% if t.is_unresolved and not suggested %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}
         {% for category in categories %}
         <optgroup label="{{ category.name }}">
           {% for s in category.subcategories.all %}
-          <option value="{{ s.pk }}"{% if s.pk == t.subcategory_id %} selected{% endif %}>{{ s.name }}</option>
+          <option value="{{ s.pk }}"{% if s.pk == t.subcategory_id or s.pk == suggested %} selected{% endif %}>{{ s.name }}</option>
           {% endfor %}
         </optgroup>
         {% endfor %}
         <option value="transfer"{% if t.is_transfer %} selected{% endif %}>{% translate "Transfer" %}</option>
       </select>
+      {% if suggested %}
+      <button type="submit" class="accept">{% translate "Accept" %}</button>
+      {% widthratio t.confidence 1 100 as percent %}<span class="muted source">{% blocktranslate %}Suggested · {{ percent }}% sure{% endblocktranslate %}</span>
+      {% else %}
       <noscript><button type="submit">{% translate "Save" %}</button></noscript>
+      {% endif %}
       {% if t.source %}<span class="muted source">{{ t.get_source_display }}</span>{% endif %}
       {% if t.source == "manual" %}<a class="source" href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
     </form>
   </td>
 </tr>
+{% endwith %}
 {% if refresh_review_queue_count %}<span id="review-queue-count" hx-swap-oob="true">({{ review_queue_count }})</span>{% endif %}

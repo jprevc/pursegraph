@@ -10,6 +10,7 @@
     <div class="sep"></div>
     <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}">{% translate "Import" %}</a>
     <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}">{% translate "Review queue" %} <span id="review-queue-count">({{ review_queue_count }})</span></a>
+    {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
     <a class="nav {% if nav == 'rules' or nav == 'new_rule' or nav == 'edit_rule' or nav == 'apply_rule' %}on{% endif %}" href="{% url 'rules' %}">{% translate "Rules" %}</a>
     {% if user.is_admin %}
     <div class="sep"></div>

@@ -3,6 +3,7 @@ import base64
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction as db_transaction
 from django.db.models import Count, Prefetch
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -33,7 +34,7 @@ from .importer import (
     check_statement,
     commit_statement,
 )
-from .models import Account, Bank, Category, Rule, Statement, Subcategory, Transaction
+from .models import Account, Bank, Category, Rule, Source, Statement, Subcategory, Transaction
 
 TRANSACTIONS_PER_PAGE = 100
 
@@ -179,12 +180,41 @@ def transactions(request):
 
 
 def review_queue(request):
-    rows = Transaction.objects.unresolved().select_related("account").order_by("date", "id")
+    rows = list(Transaction.objects.unresolved().select_related("account").order_by("date", "id"))
     return render(
         request,
         "ledger/review_queue.html",
-        {"transactions": rows, "categories": categories_with_subcategories()},
+        {
+            "transactions": rows,
+            "suggested": [t for t in rows if t.pending_suggestion_id],
+            "categories": categories_with_subcategories(),
+        },
     )
+
+
+@require_POST
+def accept_suggestions(request):
+    """Accepts the suggestions the Review queue showed, each `accept` a "<Transaction id>:<Subcategory id>", as
+    manual outcomes. Transactions decided since are left alone."""
+    shown: dict[int, int] = {}
+    for value in request.POST.getlist("accept"):
+        transaction_pk, _sep, subcategory_pk = value.partition(":")
+        if not (transaction_pk.isdigit() and subcategory_pk.isdigit()):
+            return HttpResponseBadRequest()
+        shown[int(transaction_pk)] = int(subcategory_pk)
+    subcategories = Subcategory.objects.in_bulk(shown.values())
+    count = 0
+    with db_transaction.atomic():
+        for t in Transaction.objects.unresolved().select_for_update().filter(pk__in=shown):
+            if subcategory := subcategories.get(shown[t.pk]):
+                t.set_outcome(subcategory, source=Source.MANUAL)
+                count += 1
+    messages.success(
+        request,
+        ngettext("%(count)d suggestion accepted.", "%(count)d suggestions accepted.", count)
+        % {"count": count},
+    )
+    return redirect("review_queue")
 
 
 @require_POST

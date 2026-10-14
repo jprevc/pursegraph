@@ -104,6 +104,8 @@ class ImportSummary:
     skipped_count: int
     rule_count: int
     """The new Transactions the Rules categorized."""
+    awaiting_count: int = 0
+    """The new Transactions still unresolved, waiting for an LLM suggestion or the Review queue."""
     gaps: list[DateRange] = field(default_factory=list)
     """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
 
@@ -237,6 +239,9 @@ def commit_statement(
             rule_count = apply_rules(
                 Transaction.objects.filter(pk__in=[t.pk for t in transactions])
             )
+            awaiting_count = (
+                Transaction.objects.filter(pk__in=[t.pk for t in transactions]).unresolved().count()
+            )
             gaps_left = sorted(
                 set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
             )
@@ -256,6 +261,7 @@ def commit_statement(
         len(duplicates),
         parsed.skipped_count,
         rule_count,
+        awaiting_count,
         gaps_left,
     )
 
