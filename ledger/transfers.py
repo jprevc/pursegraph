@@ -2,26 +2,31 @@
 
 The IBAN rule makes a new Transaction paying to or from any Household IBAN a Transfer. Pairing
 then links each unpaired Transfer side with the Transaction in another Account that has the equal
-and opposite amount within ±3 days, the closest date winning. Pairing works in either import
-order: a side already imported finds its counterpart among the new Transactions, and a new side
-finds it among the existing ones. A counterpart categorized by a Rule or the LLM becomes a
-Transfer. A tie between candidates leaves the side unpaired and in the Review queue as an
-ambiguous pairing, until a Member picks its counterpart or keeps it one-sided. Manual outcomes are never changed: a manual Transfer may be paired, but a manually
-categorized Transaction is never a counterpart.
+and opposite amount within ±3 days; a side paying to a Household IBAN pairs only within that
+IBAN's Account. The closest pairs are linked first. Pairing works in either import order: a side
+already imported finds its counterpart among the new Transactions, and a new side finds it among
+the existing ones. A counterpart categorized by a Rule or the LLM becomes a Transfer.
+
+A tie, whether a side has several equally close candidates or a candidate several equally close
+sides, leaves those sides unpaired and in the Review queue as ambiguous pairings, until a Member
+picks a counterpart or keeps the side one-sided, or a later import brings a closer counterpart.
+
+Manual outcomes are never changed: a manual Transfer may be paired, but a manually categorized
+Transaction is never a counterpart.
 """
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import timedelta
+from itertools import groupby
 
 from django.db import transaction
 from django.db.models import Q, Subquery
 
 from .models import AccountIBAN, Source, Transaction, TransactionQuerySet
+from .rules import OVERWRITABLE
 
 WINDOW = timedelta(days=3)
-
-# The categorized outcomes pairing may turn into a Transfer.
-CONVERTIBLE = [Source.RULE, Source.LLM]
 
 
 @dataclass
@@ -43,20 +48,37 @@ def apply_iban_rule(transactions: TransactionQuerySet) -> None:
 
 def pair(new: TransactionQuerySet) -> Pairing:
     """Pairs the unpaired Transfer sides among `new`, and those already imported that a Transaction of `new`
-    could pair with."""
+    could pair with, closest pairs first."""
     result = Pairing()
+    new_pks = set(new.values_list("pk", flat=True))
     with transaction.atomic():
+        # Every possible pair once, as (distance, side, candidate). Locking the candidates keeps a
+        # concurrent import from pairing them too.
+        possible: dict[frozenset[int], tuple[int, Transaction, Transaction]] = {}
         for side in _sides(new):
-            side.refresh_from_db()
-            if side.counterpart_id:  # paired as an earlier side's counterpart
-                continue
-            closest = closest_candidates(side)
-            if len(closest) == 1:
-                result.converted_count += _link(side, closest[0], source=Source.PAIRING)
-            elif closest:
-                side.ambiguous_pairing = True
-                side.save(update_fields=["ambiguous_pairing"])
-                result.ambiguous_count += 1
+            for candidate in _candidates(side).select_for_update(of=("self",)):
+                possible.setdefault(
+                    frozenset((side.pk, candidate.pk)),
+                    (_distance(side, candidate), side, candidate),
+                )
+        done: set[int] = set()
+        ordered = sorted(possible.values(), key=lambda p: (p[0], p[1].date, p[1].pk, p[2].pk))
+        for _, group in groupby(ordered, key=lambda p: p[0]):
+            open_pairs = [(s, c) for _, s, c in group if s.pk not in done and c.pk not in done]
+            # How many open pairs at this distance each Transaction is in; more than one is a tie.
+            ends = Counter(t.pk for open_pair in open_pairs for t in open_pair)
+            for side, candidate in open_pairs:
+                if ends[side.pk] == 1 and ends[candidate.pk] == 1:
+                    converted = _link(side, candidate, source=Source.PAIRING)
+                    # A new Transaction's Category was set by this very import, so isn't reported.
+                    result.converted_count += converted and candidate.pk not in new_pks
+                else:
+                    for t in (side, candidate):
+                        if t.is_transfer and not t.ambiguous_pairing:
+                            t.ambiguous_pairing = True
+                            t.save(update_fields=["ambiguous_pairing"])
+                            result.ambiguous_count += 1
+                done |= {side.pk, candidate.pk}
     return result
 
 
@@ -86,21 +108,25 @@ def closest_candidates(side: Transaction) -> list[Transaction]:
 
 
 def _sides(new: TransactionQuerySet) -> list[Transaction]:
-    unpaired = Transaction.objects.filter(
-        is_transfer=True, counterpart__isnull=True, ambiguous_pairing=False
-    )
+    unpaired = Transaction.objects.filter(is_transfer=True, counterpart__isnull=True)
     sides = set(unpaired.filter(pk__in=new.values("pk")))
     for t in new.filter(counterpart__isnull=True).filter(_counterpart_outcome()):
         sides.update(unpaired.filter(_within_reach_of(t)))
-    return sorted(sides, key=lambda t: (t.date, t.pk))
+    return list(sides)
 
 
 def _candidates(side: Transaction) -> TransactionQuerySet:
-    return (
+    candidates = (
         Transaction.objects.filter(_within_reach_of(side), counterpart__isnull=True)
         .filter(_counterpart_outcome())
         .select_related("account")
     )
+    # Paid to or from a Household IBAN: the other side can only be in that IBAN's Account.
+    if side.counterparty_iban and (
+        known := AccountIBAN.objects.filter(iban=side.counterparty_iban).first()
+    ):
+        candidates = candidates.filter(account_id=known.account_id)
+    return candidates
 
 
 def _within_reach_of(t: Transaction) -> Q:
@@ -116,7 +142,7 @@ def _counterpart_outcome() -> Q:
     return (
         Q(is_transfer=True)
         | Q(subcategory__isnull=True, is_transfer=False)
-        | Q(source__in=CONVERTIBLE)
+        | Q(source__in=OVERWRITABLE)
     )
 
 
@@ -124,10 +150,10 @@ def _distance(side: Transaction, candidate: Transaction) -> int:
     return abs((candidate.date - side.date).days)
 
 
-def _link(side: Transaction, counterpart: Transaction, *, source: str) -> int:
+def _link(side: Transaction, counterpart: Transaction, *, source: str) -> bool:
     """Pairs the two, settling any ambiguous pairing of either. A `counterpart` that isn't a Transfer yet
-    becomes one, set by `source`. Returns 1 if it was categorized before, else 0."""
-    converted = int(counterpart.subcategory_id is not None)
+    becomes one, set by `source`. Returns whether it was categorized before."""
+    converted = counterpart.subcategory_id is not None
     if not counterpart.is_transfer:
         counterpart.subcategory = None
         counterpart.is_transfer = True

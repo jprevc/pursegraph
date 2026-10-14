@@ -289,3 +289,115 @@ def test_a_transfer_marked_by_a_rule_is_paired(logged_in_client, sparkasse, memb
     assert "converted" not in summary  # the Sparkasse side was unresolved, not categorized
     assert Transaction.objects.get(description="Payment from Ana Novak").source == "rule"
     assert counterpart_of("Payment from Ana Novak") == "Ana Novak"
+
+
+@pytest.fixture
+def savings_moves(logged_in_client, member):
+    """Two Revolut Accounts with no IBANs, whose "Savings" rows a Rule marks as Transfers."""
+    logged_in_client.post("/rules/new/", {"description_contains": "savings", "outcome": "transfer"})
+    return make_account("Ana's Revolut", "revolut", member), make_account(
+        "Bor's Revolut", "revolut", member
+    )
+
+
+def test_the_closest_pair_wins_whichever_side_comes_first(logged_in_client, savings_moves):
+    ana, bor = savings_moves
+    import_revolut(
+        logged_in_client,
+        ana,
+        [("2026-09-01", "Savings early", "-50"), ("2026-09-03", "Savings late", "-50")],
+    )
+
+    import_revolut(logged_in_client, bor, [("2026-09-03", "Savings in", "50")])
+
+    assert counterpart_of("Savings in") == "Savings late"
+    assert counterpart_of("Savings early") is None
+
+
+def test_two_sides_equally_close_to_one_candidate_go_to_the_review_queue(logged_in_client, member):
+    ana = make_account("Ana's Revolut", "revolut", member)
+    logged_in_client.post(
+        "/rules/new/",
+        {"description_contains": "savings", "account": ana.pk, "outcome": "transfer"},
+    )
+    import_revolut(
+        logged_in_client,
+        ana,
+        [("2026-09-01", "Savings early", "-50"), ("2026-09-05", "Savings late", "-50")],
+    )
+
+    summary = import_revolut(
+        logged_in_client,
+        make_account("Bor's Revolut", "revolut", member),
+        [("2026-09-03", "From Ana", "50")],
+    )
+
+    assert "2 Transfers with several possible counterparts wait in the Review queue" in summary
+    page = review_queue(logged_in_client)
+    pairing = page[page.index("Transfers to pair") :]
+    assert "Savings early" in pairing
+    assert "Savings late" in pairing
+    assert counterpart_of("From Ana") is None
+
+
+def test_a_closer_counterpart_imported_later_settles_a_tie(logged_in_client, savings_moves, member):
+    ana, bor = savings_moves
+    import_revolut(logged_in_client, ana, [("2026-09-03", "Savings out", "-50")])
+    import_revolut(
+        logged_in_client,
+        bor,
+        [("2026-09-01", "From Ana early", "50"), ("2026-09-05", "From Ana late", "50")],
+    )
+    assert "Transfers to pair" in review_queue(logged_in_client)
+
+    import_revolut(
+        logged_in_client,
+        make_account("Cene's Revolut", "revolut", member),
+        [("2026-09-03", "From Ana", "50")],
+    )
+
+    assert "Transfers to pair" not in review_queue(logged_in_client)
+    assert counterpart_of("Savings out") == "From Ana"
+
+
+def test_a_payment_to_a_household_iban_pairs_only_within_that_account(
+    logged_in_client, sparkasse, member
+):
+    make_account("Ana's savings", "other", member, [REVOLUT_IBAN])
+    import_sparkasse(logged_in_client)
+
+    import_revolut(
+        logged_in_client, make_account("Ana's Revolut", "revolut", member), payment_from_ana()
+    )
+
+    assert outcome_shown(transactions_page(logged_in_client), "Payment from Ana Novak") == (
+        "Awaiting review"
+    )
+    assert counterpart_of("Ana Novak") is None
+
+
+def test_a_payment_to_another_members_account_is_a_transfer(
+    logged_in_client, sparkasse, django_user_model
+):
+    bor = django_user_model.objects.create_user(username="bor", password="x")
+    make_account("Bor's Revolut", "revolut", bor, [REVOLUT_IBAN])
+
+    summary = import_sparkasse(logged_in_client)
+
+    assert "1 Transfer recognised: 0 paired, 1 one-sided" in summary
+
+
+def test_duplicates_of_a_paired_side_are_not_counted_again(logged_in_client, sparkasse, revolut):
+    import_sparkasse(logged_in_client)
+    import_revolut(logged_in_client, revolut, payment_from_ana())
+
+    summary = import_revolut(
+        logged_in_client,
+        revolut,
+        [*payment_from_ana(), ("2026-09-12", "Bakery", "-3.20")],
+        filename="overlap.csv",
+    )
+
+    assert "1 Duplicate skipped" in summary
+    assert "0 Transfers recognised: 0 paired, 0 one-sided" in summary
+    assert counterpart_of("Ana Novak") == "Payment from Ana Novak"

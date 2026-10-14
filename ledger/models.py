@@ -134,9 +134,7 @@ class TransactionQuerySet(models.QuerySet):
 
     def in_review_queue(self):
         """The Review queue: the unresolved ones, and the Transfer sides with several possible counterparts."""
-        return self.filter(
-            models.Q(subcategory__isnull=True, is_transfer=False) | models.Q(ambiguous_pairing=True)
-        )
+        return self.unresolved() | self.filter(ambiguous_pairing=True)
 
 
 class Transaction(models.Model):
