@@ -49,7 +49,7 @@ A Member-defined pattern that assigns a Category to matching Transactions, or ma
 _Avoid_: Filter, mapping, auto-label
 
 **Review queue**:
-The Transactions that still need a Member to decide their outcome: those with neither a Subcategory nor Transfer status, and those that could pair with more than one Transfer side.
+The Transactions that still need a Member to decide their outcome: those with neither a Subcategory nor Transfer status, and the Transfer sides whose pairing is ambiguous because more than one Transaction is equally close to being their other side.
 _Avoid_: Inbox, uncategorized list
 
 **Refund**:

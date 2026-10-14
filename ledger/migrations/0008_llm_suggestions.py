@@ -11,7 +11,7 @@ def seed_threshold(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0006_rules'),
+        ('ledger', '0007_ambiguous_pairing'),
     ]
 
     operations = [

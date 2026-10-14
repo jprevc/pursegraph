@@ -9,7 +9,8 @@
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <select name="outcome" aria-label="{% translate 'Outcome' %}">
-        {% if t.is_unresolved and not suggested %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}
+        {% if t.ambiguous_pairing %}<option value="" selected>{% translate "Pick the other side" %}</option>
+        {% elif t.is_unresolved and not suggested %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}
         {% for category in categories %}
         <optgroup label="{{ category.name }}">
           {% for s in category.subcategories.all %}
@@ -17,7 +18,16 @@
           {% endfor %}
         </optgroup>
         {% endfor %}
+        {% if t.ambiguous_pairing %}
+        <optgroup label="{% translate 'Transfer' %}">
+          {% for c in t.pairing_candidates %}
+          <option value="pair-{{ c.pk }}">{% blocktranslate with date=c.date|date:"Y-m-d" account=c.account.name description=c.description %}Pair with {{ date }} · {{ account }} · {{ description }}{% endblocktranslate %}</option>
+          {% endfor %}
+          <option value="transfer">{% translate "Transfer, one-sided" %}</option>
+        </optgroup>
+        {% else %}
         <option value="transfer"{% if t.is_transfer %} selected{% endif %}>{% translate "Transfer" %}</option>
+        {% endif %}
       </select>
       {% if suggested %}
       <button type="submit" class="accept">{% translate "Accept" %}</button>

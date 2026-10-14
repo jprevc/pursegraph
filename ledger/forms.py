@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from .importer import CheckedStatement, NewAccount
 from .models import Account, Bank, Category, Rule, Source, Subcategory, Transaction
 from .rules import place_at_top
+from .transfers import pair_by_hand
 
 NEW = "new"
 
@@ -92,22 +93,32 @@ class AccountForm(forms.Form):
 TRANSFER = "transfer"
 
 
+PAIR_WITH = "pair-"
+
+
 class OutcomeForm(forms.Form):
-    """A manual outcome: a Subcategory's id, or TRANSFER."""
+    """A manual outcome for `transaction`: a Subcategory's id or TRANSFER; for an ambiguous pairing, also
+    PAIR_WITH and the id of one of its candidates."""
 
     outcome = forms.ChoiceField(label=_("Outcome"))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, transaction: Transaction, **kwargs):
         super().__init__(*args, **kwargs)
+        self.transaction = transaction
+        self.candidates = {f"{PAIR_WITH}{c.pk}": c for c in transaction.pairing_candidates()}
         cast(forms.ChoiceField, self.fields["outcome"]).choices = [
             *((str(s.pk), s.name) for s in Subcategory.objects.all()),
             (TRANSFER, _("Transfer")),
+            *((value, str(c)) for value, c in self.candidates.items()),
         ]
 
-    def save(self, transaction: Transaction) -> None:
+    def save(self) -> None:
         value = self.cleaned_data["outcome"]
-        subcategory = None if value == TRANSFER else Subcategory.objects.get(pk=value)
-        transaction.set_outcome(subcategory, source=Source.MANUAL)
+        if value in self.candidates:
+            pair_by_hand(self.transaction, self.candidates[value])
+        else:
+            subcategory = None if value == TRANSFER else Subcategory.objects.get(pk=value)
+            self.transaction.set_outcome(subcategory, source=Source.MANUAL)
 
 
 class TransactionFilterForm(forms.Form):

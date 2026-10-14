@@ -14,6 +14,9 @@
     <li>{% blocktranslate count n=summary.imported_count %}{{ n }} Transaction imported{% plural %}{{ n }} Transactions imported{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.duplicate_count %}{{ n }} Duplicate skipped{% plural %}{{ n }} Duplicates skipped{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.skipped_count %}{{ n }} non-completed row skipped{% plural %}{{ n }} non-completed rows skipped{% endblocktranslate %}</li>
+    <li>{% blocktranslate with paired=summary.paired_count one_sided=summary.one_sided_count count n=summary.paired_count|add:summary.one_sided_count %}{{ n }} Transfer recognised: {{ paired }} paired, {{ one_sided }} one-sided{% plural %}{{ n }} Transfers recognised: {{ paired }} paired, {{ one_sided }} one-sided{% endblocktranslate %}</li>
+    {% if summary.converted_count %}<li>{% blocktranslate count n=summary.converted_count %}{{ n }} categorized Transaction converted to a Transfer{% plural %}{{ n }} categorized Transactions converted to Transfers{% endblocktranslate %}</li>{% endif %}
+    {% if summary.ambiguous_count %}<li>{% blocktranslate count n=summary.ambiguous_count %}{{ n }} Transfer with several possible counterparts waits in the Review queue{% plural %}{{ n }} Transfers with several possible counterparts wait in the Review queue{% endblocktranslate %}</li>{% endif %}
     <li>{% blocktranslate count n=summary.rule_count %}{{ n }} Transaction categorized by Rules{% plural %}{{ n }} Transactions categorized by Rules{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.awaiting_count %}{{ n }} Transaction waiting for suggestions or review{% plural %}{{ n }} Transactions waiting for suggestions or review{% endblocktranslate %}</li>
   </ul>
