@@ -189,3 +189,47 @@ def test_a_tampered_pending_file_is_asked_for_again(logged_in_client):
     )
 
     assert "Upload the Statement file again." in response.content.decode()
+
+
+N26 = (Path(__file__).parent / "fixtures" / "n26.txt").read_text()
+N26_IBAN = "DE89370400440532013000"
+
+
+def test_an_n26_statement_imports_into_the_account_of_its_iban(logged_in_client, member):
+    make_account("Ana's N26", "n26", member, ibans=[N26_IBAN])
+
+    response = upload(logged_in_client, N26, filename="statement-2026-09.pdf")
+
+    page = response.content.decode()
+    assert "Imported into Ana&#x27;s N26" in page
+    assert "1 Sep 2026 – 30 Sep 2026" in page
+    assert "7 Transactions imported" in page
+    page = logged_in_client.get("/transactions/").content.decode()
+    assert (
+        '<td>2026-09-10</td><td>Ana&#x27;s N26</td><td>Ana Novak</td><td class="num">-1000.00</td>'
+        in page
+    )
+    assert "EasyPark SI" in page
+
+
+def test_an_n26_statement_of_an_unknown_iban_asks_for_the_account(logged_in_client):
+    page = upload(logged_in_client, N26, filename="statement-2026-09.pdf").content.decode()
+
+    assert "Choose the Account" in page
+    assert N26_IBAN in page
+    assert 'value="N26"' in page
+
+
+def test_n26_rows_that_dont_match_the_printed_totals_are_rejected(
+    logged_in_client, statement_files
+):
+    # The balances still add up, but the printed money in and out are both 1,00 more.
+    text = N26.replace("Outgoing transactions -1.077,73€", "Outgoing transactions -1.078,73€")
+    text = text.replace("Incoming transactions +1.250,00€", "Incoming transactions +1.251,00€")
+
+    page = upload(logged_in_client, text, filename="statement-2026-09.pdf").content.decode()
+
+    assert "rows don&#x27;t match its printed totals" in page
+    # N26 prints no row counts.
+    assert '<tr><th>Printed</th><td class="num">1251.00</td><td class="num">—</td>' in page
+    assert_nothing_stored(logged_in_client, statement_files)

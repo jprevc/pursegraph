@@ -29,7 +29,7 @@ def test_sample_pdf_adds_up(path):
     rows, totals = statement.rows, statement.printed_totals
     assert statement.opening_balance + sum(r.amount for r in rows) == statement.closing_balance
     assert totals is not None  # every supported PDF prints its totals
-    assert totals.count_in == sum(1 for r in rows if r.amount > 0)
-    assert totals.count_out == sum(1 for r in rows if r.amount < 0)
+    assert totals.count_in in (None, sum(1 for r in rows if r.amount > 0))
+    assert totals.count_out in (None, sum(1 for r in rows if r.amount < 0))
     assert totals.money_in == sum((r.amount for r in rows if r.amount > 0), Decimal(0))
     assert totals.money_out == -sum((r.amount for r in rows if r.amount < 0), Decimal(0))

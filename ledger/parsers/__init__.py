@@ -28,4 +28,8 @@ def parse_pdf_text(text: str) -> ParsedStatement:
         from . import sparkasse_pdf
 
         return sparkasse_pdf.parse(text)
+    if "Bank Statement Nr." in text and "• BIC: NTSBDEB1" in text:
+        from . import n26_pdf
+
+        return n26_pdf.parse(text)
     raise ParseError(_("This PDF is not a Statement of a supported bank."))

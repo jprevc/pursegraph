@@ -133,7 +133,8 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
     parsed_totals = _totals(parsed.rows)
     balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
-    if not balances_add_up or parsed.printed_totals not in (None, parsed_totals):
+    totals_match = parsed.printed_totals is None or parsed.printed_totals.matches(parsed_totals)
+    if not balances_add_up or not totals_match:
         raise ImportRejected(
             _("The Statement's balances don't add up, so it was not imported.")
             if not balances_add_up
