@@ -254,8 +254,12 @@ class Rule(models.Model):
         IN = "in", _("In")
         OUT = "out", _("Out")
 
+    DESCRIPTION_LENGTH = 200
+
     # Case- and accent-insensitive.
-    description_contains = models.CharField(_("description contains"), max_length=200, blank=True)
+    description_contains = models.CharField(
+        _("description contains"), max_length=DESCRIPTION_LENGTH, blank=True
+    )
     # Stored without spaces, in capitals, like the parsers' IBANs.
     counterparty_iban = models.CharField(_("counterparty IBAN"), max_length=34, blank=True)
     direction = models.CharField(

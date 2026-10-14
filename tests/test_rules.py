@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from ledger.models import Account, Rule, Source, Transaction
+from ledger.models import Account, Category, Rule, Source, Transaction
 from tests.conftest import make_account, outcome_shown, subcategory_id, transaction_id
 from tests.test_import import upload
 
@@ -86,7 +86,7 @@ def test_reordering_changes_which_rule_wins(logged_in_client):
         "/rules/reorder/", {"rule": [rule_id("corner"), rule_id("shop")]}
     )
 
-    assert response.status_code in (200, 204, 302)
+    assert response.status_code == 302
     assert rule_order(logged_in_client) == ["corner", "shop"]
     upload(logged_in_client)
     page = logged_in_client.get("/transactions/").content.decode()
@@ -299,3 +299,40 @@ def test_deleting_a_subcategory_moves_its_rules_to_the_catch_all(logged_in_clien
     admin_client.post(f"/subcategories/{groceries()}/delete/")
 
     assert Rule.objects.get().subcategory_id == subcategory_id("Food", "Other")
+
+
+def test_make_a_rule_trims_a_long_description_to_fit(logged_in_client):
+    t = make_transaction("x" * 300)
+    t.set_outcome(None, source=Source.MANUAL)
+
+    form = logged_in_client.get(f"/rules/new/?transaction={t.pk}").content.decode()
+
+    assert re.search(r'name="description_contains"[^>]*value="x{200}"', form)
+
+
+def test_a_category_with_rules_is_not_deleted(logged_in_client, admin_client):
+    make_rule(logged_in_client, subcategory_id("Children", "Other"), description_contains="toys")
+
+    response = admin_client.post(
+        f"/categories/{Category.objects.get(name='Children').pk}/delete/", follow=True
+    )
+
+    assert "Rules still categorize into Children" in response.content.decode()
+    assert Category.objects.filter(name="Children").exists()
+
+
+def test_applying_a_subcategory_rule_unpairs_a_transfer(logged_in_client):
+    a = make_transaction("Savings", is_transfer=True, source=Source.LLM)
+    b = make_transaction("From checking", "10.00", is_transfer=True, source=Source.LLM)
+    a.counterpart = b
+    a.save()
+    b.counterpart = a
+    b.save()
+    make_rule(logged_in_client, groceries(), description_contains="savings")
+
+    logged_in_client.post(f"/rules/{rule_id('savings')}/apply/")
+
+    a.refresh_from_db()
+    b.refresh_from_db()
+    assert a.subcategory_id == groceries() and a.counterpart is None
+    assert b.counterpart is None

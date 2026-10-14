@@ -5,7 +5,7 @@ also overwrites outcomes other automatic processing set (`llm`, `rule`), never `
 `pairing` or `parser` ones."""
 
 from django.db import transaction
-from django.db.models import Min, Q, QuerySet
+from django.db.models import Min, QuerySet
 
 from .models import Rule, Source, Transaction, TransactionQuerySet
 
@@ -23,9 +23,8 @@ def apply_rules(transactions: TransactionQuerySet) -> int:
 
 def overwritable_matches(rule: Rule) -> QuerySet[Transaction]:
     """The existing Transactions `rule` would categorize if applied to them."""
-    return Transaction.objects.filter(rule.condition()).filter(
-        Q(subcategory__isnull=True, is_transfer=False) | Q(source__in=OVERWRITABLE)
-    )
+    matches = Transaction.objects.filter(rule.condition())
+    return matches.unresolved() | matches.filter(source__in=OVERWRITABLE)
 
 
 def apply_to_existing(rule: Rule) -> int:
@@ -33,13 +32,17 @@ def apply_to_existing(rule: Rule) -> int:
 
 
 def _set_outcome(transactions: QuerySet[Transaction], rule: Rule) -> int:
-    # In bulk, unlike Transaction.set_outcome(): overwritable outcomes are never paired Transfers.
-    return transactions.update(
-        subcategory=rule.subcategory_id,
-        is_transfer=rule.subcategory_id is None,
-        source=Source.RULE,
-        rule=rule,
-    )
+    """Transaction.set_outcome() in bulk: leaving Transfer unpairs both sides."""
+    with transaction.atomic():
+        if rule.subcategory_id is not None:
+            Transaction.objects.filter(counterpart__in=transactions).update(counterpart=None)
+        return transactions.update(
+            subcategory=rule.subcategory_id,
+            is_transfer=rule.subcategory_id is None,
+            source=Source.RULE,
+            rule=rule,
+            **({"counterpart": None} if rule.subcategory_id is not None else {}),
+        )
 
 
 def place_at_top(rule: Rule) -> None:

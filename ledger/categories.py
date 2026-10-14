@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils.translation import gettext as _
 
-from .models import Category, Subcategory, Transaction
+from .models import Category, Rule, Subcategory, Transaction
 
 
 class CategoryEditRefused(Exception):
@@ -78,6 +78,11 @@ def delete_category(category: Category) -> None:
     if Transaction.objects.filter(subcategory__category=category).exists():
         raise CategoryEditRefused(
             _("%(category)s still has Transactions, so it can't be deleted.")
+            % {"category": category.name}
+        )
+    if Rule.objects.filter(subcategory__category=category).exists():
+        raise CategoryEditRefused(
+            _("Rules still categorize into %(category)s, so it can't be deleted.")
             % {"category": category.name}
         )
     category.delete()

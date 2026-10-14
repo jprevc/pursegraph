@@ -220,7 +220,9 @@ class RuleForm(forms.ModelForm):
         initial: dict = (
             {"counterparty_iban": transaction.counterparty_iban}
             if transaction.counterparty_iban
-            else {"description_contains": transaction.description}
+            else {
+                "description_contains": transaction.description.strip()[: Rule.DESCRIPTION_LENGTH]
+            }
         )
         if transaction.subcategory_id or transaction.is_transfer:
             initial["outcome"] = transaction.subcategory_id or TRANSFER
