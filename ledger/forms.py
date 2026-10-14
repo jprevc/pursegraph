@@ -11,21 +11,40 @@ from .models import Account, Bank
 NEW = "new"
 
 
-class StatementFileForm(forms.Form):
-    """The Statement file: uploaded, or carried along by the Account step as base64 `content`."""
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
 
-    file = forms.FileField(label=_("Statement file"), required=False)
+
+class MultipleFileField(forms.FileField):
+    """A file field that takes several files and cleans to a list of them."""
+
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        clean_one = super().clean
+        if not data:
+            return [clean_one(None, initial)] if self.required else []
+        return [clean_one(file, initial) for file in data]
+
+
+class StatementFileForm(forms.Form):
+    """The Statement files: uploaded (several at once), or one carried along by the Account step as
+    base64 `content`. Cleans to `files`, a list of (filename, content)."""
+
+    file = MultipleFileField(label=_("Statement files"), required=False)
     content = forms.CharField(widget=forms.HiddenInput, required=False)
     filename = forms.CharField(widget=forms.HiddenInput, required=False)
 
     def clean(self):
         super().clean()
         data = self.cleaned_data
-        if upload := data.get("file"):
-            data.update(content=upload.read(), filename=upload.name)
+        if uploads := data.get("file"):
+            data["files"] = [(upload.name, upload.read()) for upload in uploads]
         elif data.get("content") and data.get("filename"):
             try:
-                data["content"] = base64.b64decode(data["content"], validate=True)
+                data["files"] = [
+                    (data["filename"], base64.b64decode(data["content"], validate=True))
+                ]
             except binascii.Error as err:
                 raise forms.ValidationError(_("Upload the Statement file again.")) from err
         else:

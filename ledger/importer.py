@@ -5,21 +5,25 @@ It runs in two calls, because the Account may have to be asked for after parsing
 - `check_statement`: sha256 re-import check, parse, balance check, printed totals check, then
   Account detection from the Statement's own IBAN;
 - `commit_statement`: into the detected Account, or one the Member picked or creates (whom it
-  then belongs to), stores the Statement, its Transactions and the original file.
+  then belongs to), checks the opening balance and Duplicates against the Account's Coverage,
+  then stores the Statement, its Transactions (less the Duplicates) and the original file.
 
-Any failure raises ImportRejected and stores nothing.
+Any failure raises ImportRejected and stores nothing of that Statement.
 """
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from pathlib import PurePath
 
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
+from django.db.models import Sum
+from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
+from .coverage import ONE_DAY, DateRange, gaps
 from .models import Account, AccountIBAN, Bank, Statement, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
 
@@ -43,19 +47,36 @@ class Diagnosis:
     parsed_totals: Totals
 
 
+@dataclass(frozen=True)
+class DayMismatch:
+    """A day inside the Account's Coverage whose rows don't match the Transactions already imported."""
+
+    day: date
+    missing: list[Transaction]
+    """Already imported for this day, but not on the new Statement."""
+    unexpected: list[ParsedRow]
+    """On the new Statement, but not among the Transactions already imported for this day."""
+
+
 class ImportRejected(Exception):
     """The Statement was not imported.
 
     `keep_file` asks the Member to keep the file because a parser fix needs it; `diagnosis` is
-    set when the numbers didn't add up.
+    set when the numbers didn't add up, `mismatch` when rows inside the Coverage didn't match.
     """
 
     def __init__(
-        self, message: str, *, keep_file: bool = False, diagnosis: Diagnosis | None = None
+        self,
+        message: str,
+        *,
+        keep_file: bool = False,
+        diagnosis: Diagnosis | None = None,
+        mismatch: list[DayMismatch] | None = None,
     ):
         super().__init__(message)
         self.keep_file = keep_file or diagnosis is not None
         self.diagnosis = diagnosis
+        self.mismatch = mismatch or []
 
 
 @dataclass(frozen=True)
@@ -77,7 +98,19 @@ class ImportSummary:
     period_start: date
     period_end: date
     imported_count: int
+    duplicate_count: int
     skipped_count: int
+    gaps: list[DateRange] = field(default_factory=list)
+    """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
+
+
+@dataclass(frozen=True)
+class FileResult:
+    """What became of one uploaded file: a summary if it was imported, the rejection if not."""
+
+    filename: str
+    summary: ImportSummary | None = None
+    rejection: ImportRejected | None = None
 
 
 def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
@@ -150,6 +183,12 @@ def commit_statement(
         if isinstance(account, NewAccount):
             account = Account.objects.create(name=account.name, bank=parsed.bank)
             account.owners.add(member)
+        else:
+            # Imports into one Account run one at a time, so each sees the Coverage the previous one left.
+            account = Account.objects.select_for_update().get(pk=account.pk)
+        duplicates, new_rows = _match_coverage(account, parsed)
+        _check_running_balance(account, parsed, new_rows)
+        gaps_before = set(gaps(account.coverage()))
         statement = Statement(
             account=account,
             format=checked.format,
@@ -180,9 +219,12 @@ def commit_statement(
                     running_balance=row.running_balance,
                     raw=row.raw,
                 )
-                for row in parsed.rows
+                for row in new_rows
             )
-            statement.transactions.add(*transactions)
+            statement.transactions.add(*transactions, *duplicates)
+            gaps_left = sorted(
+                set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
+            )
         except IntegrityError as err:
             # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)
@@ -192,7 +234,13 @@ def commit_statement(
             raise
 
     return ImportSummary(
-        account, parsed.period_start, parsed.period_end, len(transactions), parsed.skipped_count
+        account,
+        parsed.period_start,
+        parsed.period_end,
+        len(transactions),
+        len(duplicates),
+        parsed.skipped_count,
+        gaps_left,
     )
 
 
@@ -203,3 +251,141 @@ def _totals(rows: list[ParsedRow]) -> Totals:
     return Totals(
         sum(money_in, Decimal(0)), sum(money_out, Decimal(0)), len(money_in), len(money_out)
     )
+
+
+def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: list[ParsedRow]):
+    """The new Statement must follow the Account's running balance wherever it runs into the Coverage.
+
+    That is where it starts after an existing Statement's first day (up to the day after its
+    last day), and where it reaches the first day of a Coverage range. `inserted` are the
+    Statement's rows that aren't Duplicates.
+
+    An existing Statement's own rows give the balance after its first day; rows other Statements
+    added on its last day follow its own rows, so they count too, while rows added on its first
+    day precede its opening balance. Going into a Coverage range, the new Statement's rows added on
+    the range's first day therefore come before the opening balance of the Statement starting there.
+    """
+    start = parsed.period_start
+    before = (
+        account.statements.filter(period_start__lt=start, period_end__gte=start - ONE_DAY)
+        .order_by("period_start", "id")
+        .first()
+    )
+    if before is not None:
+        added_on_last_day = account.transactions.filter(
+            date=before.period_end, date__lt=start
+        ).exclude(statements=before)
+        expected = (
+            before.opening_balance
+            + _total(before.transactions.filter(date__lt=start))
+            + _total(added_on_last_day)
+        )
+        _require_balance(start, parsed.opening_balance, expected)
+
+    for covered in account.coverage():
+        if not start <= covered.start <= parsed.period_end + ONE_DAY:
+            continue
+        # Of the Statements starting that day, the latest imported has every row of the day.
+        first = account.statements.filter(period_start=covered.start).latest("id")
+        reached = (
+            parsed.opening_balance
+            + sum((row.amount for row in parsed.rows if row.date < covered.start), Decimal(0))
+            + sum((row.amount for row in inserted if row.date == covered.start), Decimal(0))
+        )
+        _require_balance(covered.start, reached, first.opening_balance)
+
+
+def _total(transactions) -> Decimal:
+    return transactions.aggregate(total=Sum("amount"))["total"] or Decimal(0)
+
+
+def _require_balance(day: date, balance: Decimal, expected: Decimal):
+    if balance != expected:
+        raise ImportRejected(
+            _(
+                "The Statement's balance going into %(date)s is %(balance)s, but the Account's was %(expected)s, "
+                "so it was not imported."
+            )
+            % {"date": date_format(day), "balance": balance, "expected": expected}
+        )
+
+
+def _match_coverage(
+    account: Account, parsed: ParsedStatement
+) -> tuple[list[Transaction], list[ParsedRow]]:
+    """Split a new Statement's rows against the Account's Coverage.
+
+    Returns the already imported Transactions the rows inside the Coverage matched (the
+    Duplicates) and the rows to insert. Inside the Coverage, each day's rows must match the
+    Transactions already imported for that day as a multiset; only on the first and last day of
+    a Coverage range may the new Statement add rows, as long as it matches every existing one.
+    """
+    rows = parsed.rows
+    ranges = account.coverage()
+    if not ranges:
+        return [], rows
+    edge_days = {r.start for r in ranges} | {r.end for r in ranges}
+
+    def covered(day):
+        return any(day in r for r in ranges)
+
+    new_by_day: dict[date, list[ParsedRow]] = {}
+    for row in rows:
+        new_by_day.setdefault(row.date, []).append(row)
+    existing_by_day: dict[date, list[Transaction]] = {}
+    days = [parsed.period_start, parsed.period_end, *new_by_day]
+    for existing in account.transactions.filter(date__range=(min(days), max(days))):
+        existing_by_day.setdefault(existing.date, []).append(existing)
+
+    duplicates: list[Transaction] = []
+    to_insert = [row for row in rows if not covered(row.date)]
+    mismatch: list[DayMismatch] = []
+    for day in sorted(set(new_by_day) | set(existing_by_day)):
+        if not covered(day):
+            continue
+        matched, missing, unexpected = _match_day(
+            existing_by_day.get(day, []), new_by_day.get(day, [])
+        )
+        if missing or (unexpected and day not in edge_days):
+            mismatch.append(DayMismatch(day, missing, unexpected))
+        duplicates += matched
+        to_insert += unexpected
+    if mismatch:
+        raise ImportRejected(
+            _(
+                "Rows inside the Account's Coverage don't match the Transactions already imported, so it was not imported."
+            ),
+            mismatch=mismatch,
+        )
+    return duplicates, to_insert
+
+
+def _match_day(
+    existing: list[Transaction], new: list[ParsedRow]
+) -> tuple[list[Transaction], list[Transaction], list[ParsedRow]]:
+    """Match one day's rows as a multiset on (amount, plus running balance where printed).
+
+    Returns the matched existing Transactions, the unmatched existing ones and the unmatched new rows.
+    """
+    both: list[Transaction | ParsedRow] = [*existing, *new]
+    with_balance = all(
+        transaction_or_row.running_balance is not None for transaction_or_row in both
+    )
+
+    def key(transaction_or_row: Transaction | ParsedRow):
+        return (
+            transaction_or_row.amount,
+            transaction_or_row.running_balance if with_balance else None,
+        )
+
+    unmatched = list(existing)
+    matched: list[Transaction] = []
+    unexpected: list[ParsedRow] = []
+    for row in new:
+        match = next((t for t in unmatched if key(t) == key(row)), None)
+        if match is None:
+            unexpected.append(row)
+        else:
+            unmatched.remove(match)
+            matched.append(match)
+    return matched, unmatched, unexpected
