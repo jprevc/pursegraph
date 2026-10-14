@@ -3,6 +3,32 @@
 {% block title %}{% translate "Review queue" %}{% endblock %}
 {% block main %}
 <h2>{% translate "Review queue" %}</h2>
+{% if pairings %}
+<h3>{% translate "Transfers to pair" %}</h3>
+<p class="muted">{% translate "Each of these Transfers has several equally close possible counterparts. Pick its other side, or keep it one-sided." %}</p>
+<table>
+  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Other side" %}</th></tr></thead>
+  <tbody>
+  {% for side, candidates in pairings %}
+  <tr id="pairing-{{ side.pk }}">
+    <td>{{ side.date|date:"Y-m-d" }}</td><td>{{ side.account.name }}</td><td>{{ side.description }}</td><td class="num">{{ side.amount }}</td>
+    <td>
+      <form class="outcome" method="post" action="{% url 'transaction_counterpart' side.pk %}">
+        {% csrf_token %}
+        <select name="counterpart" aria-label="{% translate 'Other side' %}">
+          {% for c in candidates %}
+          <option value="{{ c.pk }}">{{ c.date|date:"Y-m-d" }} · {{ c.account.name }} · {{ c.description }} · {{ c.amount }}</option>
+          {% endfor %}
+          <option value="none">{% translate "None: keep it one-sided" %}</option>
+        </select>
+        <button type="submit">{% translate "Pair" %}</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 {% if transactions %}
 <p class="muted">{% translate "Transactions that still need an outcome, oldest first." %}</p>
 <table>
@@ -11,7 +37,7 @@
   {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
   </tbody>
 </table>
-{% else %}
+{% elif not pairings %}
 <div class="empty"><p>{% translate "Nothing to review." %}</p></div>
 {% endif %}
 {% endblock %}

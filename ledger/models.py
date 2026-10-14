@@ -129,8 +129,14 @@ class Source(models.TextChoices):
 
 class TransactionQuerySet(models.QuerySet):
     def unresolved(self):
-        """The Review queue: neither a Subcategory nor a Transfer."""
+        """Neither a Subcategory nor a Transfer."""
         return self.filter(subcategory__isnull=True, is_transfer=False)
+
+    def in_review_queue(self):
+        """The Review queue: the unresolved ones, and the Transfer sides with several possible counterparts."""
+        return self.filter(
+            models.Q(subcategory__isnull=True, is_transfer=False) | models.Q(ambiguous_pairing=True)
+        )
 
 
 class Transaction(models.Model):
@@ -172,6 +178,8 @@ class Transaction(models.Model):
         blank=True,
         verbose_name=_("counterpart"),
     )
+    # An unpaired Transfer side with several equally close candidates, waiting for a Member to pick one.
+    ambiguous_pairing = models.BooleanField(_("ambiguous pairing"), default=False)
     # What set the outcome; blank while unresolved. Automatic processing never overwrites MANUAL.
     source = models.CharField(_("source"), max_length=10, choices=Source.choices, blank=True)
     # The Rule that set the outcome, while `source` is RULE.
@@ -205,15 +213,27 @@ class Transaction(models.Model):
     ) -> None:
         """Sets the outcome to `subcategory`, or to Transfer when it is None. Leaving Transfer unpairs both sides.
 
+        Any change settles an ambiguous pairing: the Transaction stays as it is now set.
+
         `rule` is the Rule that set it; any other change, such as a manual one, clears the link."""
         self.subcategory = subcategory
         self.is_transfer = subcategory is None
         self.source = source
         self.rule = rule
+        self.ambiguous_pairing = False
         if not self.is_transfer and self.counterpart_id:
             Transaction.objects.filter(pk=self.counterpart_id).update(counterpart=None)
             self.counterpart = None
-        self.save(update_fields=["subcategory", "is_transfer", "source", "rule", "counterpart"])
+        self.save(
+            update_fields=[
+                "subcategory",
+                "is_transfer",
+                "source",
+                "rule",
+                "counterpart",
+                "ambiguous_pairing",
+            ]
+        )
 
 
 class Category(models.Model):
