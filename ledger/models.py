@@ -189,6 +189,18 @@ class Transaction(models.Model):
         related_name="transactions",
         verbose_name=_("rule"),
     )
+    # The local LLM's suggestion, kept apart from the outcome. The worker asks for one while both are None;
+    # confidence 0 with no Subcategory means the LLM's answer was unusable.
+    suggested_subcategory = models.ForeignKey(
+        "Subcategory",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("suggested subcategory"),
+    )
+    # The LLM's own probability of `suggested_subcategory`, from 0 to 1.
+    confidence = models.FloatField(_("confidence"), null=True, blank=True)
 
     objects = TransactionQuerySet.as_manager()
 
@@ -205,6 +217,15 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.date} {self.amount} {self.description}"
+
+    @property
+    def is_unresolved(self) -> bool:
+        return self.subcategory_id is None and not self.is_transfer
+
+    @property
+    def pending_suggestion_id(self) -> int | None:
+        """The suggested Subcategory's id while the Transaction is unresolved, to preselect in the Review queue."""
+        return self.suggested_subcategory_id if self.is_unresolved else None
 
     def pairing_candidates(self) -> list["Transaction"]:
         """For an ambiguous pairing, the Transactions equally close to being its other side."""
@@ -292,6 +313,36 @@ class Subcategory(models.Model):
 
     def __str__(self):
         return f"{self.category} → {self.name}"
+
+
+class Setting(models.Model):
+    """An installation-wide value. There is no Household table: the installation is the Household."""
+
+    # An LLM suggestion at least this confident sets the outcome by itself.
+    AUTO_ACCEPT_THRESHOLD = "auto_accept_threshold"
+    # "1" while the last call to the LLM failed.
+    SUGGESTIONS_UNAVAILABLE = "suggestions_unavailable"
+
+    DEFAULTS = {AUTO_ACCEPT_THRESHOLD: "0.90", SUGGESTIONS_UNAVAILABLE: ""}
+
+    key = models.CharField(_("key"), max_length=50, primary_key=True)
+    value = models.CharField(_("value"), max_length=200, blank=True)
+
+    class Meta:
+        verbose_name = _("setting")
+        verbose_name_plural = _("settings")
+
+    def __str__(self):
+        return f"{self.key} = {self.value}"
+
+    @classmethod
+    def get(cls, key: str) -> str:
+        setting = cls.objects.filter(key=key).first()
+        return setting.value if setting else cls.DEFAULTS[key]
+
+    @classmethod
+    def put(cls, key: str, value: str) -> None:
+        cls.objects.update_or_create(key=key, defaults={"value": value})
 
 
 class Rule(models.Model):

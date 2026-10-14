@@ -18,6 +18,7 @@
     {% if summary.converted_count %}<li>{% blocktranslate count n=summary.converted_count %}{{ n }} categorized Transaction converted to a Transfer{% plural %}{{ n }} categorized Transactions converted to Transfers{% endblocktranslate %}</li>{% endif %}
     {% if summary.ambiguous_count %}<li>{% blocktranslate count n=summary.ambiguous_count %}{{ n }} Transfer with several possible counterparts waits in the Review queue{% plural %}{{ n }} Transfers with several possible counterparts wait in the Review queue{% endblocktranslate %}</li>{% endif %}
     <li>{% blocktranslate count n=summary.rule_count %}{{ n }} Transaction categorized by Rules{% plural %}{{ n }} Transactions categorized by Rules{% endblocktranslate %}</li>
+    <li>{% blocktranslate count n=summary.awaiting_count %}{{ n }} Transaction waiting for suggestions or review{% plural %}{{ n }} Transactions waiting for suggestions or review{% endblocktranslate %}</li>
   </ul>
   {% for gap in summary.gaps %}
   <p class="warning">{% blocktranslate with start=gap.start|date:"j M Y" end=gap.end|date:"j M Y" %}No Statement covers {{ start }} – {{ end }} yet.{% endblocktranslate %}</p>

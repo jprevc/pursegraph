@@ -14,6 +14,22 @@ services:
       postgres:
         condition: service_healthy
 
+  # Suggests Subcategories with the local Ollama in the background; imports never wait for it.
+  categorize_worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    # The web service runs the migrations.
+    entrypoint: ["python", "manage.py"]
+    command: ["categorize_worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      web:
+        condition: service_started
+
   postgres:
     image: postgres:17
     restart: unless-stopped

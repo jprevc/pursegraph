@@ -91,3 +91,6 @@ a.danger { color: var(--bad); }
 .rules .actions { display: flex; align-items: center; gap: 6px; }
 .rules .actions form { display: flex; gap: 4px; }
 .rules .actions button { padding: 3px 8px; }
+aside .suggestions-status { margin: 0 10px; font-size: 12px; }
+.outcome button.accept { padding: 3px 10px; }
+.bulk-accept { margin-bottom: 12px; }

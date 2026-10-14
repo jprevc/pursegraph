@@ -117,6 +117,11 @@ USE_TZ = True
 
 MEDIA_ROOT = Path(os.environ.get("PURSEGRAPH_STATEMENT_FILES", BASE_DIR / "statement-files"))
 
+# The local Ollama server that suggests Subcategories (see ledger/ollama.py), e.g. http://192.168.50.188:11434.
+# Unset, the Review queue fills without suggestions.
+
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "")
+
 # Static files: HTMX and ECharts are vendored under static/vendor and served by WhiteNoise.
 
 STATIC_URL = "static/"

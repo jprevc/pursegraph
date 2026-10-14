@@ -3,8 +3,16 @@
 {% block title %}{% translate "Review queue" %}{% endblock %}
 {% block main %}
 <h2>{% translate "Review queue" %}</h2>
+{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 {% if transactions %}
 <p class="muted">{% translate "Transactions that still need an outcome, oldest first." %}</p>
+{% if suggested %}
+<form class="bulk-accept" method="post" action="{% url 'accept_suggestions' %}">
+  {% csrf_token %}
+  {% for t in suggested %}<input type="hidden" name="accept" value="{{ t.pk }}:{{ t.pending_suggestion_id }}">{% endfor %}
+  <button type="submit">{% blocktranslate count n=suggested|length %}Accept {{ n }} suggestion{% plural %}Accept all {{ n }} suggestions{% endblocktranslate %}</button>
+</form>
+{% endif %}
 <table>
   <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
   <tbody>

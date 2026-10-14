@@ -113,6 +113,8 @@ class ImportSummary:
     """The categorized Transactions, new or already imported, converted to Transfers to pair them."""
     ambiguous_count: int
     """The Transfer sides, new or already imported, sent to the Review queue for a tie between candidates."""
+    awaiting_count: int
+    """The new Transactions still unresolved, waiting for an LLM suggestion or the Review queue."""
     gaps: list[DateRange] = field(default_factory=list)
     """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
 
@@ -251,6 +253,7 @@ def commit_statement(
             transfers = new.filter(is_transfer=True)
             paired_count = transfers.filter(counterpart__isnull=False).count()
             one_sided_count = transfers.filter(counterpart__isnull=True).count()
+            awaiting_count = new.unresolved().count()
             gaps_left = sorted(
                 set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
             )
@@ -274,6 +277,7 @@ def commit_statement(
         one_sided_count,
         before_rules.converted_count + after_rules.converted_count,
         before_rules.ambiguous_count + after_rules.ambiguous_count,
+        awaiting_count,
         gaps_left,
     )
 
