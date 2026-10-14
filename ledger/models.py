@@ -206,6 +206,12 @@ class Transaction(models.Model):
     def __str__(self):
         return f"{self.date} {self.amount} {self.description}"
 
+    def pairing_candidates(self) -> list["Transaction"]:
+        """For an ambiguous pairing, the Transactions equally close to being its other side."""
+        from .transfers import closest_candidates
+
+        return closest_candidates(self) if self.ambiguous_pairing else []
+
     def set_outcome(
         self, subcategory: "Subcategory | None", *, source: str, rule: "Rule | None" = None
     ) -> None:

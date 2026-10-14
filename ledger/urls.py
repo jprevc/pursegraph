@@ -8,11 +8,6 @@ urlpatterns = [
     path("transactions/", views.transactions, name="transactions"),
     path("review/", views.review_queue, name="review_queue"),
     path("transactions/<int:pk>/outcome/", views.transaction_outcome, name="transaction_outcome"),
-    path(
-        "transactions/<int:pk>/counterpart/",
-        views.transaction_counterpart,
-        name="transaction_counterpart",
-    ),
     path("categories/", views.categories, name="categories"),
     path("categories/add/", views.add_category, name="add_category"),
     path("categories/<int:pk>/rename/", views.rename_category, name="rename_category"),

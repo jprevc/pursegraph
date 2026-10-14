@@ -34,7 +34,6 @@ from .importer import (
     commit_statement,
 )
 from .models import Account, Bank, Category, Rule, Statement, Subcategory, Transaction
-from .transfers import NotACandidate, closest_candidates, settle
 
 TRANSACTIONS_PER_PAGE = 100
 
@@ -180,41 +179,22 @@ def transactions(request):
 
 
 def review_queue(request):
-    rows = Transaction.objects.unresolved().select_related("account").order_by("date", "id")
-    sides = Transaction.objects.filter(ambiguous_pairing=True).select_related("account")
+    rows = Transaction.objects.in_review_queue().select_related("account").order_by("date", "id")
     return render(
         request,
         "ledger/review_queue.html",
-        {
-            "transactions": rows,
-            "pairings": [(side, closest_candidates(side)) for side in sides.order_by("date", "id")],
-            "categories": categories_with_subcategories(),
-        },
+        {"transactions": rows, "categories": categories_with_subcategories()},
     )
-
-
-@require_POST
-def transaction_counterpart(request, pk):
-    """A Member's pick for an ambiguous pairing: a candidate's id, or "none" to keep the Transfer one-sided."""
-    side = get_object_or_404(Transaction, pk=pk, ambiguous_pairing=True)
-    picked = request.POST.get("counterpart", "")
-    if picked != "none" and not picked.isdigit():
-        return HttpResponseBadRequest()
-    try:
-        settle(side, None if picked == "none" else int(picked))
-    except NotACandidate:
-        return HttpResponseBadRequest()
-    return redirect("review_queue")
 
 
 @require_POST
 def transaction_outcome(request, pk):
     """Sets a Transaction's outcome by hand. HTMX gets the updated row back; a plain form post goes back to `next`."""
     transaction = get_object_or_404(Transaction.objects.select_related("account"), pk=pk)
-    form = OutcomeForm(request.POST)
+    form = OutcomeForm(request.POST, transaction=transaction)
     if not form.is_valid():
         return HttpResponseBadRequest(form.errors.as_text())
-    form.save(transaction)
+    form.save()
     if request.headers.get("HX-Request"):
         return render(
             request,

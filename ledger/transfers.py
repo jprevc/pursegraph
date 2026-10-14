@@ -9,7 +9,7 @@ the existing ones. A counterpart categorized by a Rule or the LLM becomes a Tran
 
 A tie, whether a side has several equally close candidates or a candidate several equally close
 sides, leaves those sides unpaired and in the Review queue as ambiguous pairings, until a Member
-picks a counterpart or keeps the side one-sided, or a later import brings a closer counterpart.
+picks a counterpart or sets the side's outcome by hand, or a later import brings a closer counterpart.
 
 Manual outcomes are never changed: a manual Transfer may be paired, but a manually categorized
 Transaction is never a counterpart.
@@ -82,20 +82,10 @@ def pair(new: TransactionQuerySet) -> Pairing:
     return result
 
 
-class NotACandidate(Exception):
-    """The picked Transaction isn't one of the side's closest candidates."""
-
-
-def settle(side: Transaction, counterpart_pk: int | None) -> None:
-    """A Member's pick for an ambiguous pairing: one of its closest candidates, or None to keep it one-sided."""
+def pair_by_hand(side: Transaction, counterpart: Transaction) -> None:
+    """A Member's pick of one of an ambiguous side's closest candidates as its other side."""
     with transaction.atomic():
-        if counterpart_pk is not None:
-            closest = {c.pk: c for c in closest_candidates(side)}
-            if counterpart_pk not in closest:
-                raise NotACandidate
-            _link(side, closest[counterpart_pk], source=Source.MANUAL)
-        side.ambiguous_pairing = False
-        side.save(update_fields=["ambiguous_pairing"])
+        _link(side, counterpart, source=Source.MANUAL)
 
 
 def closest_candidates(side: Transaction) -> list[Transaction]:

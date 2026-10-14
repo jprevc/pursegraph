@@ -1,5 +1,6 @@
 """Transfers: recognised at import by IBAN, paired across Accounts in either import order."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -121,9 +122,19 @@ def review_queue(client):
     return client.get("/review/").content.decode()
 
 
-def pick_counterpart(client, side_description, counterpart):
-    side = Transaction.objects.get(description=side_description)
-    return client.post(f"/transactions/{side.pk}/counterpart/", {"counterpart": counterpart})
+def pairing_options(page, description):
+    """The candidate counterparts offered in the outcome dropdown of the row described `description`."""
+    row = re.search(
+        rf"<tr[^>]*>(?:(?!</tr>).)*>{re.escape(description)}<(?:(?!</tr>).)*</tr>", page, re.S
+    )
+    assert row, f"no row for {description!r}"
+    return re.findall(r'<option value="pair-\d+">Pair with ([^<]*)</option>', row[0])
+
+
+def set_outcome(client, description, outcome, **headers):
+    return client.post(
+        f"/transactions/{transaction_id(description)}/outcome/", {"outcome": outcome}, **headers
+    )
 
 
 @pytest.fixture
@@ -145,40 +156,70 @@ def test_a_tie_between_candidates_goes_to_the_review_queue_with_the_candidates(
 ):
     assert "1 Transfer with several possible counterparts waits in the Review queue" in tie
     page = review_queue(logged_in_client)
-    pairing = page[page.index("Transfers to pair") :]
-    assert ">Ana Novak<" in pairing
-    assert "Top-up by card" in pairing
-    assert "Payment from Ana Novak" in pairing
+    assert outcome_shown(page, "Ana Novak") == "Pick the other side"
+    assert pairing_options(page, "Ana Novak") == [
+        "2026-09-09 · Ana&#x27;s Revolut · Top-up by card",
+        "2026-09-11 · Ana&#x27;s Revolut · Payment from Ana Novak",
+    ]
+    assert pairing_options(page, "Top-up by card") == []
     # The side, both still unresolved candidates, and the 11 other Sparkasse rows.
     assert review_queue_count(page) == 14
 
 
+def test_ambiguous_sides_are_listed_oldest_first_with_the_rest_of_the_queue(logged_in_client, tie):
+    page = review_queue(logged_in_client)
+
+    positions = [page.index(f">{d}<") for d in ("MARKO K", "Top-up by card", "Ana Novak")]
+    assert positions == sorted(positions)
+
+
 def test_picking_a_candidate_pairs_it_and_leaves_the_other_alone(logged_in_client, tie):
-    response = pick_counterpart(
-        logged_in_client, "Ana Novak", transaction_id("Payment from Ana Novak")
+    response = set_outcome(
+        logged_in_client,
+        "Ana Novak",
+        f"pair-{transaction_id('Payment from Ana Novak')}",
+        HTTP_HX_REQUEST="true",
     )
 
-    assert response.status_code == 302
+    assert outcome_shown(response.content.decode(), "Ana Novak") == "Transfer"
     page = review_queue(logged_in_client)
-    assert "Transfers to pair" not in page
+    assert ">Ana Novak<" not in page
     assert ">Payment from Ana Novak<" not in page
     assert outcome_shown(page, "Top-up by card") == "Awaiting review"
     assert counterpart_of("Ana Novak") == "Payment from Ana Novak"
 
 
 def test_an_ambiguous_side_can_be_kept_one_sided(logged_in_client, tie):
-    pick_counterpart(logged_in_client, "Ana Novak", "none")
+    set_outcome(logged_in_client, "Ana Novak", "transfer")
 
-    page = review_queue(logged_in_client)
-    assert "Transfers to pair" not in page
+    assert ">Ana Novak<" not in review_queue(logged_in_client)
     assert outcome_shown(transactions_page(logged_in_client), "Ana Novak") == "Transfer"
+    assert counterpart_of("Ana Novak") is None
+
+
+def test_an_ambiguous_side_can_be_categorized_instead(logged_in_client, tie):
+    set_outcome(logged_in_client, "Ana Novak", subcategory_id("Other", "Payments to people"))
+
+    assert ">Ana Novak<" not in review_queue(logged_in_client)
+    page = transactions_page(logged_in_client)
+    assert outcome_shown(page, "Ana Novak") == "Other → Payments to people"
 
 
 def test_only_a_listed_candidate_can_be_picked(logged_in_client, tie):
-    response = pick_counterpart(logged_in_client, "Ana Novak", transaction_id("Pozitivne obresti"))
+    response = set_outcome(
+        logged_in_client, "Ana Novak", f"pair-{transaction_id('Pozitivne obresti')}"
+    )
 
     assert response.status_code == 400
-    assert "Transfers to pair" in review_queue(logged_in_client)
+    assert outcome_shown(review_queue(logged_in_client), "Ana Novak") == "Pick the other side"
+
+
+def test_only_an_ambiguous_side_offers_a_pick(logged_in_client, tie):
+    response = set_outcome(
+        logged_in_client, "Top-up by card", f"pair-{transaction_id('Ana Novak')}"
+    )
+
+    assert response.status_code == 400
 
 
 def test_the_closest_date_wins(logged_in_client, sparkasse, revolut):
@@ -334,9 +375,9 @@ def test_two_sides_equally_close_to_one_candidate_go_to_the_review_queue(logged_
 
     assert "2 Transfers with several possible counterparts wait in the Review queue" in summary
     page = review_queue(logged_in_client)
-    pairing = page[page.index("Transfers to pair") :]
-    assert "Savings early" in pairing
-    assert "Savings late" in pairing
+    assert outcome_shown(page, "Savings early") == "Pick the other side"
+    assert outcome_shown(page, "Savings late") == "Pick the other side"
+    assert pairing_options(page, "Savings early") == ["2026-09-03 · Bor&#x27;s Revolut · From Ana"]
     assert counterpart_of("From Ana") is None
 
 
@@ -348,7 +389,7 @@ def test_a_closer_counterpart_imported_later_settles_a_tie(logged_in_client, sav
         bor,
         [("2026-09-01", "From Ana early", "50"), ("2026-09-05", "From Ana late", "50")],
     )
-    assert "Transfers to pair" in review_queue(logged_in_client)
+    assert outcome_shown(review_queue(logged_in_client), "Savings out") == "Pick the other side"
 
     import_revolut(
         logged_in_client,
@@ -356,7 +397,7 @@ def test_a_closer_counterpart_imported_later_settles_a_tie(logged_in_client, sav
         [("2026-09-03", "From Ana", "50")],
     )
 
-    assert "Transfers to pair" not in review_queue(logged_in_client)
+    assert ">Savings out<" not in review_queue(logged_in_client)
     assert counterpart_of("Savings out") == "From Ana"
 
 
