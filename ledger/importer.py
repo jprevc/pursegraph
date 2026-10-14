@@ -6,8 +6,8 @@ It runs in two calls, because the Account may have to be asked for after parsing
   Account detection from the Statement's own IBAN;
 - `commit_statement`: into the detected Account, or one the Member picked or creates (whom it
   then belongs to), checks the opening balance and Duplicates against the Account's Coverage,
-  then stores the Statement, its Transactions (less the Duplicates) and the original file, and
-  categorizes the new Transactions by the Rules.
+  then stores the Statement, its Transactions (less the Duplicates) and the original file,
+  recognises Transfers among the new Transactions and categorizes the rest by the Rules.
 
 Any failure raises ImportRejected and stores nothing of that Statement.
 """
@@ -28,6 +28,7 @@ from .coverage import ONE_DAY, DateRange, gaps
 from .models import Account, AccountIBAN, Bank, Source, Statement, Subcategory, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
 from .rules import apply_rules
+from .transfers import apply_iban_rule, pair
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,14 @@ class ImportSummary:
     skipped_count: int
     rule_count: int
     """The new Transactions the Rules categorized."""
+    paired_count: int
+    """The new Transactions that are Transfers paired with their other side."""
+    one_sided_count: int
+    """The new Transactions that are Transfers with no other side."""
+    converted_count: int
+    """The categorized Transactions, new or already imported, converted to Transfers to pair them."""
+    ambiguous_count: int
+    """The Transfer sides, new or already imported, sent to the Review queue for a tie between candidates."""
     gaps: list[DateRange] = field(default_factory=list)
     """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
 
@@ -234,9 +243,14 @@ def commit_statement(
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
-            rule_count = apply_rules(
-                Transaction.objects.filter(pk__in=[t.pk for t in transactions])
-            )
+            new = Transaction.objects.filter(pk__in=[t.pk for t in transactions])
+            apply_iban_rule(new)
+            before_rules = pair(new)
+            rule_count = apply_rules(new)
+            after_rules = pair(new)  # for the Transfers the Rules marked
+            transfers = new.filter(is_transfer=True)
+            paired_count = transfers.filter(counterpart__isnull=False).count()
+            one_sided_count = transfers.filter(counterpart__isnull=True).count()
             gaps_left = sorted(
                 set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
             )
@@ -256,6 +270,10 @@ def commit_statement(
         len(duplicates),
         parsed.skipped_count,
         rule_count,
+        paired_count,
+        one_sided_count,
+        before_rules.converted_count + after_rules.converted_count,
+        before_rules.ambiguous_count + after_rules.ambiguous_count,
         gaps_left,
     )
 

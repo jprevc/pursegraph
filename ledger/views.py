@@ -179,7 +179,7 @@ def transactions(request):
 
 
 def review_queue(request):
-    rows = Transaction.objects.unresolved().select_related("account").order_by("date", "id")
+    rows = Transaction.objects.in_review_queue().select_related("account").order_by("date", "id")
     return render(
         request,
         "ledger/review_queue.html",
@@ -191,10 +191,10 @@ def review_queue(request):
 def transaction_outcome(request, pk):
     """Sets a Transaction's outcome by hand. HTMX gets the updated row back; a plain form post goes back to `next`."""
     transaction = get_object_or_404(Transaction.objects.select_related("account"), pk=pk)
-    form = OutcomeForm(request.POST)
+    form = OutcomeForm(request.POST, transaction=transaction)
     if not form.is_valid():
         return HttpResponseBadRequest(form.errors.as_text())
-    form.save(transaction)
+    form.save()
     if request.headers.get("HX-Request"):
         return render(
             request,

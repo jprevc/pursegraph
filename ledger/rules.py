@@ -41,6 +41,7 @@ def _set_outcome(transactions: QuerySet[Transaction], rule: Rule) -> int:
             is_transfer=rule.subcategory_id is None,
             source=Source.RULE,
             rule=rule,
+            ambiguous_pairing=False,
             **({"counterpart": None} if rule.subcategory_id is not None else {}),
         )
 
