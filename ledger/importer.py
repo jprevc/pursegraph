@@ -6,7 +6,8 @@ It runs in two calls, because the Account may have to be asked for after parsing
   Account detection from the Statement's own IBAN;
 - `commit_statement`: into the detected Account, or one the Member picked or creates (whom it
   then belongs to), checks the opening balance and Duplicates against the Account's Coverage,
-  then stores the Statement, its Transactions (less the Duplicates) and the original file.
+  then stores the Statement, its Transactions (less the Duplicates) and the original file, and
+  categorizes the new Transactions by the Rules.
 
 Any failure raises ImportRejected and stores nothing of that Statement.
 """
@@ -26,6 +27,7 @@ from django.utils.translation import gettext as _
 from .coverage import ONE_DAY, DateRange, gaps
 from .models import Account, AccountIBAN, Bank, Source, Statement, Subcategory, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
+from .rules import apply_rules
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,8 @@ class ImportSummary:
     imported_count: int
     duplicate_count: int
     skipped_count: int
+    rule_count: int
+    """The new Transactions the Rules categorized."""
     gaps: list[DateRange] = field(default_factory=list)
     """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
 
@@ -230,6 +234,9 @@ def commit_statement(
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
+            rule_count = apply_rules(
+                Transaction.objects.filter(pk__in=[t.pk for t in transactions])
+            )
             gaps_left = sorted(
                 set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
             )
@@ -248,6 +255,7 @@ def commit_statement(
         len(transactions),
         len(duplicates),
         parsed.skipped_count,
+        rule_count,
         gaps_left,
     )
 

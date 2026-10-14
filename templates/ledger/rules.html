@@ -1,0 +1,67 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Rules" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Rules" %}</h2>
+{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
+<p class="muted">{% translate "At import, each Transaction still awaiting review is categorized by the first Rule it matches. Every condition a Rule sets must hold. Drag Rules to reorder them." %}</p>
+<p><a class="button" href="{% url 'new_rule' %}">{% translate "New Rule" %}</a></p>
+{% if rules %}
+<form id="rule-order" method="post" action="{% url 'reorder_rules' %}">{% csrf_token %}</form>
+<table class="rules">
+  <thead><tr><th></th><th>{% translate "Description contains" %}</th><th>{% translate "Counterparty IBAN" %}</th><th>{% translate "Direction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th><th></th></tr></thead>
+  <tbody>
+  {% for rule in rules %}
+  <tr draggable="true">
+    <td class="handle" aria-hidden="true">⠿<input type="hidden" name="rule" value="{{ rule.pk }}" form="rule-order"></td>
+    <td class="contains">{{ rule.description_contains }}</td>
+    <td>{{ rule.counterparty_iban }}</td>
+    <td>{{ rule.get_direction_display }}</td>
+    <td>{{ rule.account.name|default:"" }}</td>
+    <td>{% if rule.subcategory %}{{ rule.subcategory }}{% else %}{% translate "Transfer" %}{% endif %}</td>
+    <td class="actions">
+      <form method="post" action="{% url 'move_rule' rule.pk %}">{% csrf_token %}
+        <button type="submit" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>↑</button>
+        <button type="submit" name="direction" value="down" aria-label="{% translate 'Move down' %}"{% if forloop.last %} disabled{% endif %}>↓</button>
+      </form>
+      <a href="{% url 'edit_rule' rule.pk %}">{% translate "Edit" %}</a>
+      <form method="post" action="{% url 'delete_rule' rule.pk %}">{% csrf_token %}
+        <button type="submit" class="danger">{% translate "Delete" %}</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<script>
+// Drag a row to a new place; dropping it posts every Rule's id in the new order.
+(() => {
+  const body = document.querySelector(".rules tbody");
+  const order = () => [...body.querySelectorAll("input[name=rule]")].map((input) => input.value).join();
+  let dragged = null;
+  let before = "";
+  body.addEventListener("dragstart", (e) => {
+    before = order();
+    dragged = e.target.closest("tr");
+    dragged.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+  body.addEventListener("dragover", (e) => {
+    const over = e.target.closest("tr");
+    if (!dragged || !over || over === dragged) return;
+    e.preventDefault();
+    const box = over.getBoundingClientRect();
+    body.insertBefore(dragged, e.clientY > box.top + box.height / 2 ? over.nextSibling : over);
+  });
+  body.addEventListener("drop", (e) => e.preventDefault());
+  body.addEventListener("dragend", () => {
+    dragged.classList.remove("dragging");
+    dragged = null;
+    if (order() !== before) document.getElementById("rule-order").submit();
+  });
+})();
+</script>
+{% else %}
+<div class="empty"><p>{% translate "No Rules yet. Make one from any correction in the Review queue or the Transactions view, or here." %}</p></div>
+{% endif %}
+{% endblock %}

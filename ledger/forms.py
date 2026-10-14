@@ -7,7 +7,8 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from .importer import CheckedStatement, NewAccount
-from .models import Account, Bank, Category, Source, Subcategory, Transaction
+from .models import Account, Bank, Category, Rule, Source, Subcategory, Transaction
+from .rules import place_at_top
 
 NEW = "new"
 
@@ -182,3 +183,71 @@ class NameForm(forms.Form):
     name = forms.CharField(
         label=_("Name"), max_length=100, error_messages={"required": _("Give it a name.")}
     )
+
+
+class RuleForm(forms.ModelForm):
+    """A Rule's conditions and outcome: a Subcategory's id, or TRANSFER. A new Rule goes to the top."""
+
+    outcome = forms.ChoiceField(label=_("Outcome"))
+
+    class Meta:
+        model = Rule
+        fields = ["description_contains", "counterparty_iban", "direction", "account"]
+        labels = {"direction": _("Direction")}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        cast(forms.ChoiceField, self.fields["direction"]).choices = [
+            ("", _("In or out")),
+            *Rule.Direction.choices,
+        ]
+        cast(forms.ModelChoiceField, self.fields["account"]).empty_label = _("Any Account")
+        cast(forms.ChoiceField, self.fields["outcome"]).choices = [
+            ("", _("Choose an outcome")),
+            *(
+                (category.name, [(str(s.pk), s.name) for s in category.subcategories.all()])
+                for category in Category.objects.prefetch_related("subcategories")
+            ),
+            (TRANSFER, _("Transfer")),
+        ]
+        if self.instance.pk:
+            self.initial.setdefault("outcome", self.instance.subcategory_id or TRANSFER)
+
+    @classmethod
+    def from_transaction(cls, transaction: Transaction) -> "RuleForm":
+        """A new Rule for Transactions like `transaction`: its counterparty IBAN if it has one, otherwise its
+        description, with its outcome."""
+        initial: dict = (
+            {"counterparty_iban": transaction.counterparty_iban}
+            if transaction.counterparty_iban
+            else {"description_contains": transaction.description}
+        )
+        if transaction.subcategory_id or transaction.is_transfer:
+            initial["outcome"] = transaction.subcategory_id or TRANSFER
+        return cls(initial=initial)
+
+    def clean_description_contains(self):
+        return self.cleaned_data["description_contains"].strip()
+
+    def clean_counterparty_iban(self):
+        return "".join(self.cleaned_data["counterparty_iban"].split()).upper()
+
+    def clean(self):
+        super().clean()
+        data = self.cleaned_data
+        if not any(
+            data.get(field)
+            for field in ("description_contains", "counterparty_iban", "direction", "account")
+        ):
+            raise forms.ValidationError(_("Give the Rule at least one condition."))
+        return data
+
+    def save(self, commit=True) -> Rule:
+        rule = super().save(commit=False)
+        value = self.cleaned_data["outcome"]
+        rule.subcategory = None if value == TRANSFER else Subcategory.objects.get(pk=value)
+        if rule.pk:
+            rule.save()
+        else:
+            place_at_top(rule)
+        return rule

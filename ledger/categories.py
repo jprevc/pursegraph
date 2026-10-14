@@ -64,12 +64,13 @@ def _move(siblings, item, direction):
 
 
 def delete_subcategory(subcategory: Subcategory) -> None:
-    """Moves its Transactions to the Category's catch-all, keeping their source."""
+    """Moves its Transactions and Rules to the Category's catch-all, keeping the Transactions' source."""
     if subcategory.is_catch_all:
         raise CategoryEditRefused(_("A catch-all Subcategory can't be deleted."))
     with transaction.atomic():
         catch_all = subcategory.category.subcategories.get(is_catch_all=True)
         subcategory.transactions.update(subcategory=catch_all)
+        subcategory.rules.update(subcategory=catch_all)
         subcategory.delete()
 
 

@@ -1,0 +1,14 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% if form.instance.pk %}{% translate "Edit Rule" %}{% else %}{% translate "New Rule" %}{% endif %}{% endblock %}
+{% block main %}
+<h2>{% if form.instance.pk %}{% translate "Edit Rule" %}{% else %}{% translate "New Rule" %}{% endif %}</h2>
+<p class="muted">{% translate "Every condition you set must hold. Description contains ignores case and accents." %}</p>
+<form class="stack-form" method="post">{% csrf_token %}
+  {{ form.as_div }}
+  <div class="actions">
+    <button type="submit">{% translate "Save Rule" %}</button>
+    <a href="{% url 'rules' %}">{% translate "Cancel" %}</a>
+  </div>
+</form>
+{% endblock %}
