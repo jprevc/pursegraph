@@ -1,0 +1,21 @@
+{% load i18n %}{# A dashboard view's frame: the whole page includes the view, and HTMX swaps it in alone. #}
+<div class="view-bar">
+  <h2>{% block title %}{% endblock %}</h2>
+  {% include "dashboard/_period.html" %}
+</div>
+{% if data.rows %}
+{# Refetched alone after an outcome is changed in the drill-down. #}
+<div id="numbers">
+{% with source=view|add:"-data" %}
+<div class="{% block layout %}split{% endblock %}">
+  <div class="panel"><div class="chart" data-chart="{{ view }}" data-source="{{ source }}"></div></div>
+  <div class="panel">{% block table %}{% endblock %}</div>
+</div>
+{{ chart|json_script:source }}
+{% endwith %}
+</div>
+<p class="muted hint">{% block hint %}{% endblock %}</p>
+{% else %}
+<p class="muted">{% block empty %}{% endblock %}</p>
+{% endif %}
+<div id="drill"></div>

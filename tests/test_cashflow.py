@@ -1,0 +1,65 @@
+from datetime import date
+
+import pytest
+
+from .conftest import drill_rows, view_chart, view_table
+
+pytestmark = pytest.mark.django_db
+
+TODAY = date(2026, 10, 15)
+
+
+@pytest.fixture(autouse=True)
+def today(monkeypatch):
+    monkeypatch.setattr("dashboard.periods.today", lambda: TODAY)
+
+
+def test_cashflow_sets_money_in_against_money_out_leaving_transfers_out(
+    logged_in_client, household
+):
+    page = logged_in_client.get("/cashflow/", {"period": "2026-09"}).content.decode()
+
+    assert "Cashflow" in page
+    assert view_table(page) == [["Sep 2026", "3550.00", "262.30", "3287.70"]]
+
+
+def test_a_longer_period_shows_every_month_so_far(logged_in_client, household):
+    page = logged_in_client.get("/cashflow/", {"period": "2026"}).content.decode()
+
+    table = view_table(page)
+    assert [row[0] for row in table] == [
+        "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026",
+        "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026",
+    ]  # fmt: skip
+    assert table[6] == ["Jul 2026", "0.00", "0.00", "0.00"]
+    assert table[7] == ["Aug 2026", "1500.00", "999.00", "501.00"]
+    assert table[9] == ["Oct 2026", "0.00", "777.00", "-777.00"]
+    assert "5050.00" in page  # money in over the year
+
+
+def test_the_chart_shows_the_same_numbers_as_the_table(logged_in_client, household):
+    page = logged_in_client.get("/cashflow/", {"period": "2026-Q3"}).content.decode()
+
+    chart = view_chart(page, "cashflow")
+    assert chart["months"] == ["Jul 2026", "Aug 2026", "Sep 2026"]
+    assert chart["in"] == [0, 1500, 3550]
+    assert chart["out"] == [0, 999, 262.3]
+    assert chart["net"] == [0, 501, 3287.7]
+    assert chart["keys"] == ["2026-07", "2026-08", "2026-09"]
+    assert chart["drill"] == "/cashflow/transactions/?period=2026-Q3&key="
+
+
+def test_drill_down_into_a_months_money_in_money_out_or_both(logged_in_client, household):
+    url = "/cashflow/transactions/"
+    params = {"period": "2026-Q3"}
+
+    assert drill_rows(logged_in_client, url, {**params, "key": "2026-09:in"}) == [
+        "Ana's salary", "Marko's salary", "Unknown payment in", "Interest",
+    ]  # fmt: skip
+    assert drill_rows(logged_in_client, url, {**params, "key": "2026-09:out"}) == [
+        "Mercator", "Shoe shop", "Shoe shop refund", "Gostilna", "Spar", "Unknown shop",
+    ]  # fmt: skip
+    assert drill_rows(logged_in_client, url, {**params, "key": "2026-08"}) == [
+        "Marko's August salary", "August groceries",
+    ]  # fmt: skip
+    assert drill_rows(logged_in_client, url, {**params, "key": "2026-10"}) == []

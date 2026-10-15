@@ -1,0 +1,25 @@
+{% extends "dashboard/_view.html" %}
+{% load i18n %}
+{% block title %}{% translate "Per Member" %}{% endblock %}
+{% block table %}
+<table class="view-table">
+  <thead><tr><th>{% translate "Member" %}</th><th class="num">{% translate "Spent" %}</th></tr></thead>
+  <tbody>
+  {% for row in data.rows %}
+  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ row.label }}</td>
+    <td class="num">{{ row.amount|floatformat:2 }}</td>
+  </tr>
+  {% for child in row.children %}
+  <tr class="subcategory" tabindex="0" hx-get="{{ chart.drill }}{{ child.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ child.label }}</td>
+    <td class="num">{{ child.amount|floatformat:2 }}</td>
+  </tr>
+  {% endfor %}
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|floatformat:2 }}</th></tr></tfoot>
+</table>
+{% endblock %}
+{% block hint %}{% translate "Joint Accounts form their own Joint bucket. Click a segment, a Member or a Category to see its Transactions." %}{% endblock %}
+{% block empty %}{% translate "No spending in this period." %}{% endblock %}

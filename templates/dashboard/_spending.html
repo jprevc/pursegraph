@@ -1,38 +1,25 @@
-{% load i18n %}{# Spending by Category: the whole page includes it, and HTMX swaps it in alone. #}
-<div class="view-bar">
-  <h2>{% translate "Spending by Category" %}</h2>
-  {% include "dashboard/_period.html" %}
-</div>
-{% if data.rows %}
-{# Refetched alone after an outcome is changed in the drill-down. #}
-<div id="numbers">
-<div class="split">
-  <div class="panel"><div class="chart" data-chart="spending" data-source="spending-data"></div></div>
-  <div class="panel">
-    <table class="view-table">
-      <thead><tr><th>{% translate "Category" %}</th><th class="num">{% translate "Spent" %}</th></tr></thead>
-      <tbody>
-      {% for row in data.rows %}
-      <tr class="category" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-        <td>{{ row.label }}</td>
-        <td class="num">{{ row.amount|floatformat:2 }}</td>
-      </tr>
-      {% for child in row.children %}
-      <tr class="subcategory">
-        <td>{{ child.label }}</td>
-        <td class="num">{{ child.amount|floatformat:2 }}</td>
-      </tr>
-      {% endfor %}
-      {% endfor %}
-      </tbody>
-      <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|floatformat:2 }}</th></tr></tfoot>
-    </table>
-  </div>
-</div>
-{{ chart|json_script:"spending-data" }}
-</div>
-<p class="muted hint">{% translate "Click a bar or a Category to see its Transactions." %}</p>
-{% else %}
-<p class="muted">{% translate "No spending in this period." %}</p>
-{% endif %}
-<div id="drill"></div>
+{% extends "dashboard/_view.html" %}
+{% load i18n %}
+{% block title %}{% translate "Spending by Category" %}{% endblock %}
+{% block table %}
+<table class="view-table">
+  <thead><tr><th>{% translate "Category" %}</th><th class="num">{% translate "Spent" %}</th></tr></thead>
+  <tbody>
+  {% for row in data.rows %}
+  <tr class="category" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ row.label }}</td>
+    <td class="num">{{ row.amount|floatformat:2 }}</td>
+  </tr>
+  {% for child in row.children %}
+  <tr class="subcategory">
+    <td>{{ child.label }}</td>
+    <td class="num">{{ child.amount|floatformat:2 }}</td>
+  </tr>
+  {% endfor %}
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|floatformat:2 }}</th></tr></tfoot>
+</table>
+{% endblock %}
+{% block hint %}{% translate "Click a bar or a Category to see its Transactions." %}{% endblock %}
+{% block empty %}{% translate "No spending in this period." %}{% endblock %}

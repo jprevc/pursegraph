@@ -2,6 +2,7 @@
 `period` token, such as "2026-09", "2026-Q3", "2026", "last12-2026-09" or "2026-09-10..2026-09-19"."""
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -72,13 +73,20 @@ class Period:
         return cls.month(now.year, now.month - 1)
 
     @classmethod
-    def parse(cls, token: str) -> "Period":
-        """The Period a `period` token names; the default for anything else."""
+    def last_12_complete_months(cls) -> "Period":
+        """The Category trends' default."""
+        now = today()
+        return cls.last12(now.year, now.month - 1)
+
+    @classmethod
+    def parse(cls, token: str, default: "Callable[[], Period] | None" = None) -> "Period":
+        """The Period a `period` token names; the default (the last complete month, unless given) for anything
+        else."""
         try:
             period = cls._read(token)
         except ValueError:
             period = None
-        return period if period and period.in_bounds else cls.default()
+        return period if period and period.in_bounds else (default or cls.default)()
 
     @classmethod
     def _read(cls, token: str) -> "Period | None":
@@ -96,9 +104,11 @@ class Period:
         return None
 
     @classmethod
-    def custom(cls, start: str, end: str) -> "Period":
+    def custom(
+        cls, start: str, end: str, default: "Callable[[], Period] | None" = None
+    ) -> "Period":
         """A Custom range from two ISO dates, in either order; the default if either can't be read."""
-        return cls.parse(f"{start}..{end}")
+        return cls.parse(f"{start}..{end}", default)
 
     @property
     def in_bounds(self) -> bool:
@@ -106,11 +116,11 @@ class Period:
         return self.start.year in YEARS and self.end.year in YEARS
 
     @classmethod
-    def from_query(cls, params) -> "Period":
+    def from_query(cls, params, default: "Callable[[], Period] | None" = None) -> "Period":
         """The Period in a request's query: `period`, or a Custom range's `from` and `to`."""
         if params.get("from") and params.get("to"):
-            return cls.custom(params["from"], params["to"])
-        return cls.parse(params.get("period", ""))
+            return cls.custom(params["from"], params["to"], default)
+        return cls.parse(params.get("period", ""), default)
 
     @property
     def token(self) -> str:
