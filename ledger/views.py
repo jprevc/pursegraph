@@ -7,6 +7,7 @@ from django.db import transaction as db_transaction
 from django.db.models import Count, Prefetch
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
@@ -17,6 +18,7 @@ from members.permissions import admin_required
 
 from . import categories as category_edits
 from . import rules as rule_edits
+from . import suggestions
 from .forms import (
     AccountForm,
     CategoryForm,
@@ -24,6 +26,7 @@ from .forms import (
     OutcomeForm,
     RuleForm,
     StatementFileForm,
+    ThresholdForm,
     TransactionFilterForm,
 )
 from .importer import (
@@ -211,11 +214,7 @@ def accept_suggestions(request):
             if subcategory := subcategories.get(shown[t.pk]):
                 t.set_outcome(subcategory, source=Source.MANUAL)
                 count += 1
-    messages.success(
-        request,
-        ngettext("%(count)d suggestion accepted.", "%(count)d suggestions accepted.", count)
-        % {"count": count},
-    )
+    _suggestions_accepted(request, count)
     return redirect("review_queue")
 
 
@@ -327,6 +326,59 @@ def move_subcategory(request, pk):
 @_category_edit
 def delete_subcategory(request, pk):
     category_edits.delete_subcategory(get_object_or_404(Subcategory, pk=pk))
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def suggestion_settings(request):
+    """The auto-accept threshold and re-suggesting. Right after lowering the threshold (`?lowered`), it offers
+    the queued suggestions that now clear it."""
+    form = ThresholdForm(request.POST or None, initial={"threshold": suggestions.threshold()})
+    if form.is_valid():
+        lowered = form.cleaned_data["threshold"] < suggestions.threshold()
+        suggestions.set_threshold(form.cleaned_data["threshold"])
+        return redirect(reverse("suggestion_settings") + ("?lowered" if lowered else ""))
+    offered = (
+        list(suggestions.suggestions_clearing_threshold().values_list("pk", flat=True))
+        if "lowered" in request.GET
+        else []
+    )
+    return render(request, "ledger/suggestion_settings.html", {"form": form, "offered": offered})
+
+
+@admin_required
+@require_POST
+def accept_clearing_suggestions(request):
+    """Accepts the offered suggestions, each `accept` a Transaction id, that still clear the threshold."""
+    pks = request.POST.getlist("accept")
+    if not all(pk.isdigit() for pk in pks):
+        return HttpResponseBadRequest()
+    _suggestions_accepted(request, suggestions.accept_suggestions_clearing_threshold(map(int, pks)))
+    return redirect("suggestion_settings")
+
+
+@admin_required
+@require_POST
+def resuggest_queue(request):
+    count = suggestions.resuggest_queue()
+    messages.success(
+        request,
+        ngettext(
+            "%(count)d suggestion cleared; the LLM will be asked again.",
+            "%(count)d suggestions cleared; the LLM will be asked again.",
+            count,
+        )
+        % {"count": count},
+    )
+    return redirect("suggestion_settings")
+
+
+def _suggestions_accepted(request, count: int) -> None:
+    messages.success(
+        request,
+        ngettext("%(count)d suggestion accepted.", "%(count)d suggestions accepted.", count)
+        % {"count": count},
+    )
 
 
 def rules(request):

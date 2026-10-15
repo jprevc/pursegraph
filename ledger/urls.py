@@ -18,6 +18,11 @@ urlpatterns = [
     path("subcategories/<int:pk>/rename/", views.rename_subcategory, name="rename_subcategory"),
     path("subcategories/<int:pk>/move/", views.move_subcategory, name="move_subcategory"),
     path("subcategories/<int:pk>/delete/", views.delete_subcategory, name="delete_subcategory"),
+    path("suggestions/", views.suggestion_settings, name="suggestion_settings"),
+    path(
+        "suggestions/accept/", views.accept_clearing_suggestions, name="accept_clearing_suggestions"
+    ),
+    path("suggestions/resuggest/", views.resuggest_queue, name="resuggest_queue"),
     path("rules/", views.rules, name="rules"),
     path("rules/new/", views.new_rule, name="new_rule"),
     path("rules/reorder/", views.reorder_rules, name="reorder_rules"),
