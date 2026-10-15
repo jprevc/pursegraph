@@ -33,5 +33,5 @@ samples/
 staticfiles/
 statement-files/
 
-# Database dumps (sensitive)
-backups/
+# Statement files and database dumps (sensitive)
+data/

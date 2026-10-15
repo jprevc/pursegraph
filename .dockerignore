@@ -9,4 +9,4 @@ samples
 staticfiles
 **/__pycache__
 .pytest_cache
-backups
+data

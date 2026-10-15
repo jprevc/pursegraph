@@ -2,12 +2,15 @@ services:
   web:
     build: .
     restart: unless-stopped
+    # Owns the Statement files on the host.
+    user: ${PURSEGRAPH_USER:-1000:1000}
     env_file: .env
     environment:
       POSTGRES_HOST: postgres
       PURSEGRAPH_STATEMENT_FILES: /data/statement-files
     volumes:
-      - statement-files:/data/statement-files
+      # The original Statement files, kept so they can be re-parsed after a parser fix.
+      - ${PURSEGRAPH_DATA:-./data}/statement-files:/data/statement-files
     ports:
       - "${PURSEGRAPH_PORT:-8000}:8000"
     depends_on:
@@ -47,7 +50,7 @@ services:
     image: postgres:17
     restart: unless-stopped
     # The dumps belong to this host user, who can then copy them off the machine.
-    user: ${PURSEGRAPH_BACKUP_USER:-1000:1000}
+    user: ${PURSEGRAPH_USER:-1000:1000}
     environment:
       PGHOST: postgres
       PGUSER: ${POSTGRES_USER}
@@ -58,13 +61,11 @@ services:
     entrypoint: ["/backup.sh"]
     volumes:
       - ./backup/backup.sh:/backup.sh:ro
-      # A host directory, so the dumps outlive Docker and can be copied off the machine.
-      - ${PURSEGRAPH_BACKUPS:-./backups}:/backups
+      # Next to the Statement files, so one host directory holds everything to copy off the machine.
+      - ${PURSEGRAPH_DATA:-./data}/backups:/backups
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   postgres-data:
-  # The original Statement files, kept so they can be re-parsed after a parser fix.
-  statement-files:
