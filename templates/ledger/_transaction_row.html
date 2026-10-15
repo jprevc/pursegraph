@@ -1,4 +1,4 @@
-{% load i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`. #}
+{% load i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`; `next` overrides where a plain form post goes back to. #}
 {# An unresolved Transaction with an LLM suggestion has it preselected, to accept with one click. #}
 {% with suggested=t.pending_suggestion_id %}
 <tr id="transaction-{{ t.pk }}">
@@ -7,7 +7,7 @@
     <form class="outcome" method="post" action="{% url 'transaction_outcome' t.pk %}"
           hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change, submit" hx-target="closest tr" hx-swap="outerHTML">
       {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">
       <select name="outcome" aria-label="{% translate 'Outcome' %}">
         {% if t.ambiguous_pairing %}<option value="" selected>{% translate "Pick the other side" %}</option>
         {% elif t.is_unresolved and not suggested %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}

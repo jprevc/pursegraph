@@ -1,4 +1,8 @@
+from datetime import date
+
 import pytest
+
+from ledger.models import Account, Transaction
 
 pytestmark = pytest.mark.django_db
 
@@ -28,6 +32,9 @@ def test_sidebar_pages_render_in_the_shell(logged_in_client):
 
 
 def test_htmx_and_echarts_are_vendored(logged_in_client):
+    account = Account.objects.create(name="Joint N26", bank="n26")
+    Transaction.objects.create(account=account, date=date.today(), amount=-1, description="Bread")
+
     content = logged_in_client.get("/").content
 
     assert b"/static/vendor/htmx.min.js" in content
