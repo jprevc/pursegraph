@@ -5,13 +5,19 @@ the suggestion with its confidence. One at least as confident as the auto-accept
 sets the outcome (`source = llm`); the rest wait in the Review queue with the suggestion
 preselected. The `categorize_worker` command calls it in a loop, backing off while the Suggester
 is unavailable. Imports never wait for it.
+
+Admins retune it: changing the threshold applies from then on, and lowering it can accept the
+queued suggestions that now clear it; re-suggesting the queue clears its stored suggestions so
+they are asked again, such as after a model or prompt change.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
 from django.db import transaction
+from django.db.models import QuerySet
 from django.db.models.functions import Lower
 
 from .models import Setting, Source, Subcategory, Transaction
@@ -89,21 +95,52 @@ def run_once(suggester: Suggester) -> Run:
 
     Stops at the first failure, which the sidebar then shows until a call succeeds again."""
     pending = list(_awaiting_suggestion()[:BATCH_SIZE])
-    if not pending:
-        return Run(0)
-    subcategories = list(Subcategory.objects.select_related("category").order_by("category"))
-    threshold = float(Setting.get(Setting.AUTO_ACCEPT_THRESHOLD))
     for done, candidate in enumerate(pending):
         try:
-            suggestion: Suggestion | None = suggester.suggest(_query(candidate, subcategories))
+            suggestion: Suggestion | None = suggester.suggest(_query(candidate))
         except SuggestionsUnavailable as error:
             Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "1")
             return Run(done, error)
         except NoSuggestion:
             suggestion = None
         Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
-        _store(candidate.pk, suggestion, threshold)
+        _store(candidate.pk, suggestion)
     return Run(len(pending))
+
+
+def threshold() -> Decimal:
+    """The auto-accept threshold: a suggestion at least this confident sets the outcome by itself."""
+    return Decimal(Setting.get(Setting.AUTO_ACCEPT_THRESHOLD))
+
+
+def set_threshold(value: Decimal) -> None:
+    """Changes the threshold for suggestions from now on; outcomes already set stay, whichever way it moves."""
+    Setting.put(Setting.AUTO_ACCEPT_THRESHOLD, str(value))
+
+
+def suggestions_clearing_threshold() -> "QuerySet[Transaction]":
+    """The queued Transactions whose stored suggestion is at least as confident as the threshold: the worker
+    accepts these as it stores them, and lowering the threshold leaves some."""
+    return Transaction.objects.unresolved().filter(
+        suggested_subcategory__isnull=False, confidence__gte=threshold()
+    )
+
+
+def accept_suggestions_clearing_threshold(pks: Iterable[int]) -> int:
+    """Accepts the suggestions of the Transactions `pks` that still clear the threshold, as the worker would
+    have (`source = llm`). Returns how many."""
+    with transaction.atomic():
+        return _accept_clearing(Transaction.objects.filter(pk__in=pks))
+
+
+def resuggest_queue() -> int:
+    """Clears the stored suggestions of the queued Transactions, so the worker asks about them again,
+    such as after a model or prompt change. Returns how many it cleared."""
+    return (
+        Transaction.objects.unresolved()
+        .filter(confidence__isnull=False)
+        .update(suggested_subcategory=None, confidence=None)
+    )
 
 
 def suggestions_unavailable() -> bool:
@@ -116,38 +153,54 @@ def backoff(attempt: int) -> int:
     return min(5 * 2 ** (attempt - 1), 300)
 
 
-def _awaiting_suggestion():
+def _awaiting_suggestion() -> "QuerySet[Transaction]":
     return Transaction.objects.unresolved().filter(
         suggested_subcategory__isnull=True, confidence__isnull=True
     )
 
 
-def _store(pk: int, suggestion: Suggestion | None, threshold: float) -> None:
+def _store(pk: int, suggestion: Suggestion | None) -> None:
     """Stores the suggestion, and accepts it if it's confident enough, unless the Transaction got
     an outcome or a suggestion meanwhile, such as from a Member. With no suggestion, it stores
-    confidence 0 so the Transaction isn't asked about again."""
+    confidence 0 so the Transaction isn't asked about again. A suggestion of a Subcategory deleted
+    meanwhile isn't stored, so the Transaction is asked about again."""
     with transaction.atomic():
         candidate = _awaiting_suggestion().select_for_update().filter(pk=pk).first()
         if candidate is None:
             return
-        if suggestion is None or not Subcategory.objects.filter(pk=suggestion.subcategory.pk):
+        if suggestion is None:
             candidate.confidence = 0
             candidate.save(update_fields=["confidence"])
+            return
+        if not Subcategory.objects.filter(pk=suggestion.subcategory.pk).exists():
             return
         candidate.suggested_subcategory = suggestion.subcategory
         candidate.confidence = suggestion.confidence
         candidate.save(update_fields=["suggested_subcategory", "confidence"])
-        if suggestion.confidence >= threshold:
-            candidate.set_outcome(suggestion.subcategory, source=Source.LLM)
+        _accept_clearing(Transaction.objects.filter(pk=pk))
 
 
-def _query(candidate: Transaction, subcategories: list[Subcategory]) -> Query:
+def _accept_clearing(transactions: "QuerySet[Transaction]") -> int:
+    """Accepts the suggestions of `transactions` that clear the threshold as it is now. Runs in a
+    transaction; returns how many."""
+    clearing = list(
+        transactions.filter(pk__in=suggestions_clearing_threshold())
+        .select_for_update(of=("self",))
+        .select_related("suggested_subcategory")
+    )
+    for candidate in clearing:
+        candidate.set_outcome(candidate.suggested_subcategory, source=Source.LLM)
+    return len(clearing)
+
+
+def _query(candidate: Transaction) -> Query:
     return Query(
         direction=_direction(candidate),
         amount=abs(candidate.amount),
         description=candidate.description,
         detail=_detail(candidate),
-        subcategories=subcategories,
+        # Read for each query, so a Subcategory deleted during a batch is no longer offered.
+        subcategories=list(Subcategory.objects.select_related("category").order_by("category")),
         examples=_examples(candidate),
     )
 

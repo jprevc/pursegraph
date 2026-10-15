@@ -296,6 +296,19 @@ class NameForm(forms.Form):
     )
 
 
+class ThresholdForm(forms.Form):
+    threshold = forms.DecimalField(
+        label=_("Auto-accept threshold"),
+        help_text=_(
+            "A suggestion at least this confident (0 to 1) categorizes its Transaction by itself."
+        ),
+        min_value=0,
+        max_value=1,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"step": "0.01"}),
+    )
+
+
 class RuleForm(forms.ModelForm):
     """A Rule's conditions and outcome: a Subcategory's id, or TRANSFER. A new Rule goes to the top."""
 
