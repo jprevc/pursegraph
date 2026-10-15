@@ -128,3 +128,35 @@ def test_only_the_named_statements_are_reparsed(logged_in_client, statement):
 def test_an_unknown_statement_id_is_an_error(statement):
     with pytest.raises(CommandError):
         reparse("999999")
+
+
+def test_a_duplicate_is_compared_only_by_what_the_duplicate_check_matched(
+    logged_in_client, statement
+):
+    # Overlaps the first Statement on 11 Jun, where it lists the same row under another description.
+    response = upload(
+        logged_in_client,
+        content=b"Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n"
+        b"Card Payment,Current,2026-06-10 21:15:00,2026-06-11 6:30:12,MERCATOR ZALEC,-12.34,0,EUR,COMPLETED,2152.64\n"
+        b"Card Payment,Current,2026-06-12 9:00:00,2026-06-12 9:00:00,Kiosk,-1,0,EUR,COMPLETED,2151.64\n",
+        filename="overlap.csv",
+        account=statement.account.pk,
+    )
+    assert "1 Duplicate" in response.content.decode()
+    second = Statement.objects.exclude(pk=statement.pk).get()
+
+    output = reparse(str(second.pk))
+
+    assert "no differences" in output
+
+
+def test_a_parser_crash_fails_only_that_statement(statement, monkeypatch):
+    def crash(content, format):
+        raise ValueError("boom")
+
+    monkeypatch.setattr("ledger.reparse.parse", crash)
+
+    output = reparse()
+
+    assert "failed: ValueError: boom" in output
+    assert "0 unchanged, 0 with differences, 1 failed." in output

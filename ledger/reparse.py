@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from .importer import ImportRejected, check_numbers
+from .importer import ImportRejected, check_balances_and_totals
 from .models import Statement, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, parse
 
@@ -23,6 +23,8 @@ ROW_FIELDS = (
     "reference",
     "running_balance",
 )
+# What a Duplicate was matched by: the rest of it comes from the Statement that first had it.
+DUPLICATE_FIELDS = ("amount", "running_balance")
 STATEMENT_FIELDS = ("period_start", "period_end", "opening_balance", "closing_balance")
 
 
@@ -42,7 +44,7 @@ class ChangedRow:
 
 
 @dataclass
-class Reparse:
+class ReparseResult:
     """A Statement re-parsed: its differences against what is stored, or why it couldn't be."""
 
     statement: Statement
@@ -60,28 +62,32 @@ class Reparse:
         return bool(self.statement_changes or self.changed or self.added or self.removed)
 
 
-def reparse(statement: Statement) -> Reparse:
-    result = Reparse(statement)
+def reparse(statement: Statement) -> ReparseResult:
+    result = ReparseResult(statement)
     name = statement.file.name
     if not name or not statement.file.storage.exists(name):
         result.error = "the stored file is missing"
         return result
-    with statement.file.open("rb") as file:
-        content = file.read()
     try:
+        with statement.file.open("rb") as file:
+            content = file.read()
         parsed = parse(content, statement.format)
     except ParseError as error:
         result.error = str(error)
         return result
+    except Exception as error:
+        # A parser bug, say, fails this Statement only.
+        result.error = f"{type(error).__name__}: {error}"
+        return result
 
     result.statement_changes = _statement_changes(statement, parsed)
-    _diff_rows(result, list(statement.transactions.all()), parsed.rows)
+    _diff_rows(result, list(statement.transactions.all()), _duplicate_ids(statement), parsed.rows)
     try:
-        check_numbers(parsed)
+        check_balances_and_totals(parsed)
     except ImportRejected as rejection:
         diagnosis = rejection.diagnosis
         assert diagnosis is not None
-        if diagnosis.opening_balance + diagnosis.rows_total != diagnosis.closing_balance:
+        if not diagnosis.balances_add_up:
             result.error = (
                 f"the balances don't add up: opening {diagnosis.opening_balance}"
                 f" + rows {diagnosis.rows_total} ≠ closing {diagnosis.closing_balance}"
@@ -94,12 +100,17 @@ def reparse(statement: Statement) -> Reparse:
     return result
 
 
+def _duplicate_ids(statement: Statement) -> set[int]:
+    """The Transactions that were Duplicates on the Statement: an earlier imported Statement has them too."""
+    return set(
+        Transaction.statements.through.objects.filter(
+            transaction__statements=statement, statement__id__lt=statement.pk
+        ).values_list("transaction_id", flat=True)
+    )
+
+
 def _statement_changes(statement: Statement, parsed: ParsedStatement) -> list[FieldChange]:
-    changes = [
-        FieldChange(name, getattr(statement, name), getattr(parsed, name))
-        for name in STATEMENT_FIELDS
-        if getattr(statement, name) != getattr(parsed, name)
-    ]
+    changes = _field_changes(statement, parsed, STATEMENT_FIELDS)
     if parsed.bank != statement.account.bank:
         changes.append(FieldChange("bank", statement.account.bank, parsed.bank))
     if parsed.iban and not statement.account.ibans.filter(iban=parsed.iban).exists():
@@ -107,45 +118,65 @@ def _statement_changes(statement: Statement, parsed: ParsedStatement) -> list[Fi
     return changes
 
 
-def _row_changes(transaction: Transaction, row: ParsedRow) -> list[FieldChange]:
+def _compared_fields(
+    transaction: Transaction, row: ParsedRow, duplicate_ids: set[int]
+) -> tuple[str, ...]:
+    if transaction.pk not in duplicate_ids:
+        return ROW_FIELDS
+    # Like the Duplicate check, the running balance counts only where both have one.
+    if transaction.running_balance is None or row.running_balance is None:
+        return ("amount",)
+    return DUPLICATE_FIELDS
+
+
+def _field_changes(stored, parsed, names: tuple[str, ...]) -> list[FieldChange]:
     return [
-        FieldChange(name, getattr(transaction, name), getattr(row, name))
-        for name in ROW_FIELDS
-        if getattr(transaction, name) != getattr(row, name)
+        FieldChange(name, getattr(stored, name), getattr(parsed, name))
+        for name in names
+        if getattr(stored, name) != getattr(parsed, name)
     ]
 
 
-def _diff_rows(result: Reparse, stored: list[Transaction], rows: list[ParsedRow]) -> None:
+def _diff_rows(
+    result: ReparseResult,
+    stored: list[Transaction],
+    duplicate_ids: set[int],
+    rows: list[ParsedRow],
+) -> None:
     """Match the rows to the stored Transactions day by day, the closest matches first.
 
-    First every field equal, then the same amount and running balance (a changed description,
-    say), then the same description (a changed amount). What is left over is added or removed.
+    First every compared field equal, then the same amount and running balance (a changed
+    description, say), then the same description (a changed amount). What is left over is added
+    or removed.
     """
-    stored_by_day: dict[date, list[Transaction]] = {}
-    for transaction in stored:
-        stored_by_day.setdefault(transaction.date, []).append(transaction)
-    rows_by_day: dict[date, list[ParsedRow]] = {}
-    for row in rows:
-        rows_by_day.setdefault(row.date, []).append(row)
-
-    passes: list[Callable[[Transaction | ParsedRow], Any]] = [
-        lambda t: tuple(getattr(t, name) for name in ROW_FIELDS),
-        lambda t: (t.amount, t.running_balance),
-        lambda t: t.description,
+    passes: list[Callable[[Transaction, ParsedRow], bool]] = [
+        lambda t, row: not _field_changes(t, row, _compared_fields(t, row, duplicate_ids)),
+        lambda t, row: (t.amount, t.running_balance) == (row.amount, row.running_balance),
+        lambda t, row: t.description == row.description,
     ]
-    for day in sorted(set(stored_by_day) | set(rows_by_day)):
-        unmatched = stored_by_day.get(day, [])
-        left = rows_by_day.get(day, [])
-        for key in passes:
-            still_left = []
-            for row in left:
-                match = next((t for t in unmatched if key(t) == key(row)), None)
+    stored_by_day = _by_day(stored)
+    rows_by_day = _by_day(rows)
+    for day in sorted(stored_by_day.keys() | rows_by_day.keys()):
+        unmatched_stored = stored_by_day.get(day, [])
+        unmatched_rows = rows_by_day.get(day, [])
+        for matches in passes:
+            still_unmatched = []
+            for row in unmatched_rows:
+                match = next((t for t in unmatched_stored if matches(t, row)), None)
                 if match is None:
-                    still_left.append(row)
+                    still_unmatched.append(row)
                     continue
-                unmatched.remove(match)
-                if changes := _row_changes(match, row):
+                unmatched_stored.remove(match)
+                compared = _compared_fields(match, row, duplicate_ids)
+                if changes := _field_changes(match, row, compared):
                     result.changed.append(ChangedRow(match, changes))
-            left = still_left
-        result.added += left
-        result.removed += unmatched
+            unmatched_rows = still_unmatched
+        result.added += unmatched_rows
+        result.removed += unmatched_stored
+
+
+def _by_day[T: (Transaction, ParsedRow)](items: list[T]) -> dict[date, list[T]]:
+    by_day: dict[date, list[T]] = {}
+    for item in items:
+        by_day.setdefault(item.date, []).append(item)
+    return by_day

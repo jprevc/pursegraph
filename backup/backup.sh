@@ -17,7 +17,10 @@ KEEP_MONTHLY=6
 
 # The dumps hold every Member's finances: readable by their owner only.
 umask 077
-mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/monthly"
+if ! mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/monthly"; then
+    echo "Can't write to $BACKUP_DIR: create the host directory, owned by PURSEGRAPH_BACKUP_USER ($(id -u):$(id -g))." >&2
+    exit 1
+fi
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') $*"

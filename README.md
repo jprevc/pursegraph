@@ -54,7 +54,7 @@ The `backup` service dumps the database with `pg_dump` every night at `BACKUP_HO
 docker compose exec backup /backup.sh once
 ```
 
-The dumps hold the database only. The original Statement files live on the `statement-files` Docker volume. Copying both off the machine is up to you, for example to a NAS.
+The dumps hold the database only. The original Statement files live on the `statement-files` Docker volume. Copying both off the machine is up to you, for example to a NAS. To copy the Statement files out of the volume, run `docker compose cp web:/data/statement-files <host directory>`.
 
 ### Restoring a dump
 
@@ -69,6 +69,8 @@ docker compose up -d
 docker compose exec web python manage.py reparse
 ```
 
+If you set `PURSEGRAPH_BACKUPS`, take the dump from that directory instead of `backups/`.
+
 The `web` service applies any migrations newer than the dump when it starts. The last command checks that every restored Statement's file is still there. Statements deleted after the dump was taken have lost their files, and those Statements show as failed. Statements imported after the dump are gone from the database, but their files stay on the volume, so import them again.
 
 This procedure was tested end to end: a database volume deleted and re-created empty, then restored from a dump with its Members, Accounts, Statements and Transactions intact.
@@ -81,7 +83,7 @@ After a parser fix, check what it would change in the Statements already importe
 docker compose exec web python manage.py reparse [<statement id> ...]
 ```
 
-It parses each stored Statement file again, all of them by default, and prints the differences against what is stored. Those are the Statement's period and balances, plus each Transaction: `~` changed (field by field, stored → re-parsed), `+` a row the parser now finds, `-` a stored Transaction it no longer finds. A file that no longer parses, or whose re-parsed rows don't add up, is listed as failed. The command only shows the differences and changes nothing. To take a fix on, delete the Statement and import its file again.
+It parses each stored Statement file again, all of them by default, and prints the differences against what is stored. Those are the Statement's period and balances, plus each Transaction: `~` changed (field by field, stored → re-parsed), `+` a row the parser now finds, `-` a stored Transaction it no longer finds. A Duplicate keeps the fields of the Statement that first had it, so on a later Statement only its amount and running balance are compared. A file that no longer parses, or whose re-parsed rows don't add up, is listed as failed. The command only shows the differences and changes nothing. To take a fix on, delete the Statement and import its file again.
 
 ## Recovering a locked-out admin
 

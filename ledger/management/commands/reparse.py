@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from ledger.models import Statement
+from ledger.models import Statement, Transaction
 from ledger.reparse import ChangedRow, FieldChange, reparse
 
 
@@ -36,17 +36,19 @@ class Command(BaseCommand):
                 self.stdout.write(f"  {_change(change)}")
             # In date order, whatever the kind of difference.
             rows = [
-                *((changed.transaction.date, "~", changed) for changed in result.changed),
-                *((row.date, "+", row) for row in result.added),
-                *((transaction.date, "-", transaction) for transaction in result.removed),
+                *((changed.transaction.date, changed) for changed in result.changed),
+                *((row.date, row) for row in result.added),
+                *((transaction.date, transaction) for transaction in result.removed),
             ]
-            for _day, sign, row in sorted(rows, key=lambda entry: entry[0]):
+            for _day, row in sorted(rows, key=lambda dated: dated[0]):
                 if isinstance(row, ChangedRow):
                     self.stdout.write(f"  ~ {_row(row.transaction)}")
                     for change in row.changes:
                         self.stdout.write(f"      {_change(change)}")
+                elif isinstance(row, Transaction):
+                    self.stdout.write(f"  - {_row(row)}")
                 else:
-                    self.stdout.write(f"  {sign} {_row(row)}")
+                    self.stdout.write(f"  + {_row(row)}")
             if result.error:
                 failed += 1
                 self.stdout.write(f"  failed: {result.error}")
