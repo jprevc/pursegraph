@@ -1,0 +1,24 @@
+{% extends "dashboard/_view.html" %}
+{% load i18n %}
+{% block title %}{% translate "Money flow" %}{% endblock %}
+{% block table %}
+<table class="view-table">
+  <tbody>
+  {% for row in data.rows %}
+  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ row.label }}</td>
+    <td class="num">{{ row.amount|floatformat:2 }}</td>
+  </tr>
+  {% for child in row.children %}
+  <tr class="subcategory" tabindex="0" hx-get="{{ chart.drill }}{{ child.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ child.label }}</td>
+    <td class="num">{{ child.amount|floatformat:2 }}</td>
+  </tr>
+  {% endfor %}
+  {% endfor %}
+  </tbody>
+  <tfoot><tr class="balance"><td>{{ data.total.label }}</td><td class="num">{{ data.total.amount|floatformat:2 }}</td></tr></tfoot>
+</table>
+{% endblock %}
+{% block hint %}{% translate "Click a node or a line to see its Transactions." %}{% endblock %}
+{% block empty %}{% translate "No money in or out in this period." %}{% endblock %}

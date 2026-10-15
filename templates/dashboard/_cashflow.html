@@ -1,0 +1,22 @@
+{% extends "dashboard/_view.html" %}
+{% load i18n %}
+{% block title %}{% translate "Cashflow" %}{% endblock %}
+{% block layout %}split wide{% endblock %}
+{% block table %}
+<table class="view-table">
+  <thead><tr><th>{% translate "Month" %}</th><th class="num">{% translate "In" %}</th><th class="num">{% translate "Out" %}</th><th class="num">{% translate "Net" %}</th></tr></thead>
+  <tbody>
+  {% for row in data.rows %}
+  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ row.label }}</td>
+    <td class="num">{{ row.money_in|floatformat:2 }}</td>
+    <td class="num">{{ row.money_out|floatformat:2 }}</td>
+    <td class="num">{{ row.net|floatformat:2 }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><th>{{ data.total.label }}</th><th class="num">{{ data.total.money_in|floatformat:2 }}</th><th class="num">{{ data.total.money_out|floatformat:2 }}</th><th class="num">{{ data.total.net|floatformat:2 }}</th></tr></tfoot>
+</table>
+{% endblock %}
+{% block hint %}{% translate "Click a bar, a point or a month to see its Transactions." %}{% endblock %}
+{% block empty %}{% translate "No money in or out in this period." %}{% endblock %}

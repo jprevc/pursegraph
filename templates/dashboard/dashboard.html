@@ -1,15 +1,9 @@
 {% extends "shell.html" %}
 {% load i18n static %}
 {% block title %}{% translate "Dashboard" %}{% endblock %}
-{% block head %}<script src="{% static 'vendor/echarts.min.js' %}" defer></script>{% endblock %}
+{% block head %}<script src="{% static 'vendor/echarts.min.js' %}" defer></script>
+<script src="{% static 'dashboard.js' %}" defer></script>{% endblock %}
 {% block main %}
-<div class="empty">
-{% if has_statements %}
-  <p>{% translate "Charts are not built yet." %}</p>
-  <a class="button" href="{% url 'transactions' %}">{% translate "See the Transactions" %}</a>
-{% else %}
-  <p>{% translate "There is nothing to show yet." %}</p>
-  <a class="button" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
-{% endif %}
-</div>
+{# One view at a time; the period selector and the sidebar swap it via HTMX. #}
+<div id="view">{% include view_template %}</div>
 {% endblock %}

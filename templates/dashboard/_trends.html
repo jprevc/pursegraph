@@ -1,0 +1,22 @@
+{% extends "dashboard/_view.html" %}
+{% load i18n %}
+{% block title %}{% translate "Category trends" %}{% endblock %}
+{% block layout %}stack{% endblock %}
+{% block table %}
+<div class="scroll">
+<table class="view-table">
+  <thead><tr><th>{% translate "Category" %}</th>{% for month in chart.months %}<th class="num">{{ month }}</th>{% endfor %}<th class="num">{% translate "Total" %}</th></tr></thead>
+  <tbody>
+  {% for row in data.rows %}
+  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+    <td>{{ row.label }}</td>
+    {% for amount in row.amounts %}<td class="num">{{ amount|floatformat:2 }}</td>{% endfor %}
+    <td class="num">{{ row.total|floatformat:2 }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+{% block hint %}{% translate "Click a Category in the legend to hide its line; click a point or a Category to see its Transactions." %}{% endblock %}
+{% block empty %}{% translate "No spending in this period." %}{% endblock %}

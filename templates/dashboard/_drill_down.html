@@ -1,0 +1,11 @@
+{% load i18n %}{# The Transactions behind a chart mark, editable inline like on the Transactions page. #}
+{% if transactions %}
+<table>
+  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
+  <tbody>
+  {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{% translate "No Transactions here." %}</p>
+{% endif %}
