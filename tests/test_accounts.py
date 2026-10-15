@@ -4,8 +4,10 @@ import re
 
 import pytest
 
-from ledger.models import Account, Transaction
+from ledger.importer import ImportRejected, check_statement, commit_statement
+from ledger.models import Account, Rule, Transaction
 from tests.conftest import make_account
+from tests.test_import import FIXTURE as REVOLUT_CSV
 from tests.test_import import upload as upload_csv
 from tests.test_import import upload_without_account
 from tests.test_import_pdf import IBAN as SPARKASSE_IBAN
@@ -140,7 +142,26 @@ def test_an_account_of_a_bank_with_statements_may_have_no_iban(admin_client, mem
     assert Account.objects.get(name="Ana's savings").bank == "revolut"
 
 
+def test_only_active_members_are_offered_as_owners(admin_client, member):
+    member.is_active = False
+    member.save()
+
+    page = admin_client.get("/accounts/new/").content.decode()
+
+    assert f'value="{member.pk}"' not in page
+
+
 # Editing
+
+
+def test_an_inactive_owner_stays_on_offer_for_their_account(admin_client, member):
+    member.is_active = False
+    member.save()
+    account = make_account("Ana's Revolut", "revolut", member)
+
+    page = admin_client.get(f"/accounts/{account.pk}/edit/").content.decode()
+
+    assert re.search(rf'value="{member.pk}"[^>]* checked', page)
 
 
 def test_admin_renames_an_account_and_changes_its_owners_and_ibans(admin_client, member, admin):
@@ -228,6 +249,18 @@ def test_an_account_with_no_statements_isnt_offered_at_import(logged_in_client, 
     assert "Ana&#x27;s savings" not in account_step
 
 
+def test_an_import_rechecks_the_account_once_it_holds_it(member):
+    """An admin may make the Account an Account with no Statements while the import is under way."""
+    account = make_account("Ana's Revolut", "revolut", member)
+    checked = check_statement(content=REVOLUT_CSV, filename="revolut.csv")
+    Account.objects.filter(pk=account.pk).update(bank="other")
+
+    with pytest.raises(ImportRejected, match="no Statements"):
+        commit_statement(checked, member=member, account=account)
+
+    assert not account.statements.exists()
+
+
 # Deleting
 
 
@@ -238,6 +271,17 @@ def test_admin_deletes_an_account_with_no_statements(admin_client, member):
 
     assert response.status_code == 302
     assert not Account.objects.exists()
+
+
+def test_deleting_asks_first_and_names_the_rules_that_go_with_it(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+    Rule.objects.create(description_contains="SAVINGS", account=account)
+
+    page = admin_client.get(f"/accounts/{account.pk}/delete/").content.decode()
+
+    assert "Delete Account" in page
+    assert "1 Rule only for this Account will be deleted with it." in page
+    assert Account.objects.exists()
 
 
 def test_deleting_an_account_is_refused_while_it_has_statements(admin_client):

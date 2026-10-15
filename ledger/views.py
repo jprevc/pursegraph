@@ -157,22 +157,40 @@ def edit_account(request, pk):
 
 
 def _account_form(request, account):
-    form = AccountAdminForm(request.POST or None, instance=account)
-    if request.method == "POST" and form.is_valid():
-        try:
-            form.save()
-        except IntegrityError:
-            # Another admin gave one of the IBANs to an Account in the meantime.
-            form.add_error("ibans", _("One of these IBANs was just added to another Account."))
-        else:
-            return redirect("accounts")
+    if request.method != "POST":
+        form = AccountAdminForm(instance=account)
+        return render(request, "ledger/account_form.html", {"form": form})
+    try:
+        with db_transaction.atomic():
+            if account.pk:
+                # Serialized with imports into the Account, so it keeps its bank once one lands.
+                account = Account.objects.select_for_update().get(pk=account.pk)
+            form = AccountAdminForm(request.POST, instance=account)
+            if form.is_valid():
+                form.save()
+                return redirect("accounts")
+    except IntegrityError:
+        # Another admin gave one of the IBANs to an Account in the meantime.
+        form.add_error("ibans", _("One of these IBANs was just added to another Account."))
     return render(request, "ledger/account_form.html", {"form": form})
 
 
 @admin_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def delete_account(request, pk):
-    """Deletes an Account, refused while it has Statements: their Transactions would go with it."""
+    """Deletes an Account after a confirmation, with the Rules only for it; refused while it has Statements,
+    whose Transactions would go with it."""
+    if request.method == "GET":
+        account = get_object_or_404(Account, pk=pk)
+        return render(
+            request,
+            "ledger/delete_account.html",
+            {
+                "account": account,
+                "has_statements": account.statements.exists(),
+                "rule_count": account.rules.count(),
+            },
+        )
     with db_transaction.atomic():
         # Serialized with imports into the Account.
         account = get_object_or_404(Account.objects.select_for_update(), pk=pk)

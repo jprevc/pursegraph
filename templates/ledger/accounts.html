@@ -20,9 +20,7 @@
       <td class="actions">
         <a href="{% url 'edit_account' account.pk %}">{% translate "Edit" %}</a>
         {% if not account.statement_count %}
-        <form method="post" action="{% url 'delete_account' account.pk %}" class="inline">{% csrf_token %}
-          <button type="submit" class="danger">{% translate "Delete" %}</button>
-        </form>
+        <a class="danger" href="{% url 'delete_account' account.pk %}">{% translate "Delete" %}</a>
         {% endif %}
       </td>
     </tr>

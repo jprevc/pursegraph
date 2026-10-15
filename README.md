@@ -34,7 +34,7 @@ Statements may overlap the Account's Coverage (the dates already imported). The 
 
 ## Accounts
 
-Admins manage the Accounts on the Accounts page, linked from the Import page: their name, bank, owning Members (several make a joint Account) and IBANs (several when the bank re-issued one; each belongs to one Account only). An Account with bank "Other" never receives Statements: it is registered only by its IBANs, so that money moved to it, such as to savings at another bank, is recognised as a Transfer. Adding an IBAN also makes the Transactions already imported that are awaiting review and pay to or from it Transfers. An Account keeps its bank, and can't be deleted, while it has Statements.
+Admins manage the Accounts on the Accounts page, linked from the Import page: their name, bank, owning Members (several make a joint Account) and IBANs (several when the bank re-issued one; each belongs to one Account only). An Account with bank "Other" never receives Statements: it is registered only by its IBANs, so that money moved to it, such as to savings at another bank, is recognised as a Transfer. Adding an IBAN also makes the Transactions already imported that are awaiting review and pay to or from it Transfers. An Account keeps its bank, and can't be deleted, while it has Statements; deleting one also deletes the Rules only for it, after a confirmation that says how many. Deactivated Members are offered as owners only of the Accounts they already own.
 
 ## Categories and the Review queue
 

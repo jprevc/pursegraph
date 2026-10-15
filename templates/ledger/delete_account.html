@@ -1,0 +1,23 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Delete Account" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Delete Account" %}</h2>
+<form class="panel stack-form" method="post">
+  {% csrf_token %}
+  <p>{{ account.name }} <span class="muted">· {{ account.get_bank_display }}</span></p>
+  {% if has_statements %}
+  <p class="warning">{% translate "It has Statements, so it can't be deleted. Delete its Statements first." %}</p>
+  {% else %}
+  {% if rule_count %}
+  <p class="warning">{% blocktranslate count n=rule_count %}{{ n }} Rule only for this Account will be deleted with it.{% plural %}{{ n }} Rules only for this Account will be deleted with it.{% endblocktranslate %}</p>
+  {% else %}
+  <p class="muted">{% translate "No Rules are only for this Account." %}</p>
+  {% endif %}
+  {% endif %}
+  <div class="actions">
+    {% if not has_statements %}<button type="submit" class="danger">{% translate "Delete" %}</button>{% endif %}
+    <a href="{% url 'accounts' %}">{% translate "Cancel" %}</a>
+  </div>
+</form>
+{% endblock %}

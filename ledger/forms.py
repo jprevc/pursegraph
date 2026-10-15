@@ -123,9 +123,15 @@ class AccountAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        cast(
-            forms.ModelChoiceField, self.fields["owners"]
-        ).queryset = get_user_model().objects.order_by("username")
+        # A deactivated Member stays on offer only for the Accounts they already own.
+        owners = (
+            Q(is_active=True) | Q(pk__in=self.instance.owners.all())
+            if self.instance.pk
+            else Q(is_active=True)
+        )
+        cast(forms.ModelChoiceField, self.fields["owners"]).queryset = (
+            get_user_model().objects.filter(owners).order_by("username")
+        )
         if self.instance.pk:
             self.initial["ibans"] = "\n".join(self.instance.ibans.values_list("iban", flat=True))
 
