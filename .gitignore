@@ -32,3 +32,6 @@ samples/
 # Django
 staticfiles/
 statement-files/
+
+# Database dumps (sensitive)
+backups/

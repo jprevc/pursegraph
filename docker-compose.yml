@@ -42,6 +42,28 @@ services:
       timeout: 5s
       retries: 10
 
+  # Nightly pg_dump, keeping 14 daily and 6 monthly dumps; see "Backups" in the README.
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    # The dumps belong to this host user, who can then copy them off the machine.
+    user: ${PURSEGRAPH_BACKUP_USER:-1000:1000}
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      TZ: ${BACKUP_TZ:-UTC}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+    entrypoint: ["/backup.sh"]
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      # A host directory, so the dumps outlive Docker and can be copied off the machine.
+      - ${PURSEGRAPH_BACKUPS:-./backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   # The original Statement files, kept so they can be re-parsed after a parser fix.

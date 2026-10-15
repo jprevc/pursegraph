@@ -145,6 +145,20 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     except ParseError as error:
         raise ImportRejected(str(error), keep_file=True) from error
 
+    check_numbers(parsed)
+
+    known = (
+        AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first()
+        if parsed.iban
+        else None
+    )
+    return CheckedStatement(
+        content, filename, sha256, format, parsed, known.account if known else None
+    )
+
+
+def check_numbers(parsed: ParsedStatement) -> None:
+    """Opening balance + rows = closing balance, and the rows match the printed totals, if any."""
     rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
     parsed_totals = _totals(parsed.rows)
     balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
@@ -163,15 +177,6 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
                 parsed_totals,
             ),
         )
-
-    known = (
-        AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first()
-        if parsed.iban
-        else None
-    )
-    return CheckedStatement(
-        content, filename, sha256, format, parsed, known.account if known else None
-    )
 
 
 def commit_statement(
