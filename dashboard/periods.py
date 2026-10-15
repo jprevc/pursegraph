@@ -18,6 +18,10 @@ UNITS = [
 ]
 
 
+# The years a Period may cover: far enough from the calendar's ends for every Period it links to.
+YEARS = range(1900, 3000)
+
+
 def today() -> date:
     return timezone.localdate()
 
@@ -26,6 +30,10 @@ def _month_start(year: int, month: int) -> date:
     """The first day of a month, with `month` allowed outside 1–12 to step across years."""
     year, month = year + (month - 1) // 12, (month - 1) % 12 + 1
     return date(year, month, 1)
+
+
+def _quarter_of(day: date) -> int:
+    return (day.month + 2) // 3
 
 
 def _month_end(year: int, month: int) -> date:
@@ -67,30 +75,35 @@ class Period:
     def parse(cls, token: str) -> "Period":
         """The Period a `period` token names; the default for anything else."""
         try:
-            if m := re.fullmatch(r"(\d{4})-(\d{2})", token):
-                if 1 <= int(m[2]) <= 12:
-                    return cls.month(int(m[1]), int(m[2]))
-            elif m := re.fullmatch(r"(\d{4})-Q([1-4])", token):
-                return cls.quarter(int(m[1]), int(m[2]))
-            elif m := re.fullmatch(r"(\d{4})", token):
-                return cls.year(int(m[1]))
-            elif m := re.fullmatch(r"last12-(\d{4})-(\d{2})", token):
-                if 1 <= int(m[2]) <= 12:
-                    return cls.last12(int(m[1]), int(m[2]))
-            elif m := re.fullmatch(r"(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})", token):
-                return cls.custom(m[1], m[2])
+            period = cls._read(token)
         except ValueError:
-            pass
-        return cls.default()
+            period = None
+        return period if period and period.in_bounds else cls.default()
+
+    @classmethod
+    def _read(cls, token: str) -> "Period | None":
+        if m := re.fullmatch(r"(\d{4})-(0[1-9]|1[0-2])", token):
+            return cls.month(int(m[1]), int(m[2]))
+        if m := re.fullmatch(r"(\d{4})-Q([1-4])", token):
+            return cls.quarter(int(m[1]), int(m[2]))
+        if m := re.fullmatch(r"(\d{4})", token):
+            return cls.year(int(m[1]))
+        if m := re.fullmatch(r"last12-(\d{4})-(0[1-9]|1[0-2])", token):
+            return cls.last12(int(m[1]), int(m[2]))
+        if m := re.fullmatch(r"(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})", token):
+            first, last = sorted([date.fromisoformat(m[1]), date.fromisoformat(m[2])])
+            return cls("custom", first, last)
+        return None
 
     @classmethod
     def custom(cls, start: str, end: str) -> "Period":
         """A Custom range from two ISO dates, in either order; the default if either can't be read."""
-        try:
-            first, last = sorted([date.fromisoformat(start), date.fromisoformat(end)])
-        except ValueError:
-            return cls.default()
-        return cls("custom", first, last)
+        return cls.parse(f"{start}..{end}")
+
+    @property
+    def in_bounds(self) -> bool:
+        """Within YEARS, so that its neighbours and its other units, which the period selector links to, exist too."""
+        return self.start.year in YEARS and self.end.year in YEARS
 
     @classmethod
     def from_query(cls, params) -> "Period":
@@ -104,7 +117,7 @@ class Period:
         if self.unit == "month":
             return f"{self.start:%Y-%m}"
         if self.unit == "quarter":
-            return f"{self.start.year}-Q{(self.start.month + 2) // 3}"
+            return f"{self.start.year}-Q{_quarter_of(self.start)}"
         if self.unit == "year":
             return str(self.start.year)
         if self.unit == "last12":
@@ -117,7 +130,7 @@ class Period:
         if unit == "month":
             return Period.month(last.year, last.month)
         if unit == "quarter":
-            return Period.quarter(last.year, (last.month + 2) // 3)
+            return Period.quarter(last.year, _quarter_of(last))
         if unit == "year":
             return Period.year(last.year)
         if unit == "last12":
@@ -154,7 +167,7 @@ class Period:
             return formats.date_format(self.start, "F Y")
         if self.unit == "quarter":
             return _("Q%(quarter)s %(year)s") % {
-                "quarter": (self.start.month + 2) // 3,
+                "quarter": _quarter_of(self.start),
                 "year": self.start.year,
             }
         if self.unit == "year":
@@ -168,4 +181,4 @@ class Period:
     def so_far(self) -> date | None:
         """Today, while the Period is still running."""
         now = today()
-        return now if self.start <= now < self.end else None
+        return now if self.start <= now <= self.end else None

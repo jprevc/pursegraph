@@ -138,7 +138,9 @@ def test_subcategories_are_listed_under_their_category(logged_in_client, househo
         ),
     ],
 )
-def test_period_units_and_their_arrows(logged_in_client, period, label, previous, following):
+def test_period_units_and_their_arrows(
+    logged_in_client, household, period, label, previous, following
+):
     page = logged_in_client.get("/spending/", {"period": period}).content.decode()
 
     assert label in page
@@ -146,7 +148,7 @@ def test_period_units_and_their_arrows(logged_in_client, period, label, previous
     assert f"period={following}" in page
 
 
-def test_the_period_selector_offers_every_unit(logged_in_client):
+def test_the_period_selector_offers_every_unit(logged_in_client, household):
     page = logged_in_client.get("/spending/", {"period": "2026-08"}).content.decode()
 
     options = re.findall(r'<option value="([^"]*)"( selected)?>([^<]*)</option>', page)
@@ -184,7 +186,9 @@ def test_the_current_month_is_labelled_so_far(logged_in_client, household):
     assert "period=2026-11" not in page  # nothing to step forward to
 
 
-def test_a_period_that_cannot_be_read_falls_back_to_the_last_complete_month(logged_in_client):
+def test_a_period_that_cannot_be_read_falls_back_to_the_last_complete_month(
+    logged_in_client, household
+):
     page = logged_in_client.get("/spending/", {"period": "2026-13"}).content.decode()
 
     assert "September 2026" in page
@@ -241,7 +245,7 @@ def test_the_chart_marks_carry_their_drill_down_address(logged_in_client, househ
     page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
 
     data = chart_data(page)
-    assert data["drill"] == "/spending/transactions/?period=2026-09"
+    assert data["drill"] == "/spending/transactions/?period=2026-09&category="
     assert [bar["key"] for bar in data["bars"]] == [
         str(food.pk),
         str(subcategory("Shopping", "Other").category.pk),
@@ -266,3 +270,48 @@ def test_drill_down_rows_edit_the_outcome_inline(logged_in_client, household):
     )
     after = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
     assert spending_table(after) == {"Food": "132.80", "Shopping": "70.00"}
+
+
+def test_restoring_history_gets_the_whole_page(logged_in_client, household):
+    response = logged_in_client.get(
+        "/spending/",
+        {"period": "2026-09"},
+        headers={"HX-Request": "true", "HX-History-Restore-Request": "true"},
+    )
+
+    assert "<aside>" in response.content.decode()
+    assert "HX-Request" in response["Vary"]
+
+
+def test_the_last_day_of_a_running_period_is_still_so_far(logged_in_client, household, monkeypatch):
+    monkeypatch.setattr("dashboard.periods.today", lambda: date(2026, 9, 30))
+
+    page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
+
+    assert "so far, to 30 Sep 2026" in page
+
+
+@pytest.mark.parametrize(
+    "period", ["9999", "0001", "0001-01-01..9999-12-31", "last12-0001-01", "1899-12"]
+)
+def test_periods_at_the_edge_of_the_calendar_fall_back_to_the_default(
+    logged_in_client, household, period
+):
+    response = logged_in_client.get("/spending/", {"period": period})
+
+    assert response.status_code == 200
+    assert "September 2026" in response.content.decode()
+
+
+def test_an_empty_installation_asks_for_the_first_statement_on_every_view(logged_in_client):
+    page = logged_in_client.get("/spending/").content.decode()
+
+    assert "Import your first Statement" in page
+
+
+def test_drill_down_rows_go_back_to_the_view_without_htmx(logged_in_client, household):
+    page = logged_in_client.get(
+        "/spending/transactions/", {"period": "2026-09", "category": "awaiting"}
+    ).content.decode()
+
+    assert '<input type="hidden" name="next" value="/spending/?period=2026-09">' in page

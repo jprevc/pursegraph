@@ -24,17 +24,34 @@
     }),
   };
 
+  const observers = new WeakMap();
+
   const mount = el => {
-    if (el.dataset.mounted) return;
-    el.dataset.mounted = 'yes';
+    // A page restored from history has the element but not its chart.
+    if (echarts.getInstanceByDom(el)) return;
     const data = JSON.parse(document.getElementById(el.dataset.source).textContent);
     const chart = echarts.init(el, null, { renderer: 'svg' });
     chart.setOption(options[el.dataset.chart](data));
-    chart.on('click', p => htmx.ajax('GET', `${data.drill}&category=${encodeURIComponent(p.data.key)}`, '#drill'));
-    new ResizeObserver(() => chart.resize()).observe(el);
+    chart.on('click', p => htmx.ajax('GET', data.drill + encodeURIComponent(p.data.key), '#drill'));
+    const observer = new ResizeObserver(() => chart.resize());
+    observer.observe(el);
+    observers.set(el, observer);
   };
-  const mountAll = root => root.querySelectorAll('[data-chart]').forEach(mount);
+  const unmount = el => {
+    observers.get(el)?.disconnect();
+    echarts.getInstanceByDom(el)?.dispose();
+  };
+  const charts = root => root.querySelectorAll('[data-chart]');
 
-  document.addEventListener('DOMContentLoaded', () => mountAll(document));
-  document.addEventListener('htmx:afterSettle', e => mountAll(e.detail.elt));
+  document.addEventListener('DOMContentLoaded', () => charts(document).forEach(mount));
+  document.addEventListener('htmx:beforeSwap', e => charts(e.detail.target).forEach(unmount));
+  document.addEventListener('htmx:afterSettle', e => charts(e.detail.elt).forEach(mount));
+  document.addEventListener('htmx:historyRestore', () => charts(document).forEach(mount));
+
+  // An outcome changed in the drill-down moves money between the bars: refetch the numbers, keeping the drill-down open.
+  document.addEventListener('htmx:afterRequest', e => {
+    if (e.detail.successful && e.detail.elt.matches('#drill form.outcome') && document.getElementById('numbers')) {
+      htmx.ajax('GET', location.href, { target: '#numbers', select: '#numbers', swap: 'outerHTML' });
+    }
+  });
 })();

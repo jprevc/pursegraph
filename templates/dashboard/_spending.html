@@ -4,6 +4,8 @@
   {% include "dashboard/_period.html" %}
 </div>
 {% if data.rows %}
+{# Refetched alone after an outcome is changed in the drill-down. #}
+<div id="numbers">
 <div class="split">
   <div class="panel"><div class="chart" data-chart="spending" data-source="spending-data"></div></div>
   <div class="panel">
@@ -11,7 +13,7 @@
       <thead><tr><th>{% translate "Category" %}</th><th class="num">{% translate "Spent" %}</th></tr></thead>
       <tbody>
       {% for row in data.rows %}
-      <tr class="category" tabindex="0" hx-get="{{ chart.drill }}&amp;category={{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
+      <tr class="category" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
         <td>{{ row.label }}</td>
         <td class="num">{{ row.amount|floatformat:2 }}</td>
       </tr>
@@ -28,6 +30,7 @@
   </div>
 </div>
 {{ chart|json_script:"spending-data" }}
+</div>
 <p class="muted hint">{% translate "Click a bar or a Category to see its Transactions." %}</p>
 {% else %}
 <p class="muted">{% translate "No spending in this period." %}</p>

@@ -2,7 +2,7 @@
 The views only render what it returns.
 
 Everywhere: Transfers are left out, Refunds net against spending in their Subcategory, and unresolved
-Transactions form an "Awaiting review" bucket."""
+Transactions form an "Awaiting review" bucket: on the spending side, the unresolved money out."""
 
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -25,11 +25,12 @@ class Filters:
 
 @dataclass(frozen=True)
 class Row:
-    """One line of a view's table, and one chart mark. `key` names the Transactions behind it for the drill-down."""
+    """One line of a view's table. A top-level row is also a chart mark, and its `key` names the Transactions
+    behind it for the drill-down."""
 
     label: str
     amount: Decimal
-    key: str
+    key: str | None
     children: list["Row"] = field(default_factory=list)
 
 
@@ -68,7 +69,7 @@ def spending_by_category(period: Period, filters: Filters) -> ViewData:
         "subcategories"
     ):
         children = [
-            Row(s.name, by_subcategory[s.pk], str(category.pk))
+            Row(s.name, by_subcategory[s.pk], None)
             for s in category.subcategories.all()
             if s.pk in by_subcategory
         ]
@@ -91,7 +92,7 @@ def spending_transactions(period: Period, filters: Filters, key: str) -> QuerySe
     """The Transactions behind one Spending by Category mark, as the drill-down lists them."""
     spending = _spending(period, filters)
     if key == AWAITING_REVIEW:
-        return spending.filter(subcategory__isnull=True)
+        return spending & Transaction.objects.unresolved()
     if key.isdigit():
         return spending.filter(subcategory__category=int(key))
     return spending.none()
