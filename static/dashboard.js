@@ -7,7 +7,7 @@
   const eur = (v, digits = 0) => v.toLocaleString(undefined, { style: 'currency', currency: 'EUR', minimumFractionDigits: digits, maximumFractionDigits: digits });
 
   const TEXT = { fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', color: INK2 };
-  const IN = '#1baf7a', OUT = '#eb6834', NET = '#0b0b0b';
+  const IN = '#1baf7a', OUT = '#eb6834', NET = '#0b0b0b', OTHERS = '#8a5cd0';
   const valueAxis = { type: 'value', axisLabel: { color: MUTED, formatter: v => eur(v) }, splitLine: { lineStyle: { color: GRID } } };
   const categoryAxis = (data, extra = {}) => ({ type: 'category', data, axisLine: { lineStyle: { color: AXIS } }, axisTick: { show: false }, axisLabel: { color: MUTED }, ...extra });
   const legend = { top: 0, left: 0, type: 'scroll', textStyle: { color: INK2 }, icon: 'roundRect' };
@@ -42,6 +42,8 @@
           { name: data.labels.in, type: 'bar', cursor: 'pointer', data: marks(data.in, 'in'), itemStyle: { color: IN, borderRadius: [4, 4, 0, 0] }, barGap: '8%' },
           { name: data.labels.out, type: 'bar', cursor: 'pointer', data: marks(data.out, 'out'), itemStyle: { color: OUT, borderRadius: [4, 4, 0, 0] } },
           { name: data.labels.net, type: 'line', cursor: 'pointer', data: marks(data.net), symbolSize: 8, lineStyle: { width: 2, color: NET }, itemStyle: { color: NET } },
+          // Under a Member filter: what Transfers moved to (below zero) or from other Members.
+          ...(data.others ? [{ name: data.labels.others, type: 'line', cursor: 'pointer', data: marks(data.others, 'others'), symbolSize: 8, lineStyle: { width: 2, type: 'dashed', color: OTHERS }, itemStyle: { color: OTHERS } }] : []),
         ],
       };
     },
@@ -88,7 +90,7 @@
           label: { color: INK2, formatter: p => `${p.data.label}  ${eur(p.value)}` },
           data: data.nodes.map(n => ({
             ...n, cursor: n.key ? 'pointer' : 'default',
-            itemStyle: { color: n.name === 'saved' ? IN : n.name === 'from_savings' ? OUT : n.name === 'household' ? INK2 : colour(n.key.replace(/^in:/, '')) },
+            itemStyle: { color: n.name === 'saved' ? IN : n.name === 'from_savings' ? OUT : n.name === 'household' ? INK2 : n.name === 'others' ? OTHERS : colour(n.key.replace(/^in:/, '')) },
           })),
           links: data.links,
         }],
@@ -120,14 +122,8 @@
 
   document.addEventListener('DOMContentLoaded', () => charts(document).forEach(mount));
   document.addEventListener('htmx:beforeSwap', e => charts(e.detail.target).forEach(unmount));
-  document.addEventListener('htmx:afterSettle', e => {
-    charts(e.detail.elt).forEach(mount);
-    // A view swapped in from the sidebar becomes its current item.
-    if (e.detail.elt.id === 'view' && e.detail.requestConfig) {
-      const path = new URL(e.detail.requestConfig.path, location.href).pathname;
-      document.querySelectorAll('aside a.nav').forEach(a => a.classList.toggle('on', a.getAttribute('href') === path));
-    }
-  });
+  // A view swapped in brings the sidebar's view links along, marking its own as current.
+  document.addEventListener('htmx:afterSettle', e => charts(e.detail.elt).forEach(mount));
   document.addEventListener('htmx:historyRestore', () => charts(document).forEach(mount));
 
   // An outcome changed in the drill-down moves money between the bars: refetch the numbers, keeping the drill-down open.

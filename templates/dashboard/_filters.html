@@ -1,0 +1,24 @@
+{% load i18n %}{# The filter bar. Needs `filters`, `members`, `accounts` and `view_url`; every change swaps #view. #}
+<form class="filter-bar" method="get" action="{{ view_url }}" hx-get="{{ view_url }}" hx-trigger="submit, change[target.name==='member']" hx-target="#view" hx-push-url="true">
+  {% if period_chosen %}<input type="hidden" name="period" value="{{ period.token }}">{% endif %}
+  {% if view == "per_member" %}
+  {# Per Member compares every Member; the filter stays in the URL for the other views. #}
+  {% if filters.member %}<input type="hidden" name="member" value="{{ filters.member }}">{% endif %}
+  <select name="member" aria-label="{% translate 'Member' %}" disabled title="{% translate 'Per Member compares every Member, so it ignores the Member filter.' %}">
+  {% else %}
+  <select name="member" aria-label="{% translate 'Member' %}">
+  {% endif %}
+    <option value=""{% if not filters.member %} selected{% endif %}>{% translate "All Members" %}</option>
+    {% for key, label in members %}<option value="{{ key }}"{% if filters.member == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <details class="accounts">
+    <summary>{% if filters.accounts %}{% blocktranslate count n=filters.accounts|length %}{{ n }} Account{% plural %}{{ n }} Accounts{% endblocktranslate %}{% else %}{% translate "All Accounts" %}{% endif %}</summary>
+    <div class="account-list">
+      {% for account in accounts %}<label><input type="checkbox" name="account" value="{{ account.pk }}"{% if account.pk in filters.accounts %} checked{% endif %}> {{ account.name }}</label>
+      {% endfor %}
+      <button type="submit">{% translate "Apply" %}</button>
+    </div>
+  </details>
+  <noscript><button type="submit">{% translate "Show" %}</button></noscript>
+</form>
+{% if view == "per_member" and filters.member %}<p class="muted filter-note">{% translate "Per Member compares every Member, so it ignores the Member filter." %}</p>{% endif %}

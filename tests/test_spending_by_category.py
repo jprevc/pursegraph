@@ -151,7 +151,9 @@ def test_period_units_and_their_arrows(
 def test_the_period_selector_offers_every_unit(logged_in_client, household):
     page = logged_in_client.get("/spending/", {"period": "2026-08"}).content.decode()
 
-    options = re.findall(r'<option value="([^"]*)"( selected)?>([^<]*)</option>', page)
+    select = re.search(r'<select name="period"[^>]*>(.*?)</select>', page, re.S)
+    assert select, "no period selector"
+    options = re.findall(r'<option value="([^"]*)"( selected)?>([^<]*)</option>', select[1])
     assert [(value, label) for value, _, label in options] == [
         ("2026-08", "Month"),
         ("2026-Q3", "Quarter"),

@@ -5,11 +5,7 @@
 <div class="shell">
   <aside>
     <h1>Pursegraph</h1>
-    {% include "dashboard/_nav.html" with name="spending" label=_("Spending by Category") %}
-    {% include "dashboard/_nav.html" with name="cashflow" label=_("Cashflow") %}
-    {% include "dashboard/_nav.html" with name="trends" label=_("Category trends") %}
-    {% include "dashboard/_nav.html" with name="per_member" label=_("Per Member") %}
-    {% include "dashboard/_nav.html" with name="money_flow" label=_("Money flow") %}
+    {% include "dashboard/_views_nav.html" %}
     <a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{% url 'transactions' %}">{% translate "Transactions" %}</a>
     <div class="sep"></div>
     <a class="nav {% if nav == 'import' or nav == 'accounts' or nav == 'new_account' or nav == 'edit_account' %}on{% endif %}" href="{% url 'import' %}">{% translate "Import" %}</a>

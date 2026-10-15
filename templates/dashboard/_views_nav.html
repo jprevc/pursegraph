@@ -1,0 +1,8 @@
+{% load i18n %}{# The sidebar's links to the dashboard views; a view swapped in by HTMX swaps them too (`swap_nav`). #}
+<nav id="views"{% if swap_nav %} hx-swap-oob="true"{% endif %}>
+{% include "dashboard/_nav.html" with name="spending" label=_("Spending by Category") %}
+{% include "dashboard/_nav.html" with name="cashflow" label=_("Cashflow") %}
+{% include "dashboard/_nav.html" with name="trends" label=_("Category trends") %}
+{% include "dashboard/_nav.html" with name="per_member" label=_("Per Member") %}
+{% include "dashboard/_nav.html" with name="money_flow" label=_("Money flow") %}
+</nav>

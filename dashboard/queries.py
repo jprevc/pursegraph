@@ -5,17 +5,17 @@ Everywhere: Transfers are left out, Refunds net against spending in their Subcat
 Transactions form an "Awaiting review" bucket: on the spending side, the unresolved money out."""
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
-from django.db.models import Q, QuerySet, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models import IntegerField, OuterRef, Q, QuerySet, Subquery, Sum
+from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import formats
 from django.utils.translation import gettext as _
 
-from ledger.models import Account, Category, Subcategory, Transaction
+from ledger.models import Account, AccountIBAN, Category, Subcategory, Transaction
 
 from . import periods
 from .periods import Period
@@ -24,11 +24,43 @@ from .periods import Period
 AWAITING_REVIEW = "awaiting"
 # The drill-down key of the Joint bucket in Per Member; Members use their id.
 JOINT = "joint"
+# The drill-down key of what Transfers moved to or from other Members, under a Member filter.
+OTHERS = "others"
 
 
 @dataclass(frozen=True)
 class Filters:
-    """Narrows every view. Empty for now: the Member and Account filters come with #32."""
+    """Narrows every view to the Accounts of one Per Member bucket, `member` (a Member's key, or the Joint one),
+    and to the chosen `accounts`; nothing chosen means all of them."""
+
+    member: str | None = None
+    accounts: frozenset[int] = frozenset()
+
+    @classmethod
+    def from_query(cls, params) -> "Filters":
+        """The filters in a request's query, `member` and any number of `account`; unknown ones are ignored."""
+        of_account, _labels = _buckets()
+        member = params.get("member")
+        chosen = {int(a) for a in params.getlist("account") if a.isdigit()}
+        return cls(
+            member if member in of_account.values() else None,
+            frozenset(chosen & of_account.keys()),
+        )
+
+    @property
+    def params(self) -> list[tuple[str, str]]:
+        """The query parameters that name these filters."""
+        member = [("member", self.member)] if self.member else []
+        return member + [("account", str(a)) for a in sorted(self.accounts)]
+
+    def scope(self) -> Q:
+        """The Transactions in the filtered Accounts."""
+        q = Q()
+        if self.member:
+            q &= Q(account__in=_bucket(self.member))
+        if self.accounts:
+            q &= Q(account__in=self.accounts)
+        return q
 
 
 @dataclass(frozen=True)
@@ -44,16 +76,18 @@ class Row:
 
 @dataclass(frozen=True)
 class Flow:
-    """Money in against money out, for one month of Cashflow or its whole Period."""
+    """Money in against money out, for one month of Cashflow or its whole Period. Under a Member filter, `others`
+    is what Transfers moved to (negative) or from other Members, so that the net is what the balance moved by."""
 
     label: str
     key: str | None
     money_in: Decimal
     money_out: Decimal
+    others: Decimal | None = None
 
     @property
     def net(self) -> Decimal:
-        return self.money_in - self.money_out
+        return self.money_in - self.money_out + (self.others or Decimal(0))
 
 
 @dataclass(frozen=True)
@@ -89,7 +123,39 @@ MONEY_IN = Q(subcategory__category__kind=Category.Kind.INCOME) | Q(
 
 def _transactions(period: Period, filters: Filters) -> QuerySet[Transaction]:
     return Transaction.objects.filter(
-        date__gte=period.start, date__lte=period.end, is_transfer=False
+        filters.scope(), date__gte=period.start, date__lte=period.end, is_transfer=False
+    )
+
+
+def _to_other_members(period: Period, filters: Filters) -> QuerySet[Transaction]:
+    """Under a Member filter, the Transfers between the filtered Accounts and other Members' Accounts: those whose
+    other side, the paired counterpart or else the Account of the counterparty IBAN, is outside the Member's
+    bucket. A Transfer whose other side isn't known is left out, as it can't be told apart from one of the
+    Member's own."""
+    if not filters.member:
+        return Transaction.objects.none()
+    other_account = Coalesce(
+        "counterpart__account",
+        Subquery(
+            AccountIBAN.objects.filter(iban=OuterRef("counterparty_iban")).values("account")[:1]
+        ),
+        output_field=IntegerField(),
+    )
+    return (
+        Transaction.objects.filter(
+            filters.scope(), date__gte=period.start, date__lte=period.end, is_transfer=True
+        )
+        .alias(other_account=other_account)
+        .filter(other_account__isnull=False)
+        .exclude(other_account__in=_bucket(filters.member))
+    )
+
+
+def _all_money(period: Period, filters: Filters) -> QuerySet[Transaction]:
+    """Money in, money out and, under a Member filter, the Transfers to or from other Members."""
+    return Transaction.objects.filter(
+        Q(pk__in=_transactions(period, filters).filter(MONEY_IN | MONEY_OUT).values("pk"))
+        | Q(pk__in=_to_other_members(period, filters).values("pk"))
     )
 
 
@@ -171,7 +237,8 @@ def spending_transactions(period: Period, filters: Filters, key: str) -> QuerySe
 
 
 def cashflow(period: Period, filters: Filters) -> ViewData:
-    """Money in against money out per month. A month's key drills into all of it; with ":in" or ":out", one side."""
+    """Money in against money out per month, and under a Member filter what Transfers moved to or from other
+    Members. A month's key drills into all of it; with ":in", ":out" or ":others", one side."""
     by_month = {
         f"{m['month']:%Y-%m}": (m["money_in"] or Decimal(0), m["money_out"] or Decimal(0))
         for m in _transactions(period, filters)
@@ -181,40 +248,60 @@ def cashflow(period: Period, filters: Filters) -> ViewData:
             money_in=Sum("amount", filter=MONEY_IN), money_out=-Sum("amount", filter=MONEY_OUT)
         )
     }
+    others = {
+        f"{m['month']:%Y-%m}": m["total"]
+        for m in _to_other_members(period, filters)
+        .annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(total=Sum("amount"))
+    }
+    shown = by_month.keys() | others.keys()
     nothing = (Decimal(0), Decimal(0))
     rows = [
-        Flow(_month_label(m), _month_key(m), *by_month.get(_month_key(m), nothing))
-        for m in _months_shown(period, by_month)
-        if by_month  # none at all when the whole Period is quiet
+        Flow(
+            _month_label(m),
+            _month_key(m),
+            *by_month.get(_month_key(m), nothing),
+            others.get(_month_key(m), Decimal(0)) if filters.member else None,
+        )
+        for m in _months_shown(period, shown)
+        if shown  # none at all when the whole Period is quiet
     ]
     total = Flow(
         _("Total"),
         None,
         sum((r.money_in for r in rows), Decimal(0)),
         sum((r.money_out for r in rows), Decimal(0)),
+        sum((r.others or Decimal(0) for r in rows), Decimal(0)) if filters.member else None,
     )
-    chart = {
+    labels = {"in": _("Money in"), "out": _("Money out"), "net": _("Net")}
+    chart: dict[str, Any] = {
         "months": [r.label for r in rows],
         "keys": [r.key for r in rows],
         "in": [float(r.money_in) for r in rows],
         "out": [float(r.money_out) for r in rows],
         "net": [float(r.net) for r in rows],
-        "labels": {"in": _("Money in"), "out": _("Money out"), "net": _("Net")},
+        "labels": labels,
     }
+    if filters.member:
+        chart["others"] = [float(r.others or 0) for r in rows]
+        labels["others"] = _("To/from other Members")
     return ViewData(rows, total, chart)
 
 
 def cashflow_transactions(period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
     month_key, _sep, side = key.partition(":")
     month = _month_in(period, month_key)
-    if month is None or side not in ("", "in", "out"):
+    if month is None or side not in ("", "in", "out", OTHERS):
         return Transaction.objects.none()
     transactions = _transactions(month, filters)
     if side == "in":
         return transactions.filter(MONEY_IN)
     if side == "out":
         return transactions.filter(MONEY_OUT)
-    return transactions.filter(MONEY_IN | MONEY_OUT)
+    if side == OTHERS:
+        return _to_other_members(month, filters)
+    return _all_money(month, filters)
 
 
 def category_trends(period: Period, filters: Filters) -> ViewData:
@@ -285,9 +372,29 @@ def _buckets() -> tuple[dict[int, str], dict[str, str]]:
     return of_account, labels
 
 
+def _bucket(key: str) -> list[int]:
+    """The Accounts in one Per Member bucket."""
+    of_account, _labels = _buckets()
+    return [account for account, bucket in of_account.items() if bucket == key]
+
+
+def filter_choices() -> tuple[list[tuple[str, str]], list[Account]]:
+    """What the filter bar offers: each Per Member bucket's key and label, Members by name then Joint, and the
+    Accounts that receive Statements."""
+    of_account, labels = _buckets()
+    keys = set(of_account.values())
+    members = sorted((k for k in keys if k != JOINT), key=lambda k: labels[k].casefold())
+    if JOINT in keys:
+        members.append(JOINT)
+    accounts = [a for a in Account.objects.all() if a.receives_statements]
+    return [(k, labels[k]) for k in members], accounts
+
+
 def per_member(period: Period, filters: Filters) -> ViewData:
     """Spending per Member, each split by Category, with the joint Accounts' spending in a Joint bucket of its
-    own rather than shared out. A Member's key drills into their spending; with ":<Category key>", one segment."""
+    own rather than shared out. A Member's key drills into their spending; with ":<Category key>", one segment.
+    It compares every Member, so it ignores the Member filter."""
+    filters = replace(filters, member=None)
     of_account, labels = _buckets()
     spent = (
         _spending(period, filters)
@@ -338,10 +445,9 @@ def per_member(period: Period, filters: Filters) -> ViewData:
 
 
 def per_member_transactions(period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
+    filters = replace(filters, member=None)
     member, _sep, segment = key.partition(":")
-    of_account, _labels = _buckets()
-    accounts = [account for account, bucket in of_account.items() if bucket == member]
-    spending = _spending(period, filters).filter(account__in=accounts)
+    spending = _spending(period, filters).filter(account__in=_bucket(member))
     if not segment:
         return spending
     return spending & spending_transactions(period, filters, segment)
@@ -383,18 +489,30 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
         Row(_("Money in"), money_in, INCOME, sources),
         Row(_("Money out"), spending.total, "out", sinks),
     ]
-    saved = money_in - spending.total
+    # Under a Member filter, Transfers to or from other Members, as one node on whichever side they net to.
+    others = Decimal(0)
+    if filters.member:
+        others = _to_other_members(period, filters).aggregate(total=Sum("amount"))[
+            "total"
+        ] or Decimal(0)
+        rows.append(Row(_("To/from other Members"), others, OTHERS))
+    saved = money_in + others - spending.total
     balance = Row(_("Saved") if saved >= 0 else _("From savings"), abs(saved), None)
 
     nodes = [{"name": r.key, "label": r.label, "key": r.key} for r in sources]
     nodes.append({"name": HOUSEHOLD, "label": _("Household"), "key": HOUSEHOLD})
     nodes += [{"name": r.key, "label": r.label, "key": r.key} for r in sinks]
+    nodes.append({"name": OTHERS, "label": _("To/from other Members"), "key": OTHERS})
     # Only positive flows can be drawn, so the drawn balance can differ from the table's when a Category nets
     # to a Refund or an income Subcategory to a reversal.
     flows: list[tuple[str | None, str | None, Decimal]] = [
         (r.key, HOUSEHOLD, r.amount) for r in sources if r.amount > 0
     ]
     flows += [(HOUSEHOLD, r.key, r.amount) for r in sinks if r.amount > 0]
+    if others > 0:
+        flows.append((OTHERS, HOUSEHOLD, others))
+    elif others < 0:
+        flows.append((HOUSEHOLD, OTHERS, -others))
     drawn = sum((a for s, _t, a in flows if s != HOUSEHOLD), Decimal(0)) - sum(
         (a for s, _t, a in flows if s == HOUSEHOLD), Decimal(0)
     )
@@ -414,9 +532,12 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
 
 def money_flow_transactions(period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
     """A node's Transactions: an income Subcategory's ("in:<id>", or "in:awaiting"), a Category's as in Spending
-    by Category, all money in ("in"), all money out ("out") or both ("household")."""
+    by Category, all money in ("in"), all money out ("out"), what Transfers moved to or from other Members
+    ("others") or all of it ("household")."""
     if key == HOUSEHOLD:
-        return _transactions(period, filters).filter(MONEY_IN | MONEY_OUT)
+        return _all_money(period, filters)
+    if key == OTHERS:
+        return _to_other_members(period, filters)
     if key == INCOME:
         return _income(period, filters)
     if key == "out":
