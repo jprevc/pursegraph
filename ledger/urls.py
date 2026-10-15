@@ -22,7 +22,7 @@ urlpatterns = [
     path(
         "suggestions/accept/", views.accept_clearing_suggestions, name="accept_clearing_suggestions"
     ),
-    path("suggestions/resuggest/", views.resuggest, name="resuggest"),
+    path("suggestions/resuggest/", views.resuggest_queue, name="resuggest_queue"),
     path("rules/", views.rules, name="rules"),
     path("rules/new/", views.new_rule, name="new_rule"),
     path("rules/reorder/", views.reorder_rules, name="reorder_rules"),

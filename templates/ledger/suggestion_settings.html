@@ -5,9 +5,10 @@
 <h2>{% translate "LLM suggestions" %}</h2>
 {% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 
-{% if clearing_count %}
+{% if offered %}
 <form class="panel notice stack-form" method="post" action="{% url 'accept_clearing_suggestions' %}">{% csrf_token %}
-  <p>{% blocktranslate count n=clearing_count %}{{ n }} queued Transaction now clears the threshold, accept it?{% plural %}{{ n }} queued Transactions now clear the threshold, accept them?{% endblocktranslate %}</p>
+  {% for pk in offered %}<input type="hidden" name="accept" value="{{ pk }}">{% endfor %}
+  <p>{% blocktranslate count n=offered|length %}{{ n }} queued Transaction now clears the threshold, accept it?{% plural %}{{ n }} queued Transactions now clear the threshold, accept them?{% endblocktranslate %}</p>
   <div class="actions">
     <button type="submit">{% translate "Accept" %}</button>
     <span class="muted">{% translate "Or leave them in the Review queue with the suggestion preselected." %}</span>
@@ -21,7 +22,7 @@
   <div class="actions"><button type="submit">{% translate "Save" %}</button></div>
 </form>
 
-<form class="panel stack-form" method="post" action="{% url 'resuggest' %}">{% csrf_token %}
+<form class="panel stack-form" method="post" action="{% url 'resuggest_queue' %}">{% csrf_token %}
   <h3>{% translate "Re-suggest" %}</h3>
   <p class="muted">{% translate "After changing the model or the prompt: clears the suggestions of the Transactions in the Review queue, so the LLM is asked about them again. Outcomes already set stay." %}</p>
   <div class="actions"><button type="submit">{% translate "Re-suggest the Review queue" %}</button></div>
