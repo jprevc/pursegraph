@@ -5,6 +5,7 @@ from django.http import Http404
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
+from django.utils.http import urlencode
 
 from ledger.models import Statement, Transaction
 from ledger.views import categories_with_subcategories
@@ -55,25 +56,46 @@ def dashboard(request):
     return show(request, "spending")
 
 
+def _filter_query(filters: queries.Filters) -> str:
+    """The filters as query parameters to append to a link that names its period: "&member=…&account=…"."""
+    return f"&{urlencode(filters.params)}" if filters.params else ""
+
+
 def show(request, view: str):
     """A dashboard view, or where to start on an empty installation."""
     v = _view(view)
     if not Statement.objects.exists() and not Transaction.objects.exists():
         return render(request, "dashboard/empty.html")
     period = Period.from_query(request.GET, v.default_period)
-    data = queries.view_data(v.name, period, queries.Filters())
+    filters = queries.Filters.from_query(request.GET)
+    filter_query = _filter_query(filters)
+    # A period chosen carries to the other views too; otherwise each opens on its own default.
+    period_chosen = bool(request.GET.get("period") or request.GET.get("from"))
+    carried = ([("period", period.token)] if period_chosen else []) + filters.params
+    data = queries.view_data(v.name, period, filters)
     view_template = f"dashboard/_{v.name}.html"
+    members, accounts = queries.filter_choices()
     context = {
         "view": v.name,
         "view_url": reverse(v.name),
         "period": period,
+        "period_chosen": period_chosen,
+        "filters": filters,
+        "filter_query": filter_query,
+        "members": members,
+        "accounts": accounts,
+        # The sidebar's links to the views add this.
+        "carried_query": f"?{urlencode(carried)}" if carried else "",
         "data": data,
         # A mark's drill-down address is `drill` plus its key.
         "chart": {
             **data.chart,
-            "drill": f"{reverse(v.name + '_transactions')}?period={period.token}&{v.mark_param}=",
+            "drill": f"{reverse(v.name + '_transactions')}?period={period.token}{filter_query}"
+            f"&{v.mark_param}=",
         },
         "view_template": view_template,
+        # Swapped in alone, the view also brings the sidebar's links, so that they carry its period and filters.
+        "swap_nav": _wants_the_view_alone(request),
     }
     template = view_template if _wants_the_view_alone(request) else "dashboard/dashboard.html"
     response = render(request, template, context)
@@ -85,8 +107,9 @@ def transactions(request, view: str):
     """The drill-down: the Transactions behind one chart mark, as rows with inline outcome editing."""
     v = _view(view)
     period = Period.from_query(request.GET, v.default_period)
+    filters = queries.Filters.from_query(request.GET)
     rows = queries.drill_down(
-        v.name, period, queries.Filters(), request.GET.get(v.mark_param, "")
+        v.name, period, filters, request.GET.get(v.mark_param, "")
     ).select_related("account")
     return render(
         request,
@@ -95,6 +118,6 @@ def transactions(request, view: str):
             "transactions": rows,
             "categories": categories_with_subcategories(),
             # Without HTMX, saving an outcome goes back to the view rather than to this fragment.
-            "next": f"{reverse(v.name)}?period={period.token}",
+            "next": f"{reverse(v.name)}?period={period.token}{_filter_query(filters)}",
         },
     )

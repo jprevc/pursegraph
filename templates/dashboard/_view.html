@@ -2,6 +2,7 @@
 <div class="view-bar">
   <h2>{% block title %}{% endblock %}</h2>
   {% include "dashboard/_period.html" %}
+  {% include "dashboard/_filters.html" %}
 </div>
 {% if data.rows %}
 {# Refetched alone after an outcome is changed in the drill-down. #}
@@ -19,3 +20,4 @@
 <p class="muted">{% block empty %}{% endblock %}</p>
 {% endif %}
 <div id="drill"></div>
+{% if swap_nav %}{% include "dashboard/_views_nav.html" with nav=request.resolver_match.url_name %}{% endif %}
