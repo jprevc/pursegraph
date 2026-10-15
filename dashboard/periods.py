@@ -73,10 +73,10 @@ class Period:
         return cls.month(now.year, now.month - 1)
 
     @classmethod
-    def last_12_complete_months(cls) -> "Period":
-        """The Category trends' default."""
+    def last_12_months(cls) -> "Period":
+        """The Category trends' default: the 12 months up to the current one."""
         now = today()
-        return cls.last12(now.year, now.month - 1)
+        return cls.last12(now.year, now.month)
 
     @classmethod
     def parse(cls, token: str, default: "Callable[[], Period] | None" = None) -> "Period":

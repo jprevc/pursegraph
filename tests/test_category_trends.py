@@ -20,17 +20,18 @@ def category_key(name):
     return str(Category.objects.get(name=name).pk)
 
 
-def test_category_trends_default_to_the_last_12_complete_months(logged_in_client, household):
+def test_category_trends_default_to_the_last_12_months(logged_in_client, household):
     page = logged_in_client.get("/trends/").content.decode()
 
     assert "Category trends" in page
-    assert "Oct 2025 – Sep 2026" in page
+    assert "Nov 2025 – Oct 2026" in page
+    assert "so far, to 15 Oct 2026" in page
     table = view_table(page)
     assert [row[0] for row in table] == ["Food", "Shopping", "Awaiting review"]
-    zeros = ["0.00"] * 10
-    assert table[0] == ["Food", *zeros, "999.00", "180.00", "1179.00"]
-    assert table[1] == ["Shopping", *zeros, "0.00", "70.00", "70.00"]
-    assert table[2] == ["Awaiting review", *zeros, "0.00", "12.30", "12.30"]
+    zeros = ["0.00"] * 9
+    assert table[0] == ["Food", *zeros, "999.00", "180.00", "777.00", "1956.00"]
+    assert table[1] == ["Shopping", *zeros, "0.00", "70.00", "0.00", "70.00"]
+    assert table[2] == ["Awaiting review", *zeros, "0.00", "12.30", "0.00", "12.30"]
 
 
 def test_the_chart_draws_one_line_per_category(logged_in_client, household):

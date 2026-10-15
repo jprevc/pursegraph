@@ -30,7 +30,7 @@ VIEWS = {
     for v in [
         View("spending", "spending", "category"),
         View("cashflow", "cashflow"),
-        View("trends", "trends", default_period=Period.last_12_complete_months),
+        View("trends", "trends", default_period=Period.last_12_months),
         View("per_member", "per-member"),
         View("money_flow", "money-flow"),
     ]
