@@ -28,7 +28,7 @@ def test_sidebar_pages_render_in_the_shell(logged_in_client):
 
 
 def test_htmx_and_echarts_are_vendored(logged_in_client):
-    content = logged_in_client.get("/").content
+    content = logged_in_client.get("/spending/").content
 
     assert b"/static/vendor/htmx.min.js" in content
     assert b"/static/vendor/echarts.min.js" in content

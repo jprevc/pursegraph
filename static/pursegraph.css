@@ -94,3 +94,21 @@ a.danger { color: var(--bad); }
 aside .suggestions-status { margin: 0 10px; font-size: 12px; }
 .outcome button.accept { padding: 3px 10px; }
 .bulk-accept { margin-bottom: 12px; }
+.view-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
+.view-bar h2 { margin: 0 auto 0 0; }
+.period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.period form { display: flex; align-items: center; gap: 6px; }
+.period .step { font-size: 20px; line-height: 1; padding: 2px 8px; }
+.period .step.off { color: var(--grid); }
+.period .period-label { font-weight: 600; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+.split .chart { height: 420px; }
+.view-table tr.category { cursor: pointer; }
+.view-table tr.category:hover, .view-table tr.category:focus { background: var(--page); }
+.view-table tr.subcategory td { color: var(--ink-2); font-size: 13px; }
+.view-table tr.subcategory td:first-child { padding-left: 24px; }
+.view-table tfoot th { border-bottom: 0; }
+.hint { font-size: 13px; }
+#drill:not(:empty) { margin-top: 16px; }
+.htmx-request#view, .htmx-request #view { opacity: 0.5; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } .split .chart { height: 320px; } }
