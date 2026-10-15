@@ -1,0 +1,33 @@
+{% extends "shell.html" %}
+{% load i18n %}
+{% block title %}{% translate "Accounts" %}{% endblock %}
+{% block main %}
+<h2>{% translate "Accounts" %}</h2>
+{% for message in messages %}<p class="panel notice {{ message.tags }}">{{ message }}</p>{% endfor %}
+<p class="muted">{% translate "An Account with bank “Other” has no Statements: it is known only by its IBANs, so that money moved to it is recognised as a Transfer." %}</p>
+<p><a class="button" href="{% url 'new_account' %}">{% translate "New Account" %}</a> <a href="{% url 'import' %}">{% translate "Back to Import" %}</a></p>
+{% if accounts %}
+<table>
+  <thead><tr><th>{% translate "Name" %}</th><th>{% translate "Bank" %}</th><th>{% translate "Owners" %}</th><th>{% translate "IBANs" %}</th><th class="num">{% translate "Statements" %}</th><th></th></tr></thead>
+  <tbody>
+  {% for account in accounts %}
+    <tr>
+      <td>{{ account.name }}</td>
+      <td>{{ account.get_bank_display }}</td>
+      <td>{% for owner in account.owners.all %}{{ owner.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+      <td class="iban">{% for iban in account.ibans.all %}{{ iban }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+      <td class="num">{% if account.receives_statements %}{{ account.statement_count }}{% else %}—{% endif %}</td>
+      <td class="actions">
+        <a href="{% url 'edit_account' account.pk %}">{% translate "Edit" %}</a>
+        {% if not account.statement_count %}
+        <a class="danger" href="{% url 'delete_account' account.pk %}">{% translate "Delete" %}</a>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty"><p>{% translate "No Accounts yet." %}</p></div>
+{% endif %}
+{% endblock %}

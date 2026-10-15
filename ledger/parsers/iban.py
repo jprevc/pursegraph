@@ -42,6 +42,11 @@ IBAN_LENGTHS = {
 }
 
 
+def tidy_iban(text: str) -> str:
+    """An IBAN as typed, without spaces and in capitals, like the parsers' IBANs."""
+    return "".join(text.split()).upper()
+
+
 def valid_iban(iban: str) -> bool:
     """The country's IBAN length, when known, and the ISO 13616 mod-97 check."""
     if len(iban) != IBAN_LENGTHS.get(iban[:2], len(iban)):

@@ -46,6 +46,15 @@ def apply_iban_rule(transactions: TransactionQuerySet) -> None:
     ).update(is_transfer=True, source=Source.IBAN)
 
 
+def recognise_transfers_to(ibans: list[str]) -> None:
+    """Makes the unresolved Transactions already imported that pay to or from `ibans`, Household IBANs just
+    added, Transfers, and pairs them."""
+    paying = Transaction.objects.unresolved().filter(counterparty_iban__in=ibans)
+    pks = list(paying.values_list("pk", flat=True))
+    apply_iban_rule(paying)
+    pair(Transaction.objects.filter(pk__in=pks))
+
+
 def pair(new: TransactionQuerySet) -> Pairing:
     """Pairs the unpaired Transfer sides among `new`, and those already imported that a Transaction of `new`
     could pair with, closest pairs first."""

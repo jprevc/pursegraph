@@ -178,17 +178,6 @@ def commit_statement(
     checked: CheckedStatement, *, member, account: Account | NewAccount
 ) -> ImportSummary:
     parsed = checked.parsed
-    if isinstance(account, Account) and account.bank != parsed.bank:
-        raise ImportRejected(
-            _(
-                "This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account."
-            )
-            % {
-                "statement_bank": Bank(parsed.bank).label,
-                "account": account,
-                "account_bank": account.get_bank_display(),
-            }
-        )
     if checked.account and account != checked.account:
         raise ImportRejected(
             _("This Statement's IBAN %(iban)s belongs to %(account)s.")
@@ -204,6 +193,8 @@ def commit_statement(
         else:
             # Imports into one Account run one at a time, so each sees the Coverage the previous one left.
             account = Account.objects.select_for_update().get(pk=account.pk)
+            # Checked once held: an admin may have changed its bank meanwhile.
+            _check_bank(account, parsed)
         duplicates, new_rows = _match_coverage(account, parsed)
         _check_running_balance(account, parsed, new_rows)
         gaps_before = set(gaps(account.coverage()))
@@ -280,6 +271,25 @@ def commit_statement(
         awaiting_count,
         gaps_left,
     )
+
+
+def _check_bank(account: Account, parsed: ParsedStatement) -> None:
+    if not account.receives_statements:
+        raise ImportRejected(
+            _("%(account)s is an Account with no Statements, so none can be imported into it.")
+            % {"account": account}
+        )
+    if account.bank != parsed.bank:
+        raise ImportRejected(
+            _(
+                "This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account."
+            )
+            % {
+                "statement_bank": Bank(parsed.bank).label,
+                "account": account,
+                "account_bank": account.get_bank_display(),
+            }
+        )
 
 
 def _totals(rows: list[ParsedRow]) -> Totals:

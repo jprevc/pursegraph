@@ -29,6 +29,10 @@ class Account(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def receives_statements(self) -> bool:
+        return self.bank != Bank.OTHER
+
     def coverage(self) -> list[DateRange]:
         """The dates this Account's Statements cover, as separate date ranges. Derived, not stored."""
         return coverage(self.statements.all())

@@ -32,6 +32,10 @@ The Import page takes Sparkasse SI and N26 PDF Statements and Revolut PDF Statem
 
 Statements may overlap the Account's Coverage (the dates already imported). The overlapping rows must match the Transactions already imported for those days (date, amount, and running balance where printed); they are then skipped as Duplicates. If they don't match, or the new Statement's opening balance doesn't continue the Account's running balance, the file is rejected. On the first and last day of the existing Coverage, a Statement may add rows the earlier one didn't have, such as a CSV exported in the middle of a day. The Import page shows each Account's Coverage, with its gaps.
 
+## Accounts
+
+Admins manage the Accounts on the Accounts page, linked from the Import page: their name, bank, owning Members (several make a joint Account) and IBANs (several when the bank re-issued one; each belongs to one Account only). An Account with bank "Other" never receives Statements: it is registered only by its IBANs, so that money moved to it, such as to savings at another bank, is recognised as a Transfer. Adding an IBAN also makes the Transactions already imported that are awaiting review and pay to or from it Transfers. An Account keeps its bank, and can't be deleted, while it has Statements; deleting one also deletes the Rules only for it, after a confirmation that says how many. Deactivated Members are offered as owners only of the Accounts they already own.
+
 ## Categories and the Review queue
 
 Every Transaction gets an outcome: a Subcategory of the two-level Category list, or Transfer. A default list is seeded on the first migration; admins edit it on the Categories page. Bank fees that a parser splits off their payment are categorized Finance → Bank fees at import, even after that Subcategory is renamed. Everything else waits in the Review queue, where a Member picks the outcome; the same inline editor appears on every row of the Transactions view.
