@@ -2,6 +2,8 @@ from datetime import date
 
 import pytest
 
+from ledger.models import Subcategory, Transaction
+
 from .conftest import drill_rows, view_chart, view_table
 
 pytestmark = pytest.mark.django_db
@@ -63,3 +65,19 @@ def test_drill_down_into_a_months_money_in_money_out_or_both(logged_in_client, h
         "Marko's August salary", "August groceries",
     ]  # fmt: skip
     assert drill_rows(logged_in_client, url, {**params, "key": "2026-10"}) == []
+
+
+def test_a_transaction_dated_ahead_of_today_still_counts(logged_in_client, household):
+    groceries = Subcategory.objects.get(category__name="Food", name="Groceries")
+    account = Transaction.objects.get(description="Mercator").account
+    Transaction.objects.create(
+        account=account, date=date(2026, 11, 2), amount="-10.00", description="Pre-booked",
+        subcategory=groceries, source="manual",
+    )  # fmt: skip
+
+    page = logged_in_client.get("/cashflow/", {"period": "2026-Q4"}).content.decode()
+
+    assert view_table(page) == [
+        ["Oct 2026", "0.00", "777.00", "-777.00"],
+        ["Nov 2026", "0.00", "10.00", "-10.00"],
+    ]

@@ -4,6 +4,7 @@ The views only render what it returns.
 Everywhere: Transfers are left out, Refunds net against spending in their Subcategory, and unresolved
 Transactions form an "Awaiting review" bucket: on the spending side, the unresolved money out."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import timedelta
 from decimal import Decimal
@@ -108,9 +109,11 @@ def _months(period: Period) -> list[Period]:
     return months
 
 
-def _months_begun(period: Period) -> list[Period]:
-    """The months of a Period up to the current one: a chart over time shows quiet months too."""
-    return [m for m in _months(period) if m.start <= periods.today()]
+def _months_shown(period: Period, with_data: Iterable[str]) -> list[Period]:
+    """The months of a Period a chart over time shows: those up to the current one, quiet ones too, and any later
+    one holding Transactions (`with_data` are their keys)."""
+    with_data = set(with_data)
+    return [m for m in _months(period) if m.start <= periods.today() or _month_key(m) in with_data]
 
 
 def _month_key(month: Period) -> str:
@@ -181,7 +184,7 @@ def cashflow(period: Period, filters: Filters) -> ViewData:
     nothing = (Decimal(0), Decimal(0))
     rows = [
         Flow(_month_label(m), _month_key(m), *by_month.get(_month_key(m), nothing))
-        for m in _months_begun(period)
+        for m in _months_shown(period, by_month)
         if by_month  # none at all when the whole Period is quiet
     ]
     total = Flow(
@@ -228,7 +231,7 @@ def category_trends(period: Period, filters: Filters) -> ViewData:
         category = s["subcategory__category"]
         line = str(category) if category else AWAITING_REVIEW
         by_line.setdefault(line, {})[f"{s['month']:%Y-%m}"] = s["total"]
-    months = _months_begun(period)
+    months = _months_shown(period, {m for line in by_line.values() for m in line})
 
     def trend(label: str, key: str) -> Trend:
         return Trend(label, key, [by_line[key].get(_month_key(m), Decimal(0)) for m in months])
@@ -267,7 +270,7 @@ def trends_transactions(period: Period, filters: Filters, key: str) -> QuerySet[
 
 
 def _buckets() -> tuple[dict[int, str], dict[str, str]]:
-    """Each Account's Per Member bucket, its owner's key or the Joint one when it has several owners, and each
+    """Each Account's Per Member bucket, its Member's key or the Joint one when several Members own it, and each
     bucket's label."""
     of_account, labels = {}, {}
     for account in Account.objects.prefetch_related("owners"):
@@ -386,18 +389,23 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
     nodes = [{"name": r.key, "label": r.label, "key": r.key} for r in sources]
     nodes.append({"name": HOUSEHOLD, "label": _("Household"), "key": HOUSEHOLD})
     nodes += [{"name": r.key, "label": r.label, "key": r.key} for r in sinks]
+    # Only positive flows can be drawn, so the drawn balance can differ from the table's when a Category nets
+    # to a Refund or an income Subcategory to a reversal.
     flows: list[tuple[str | None, str | None, Decimal]] = [
-        (r.key, HOUSEHOLD, r.amount) for r in sources
+        (r.key, HOUSEHOLD, r.amount) for r in sources if r.amount > 0
     ]
-    flows += [(HOUSEHOLD, r.key, r.amount) for r in sinks]
-    if saved:
-        name = "saved" if saved > 0 else "from_savings"
-        nodes.append({"name": name, "label": balance.label, "key": None})
-        flows.append((HOUSEHOLD, name, saved) if saved > 0 else (name, HOUSEHOLD, -saved))
+    flows += [(HOUSEHOLD, r.key, r.amount) for r in sinks if r.amount > 0]
+    drawn = sum((a for s, _t, a in flows if s != HOUSEHOLD), Decimal(0)) - sum(
+        (a for s, _t, a in flows if s == HOUSEHOLD), Decimal(0)
+    )
+    if drawn:
+        name = "saved" if drawn > 0 else "from_savings"
+        label = _("Saved") if drawn > 0 else _("From savings")
+        nodes.append({"name": name, "label": label, "key": None})
+        flows.append((HOUSEHOLD, name, drawn) if drawn > 0 else (name, HOUSEHOLD, -drawn))
     links = [
         {"source": source, "target": target, "value": float(amount)}
         for source, target, amount in flows
-        if amount > 0
     ]
     linked = {link["source"] for link in links} | {link["target"] for link in links}
     chart = {"nodes": [n for n in nodes if n["name"] in linked], "links": links}

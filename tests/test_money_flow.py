@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from ledger.models import Category, Subcategory
+from ledger.models import Category, Subcategory, Transaction
 
 from .conftest import drill_rows, view_chart
 
@@ -111,3 +111,22 @@ def test_drill_down_into_a_node(logged_in_client, household):
         "Ana's salary", "Marko's salary", "Unknown payment in", "Interest",
     ]  # fmt: skip
     assert len(drill_rows(logged_in_client, url, {**params, "key": "household"})) == 10
+
+
+def test_a_category_netting_to_a_refund_keeps_the_sankey_balanced(logged_in_client, household):
+    shopping = Subcategory.objects.get(category__name="Shopping", name="Other")
+    account = Transaction.objects.get(description="Shoe shop").account
+    Transaction.objects.create(
+        account=account, date=date(2026, 9, 14), amount="200.00", description="Big refund",
+        subcategory=shopping, source="manual",
+    )  # fmt: skip
+
+    chart = view_chart(
+        logged_in_client.get("/money-flow/", {"period": "2026-09"}).content.decode(), "money_flow"
+    )
+
+    links = chart["links"]
+    assert category_key("Shopping") not in {link["target"] for link in links}
+    into = sum(link["value"] for link in links if link["target"] == "household")
+    out_of = sum(link["value"] for link in links if link["source"] == "household")
+    assert into == pytest.approx(out_of)
