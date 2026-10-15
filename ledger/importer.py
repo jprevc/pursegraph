@@ -49,6 +49,10 @@ class Diagnosis:
     printed_totals: Totals | None
     parsed_totals: Totals
 
+    @property
+    def balances_add_up(self) -> bool:
+        return self.opening_balance + self.rows_total == self.closing_balance
+
 
 @dataclass(frozen=True)
 class DayMismatch:
@@ -145,24 +149,7 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     except ParseError as error:
         raise ImportRejected(str(error), keep_file=True) from error
 
-    rows_total = sum((row.amount for row in parsed.rows), Decimal(0))
-    parsed_totals = _totals(parsed.rows)
-    balances_add_up = parsed.opening_balance + rows_total == parsed.closing_balance
-    totals_match = parsed.printed_totals is None or parsed.printed_totals.matches(parsed_totals)
-    if not balances_add_up or not totals_match:
-        raise ImportRejected(
-            _("The Statement's balances don't add up, so it was not imported.")
-            if not balances_add_up
-            else _("The Statement's rows don't match its printed totals, so it was not imported."),
-            diagnosis=Diagnosis(
-                parsed.opening_balance,
-                rows_total,
-                parsed.closing_balance,
-                parsed.rows,
-                parsed.printed_totals,
-                parsed_totals,
-            ),
-        )
+    check_balances_and_totals(parsed)
 
     known = (
         AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first()
@@ -172,6 +159,27 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     return CheckedStatement(
         content, filename, sha256, format, parsed, known.account if known else None
     )
+
+
+def check_balances_and_totals(parsed: ParsedStatement) -> None:
+    """Opening balance + rows = closing balance, and the rows match the printed totals, if any."""
+    parsed_totals = _totals(parsed.rows)
+    diagnosis = Diagnosis(
+        parsed.opening_balance,
+        sum((row.amount for row in parsed.rows), Decimal(0)),
+        parsed.closing_balance,
+        parsed.rows,
+        parsed.printed_totals,
+        parsed_totals,
+    )
+    totals_match = parsed.printed_totals is None or parsed.printed_totals.matches(parsed_totals)
+    if not diagnosis.balances_add_up or not totals_match:
+        raise ImportRejected(
+            _("The Statement's balances don't add up, so it was not imported.")
+            if not diagnosis.balances_add_up
+            else _("The Statement's rows don't match its printed totals, so it was not imported."),
+            diagnosis=diagnosis,
+        )
 
 
 def commit_statement(
