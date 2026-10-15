@@ -5,5 +5,5 @@
 <script src="{% static 'dashboard.js' %}" defer></script>{% endblock %}
 {% block main %}
 {# One view at a time; the period selector and the sidebar swap it via HTMX. #}
-<div id="view">{% include "dashboard/_spending.html" %}</div>
+<div id="view">{% include view_template %}</div>
 {% endblock %}

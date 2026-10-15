@@ -1,4 +1,7 @@
+import html
+import json
 import re
+from datetime import date
 
 import pytest
 from django.test import Client
@@ -87,3 +90,76 @@ def assert_nothing_stored(client, statement_files):
     assert "No Accounts yet" in client.get("/import/").content.decode()
     assert "No Transactions yet" in client.get("/transactions/").content.decode()
     assert not list(statement_files.rglob("*.*"))
+
+
+@pytest.fixture
+def household(member, django_user_model):
+    """Two Members, Ana and Marko, each with an Account of their own and a joint one, over August to October 2026.
+
+    September 2026: money in 3550.00 (two salaries, interest and 45.00 awaiting review), money out 262.30
+    (Food 180.00, Shopping 70.00 after a 30.00 Refund, 12.30 awaiting review), and a Transfer into the joint
+    Account, which counts as neither."""
+    marko = django_user_model.objects.create_user(username="marko", password=PASSWORD)
+    anas = make_account("Ana's Sparkasse", "sparkasse_si", member)
+    markos = make_account("Marko's N26", "n26", marko)
+    joint = make_account("Joint Revolut", "revolut", member)
+    joint.owners.add(marko)
+    groceries = Subcategory.objects.get(category__name="Food", name="Groceries")
+    restaurants = Subcategory.objects.get(category__name="Food", name="Restaurants & cafés")
+    shopping = Subcategory.objects.get(category__name="Shopping", name="Other")
+    salary = Subcategory.objects.get(category__name="Income", name="Salary")
+    interest = Subcategory.objects.get(category__name="Income", name="Interest")
+    rows = [
+        (anas, date(2026, 8, 31), "-999.00", "August groceries", groceries, False),
+        (markos, date(2026, 8, 15), "1500.00", "Marko's August salary", salary, False),
+        (anas, date(2026, 9, 1), "-80.00", "Mercator", groceries, False),
+        (anas, date(2026, 9, 9), "-100.00", "Shoe shop", shopping, False),
+        (anas, date(2026, 9, 12), "30.00", "Shoe shop refund", shopping, False),
+        (anas, date(2026, 9, 15), "2000.00", "Ana's salary", salary, False),
+        (anas, date(2026, 9, 20), "-500.00", "To Joint Revolut", None, True),
+        (joint, date(2026, 9, 20), "500.00", "From Ana's Sparkasse", None, True),
+        (anas, date(2026, 9, 25), "-12.30", "Unknown shop", None, False),
+        (anas, date(2026, 9, 26), "45.00", "Unknown payment in", None, False),
+        (joint, date(2026, 9, 21), "-60.00", "Spar", groceries, False),
+        (markos, date(2026, 9, 15), "1500.00", "Marko's salary", salary, False),
+        (markos, date(2026, 9, 18), "-40.00", "Gostilna", restaurants, False),
+        (markos, date(2026, 9, 30), "5.00", "Interest", interest, False),
+        (anas, date(2026, 10, 1), "-777.00", "October groceries", groceries, False),
+    ]
+    for account, day, amount, description, outcome, is_transfer in rows:
+        Transaction.objects.create(
+            account=account,
+            date=day,
+            amount=amount,
+            description=description,
+            subcategory=outcome,
+            is_transfer=is_transfer,
+            source="manual" if outcome or is_transfer else "",
+        )
+    return {"ana": member, "marko": marko}
+
+
+def view_table(page):
+    """A dashboard view's table: each clickable row as [label, *amounts], in the order shown."""
+    return [
+        [html.unescape(cell) for cell in re.findall(r"<td[^>]*>([^<]*)</td>", row)]
+        for row in re.findall(r'<tr class="mark"[^>]*>(.*?)</tr>', page, re.S)
+    ]
+
+
+def view_chart(page, view):
+    """The JSON a dashboard view's chart is drawn from."""
+    data = re.search(rf'<script id="{view}-data" type="application/json">(.*?)</script>', page)
+    assert data, "no chart data"
+    return json.loads(data[1])
+
+
+def drill_rows(client, url, params):
+    """The descriptions of the Transactions a drill-down lists."""
+    page = client.get(url, params).content.decode()
+    return [
+        html.unescape(d)
+        for d in re.findall(
+            r'<tr id="transaction-\d+">\s*<td>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
+        )
+    ]
