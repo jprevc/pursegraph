@@ -56,6 +56,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "ledger.context_processors.review_queue",
                 "dashboard.context_processors.this_month",
+                "dashboard.context_processors.carried",
             ],
         },
     },

@@ -2,7 +2,9 @@
 {% load i18n %}
 {% block body %}
 <div class="shell">
-  {% include "_sidebar.html" %}
+  <aside>
+    {% include "_sidebar.html" %}
+  </aside>
   <main>{% block main %}{% endblock %}</main>
 </div>
 {% endblock %}

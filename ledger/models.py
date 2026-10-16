@@ -156,6 +156,8 @@ class Transaction(models.Model):
     running_balance = models.DecimalField(
         _("running balance"), max_digits=12, decimal_places=2, null=True, blank=True
     )
+    # A bank fee the parser split off its payment.
+    is_fee = models.BooleanField(_("bank fee"), default=False)
     # Everything the parser saw for this row.
     raw = models.JSONField(_("raw"), default=dict)
     statements = models.ManyToManyField(

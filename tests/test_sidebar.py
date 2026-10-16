@@ -86,7 +86,7 @@ def test_transactions_are_swapped_in_alone_via_htmx(logged_in_client, household)
     assert "{#" not in swapped  # no template comment leaks
     # The sidebar comes along: Transactions highlighted, and the views no longer swapped into a view that has
     # left the page.
-    assert '<aside id="sidebar" hx-swap-oob="true">' in swapped
+    assert '<div id="sidebar" hx-swap-oob="true">' in swapped
     assert re.search(r'<a class="nav on" href="/transactions/"', swapped)
     assert re.search(r'<a class="nav" href="/cashflow/">Cashflow</a>', swapped)
 

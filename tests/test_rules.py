@@ -336,3 +336,45 @@ def test_applying_a_subcategory_rule_unpairs_a_transfer(logged_in_client):
     b.refresh_from_db()
     assert a.subcategory_id == groceries() and a.counterpart is None
     assert b.counterpart is None
+
+
+def test_applying_a_transfer_rule_pairs_the_other_side(logged_in_client):
+    out = make_transaction("To savings")
+    into = Transaction.objects.create(
+        account=make_account("Savings", "other"),
+        date="2026-06-02",
+        amount=Decimal("10.00"),
+        description="From checking",
+    )
+    make_rule(logged_in_client, "transfer", description_contains="to savings")
+
+    logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/")
+
+    out.refresh_from_db()
+    into.refresh_from_db()
+    assert out.is_transfer and into.is_transfer
+    assert out.counterpart == into and into.counterpart == out
+
+
+def test_applying_a_transfer_rule_never_pairs_with_a_manual_outcome(logged_in_client):
+    out = make_transaction("To savings")
+    into = Transaction.objects.create(
+        account=make_account("Savings", "other"),
+        date="2026-06-02",
+        amount=Decimal("10.00"),
+        description="From checking",
+        subcategory_id=groceries(),
+        source=Source.MANUAL,
+    )
+    make_rule(logged_in_client, "transfer", description_contains="to savings")
+
+    logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/")
+
+    out.refresh_from_db()
+    into.refresh_from_db()
+    assert out.is_transfer and out.counterpart is None
+    assert (into.subcategory_id, into.source, into.counterpart) == (
+        groceries(),
+        Source.MANUAL,
+        None,
+    )

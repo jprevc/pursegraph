@@ -1,11 +1,12 @@
 {% load i18n %}{# The Transactions page's main area: the whole page includes it, and HTMX swaps it in alone. #}
-{% if swap_sidebar %}<title>{% translate "Transactions" %} · Pursegraph</title>
+{% if swap_nav %}<title>{% translate "Transactions" %} · Pursegraph</title>
 {% endif %}<h2>{% translate "Transactions" %}</h2>
 {% if any_transactions %}
 <form class="filters" method="get">
   {{ form.q.as_field_group }}
   {{ form.account.as_field_group }}
   {{ form.outcome.as_field_group }}
+  {% if request.GET.dashboard %}<input type="hidden" name="dashboard" value="{{ request.GET.dashboard }}">{% endif %}
   <button type="submit">{% translate "Filter" %}</button>
 </form>
 {% if page.object_list %}
@@ -31,4 +32,4 @@
   <a class="button" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
 </div>
 {% endif %}
-{% if swap_sidebar %}{% include "_sidebar.html" %}{% endif %}
+{% if swap_nav %}{% include "_sidebar.html" %}{% endif %}
