@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-16T14:49:21.954Z",
+        "reason": "Canon direction picked by the user on the #62 decision page; Inter is the category-standard face"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "prototypes/62-visual-direction/index.html"
+        ],
+        "createdAt": "2026-10-16T14:49:21.968Z",
+        "reason": "The period stepper is a 36px control with vertically centred text; agent judgment"
+      }
+    ]
+  }
+}
