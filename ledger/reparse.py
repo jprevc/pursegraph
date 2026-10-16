@@ -1,7 +1,8 @@
-"""Re-parsing stored Statement files, to see what a parser fix would change.
+"""Re-parsing stored Statement files, to see what a parser fix would change, and to apply it.
 
 `reparse()` parses a Statement's stored original file again and compares the result with what
 is stored: the Statement's own fields and the Transactions on it. It only reads; nothing is changed.
+`apply_changes()` then takes the changed Transactions' fields on in place.
 """
 
 from collections.abc import Callable
@@ -9,9 +10,13 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from .importer import ImportRejected, check_balances_and_totals
-from .models import Statement, Transaction
+from django.db import transaction
+from django.db.models import Q
+
+from .importer import ImportRejected, check_balances_and_totals, run_automatic_steps
+from .models import Source, Statement, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, parse
+from .transfers import WINDOW
 
 # The Transaction fields a parser sets, apart from the date the rows are matched by.
 # `raw` is left out: it is everything the parser saw, so any parser change shows there.
@@ -22,6 +27,16 @@ ROW_FIELDS = (
     "counterparty_iban",
     "reference",
     "running_balance",
+    "is_fee",
+)
+# The fields the automatic steps read: a change to one gives the Transaction its outcome again.
+RERUN_FIELDS = (
+    "amount",
+    "description",
+    "counterparty_name",
+    "counterparty_iban",
+    "reference",
+    "is_fee",
 )
 # What a Duplicate was matched by: the rest of it comes from the Statement that first had it.
 DUPLICATE_FIELDS = ("amount", "running_balance")
@@ -40,7 +55,17 @@ class ChangedRow:
     """A stored Transaction the re-parsed Statement still has, with some of its fields different."""
 
     transaction: Transaction
+    row: ParsedRow
     changes: list[FieldChange]
+
+
+@dataclass(frozen=True)
+class OutcomeChange:
+    """A Transaction whose outcome applying a re-parse changed, each described for the Member."""
+
+    transaction: Transaction
+    before: str
+    after: str
 
 
 @dataclass
@@ -169,7 +194,7 @@ def _diff_rows(
                 unmatched_stored.remove(match)
                 compared = _compared_fields(match, row, duplicate_ids)
                 if changes := _field_changes(match, row, compared):
-                    result.changed.append(ChangedRow(match, changes))
+                    result.changed.append(ChangedRow(match, row, changes))
             unmatched_rows = still_unmatched
         result.added += unmatched_rows
         result.removed += unmatched_stored
@@ -180,3 +205,103 @@ def _by_day[T: (Transaction, ParsedRow)](items: list[T]) -> dict[date, list[T]]:
     for item in items:
         by_day.setdefault(item.date, []).append(item)
     return by_day
+
+
+def refusal(result: ReparseResult) -> str:
+    """Why `apply_changes()` won't take the differences on, if it won't; those need delete and re-import."""
+    if result.statement_changes:
+        return "the Statement's own fields changed"
+    if result.added or result.removed:
+        return "rows were added or removed"
+    statement = result.statement
+    through = Transaction.statements.through.objects
+    for changed in result.changed:
+        t = changed.transaction
+        others = sorted(
+            through.filter(transaction=t)
+            .exclude(statement=statement)
+            .values_list("statement_id", flat=True)
+        )
+        if others and others[0] < statement.pk:
+            return (
+                f"{_describe(t)} is a Duplicate here; re-parse Statement {others[0]}, which first"
+                " had it, instead"
+            )
+        if others and any(change.name in DUPLICATE_FIELDS for change in changed.changes):
+            return (
+                f"the amount or running balance of {_describe(t)} changed, but Statement"
+                f"{'' if len(others) == 1 else 's'} {', '.join(map(str, others))}"
+                f" {'has' if len(others) == 1 else 'have'} it too"
+            )
+    return ""
+
+
+def _describe(t: Transaction) -> str:
+    return f"{t.date} {t.amount:.2f} {t.description}"
+
+
+def apply_changes(result: ReparseResult) -> list[OutcomeChange]:
+    """Takes the changed Transactions' parser-set fields and `raw` on from the re-parsed rows, unless
+    there is a `refusal()`.
+
+    Those whose change could alter their automatic outcome get it again, as at import; a manual
+    outcome is kept. Returns the outcomes that changed, of these Transactions and of those they
+    were or are now paired with."""
+    rerun = [
+        changed.transaction
+        for changed in result.changed
+        if changed.transaction.source != Source.MANUAL
+        and any(change.name in RERUN_FIELDS for change in changed.changes)
+    ]
+    reach = Q(pk__in=[])
+    for t in rerun:
+        reach |= Q(date__range=(t.date - WINDOW, t.date + WINDOW))
+    affected = Transaction.objects.filter(reach).select_related(
+        "subcategory__category", "counterpart"
+    )
+    with transaction.atomic():
+        before = {t.pk: (_outcome(t), describe_outcome(t)) for t in affected}
+        for changed in result.changed:
+            t = changed.transaction
+            for name in (*ROW_FIELDS, "raw"):
+                setattr(t, name, getattr(changed.row, name))
+            t.save(update_fields=[*ROW_FIELDS, "raw"])
+        if not rerun:
+            return []
+
+        pks = [t.pk for t in rerun]
+        # Like leaving Transfer in set_outcome(): the counterpart stays a one-sided Transfer.
+        Transaction.objects.filter(counterpart__in=pks).update(counterpart=None)
+        Transaction.objects.filter(pk__in=pks).update(
+            subcategory=None,
+            is_transfer=False,
+            source="",
+            rule=None,
+            counterpart=None,
+            ambiguous_pairing=False,
+            suggested_subcategory=None,
+            confidence=None,
+        )
+        run_automatic_steps(Transaction.objects.filter(pk__in=pks))
+        return [
+            OutcomeChange(t, before[t.pk][1], describe_outcome(t))
+            for t in affected.filter(pk__in=before.keys())
+            if _outcome(t) != before[t.pk][0]
+        ]
+
+
+def _outcome(t: Transaction) -> tuple:
+    return (t.subcategory_id, t.is_transfer, t.counterpart_id, t.ambiguous_pairing, t.source)
+
+
+def describe_outcome(t: Transaction) -> str:
+    if t.is_transfer:
+        if t.counterpart:
+            pairing = f"paired with {t.counterpart}"
+        else:
+            pairing = "ambiguous pairing" if t.ambiguous_pairing else "one-sided"
+        return f"Transfer, {pairing} ({Source(t.source).label})"
+    if t.subcategory:
+        subcategory = t.subcategory
+        return f"{subcategory.category} / {subcategory.name} ({Source(t.source).label})"
+    return "awaiting review"
