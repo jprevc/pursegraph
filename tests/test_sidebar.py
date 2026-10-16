@@ -60,3 +60,39 @@ def test_every_view_is_swapped_in_alone_via_htmx(logged_in_client, household, ur
 
     assert "<aside>" not in swapped
     assert 'class="view-bar"' in swapped
+
+
+@pytest.mark.parametrize("url", ["/cashflow/", "/import/"])
+def test_the_sidebar_swaps_transactions_into_the_main_area_via_htmx(
+    logged_in_client, household, url
+):
+    page = logged_in_client.get(url).content.decode()
+
+    assert re.search(
+        r'<a class="nav ?" href="/transactions/" hx-get="/transactions/" hx-target="main"'
+        r' hx-push-url="true">Transactions</a>',
+        page,
+    )
+
+
+def test_transactions_are_swapped_in_alone_via_htmx(logged_in_client, household):
+    swapped = logged_in_client.get(
+        "/transactions/", headers={"HX-Request": "true"}
+    ).content.decode()
+
+    assert "<aside>" not in swapped
+    assert "<h2>Transactions</h2>" in swapped
+    assert "<title>Transactions · Pursegraph</title>" in swapped
+    # The sidebar's links come along: Transactions highlighted, and the views no longer swapped into a view
+    # that has left the page.
+    assert '<nav id="views" hx-swap-oob="true">' in swapped
+    assert re.search(r'<a class="nav on" href="/transactions/"', swapped)
+    assert re.search(r'<a class="nav" href="/cashflow/">Cashflow</a>', swapped)
+
+
+def test_restoring_transactions_from_history_gets_the_whole_page(logged_in_client, household):
+    restored = logged_in_client.get(
+        "/transactions/", headers={"HX-Request": "true", "HX-History-Restore-Request": "true"}
+    ).content.decode()
+
+    assert "<aside>" in restored

@@ -10,6 +10,7 @@ from django.db.models import Count, Prefetch
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.cache import patch_vary_headers
 from django.utils.formats import date_format
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
@@ -240,24 +241,38 @@ def delete_statement(request, pk):
     )
 
 
+def wants_the_fragment_alone(request) -> bool:
+    """HTMX swapping a page's content in. Restoring history after a cache miss needs the whole page."""
+    return bool(
+        request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
+    )
+
+
 def transactions(request):
+    """Every Transaction, filtered and paged. The sidebar swaps it into the main area via HTMX."""
     categories = categories_with_subcategories()
     form = TransactionFilterForm(request.GET, categories=categories)
     rows = form.filter(Transaction.objects.select_related("account").order_by("-date", "-id"))
     page = Paginator(rows, TRANSACTIONS_PER_PAGE).get_page(request.GET.get("page"))
     query = request.GET.copy()
     query.pop("page", None)
-    return render(
+    alone = wants_the_fragment_alone(request)
+    response = render(
         request,
-        "ledger/transactions.html",
+        "ledger/_transactions.html" if alone else "ledger/transactions.html",
         {
             "form": form,
             "page": page,
             "query": query.urlencode(),
             "categories": categories,
             "any_transactions": page.paginator.count or Transaction.objects.exists(),
+            # Swapped in alone, it also brings the sidebar's links, so that Transactions is highlighted and the
+            # dashboard views no longer swap into a view that has left the page.
+            "swap_nav": alone,
         },
     )
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
+    return response
 
 
 def review_queue(request):

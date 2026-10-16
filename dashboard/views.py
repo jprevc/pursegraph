@@ -8,7 +8,7 @@ from django.utils.cache import patch_vary_headers
 from django.utils.http import urlencode
 
 from ledger.models import Statement, Transaction
-from ledger.views import categories_with_subcategories
+from ledger.views import categories_with_subcategories, wants_the_fragment_alone
 
 from . import queries
 from .periods import Period
@@ -36,13 +36,6 @@ VIEWS = {
         View("money_flow", "money-flow"),
     ]
 }
-
-
-def _wants_the_view_alone(request) -> bool:
-    """HTMX swapping a view in. Restoring history after a cache miss needs the whole page."""
-    return bool(
-        request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
-    )
 
 
 def _view(name: str) -> View:
@@ -95,9 +88,9 @@ def show(request, view: str):
         },
         "view_template": view_template,
         # Swapped in alone, the view also brings the sidebar's links, so that they carry its period and filters.
-        "swap_nav": _wants_the_view_alone(request),
+        "swap_nav": wants_the_fragment_alone(request),
     }
-    template = view_template if _wants_the_view_alone(request) else "dashboard/dashboard.html"
+    template = view_template if wants_the_fragment_alone(request) else "dashboard/dashboard.html"
     response = render(request, template, context)
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response

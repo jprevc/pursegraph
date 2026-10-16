@@ -95,7 +95,7 @@
 {% empty %}
 <form class="panel stack-form" method="post" enctype="multipart/form-data">
   {% csrf_token %}
-  <p class="muted">{% translate "Sparkasse SI PDF Statements and Revolut CSV exports can be imported, several at once." %}</p>
+  <p class="muted">{% translate "PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports, can be imported, several at once." %}</p>
   {{ form.file.errors }}
   {{ form.non_field_errors }}
   <div>{{ form.file.label_tag }}{{ form.file }}</div>

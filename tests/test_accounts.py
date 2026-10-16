@@ -57,6 +57,25 @@ def test_the_import_page_links_admins_to_the_accounts_page(admin_client, logged_
     assert 'href="/accounts/"' not in logged_in_client.get("/import/").content.decode()
 
 
+def accounts_link(page):
+    """The sidebar's admin link to the Accounts page, or None."""
+    return re.search(r'<a class="nav ?(on)?" href="/accounts/">Accounts</a>', page)
+
+
+def test_admins_find_accounts_among_the_sidebar_admin_links(admin_client, logged_in_client):
+    link = accounts_link(admin_client.get("/transactions/").content.decode())
+    assert link and not link[1]
+    assert not accounts_link(logged_in_client.get("/transactions/").content.decode())
+
+
+@pytest.mark.parametrize("url", ["/accounts/", "/accounts/new/", "/accounts/{pk}/edit/"])
+def test_the_sidebar_accounts_link_is_highlighted_on_the_account_pages(admin_client, member, url):
+    account = make_account("Ana's Revolut", "revolut", member)
+
+    link = accounts_link(admin_client.get(url.format(pk=account.pk)).content.decode())
+    assert link and link[1]
+
+
 # Listing
 
 
