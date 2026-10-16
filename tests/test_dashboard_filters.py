@@ -254,6 +254,21 @@ def test_the_filter_bar_shows_the_members_and_accounts_chosen(logged_in_client, 
     assert chosen_accounts(page) == []
 
 
+def test_a_member_who_owns_no_account_alone_is_not_offered_and_filtering_to_them_is_ignored(
+    logged_in_client, household, django_user_model
+):
+    nina = django_user_model.objects.create_user(username="nina", password="x")
+    Account.objects.get(name="Joint Revolut").owners.add(nina)
+
+    page = logged_in_client.get(
+        "/spending/", {"period": "2026-09", "member": nina.pk}
+    ).content.decode()
+
+    assert selected_member(page) == (["All Members", "ana", "marko", "Joint"], ["All Members"])
+    unfiltered = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
+    assert spent(page) == spent(unfiltered)
+
+
 def test_the_filters_carry_to_the_drill_down_and_the_period_selector(logged_in_client, household):
     joint = account_id("Joint Revolut")
 
