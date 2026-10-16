@@ -8,6 +8,7 @@
   {{ form.q.as_field_group }}
   {{ form.account.as_field_group }}
   {{ form.outcome.as_field_group }}
+  {% if request.GET.dashboard %}<input type="hidden" name="dashboard" value="{{ request.GET.dashboard }}">{% endif %}
   <button type="submit">{% translate "Filter" %}</button>
 </form>
 {% if page.object_list %}

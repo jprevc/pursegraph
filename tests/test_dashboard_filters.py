@@ -344,5 +344,12 @@ def test_the_period_and_filters_survive_a_visit_to_another_page(logged_in_client
     # The dashboard's Account filter doesn't narrow the Transactions page.
     everything = logged_in_client.get("/transactions/").content.decode()
     assert page.count('<tr id="transaction-') == everything.count('<tr id="transaction-')
+    # Filtering the Transactions page keeps them too.
+    carried = re.search(r'<input type="hidden" name="dashboard" value="([^"]*)">', page)
+    assert carried
+    page = logged_in_client.get(
+        "/transactions/", {"q": "salary", "dashboard": html.unescape(carried[1])}
+    ).content.decode()
+    assert page_links(page)["Cashflow"] == f"/cashflow/?period=2026-Q3&member=joint&account={joint}"
     page = logged_in_client.get(page_links(page)["Rules"]).content.decode()
     assert page_links(page)["Cashflow"] == f"/cashflow/?period=2026-Q3&member=joint&account={joint}"

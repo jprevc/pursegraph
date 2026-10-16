@@ -71,11 +71,22 @@ def carried_queries(carried: list[tuple[str, str]]) -> dict[str, str]:
     }
 
 
+def _period_chosen(params) -> bool:
+    return bool(params.get("period") or params.get("from"))
+
+
+def _carried(
+    period: Period, period_chosen: bool, filters: queries.Filters
+) -> list[tuple[str, str]]:
+    """The query parameters that carry a period, if one is chosen, and the filters to the other views."""
+    return ([("period", period.token)] if period_chosen else []) + filters.params
+
+
 def carried_params(params) -> list[tuple[str, str]]:
     """The query parameters that carry a request's period, if one is chosen, and its filters to the other views."""
-    period_chosen = bool(params.get("period") or params.get("from"))
-    period = [("period", Period.from_query(params).token)] if period_chosen else []
-    return period + queries.Filters.from_query(params).params
+    return _carried(
+        Period.from_query(params), _period_chosen(params), queries.Filters.from_query(params)
+    )
 
 
 def show(request, view: str):
@@ -87,7 +98,7 @@ def show(request, view: str):
     filters = queries.Filters.from_query(request.GET)
     filter_query = _filter_query(filters)
     # A period chosen carries to the other views too; otherwise each opens on its own default.
-    period_chosen = bool(request.GET.get("period") or request.GET.get("from"))
+    period_chosen = _period_chosen(request.GET)
     data = queries.view_data(v.name, period, filters)
     view_template = f"dashboard/_{v.name}.html"
     members, accounts = queries.filter_choices()
@@ -100,7 +111,7 @@ def show(request, view: str):
         "filter_query": filter_query,
         "members": members,
         "accounts": accounts,
-        **carried_queries(carried_params(request.GET)),
+        **carried_queries(_carried(period, period_chosen, filters)),
         "data": data,
         # A mark's drill-down address is `drill` plus its key.
         "chart": {
