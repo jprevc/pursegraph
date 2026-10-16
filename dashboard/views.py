@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.http import Http404
 from django.shortcuts import render
 from django.urls import reverse
@@ -113,6 +114,8 @@ def show(request, view: str):
             f"&{v.mark_param}=",
         },
         "view_template": view_template,
+        # PROTOTYPE (#64 Chart styling): throwaway, only on prototype/64-chart-styling.
+        "prototype_64": settings.DEBUG,
         # Swapped in alone, the view also brings the sidebar's links, so that they carry its period and filters.
         "swap_nav": wants_the_fragment_alone(request),
     }

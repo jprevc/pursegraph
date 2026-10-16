@@ -1,0 +1,70 @@
+/* PROTOTYPE (#64 Chart styling), throwaway: lives only on prototype/64-chart-styling.
+   Just enough of DESIGN.md's tokens on the current page that the charts can be judged on the new grounds,
+   in both themes. The shell itself is #63's job, not this prototype's. */
+:root {
+  color-scheme: light;
+  --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --faint: #9ca3af;
+  --line: #e5e7eb; --line-strong: #d1d5db;
+  --accent: #4f46e5; --accent-soft: #eef2ff; --accent-text: #4338ca; --focus: #6366f1;
+  --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+  --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10);
+  --cat-0: #4e79a7; --cat-1: #59a14f; --cat-2: #f28e2b; --cat-3: #b07aa1; --cat-4: #76b7b2;
+  --cat-5: #edc948; --cat-6: #ff9da7; --cat-7: #9c755f; --cat-8: #e15759; --cat-9: #a0cbe8;
+  --awaiting: #9ca3af;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The current stylesheet's names, pointed at the new tokens. */
+  --page: var(--ground); --surface: var(--card); --grid: var(--line); --ring: var(--line);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-soft: #1e1b4b; --accent-text: #a5b4fc; --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+    --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+    --line: #262b34; --line-strong: #343a46;
+    --accent: #5850ec; --accent-soft: #1e1b4b; --accent-text: #a5b4fc; --focus: #818cf8;
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+    --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+    --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+    --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+    --awaiting: #6b7280;
+  }
+}
+body { background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; }
+a { color: var(--accent-text); }
+aside { background: var(--card); color: var(--ink-2); border-right: 1px solid var(--line); }
+aside a.nav { color: var(--ink-2); }
+aside a.nav:hover { background: var(--hover); color: var(--ink); }
+aside a.nav.on { background: var(--accent-soft); color: var(--accent-text); }
+aside .sep { border-color: var(--line); }
+aside .logout button { color: var(--muted); }
+.panel { background: var(--card); border: 0; border-radius: 14px; box-shadow: var(--shadow); padding: 20px; }
+.view-table { font-variant-numeric: tabular-nums; }
+.filter-bar .accounts summary, .account-list { background: var(--card); color: var(--ink); border-color: var(--line-strong); }
+select, input { background: var(--card); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 8px; }
+.stack .chart.multiples { height: auto; }
+
+/* The floating variant switcher: deliberately not part of the design being judged. */
+.proto-bar {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000;
+  display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 999px;
+  background: #111; color: #fff; font: 600 13px/1 system-ui, sans-serif; box-shadow: 0 8px 24px rgb(0 0 0 / .35);
+  outline: 2px dashed #ff0; outline-offset: 2px; max-width: calc(100vw - 32px);
+}
+.proto-bar button { background: none; color: #fff; border: 0; padding: 8px 10px; border-radius: 999px; cursor: pointer; font: inherit; }
+.proto-bar button:hover { background: #333; }
+.proto-bar button[aria-pressed="true"] { background: #fff; color: #111; }
+.proto-bar .label { padding: 0 10px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.proto-bar .sep { width: 1px; height: 20px; background: #444; margin: 0 4px; }

@@ -2,7 +2,10 @@
 {% load i18n static %}
 {% block title %}{% translate "Dashboard" %}{% endblock %}
 {% block head %}<script src="{% static 'vendor/echarts.min.js' %}" defer></script>
-<script src="{% static 'dashboard.js' %}" defer></script>{% endblock %}
+{% if prototype_64 %}{# PROTOTYPE (#64 Chart styling): throwaway, only on prototype/64-chart-styling. #}
+<link rel="stylesheet" href="{% static 'prototype-64/skin.css' %}">
+<script src="{% static 'prototype-64/charts.js' %}" defer></script>
+{% else %}<script src="{% static 'dashboard.js' %}" defer></script>{% endif %}{% endblock %}
 {% block main %}
 {# One view at a time; the period selector and the sidebar swap it via HTMX. #}
 <div id="view">{% include view_template %}</div>
