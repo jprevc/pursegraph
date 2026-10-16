@@ -315,7 +315,8 @@ A full-width card titled with the Category's hue dot and "Category · Period", w
 
 ### Navigation
 - **Sidebar:** the wordmark and mark at the top. Then three sentence-case groups with muted 12px headings: Dashboard (the five views), Ledger (Transactions, Import, Review queue with a count badge, Rules) and Admin. Items are an 18px 1.5px-stroke icon plus a 500 label, Ink 2. Hover takes the Hover fill. Active takes Indigo Wash with Indigo Ink and `aria-current="page"`.
-- **Sidebar foot:** the theme switch (a three-segment Light / System / Dark control on a ground track, where the pressed segment takes the card fill and Card shadow; it sets `data-theme` on `<html>` and is remembered per browser), then the Member's avatar, name and role, and a ghost log-out button.
+- **Sidebar foot:** the theme switch (a three-segment Light / System / Dark control on a ground track, where the pressed segment takes the card fill and Card shadow; it sets `data-theme` on `<html>` and is remembered per browser in `localStorage`), then the Member's avatar, name and role, and a ghost log-out button.
+- **Theme switch behaviour:** the three segments are a native radio group (visually hidden `<input type="radio" name="theme">` with labelled segments, each an icon plus its text), so arrow keys move between them and there is one tab stop. The switch stays `hidden` until `static/theme.js` runs, which checks the saved segment on load and again on `htmx:historyRestore`. Only the sidebar has it: login and registration simply honour the saved choice. `<html>` ships as `data-theme="system"`, and a blocking inline script in `base.html`'s `<head>`, before the stylesheet, applies the saved `theme` (only `light`, `dark` or `system`; anything else, or storage throwing, means `system`) before first paint. HTMX never replaces `<html>`, so swaps cannot flash. On a change, `theme.js` dispatches a `themechange` event on `document`, also when the system scheme changes while System is active, and `dashboard.js` rebuilds each mounted chart's options from it. The switch is instant, with no colour transition.
 - **Phone:** the top bar, drawer and view pills as described in Layout. The active pill takes Indigo Wash with Indigo Ink.
 
 ### Icons
@@ -329,6 +330,7 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** set every figure in tabular numerals and format amounts as sl-SI EUR with grouping always on ("1.234,56 €").
 - **Do** write comparisons as neutral muted sentences ("523,55 € less than September").
 - **Do** define every colour as a CSS custom property, with a `[data-theme="dark"]` block and a `prefers-color-scheme` block for `data-theme="system"`, and rebuild chart options from those properties when the theme changes.
+- **Do** set CSS `color-scheme` per theme, so native controls and scrollbars match, and ship `media`-scoped `<meta name="theme-color">` tags for the ground colour, rewritten by JS when the choice is Light or Dark.
 - **Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.
 - **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and drawer slide (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
 
