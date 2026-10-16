@@ -7,7 +7,7 @@ It runs in two calls, because the Account may have to be asked for after parsing
 - `commit_statement`: into the detected Account, or one the Member picked or creates (whom it
   then belongs to), checks the opening balance and Duplicates against the Account's Coverage,
   then stores the Statement, its Transactions (less the Duplicates) and the original file,
-  recognises Transfers among the new Transactions and categorizes the rest by the Rules.
+  and gives the new Transactions their automatic outcomes (`run_automatic_steps`).
 
 Any failure raises ImportRejected and stores nothing of that Statement.
 """
@@ -25,7 +25,16 @@ from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
 from .coverage import ONE_DAY, DateRange, gaps
-from .models import Account, AccountIBAN, Bank, Source, Statement, Subcategory, Transaction
+from .models import (
+    Account,
+    AccountIBAN,
+    Bank,
+    Source,
+    Statement,
+    Subcategory,
+    Transaction,
+    TransactionQuerySet,
+)
 from .parsers import ParsedRow, ParsedStatement, ParseError, Totals, parse
 from .rules import apply_rules
 from .transfers import apply_iban_rule, pair
@@ -192,8 +201,6 @@ def commit_statement(
             % {"iban": parsed.iban, "account": checked.account}
         )
 
-    # None once an admin deleted it; fees then wait in the Review queue.
-    bank_fees = Subcategory.objects.filter(is_bank_fees=True).first()
     with transaction.atomic():
         if isinstance(account, NewAccount):
             account = Account.objects.create(name=account.name, bank=parsed.bank)
@@ -234,21 +241,14 @@ def commit_statement(
                     counterparty_iban=row.counterparty_iban,
                     reference=row.reference,
                     running_balance=row.running_balance,
+                    is_fee=row.is_fee,
                     raw=row.raw,
-                    **(
-                        {"subcategory": bank_fees, "source": Source.PARSER}
-                        if row.is_fee and bank_fees
-                        else {}
-                    ),
                 )
                 for row in new_rows
             )
             statement.transactions.add(*transactions, *duplicates)
             new = Transaction.objects.filter(pk__in=[t.pk for t in transactions])
-            apply_iban_rule(new)
-            before_rules = pair(new)
-            rule_count = apply_rules(new)
-            after_rules = pair(new)  # for the Transfers the Rules marked
+            steps = run_automatic_steps(new)
             transfers = new.filter(is_transfer=True)
             paired_count = transfers.filter(counterpart__isnull=False).count()
             one_sided_count = transfers.filter(counterpart__isnull=True).count()
@@ -271,13 +271,44 @@ def commit_statement(
         len(transactions),
         len(duplicates),
         parsed.skipped_count,
-        rule_count,
+        steps.rule_count,
         paired_count,
         one_sided_count,
-        before_rules.converted_count + after_rules.converted_count,
-        before_rules.ambiguous_count + after_rules.ambiguous_count,
+        steps.converted_count,
+        steps.ambiguous_count,
         awaiting_count,
         gaps_left,
+    )
+
+
+@dataclass(frozen=True)
+class AutomaticSteps:
+    """What the automatic steps did to new Transactions."""
+
+    rule_count: int
+    converted_count: int
+    ambiguous_count: int
+
+
+def run_automatic_steps(new: TransactionQuerySet) -> AutomaticSteps:
+    """Gives the unresolved ones of `new`, Transactions just imported, their automatic outcomes.
+
+    In order: bank fees the parser split off are categorized, the IBAN rule and pairing recognise
+    Transfers, the Rules categorize, and pairing runs again for the Transfers the Rules marked.
+    What is still unresolved then waits for an LLM suggestion.
+    """
+    # None once an admin deleted it; fees then wait in the Review queue.
+    bank_fees = Subcategory.objects.filter(is_bank_fees=True).first()
+    if bank_fees:
+        new.unresolved().filter(is_fee=True).update(subcategory=bank_fees, source=Source.PARSER)
+    apply_iban_rule(new)
+    before_rules = pair(new)
+    rule_count = apply_rules(new)
+    after_rules = pair(new)
+    return AutomaticSteps(
+        rule_count,
+        before_rules.converted_count + after_rules.converted_count,
+        before_rules.ambiguous_count + after_rules.ambiguous_count,
     )
 
 

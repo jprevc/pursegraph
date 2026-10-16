@@ -89,7 +89,15 @@ After a parser fix, check what it would change in the Statements already importe
 docker compose exec web python manage.py reparse [<statement id> ...]
 ```
 
-It parses each stored Statement file again, all of them by default, and prints the differences against what is stored. Those are the Statement's period and balances, plus each Transaction: `~` changed (field by field, stored → re-parsed), `+` a row the parser now finds, `-` a stored Transaction it no longer finds. A Duplicate keeps the fields of the Statement that first had it, so on a later Statement only its amount and running balance are compared. If that first Statement was since deleted, the Duplicate's other fields may show as differences although nothing changed. A file that no longer parses, or whose re-parsed rows don't add up, is listed as failed. The command only shows the differences and changes nothing. To take a fix on, delete the Statement and import its file again.
+It parses each stored Statement file again, all of them by default, and prints the differences against what is stored. Those are the Statement's period and balances, plus each Transaction: `~` changed (field by field, stored → re-parsed), `+` a row the parser now finds, `-` a stored Transaction it no longer finds. A Duplicate keeps the fields of the Statement that first had it, so on a later Statement only its amount and running balance are compared. If that first Statement was since deleted, the Duplicate's other fields may show as differences although nothing changed. A file that no longer parses, or whose re-parsed rows don't add up, is listed as failed. By itself the command only shows the differences and changes nothing. To take a fix on, add `--apply`:
+
+```sh
+docker compose exec web python manage.py reparse --apply [<statement id> ...]
+```
+
+It prints the same differences, then applies or refuses each Statement on its own; one refused or failing Statement doesn't stop the others, and a failure while applying rolls that Statement back. Applying updates each changed Transaction's fields (amount, description, counterparty, reference, running balance, bank fee) and what the parser saw for it. Manual outcomes are kept. A Transaction whose change could alter its automatic outcome (anything but its running balance) loses that outcome and its LLM suggestion, unpairing its Transfer counterpart, and goes through the import's automatic steps again: bank fees, the IBAN rule and pairing, the Rules, then the LLM. The command lists the outcomes that changed, before → after.
+
+A Statement is refused, and nothing on it changes, when its own fields (period, balances, bank, IBAN) changed, when rows were added or removed, when a changed Transaction is a Duplicate on it (re-parse the Statement that first had it instead), or when a Transaction another Statement also has changed its amount or running balance. A failed re-parse is skipped as failed. For a refused Statement, delete it and import its file again; that loses the manual outcomes on its Transactions.
 
 ## Recovering a locked-out admin
 
