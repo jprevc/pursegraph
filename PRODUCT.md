@@ -50,12 +50,12 @@ A bank's app sees only one bank. A single-user budgeting tool sees only one pers
 
 - **Name:** Pursegraph.
 - **Voice:** calm, plain-spoken and factual. The copy never judges spending, cheers people on or gamifies, and an error says exactly what happened and what to do next. It uses the `CONTEXT.md` terms consistently.
+- **Look: the category standard, done impeccably.** Pursegraph deliberately looks like a polished personal-finance dashboard, with the craft of Monarch Money as the bar. It has a light sidebar, white cards, Dashboard stat tiles, a Category donut and one indigo accent. This is a standing preference, chosen over more distinctive directions: familiarity serves the less technical reader. The convention is executed straight, with no quirk smuggled in.
 - **Must never be mistaken for:**
-  - a bank or fintech app (upsells, "insights" marketing, corporate trust-blue);
+  - a bank or fintech app (upsells, "insights" marketing);
   - a budgeting nag (red warnings, guilt, streaks, savings goals);
-  - a trading terminal (dense, neon-on-black, built for traders);
-  - a generic admin or SaaS-dashboard template (boilerplate stat cards everywhere).
-- There is no logo yet. A wordmark and favicon are to be chosen with the visual direction.
+  - a trading terminal (dense, neon-on-black, built for traders).
+- **Wordmark and favicon:** "Pursegraph" set in Inter, beside a two-segment donut mark on an indigo tile (see `DESIGN.md`).
 
 ## Evidence on Hand
 
