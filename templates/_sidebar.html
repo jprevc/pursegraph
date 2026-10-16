@@ -1,12 +1,11 @@
-{% load i18n %}{# The sidebar. Its links carry the dashboard's period and filters; a view swapped in by HTMX swaps it
-too (`swap_nav`), so that they carry the view's. #}
+{% load i18n %}{# The sidebar. Its links carry the dashboard's period and filters; a view or Transactions swapped in by HTMX swaps it too (`swap_nav`), so that they carry the view's and only its own link is highlighted. #}
 <div id="sidebar"{% if swap_nav %} hx-swap-oob="true"{% endif %}>
 {% with nav=request.resolver_match.url_name %}
   <h1>Pursegraph</h1>
   {% include "dashboard/_views_nav.html" %}
-  <a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{% url 'transactions' %}{{ carried_page_query }}">{% translate "Transactions" %}</a>
+  {% url 'transactions' as transactions_url %}<a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true">{% translate "Transactions" %}</a>
   <div class="sep"></div>
-  <a class="nav {% if nav == 'import' or nav == 'accounts' or nav == 'new_account' or nav == 'edit_account' %}on{% endif %}" href="{% url 'import' %}{{ carried_page_query }}">{% translate "Import" %}</a>
+  <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}{{ carried_page_query }}">{% translate "Import" %}</a>
   <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}{{ carried_page_query }}">{% translate "Review queue" %} <span id="review-queue-count">({{ review_queue_count }})</span></a>
   {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
   <a class="nav {% if nav == 'rules' or nav == 'new_rule' or nav == 'edit_rule' or nav == 'apply_rule' %}on{% endif %}" href="{% url 'rules' %}{{ carried_page_query }}">{% translate "Rules" %}</a>
@@ -22,6 +21,7 @@ too (`swap_nav`), so that they carry the view's. #}
   <div class="sep"></div>
   <a class="nav {% if nav == 'categories' %}on{% endif %}" href="{% url 'categories' %}{{ carried_page_query }}">{% translate "Categories" %}</a>
   <a class="nav {% if nav == 'suggestion_settings' %}on{% endif %}" href="{% url 'suggestion_settings' %}{{ carried_page_query }}">{% translate "LLM suggestions" %}</a>
+  <a class="nav {% if nav == 'accounts' or nav == 'new_account' or nav == 'edit_account' or nav == 'delete_account' %}on{% endif %}" href="{% url 'accounts' %}{{ carried_page_query }}">{% translate "Accounts" %}</a>
   <a class="nav {% if nav == 'members' %}on{% endif %}" href="{% url 'members' %}{{ carried_page_query }}">{% translate "Members" %}</a>
   {% endif %}
   <form class="logout" method="post" action="{% url 'logout' %}">
