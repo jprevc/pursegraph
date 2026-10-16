@@ -1,0 +1,1041 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T15:02:21+00:00",
+  "title": "Design System: Pursegraph",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Household Indigo",
+        "canonical": "oklch(51.1% 0.230 277.0)",
+        "tonalRamp": [
+          "#070030",
+          "#1c0270",
+          "#3406b7",
+          "#4b40df",
+          "#686cfb",
+          "#8f9bfe",
+          "#bcc5fd",
+          "#eaedfe"
+        ]
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Indigo Ink",
+        "canonical": "oklch(45.7% 0.215 277.0)",
+        "tonalRamp": [
+          "#07012f",
+          "#1c046e",
+          "#3317af",
+          "#4b45d6",
+          "#686bff",
+          "#8f9bfd",
+          "#bbc5fe",
+          "#eaedff"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Indigo Wash",
+        "canonical": "oklch(96.2% 0.018 272.3)",
+        "tonalRamp": [
+          "#090b13",
+          "#22252e",
+          "#3f424c",
+          "#5d616c",
+          "#7e828d",
+          "#a1a5b1",
+          "#c5c9d5",
+          "#eaeefb"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "On-Indigo White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Indigo",
+        "canonical": "oklch(58.5% 0.204 277.1)",
+        "tonalRamp": [
+          "#07012f",
+          "#1c046e",
+          "#331eaa",
+          "#4c48d1",
+          "#696df9",
+          "#8f9bfd",
+          "#bbc5fe",
+          "#eaedff"
+        ]
+      },
+      "mark-segment": {
+        "role": "primary",
+        "displayName": "Mark Periwinkle",
+        "canonical": "oklch(87.0% 0.062 274.0)",
+        "tonalRamp": [
+          "#050625",
+          "#1c2243",
+          "#383f63",
+          "#565f85",
+          "#7680a8",
+          "#99a3cd",
+          "#bcc7f3",
+          "#e9eeff"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Cool Ground",
+        "canonical": "oklch(97.0% 0.003 264.5)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised",
+        "canonical": "oklch(98.5% 0.002 247.8)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606162",
+          "#818283",
+          "#a4a5a6",
+          "#c8c9ca",
+          "#edeeef"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover",
+        "canonical": "oklch(96.7% 0.003 264.5)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(21.0% 0.032 264.7)",
+        "tonalRamp": [
+          "#050b18",
+          "#1d2535",
+          "#3a4253",
+          "#586174",
+          "#798296",
+          "#9ba5ba",
+          "#bfc9df",
+          "#e7efff"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "oklch(37.3% 0.031 259.7)",
+        "tonalRamp": [
+          "#040b18",
+          "#1c2534",
+          "#384253",
+          "#576273",
+          "#788395",
+          "#9aa6b9",
+          "#becade",
+          "#e5efff"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "oklch(55.1% 0.023 264.4)",
+        "tonalRamp": [
+          "#070b15",
+          "#1f2531",
+          "#3c424f",
+          "#5b616f",
+          "#7b8291",
+          "#9ea5b4",
+          "#c2c9d9",
+          "#e7efff"
+        ]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Faint",
+        "canonical": "oklch(71.4% 0.019 261.3)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252f",
+          "#3c424c",
+          "#5b626c",
+          "#7c838e",
+          "#9ea5b1",
+          "#c2cad6",
+          "#e7effc"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "oklch(92.8% 0.006 264.5)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#242528",
+          "#404245",
+          "#5f6165",
+          "#808286",
+          "#a3a5a9",
+          "#c7c9cd",
+          "#eceef2"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Line Strong",
+        "canonical": "oklch(87.2% 0.009 258.3)",
+        "tonalRamp": [
+          "#090b0f",
+          "#22252a",
+          "#3f4247",
+          "#5e6167",
+          "#7f8388",
+          "#a1a5ab",
+          "#c5c9cf",
+          "#ebeff5"
+        ]
+      },
+      "awaiting": {
+        "role": "data",
+        "displayName": "Awaiting Grey",
+        "canonical": "oklch(71.4% 0.019 261.3)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252f",
+          "#3c424c",
+          "#5b626c",
+          "#7c838e",
+          "#9ea5b1",
+          "#c2cad6",
+          "#e7effc"
+        ]
+      },
+      "cat-0": {
+        "role": "data",
+        "displayName": "Category hue 0",
+        "canonical": "oklch(56.4% 0.086 251.1)",
+        "tonalRamp": [
+          "#000b1d",
+          "#022647",
+          "#19446e",
+          "#3a6491",
+          "#5a86b5",
+          "#7ca9da",
+          "#a2cefd",
+          "#e3f0ff"
+        ]
+      },
+      "cat-1": {
+        "role": "data",
+        "displayName": "Category hue 1",
+        "canonical": "oklch(64.2% 0.137 141.3)",
+        "tonalRamp": [
+          "#011000",
+          "#042e01",
+          "#0d5102",
+          "#2b7321",
+          "#4e9644",
+          "#71ba67",
+          "#95df8a",
+          "#cdffc6"
+        ]
+      },
+      "cat-2": {
+        "role": "data",
+        "displayName": "Category hue 2",
+        "canonical": "oklch(73.8% 0.160 59.4)",
+        "tonalRamp": [
+          "#160700",
+          "#3a1d01",
+          "#633504",
+          "#8e4f0c",
+          "#bd6b14",
+          "#ec8923",
+          "#fdb982",
+          "#ffeada"
+        ]
+      },
+      "cat-3": {
+        "role": "data",
+        "displayName": "Category hue 3",
+        "canonical": "oklch(64.7% 0.085 337.2)",
+        "tonalRamp": [
+          "#1b0015",
+          "#3d1034",
+          "#5e2e52",
+          "#804e73",
+          "#a36e95",
+          "#c891b8",
+          "#eeb4dd",
+          "#fee6f7"
+        ]
+      },
+      "cat-4": {
+        "role": "data",
+        "displayName": "Category hue 4",
+        "canonical": "oklch(73.4% 0.067 189.6)",
+        "tonalRamp": [
+          "#000f0e",
+          "#022c2a",
+          "#054d49",
+          "#2b6d69",
+          "#4f8f8b",
+          "#72b3ae",
+          "#96d8d2",
+          "#bbfef8"
+        ]
+      },
+      "cat-5": {
+        "role": "data",
+        "displayName": "Category hue 5",
+        "canonical": "oklch(84.4% 0.148 93.1)",
+        "tonalRamp": [
+          "#100b00",
+          "#2e2401",
+          "#504003",
+          "#745f08",
+          "#9b800f",
+          "#c3a21e",
+          "#eac645",
+          "#ffeeb8"
+        ]
+      },
+      "cat-6": {
+        "role": "data",
+        "displayName": "Category hue 6",
+        "canonical": "oklch(79.8% 0.117 13.5)",
+        "tonalRamp": [
+          "#1e0005",
+          "#4c0015",
+          "#731f2f",
+          "#98414d",
+          "#be626e",
+          "#e4858f",
+          "#feb1b8",
+          "#fee8ea"
+        ]
+      },
+      "cat-7": {
+        "role": "data",
+        "displayName": "Category hue 7",
+        "canonical": "oklch(59.5% 0.059 50.6)",
+        "tonalRamp": [
+          "#180600",
+          "#3b1b07",
+          "#5b3824",
+          "#7d5842",
+          "#a07862",
+          "#c49b84",
+          "#eabfa7",
+          "#ffeade"
+        ]
+      },
+      "cat-8": {
+        "role": "data",
+        "displayName": "Category hue 8",
+        "canonical": "oklch(63.8% 0.173 22.5)",
+        "tonalRamp": [
+          "#1f0002",
+          "#4c020b",
+          "#7e0619",
+          "#ae2530",
+          "#d64d50",
+          "#ff7271",
+          "#feb3af",
+          "#ffe8e7"
+        ]
+      },
+      "cat-9": {
+        "role": "data",
+        "displayName": "Category hue 9",
+        "canonical": "oklch(82.1% 0.061 238.0)",
+        "tonalRamp": [
+          "#000d17",
+          "#00283e",
+          "#1e465f",
+          "#3e6680",
+          "#5f88a3",
+          "#81abc7",
+          "#a5d0ed",
+          "#dff2ff"
+        ]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Household Indigo (dark)",
+        "canonical": "oklch(53.8% 0.226 277.9)",
+        "tonalRamp": [
+          "#07012f",
+          "#1d036e",
+          "#350ab5",
+          "#4d40dc",
+          "#6a6afe",
+          "#919afd",
+          "#bcc5fe",
+          "#eaedff"
+        ]
+      },
+      "accent-text-dark": {
+        "role": "primary",
+        "displayName": "Indigo Ink (dark)",
+        "canonical": "oklch(78.5% 0.104 274.7)",
+        "tonalRamp": [
+          "#060031",
+          "#191b56",
+          "#333b78",
+          "#505b9c",
+          "#707dc1",
+          "#92a0e6",
+          "#b9c6fe",
+          "#e9eeff"
+        ]
+      },
+      "accent-soft-dark": {
+        "role": "primary",
+        "displayName": "Indigo Wash (dark)",
+        "canonical": "oklch(25.7% 0.086 281.3)",
+        "tonalRamp": [
+          "#09012d",
+          "#201d4d",
+          "#3b3b6e",
+          "#595b91",
+          "#797cb5",
+          "#9b9fda",
+          "#bfc4fe",
+          "#ebedff"
+        ]
+      },
+      "focus-dark": {
+        "role": "primary",
+        "displayName": "Focus Indigo (dark)",
+        "canonical": "oklch(68.0% 0.158 276.9)",
+        "tonalRamp": [
+          "#07012f",
+          "#1c046f",
+          "#322f93",
+          "#4e52b8",
+          "#6c75df",
+          "#8f9bfd",
+          "#bbc5fe",
+          "#eaedff"
+        ]
+      },
+      "ground-dark": {
+        "role": "neutral",
+        "displayName": "Cool Ground (dark)",
+        "canonical": "oklch(17.3% 0.009 264.3)",
+        "tonalRamp": [
+          "#090b0f",
+          "#23252a",
+          "#404247",
+          "#5f6166",
+          "#808288",
+          "#a2a5ab",
+          "#c6c9cf",
+          "#ebeef5"
+        ]
+      },
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Card Graphite",
+        "canonical": "oklch(21.7% 0.013 264.3)",
+        "tonalRamp": [
+          "#090b11",
+          "#22252b",
+          "#3f4249",
+          "#5e6169",
+          "#7e828a",
+          "#a1a5ad",
+          "#c5c9d2",
+          "#eaeff7"
+        ]
+      },
+      "raised-dark": {
+        "role": "neutral",
+        "displayName": "Raised (dark)",
+        "canonical": "oklch(24.7% 0.015 261.7)",
+        "tonalRamp": [
+          "#080b11",
+          "#21252c",
+          "#3e424a",
+          "#5d616a",
+          "#7d838b",
+          "#a0a5ae",
+          "#c4c9d3",
+          "#e9eff9"
+        ]
+      },
+      "hover-dark": {
+        "role": "neutral",
+        "displayName": "Hover (dark)",
+        "canonical": "oklch(27.2% 0.020 264.2)",
+        "tonalRamp": [
+          "#070b14",
+          "#20252f",
+          "#3d424d",
+          "#5b616d",
+          "#7c828f",
+          "#9fa5b2",
+          "#c3c9d7",
+          "#e8effc"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Ink (dark)",
+        "canonical": "oklch(96.7% 0.003 264.5)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
+      },
+      "ink-2-dark": {
+        "role": "neutral",
+        "displayName": "Ink 2 (dark)",
+        "canonical": "oklch(87.2% 0.009 258.3)",
+        "tonalRamp": [
+          "#090b0f",
+          "#22252a",
+          "#3f4247",
+          "#5e6167",
+          "#7f8388",
+          "#a1a5ab",
+          "#c5c9cf",
+          "#ebeff5"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted (dark)",
+        "canonical": "oklch(71.4% 0.019 261.3)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252f",
+          "#3c424c",
+          "#5b626c",
+          "#7c838e",
+          "#9ea5b1",
+          "#c2cad6",
+          "#e7effc"
+        ]
+      },
+      "faint-dark": {
+        "role": "neutral",
+        "displayName": "Faint (dark)",
+        "canonical": "oklch(55.1% 0.023 264.4)",
+        "tonalRamp": [
+          "#070b15",
+          "#1f2531",
+          "#3c424f",
+          "#5b616f",
+          "#7b8291",
+          "#9ea5b4",
+          "#c2c9d9",
+          "#e7efff"
+        ]
+      },
+      "line-dark": {
+        "role": "neutral",
+        "displayName": "Line (dark)",
+        "canonical": "oklch(28.8% 0.018 262.2)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252e",
+          "#3d424c",
+          "#5c616c",
+          "#7d838d",
+          "#9fa5b1",
+          "#c3c9d5",
+          "#e8effb"
+        ]
+      },
+      "line-strong-dark": {
+        "role": "neutral",
+        "displayName": "Line Strong (dark)",
+        "canonical": "oklch(34.8% 0.023 264.2)",
+        "tonalRamp": [
+          "#070b15",
+          "#202530",
+          "#3c424e",
+          "#5b616e",
+          "#7c8290",
+          "#9ea5b4",
+          "#c2c9d8",
+          "#e7effe"
+        ]
+      },
+      "awaiting-dark": {
+        "role": "data",
+        "displayName": "Awaiting Grey (dark)",
+        "canonical": "oklch(55.1% 0.023 264.4)",
+        "tonalRamp": [
+          "#070b15",
+          "#1f2531",
+          "#3c424f",
+          "#5b616f",
+          "#7b8291",
+          "#9ea5b4",
+          "#c2c9d9",
+          "#e7efff"
+        ]
+      },
+      "cat-0-dark": {
+        "role": "data",
+        "displayName": "Category hue 0 (dark)",
+        "canonical": "oklch(67.7% 0.096 252.1)",
+        "tonalRamp": [
+          "#000b1e",
+          "#012549",
+          "#144373",
+          "#356496",
+          "#5686ba",
+          "#78a9e0",
+          "#a3cdfe",
+          "#e3f0ff"
+        ]
+      },
+      "cat-1-dark": {
+        "role": "data",
+        "displayName": "Category hue 1 (dark)",
+        "canonical": "oklch(73.2% 0.156 141.1)",
+        "tonalRamp": [
+          "#011000",
+          "#062e01",
+          "#105004",
+          "#1d750b",
+          "#459838",
+          "#69bd5c",
+          "#8de280",
+          "#ccffc4"
+        ]
+      },
+      "cat-2-dark": {
+        "role": "data",
+        "displayName": "Category hue 2 (dark)",
+        "canonical": "oklch(77.6% 0.140 62.3)",
+        "tonalRamp": [
+          "#150700",
+          "#391d01",
+          "#613604",
+          "#8c510b",
+          "#ba6d14",
+          "#e28f3a",
+          "#ffb879",
+          "#ffead9"
+        ]
+      },
+      "cat-3-dark": {
+        "role": "data",
+        "displayName": "Category hue 3 (dark)",
+        "canonical": "oklch(73.1% 0.071 337.5)",
+        "tonalRamp": [
+          "#1a0014",
+          "#3a1531",
+          "#5a324f",
+          "#7c5170",
+          "#9f7292",
+          "#c394b5",
+          "#e9b8da",
+          "#ffe6f7"
+        ]
+      },
+      "cat-4-dark": {
+        "role": "data",
+        "displayName": "Category hue 4 (dark)",
+        "canonical": "oklch(81.2% 0.067 188.7)",
+        "tonalRamp": [
+          "#000f0d",
+          "#022c29",
+          "#064d49",
+          "#2c6d69",
+          "#508f8a",
+          "#73b3ad",
+          "#96d8d2",
+          "#bbfef7"
+        ]
+      },
+      "cat-5-dark": {
+        "role": "data",
+        "displayName": "Category hue 5 (dark)",
+        "canonical": "oklch(87.2% 0.140 95.5)",
+        "tonalRamp": [
+          "#0f0b00",
+          "#2d2401",
+          "#4e4104",
+          "#72600a",
+          "#988112",
+          "#c0a321",
+          "#e5c851",
+          "#ffefb2"
+        ]
+      },
+      "cat-6-dark": {
+        "role": "data",
+        "displayName": "Category hue 6 (dark)",
+        "canonical": "oklch(84.1% 0.089 12.2)",
+        "tonalRamp": [
+          "#1e0005",
+          "#460a19",
+          "#692b35",
+          "#8c4a53",
+          "#b16b74",
+          "#d78e96",
+          "#fdb1b9",
+          "#ffe8ea"
+        ]
+      },
+      "cat-7-dark": {
+        "role": "data",
+        "displayName": "Category hue 7 (dark)",
+        "canonical": "oklch(68.7% 0.058 52.0)",
+        "tonalRamp": [
+          "#180600",
+          "#3a1c07",
+          "#5a3924",
+          "#7c5843",
+          "#9f7963",
+          "#c39b84",
+          "#e9bfa7",
+          "#ffeade"
+        ]
+      },
+      "cat-8-dark": {
+        "role": "data",
+        "displayName": "Category hue 8 (dark)",
+        "canonical": "oklch(71.3% 0.144 20.8)",
+        "tonalRamp": [
+          "#1f0002",
+          "#4c000c",
+          "#7d0b1e",
+          "#a3363c",
+          "#ca595c",
+          "#f27d7d",
+          "#fdb3b1",
+          "#fee9e8"
+        ]
+      },
+      "cat-9-dark": {
+        "role": "data",
+        "displayName": "Category hue 9 (dark)",
+        "canonical": "oklch(86.0% 0.049 240.9)",
+        "tonalRamp": [
+          "#000d18",
+          "#0a283b",
+          "#29455a",
+          "#47657b",
+          "#68879e",
+          "#8aaac2",
+          "#adcee7",
+          "#e0f1fe"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Stat-tile figures; 15px on phones."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "View title and donut centre figure; 20px / 17px on phones."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text, Category names, controls, nav items and amounts."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "Card meta, comparisons, shares, Subcategory rows, captions."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Nav group headings, table headers, count badge, Account pill. Sentence case."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "\"Purse\" in ink at 700, \"graph\" in Indigo Ink at 600, beside the mark."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)",
+        "purpose": "Every card; the pressed theme-switch segment."
+      },
+      {
+        "name": "card-dark",
+        "value": "0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03)",
+        "purpose": "Card lift in dark: deeper shadow plus a 3% white hairline ring."
+      },
+      {
+        "name": "pop",
+        "value": "0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10)",
+        "purpose": "Overlays: the phone sidebar drawer."
+      },
+      {
+        "name": "pop-dark",
+        "value": "0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05)",
+        "purpose": "Overlays in dark."
+      },
+      {
+        "name": "control",
+        "value": "0 1px 2px rgb(16 24 40 / .04)",
+        "purpose": "Buttons, selects and the period stepper."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--focus); outline-offset: 2px",
+        "purpose": "Every focusable element; 6px radius on the ring."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(.16,1,.3,1)",
+        "purpose": "Chevron rotation (.2s) and phone drawer slide (.25s)."
+      },
+      {
+        "name": "donut-sweep",
+        "value": "700ms cubicOut (ECharts), once on load",
+        "purpose": "The donut's single entrance; off under prefers-reduced-motion."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }",
+        "purpose": "All motion off; chart animation disabled; scrollIntoView without smooth."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "max-width: 900px"
+      },
+      {
+        "name": "desktop",
+        "value": "min-width: 901px"
+      }
+    ],
+    "themes": {
+      "attribute": "data-theme on <html>",
+      "values": [
+        "light",
+        "system",
+        "dark"
+      ],
+      "default": "system",
+      "persistence": "localStorage per browser",
+      "chartRetheme": "Rebuild ECharts options from getComputedStyle custom properties; setOption(..., { notMerge: true }) on theme switch, prefers-color-scheme change and resize. ECharts 5.6 has no live setTheme."
+    },
+    "dataColour": {
+      "categoryKey": "cat-((CategoryId - 1) mod 10)",
+      "awaiting": "awaiting grey plus 45deg hatch; donut decal rgba(255,255,255,.45)",
+      "accentIsData": false
+    },
+    "numberFormat": {
+      "locale": "sl-SI",
+      "intl": "new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' })",
+      "example": "1.234,56 €",
+      "share": "26 %",
+      "numerals": "tabular-nums"
+    }
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The default quiet, bordered control: filters, period unit, Account picker. Never filled with indigo.",
+      "html": "<button class=\"ds-btn\" type=\"button\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\"><path d=\"M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18\"/></svg>All Accounts<svg class=\"ds-icon\" viewBox=\"0 0 24 24\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
+      "css": ".ds-btn { font: 500 14px/1.5 Inter, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong, #d1d5db); background: var(--card, #ffffff); color: var(--ink, #111827); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; } .ds-btn:hover { background: var(--hover, #f3f4f6); } .ds-btn:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-icon { width: 16px; height: 16px; fill: none; stroke: var(--muted, #6b7280); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Borderless icon or text action: close, log out, menu.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\"><path d=\"M6 6l12 12M18 6 6 18\"/></svg></button>",
+      "css": ".ds-btn-ghost { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: none; color: var(--muted, #6b7280); cursor: pointer; } .ds-btn-ghost svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; } .ds-btn-ghost:hover { background: var(--hover, #f3f4f6); color: var(--ink, #111827); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Grouped sidebar links with 1.5px stroke icons; active takes Indigo Wash; the Review queue carries a count badge.",
+      "html": "<nav class=\"ds-nav\"><div class=\"ds-nav-group\">Dashboard</div><a class=\"ds-nav-item on\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-9-9v9z\"/><path d=\"M15 3.5A9 9 0 0 1 20.5 9H15z\"/></svg>Spending</a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/></svg>Cash flow</a><div class=\"ds-nav-group\">Ledger</div><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-4.2-7.6\"/><path d=\"m9 11 3 3 9-9\"/></svg>Review queue<span class=\"ds-badge\">7</span></a></nav>",
+      "css": ".ds-nav { width: 240px; padding: 20px 12px; background: var(--card, #ffffff); display: flex; flex-direction: column; gap: 2px; font: 14px/1.5 Inter, system-ui, sans-serif; } .ds-nav-group { font-size: 12px; font-weight: 500; color: var(--muted, #6b7280); padding: 16px 8px 4px; } .ds-nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; color: var(--ink-2, #374151); text-decoration: none; font-weight: 500; } .ds-nav-item svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-nav-item:hover { background: var(--hover, #f3f4f6); color: var(--ink, #111827); } .ds-nav-item.on { background: var(--accent-soft, #eef2ff); color: var(--accent-text, #4338ca); } .ds-nav-item:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-badge { margin-left: auto; min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent, #4f46e5); color: var(--accent-ink, #ffffff); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Stat Tile",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A period figure with a neutral, muted comparison; never coloured by sign.",
+      "html": "<div class=\"ds-tile\"><div class=\"ds-tile-label\">Spent</div><div class=\"ds-tile-value\">2.380,55 €</div><div class=\"ds-tile-compare\">523,55 € less than September</div></div>",
+      "css": ".ds-tile { background: var(--card, #ffffff); border-radius: 14px; box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06); padding: 20px; font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); font-variant-numeric: tabular-nums; } .ds-tile-label { color: var(--muted, #6b7280); font-weight: 500; } .ds-tile-value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; } .ds-tile-compare { color: var(--muted, #6b7280); font-size: 13px; margin-top: 2px; }"
+    },
+    {
+      "name": "Category Row",
+      "kind": "custom",
+      "refersTo": "category-row",
+      "description": "Signature ranked row: hue dot, name, share bar, share and amount. Hover lights the donut segment; open takes Indigo Wash. Awaiting review uses grey plus hatch.",
+      "html": "<div class=\"ds-cats\"><button class=\"ds-cat\" type=\"button\"><span class=\"ds-name\"><i class=\"ds-dot\" style=\"background:#59a14f\"></i>Food</span><span class=\"ds-bar\"><i style=\"width:59%;background:#59a14f\"></i></span><span class=\"ds-share\">26 %</span><span class=\"ds-amt\">612,40 €</span></button><button class=\"ds-cat open\" type=\"button\"><span class=\"ds-name\"><i class=\"ds-dot\" style=\"background:#f28e2b\"></i>Transport</span><span class=\"ds-bar\"><i style=\"width:23%;background:#f28e2b\"></i></span><span class=\"ds-share\">10 %</span><span class=\"ds-amt\">238,75 €</span></button><button class=\"ds-cat ds-awaiting\" type=\"button\"><span class=\"ds-name\"><i class=\"ds-dot\"></i>Awaiting review</span><span class=\"ds-bar\"><i style=\"width:9%\"></i></span><span class=\"ds-share\">4 %</span><span class=\"ds-amt\">96,30 €</span></button></div>",
+      "css": ".ds-cats { width: 560px; font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-cat { display: grid; grid-template-columns: minmax(0,1fr) 140px 52px 104px; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; } .ds-cat:hover { background: var(--hover, #f3f4f6); } .ds-cat.open { background: var(--accent-soft, #eef2ff); } .ds-cat:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-name { display: flex; align-items: center; gap: 10px; font-weight: 500; } .ds-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; } .ds-bar { height: 6px; border-radius: 999px; background: var(--ground, #f4f5f7); overflow: hidden; } .ds-bar i { display: block; height: 100%; border-radius: inherit; } .ds-share { color: var(--muted, #6b7280); font-size: 13px; text-align: right; } .ds-amt { font-weight: 600; text-align: right; } .ds-awaiting .ds-dot { background: repeating-linear-gradient(45deg, var(--awaiting, #9ca3af) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting, #9ca3af); } .ds-awaiting .ds-bar i { background: repeating-linear-gradient(45deg, var(--awaiting, #9ca3af) 0 3px, color-mix(in srgb, var(--awaiting, #9ca3af) 40%, transparent) 3px 6px); }"
+    },
+    {
+      "name": "Period Stepper",
+      "kind": "custom",
+      "refersTo": "button",
+      "description": "One bordered 36px control stepping the period; next is disabled at the current period.",
+      "html": "<div class=\"ds-period\"><a class=\"ds-step\" href=\"#\" aria-label=\"Previous period\"><svg viewBox=\"0 0 24 24\"><path d=\"m15 18-6-6 6-6\"/></svg></a><span class=\"ds-period-label\">October 2026 <small>· so far, to 16 Oct</small></span><a class=\"ds-step\" href=\"#\" aria-label=\"Next period\" aria-disabled=\"true\"><svg viewBox=\"0 0 24 24\"><path d=\"m9 18 6-6-6-6\"/></svg></a></div>",
+      "css": ".ds-period { display: inline-flex; align-items: center; gap: 2px; height: 36px; background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); border-radius: 8px; box-shadow: 0 1px 2px rgb(16 24 40 / .04); font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-step { display: grid; place-items: center; width: 32px; height: 34px; border-radius: 8px; color: var(--muted, #6b7280); } .ds-step:hover { background: var(--hover, #f3f4f6); } .ds-step:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-step[aria-disabled=\"true\"] { opacity: .35; pointer-events: none; } .ds-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-period-label { padding: 0 8px; font-weight: 600; white-space: nowrap; } .ds-period-label small { font-weight: 400; color: var(--muted, #6b7280); }"
+    },
+    {
+      "name": "Theme Switch",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Light / System / Dark segmented control at the sidebar foot; sets data-theme on <html>, remembered per browser.",
+      "html": "<div class=\"ds-theme\" role=\"group\" aria-label=\"Theme\"><button type=\"button\" aria-pressed=\"false\" aria-label=\"Light\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/></svg></button><button type=\"button\" aria-pressed=\"true\" aria-label=\"Match system\"><svg viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/></svg></button><button type=\"button\" aria-pressed=\"false\" aria-label=\"Dark\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z\"/></svg></button></div>",
+      "css": ".ds-theme { display: grid; grid-template-columns: repeat(3, 1fr); width: 216px; padding: 3px; gap: 2px; background: var(--ground, #f4f5f7); border-radius: 8px; } .ds-theme button { display: grid; place-items: center; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--muted, #6b7280); cursor: pointer; } .ds-theme button:hover { color: var(--ink, #111827); } .ds-theme button[aria-pressed=\"true\"] { background: var(--card, #ffffff); color: var(--ink, #111827); box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06); } .ds-theme button:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-theme svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "View Pills (phone)",
+      "kind": "chip",
+      "refersTo": "view-pill",
+      "description": "Below 900px the five Dashboard views become a horizontally scrolling row of pills.",
+      "html": "<nav class=\"ds-pills\"><a class=\"on\" href=\"#\" aria-current=\"page\">Spending</a><a href=\"#\">Cash flow</a><a href=\"#\">Category trends</a><a href=\"#\">Per Member</a></nav>",
+      "css": ".ds-pills { display: flex; gap: 4px; overflow-x: auto; font: 500 13px/1.5 Inter, system-ui, sans-serif; } .ds-pills a { flex: none; padding: 6px 12px; border-radius: 999px; color: var(--ink-2, #374151); text-decoration: none; background: var(--card, #ffffff); border: 1px solid var(--line, #e5e7eb); } .ds-pills a:hover { background: var(--hover, #f3f4f6); } .ds-pills a.on { background: var(--accent-soft, #eef2ff); color: var(--accent-text, #4338ca); border-color: transparent; } .ds-pills a:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; }"
+    },
+    {
+      "name": "Wordmark",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The mark (two-segment donut on an 8px-radius indigo tile) beside \"Purse\" in ink and \"graph\" in Indigo Ink.",
+      "html": "<a class=\"ds-brand\" href=\"#\"><svg viewBox=\"0 0 32 32\" width=\"28\" height=\"28\" aria-hidden=\"true\"><rect width=\"32\" height=\"32\" rx=\"8\" fill=\"#4f46e5\"/><g fill=\"none\" stroke-width=\"4.5\" transform=\"rotate(-90 16 16)\"><circle cx=\"16\" cy=\"16\" r=\"8\" stroke=\"#fff\" stroke-dasharray=\"33.5 16.77\"/><circle cx=\"16\" cy=\"16\" r=\"8\" stroke=\"#c7d2fe\" stroke-dasharray=\"0 36.7 10.3 3.27\"/></g></svg>Purse<span>graph</span></a>",
+      "css": ".ds-brand { display: inline-flex; align-items: center; font: 700 17px/1.5 Inter, system-ui, sans-serif; letter-spacing: -0.02em; color: var(--ink, #111827); text-decoration: none; } .ds-brand svg { margin-right: 10px; } .ds-brand span { color: var(--accent-text, #4338ca); font-weight: 600; } .ds-brand:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; border-radius: 6px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Household Ledger, Done Straight",
+    "overview": "Pursegraph deliberately looks like a polished personal-finance dashboard: a light sidebar, white cards on a cool grey ground, stat tiles, a Category donut and a single indigo accent. Monarch Money's craft is the bar. The convention is the point, because familiarity serves the least technical Member reading the Dashboard on a phone. Nothing quirky is smuggled in. Distinction comes from execution: exact figures, steady Category hues, quiet type and soft lift.\n\nThe density is calm, not terminal-like. A view shows a few large figures, one chart and one ranked list, and detail opens on request (drill-down) rather than up front. Copy and colour describe and never judge. A comparison reads \"523,55 € less than September\" in muted grey, with no red or green verdict. Dark mode is the same world at night: a near-black ground, raised graphite cards, and the same Category hues lifted in lightness so they keep their identity.\n\nThe real app is server-rendered Django templates with HTMX, hand-written CSS custom properties and no build step. ECharts draws the charts. Every asset is self-hosted, including Inter as an OFL variable woff2 under `static/fonts/`, because the app runs offline from the internet on the LAN or a VPN.",
+    "keyCharacteristics": [
+      "Cool grey ground, white 14px cards with soft ambient shadow, one indigo accent used only for chrome.",
+      "Inter throughout, with tabular figures on every amount, and sl-SI number formatting (\"1.234,56 €\").",
+      "Ten Category hues (Tableau-10-derived), keyed by Category id and identical in every view, with a lifted set for dark.",
+      "Charts that never rely on colour alone: directly labelled donut segments, and a hatch for Awaiting review.",
+      "1.5px stroke icons, sentence-case labels, no uppercase tracking.",
+      "Light, System and Dark themes, with the system as the default."
+    ],
+    "rules": [
+      {
+        "name": "The One Indigo Rule",
+        "body": "Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Hue Rule",
+        "body": "A Category wears the same hue in every view, chart and theme step (lifted in dark, never re-assigned). Hues are keyed by Category id, never by sort order.",
+        "section": "colors"
+      },
+      {
+        "name": "The Neutral Wait Rule",
+        "body": "Awaiting review is neutral grey plus a 45° hatch, everywhere it appears (dot, bar and donut segment). It never borrows a Category hue.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Verdict Rule",
+        "body": "No red/green good/bad colouring. Comparisons are muted text that describes the difference, and Net is plain ink with its sign. A Category hue that happens to be red or green (cat-8, cat-1) carries no meaning beyond its Category.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every amount, share, count and date figure uses `font-variant-numeric: tabular-nums`.",
+        "section": "typography"
+      },
+      {
+        "name": "The Locale Figure Rule",
+        "body": "Amounts format with `Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' })`, giving \"1.234,56 €\". Shares are whole percent with a space (\"26 %\"). Net carries an explicit sign.",
+        "section": "typography"
+      },
+      {
+        "name": "The Soft Lift Rule",
+        "body": "Depth is diffuse and ambient, never a hard offset. Cards are borderless in light. Hairlines divide content inside cards, not cards from the ground.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** key every Category's hue to its Category id (`cat-((id − 1) mod 10)`), and use the same hue in every view and chart.",
+      "**Do** label donut segments directly and hatch Awaiting review, so no chart relies on colour alone.",
+      "**Do** set every figure in tabular numerals and format amounts as sl-SI EUR with grouping always on (\"1.234,56 €\").",
+      "**Do** write comparisons as neutral muted sentences (\"523,55 € less than September\").",
+      "**Do** define every colour as a CSS custom property, with a `[data-theme=\"dark\"]` block and a `prefers-color-scheme` block for `data-theme=\"system\"`, and rebuild chart options from those properties when the theme changes.",
+      "**Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.",
+      "**Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and drawer slide (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary."
+    ],
+    "donts": [
+      "**Don't** use the indigo accent as a data colour, a chart series or a Category hue.",
+      "**Don't** give Awaiting review a Category hue, or show it without its hatch.",
+      "**Don't** colour spending, Net or comparisons red or green to mean good or bad.",
+      "**Don't** add uppercase tracked labels, kickers or eyebrows above titles. Labels are sentence case.",
+      "**Don't** use hard offset shadows or borders around cards. Lift is soft and ambient.",
+      "**Don't** load fonts, scripts or styles from a CDN in production."
+    ]
+  }
+}
