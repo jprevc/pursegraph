@@ -318,3 +318,38 @@ def test_per_member_keeps_the_member_filter_for_other_views(logged_in_client, ho
     assert "ignores the Member filter" in page
     assert '<input type="hidden" name="member" value="joint">' in page
     assert nav_links(page)["Cashflow"] == "/cashflow/?period=2026-09&member=joint"
+
+
+def page_links(page):
+    """Where every sidebar link goes, the dashboard views' and the other pages'."""
+    return dict(
+        (html.unescape(label).strip(), html.unescape(href))
+        for href, label in re.findall(r'<a class="nav[^"]*" href="([^"]*)"[^>]*>([^<]*)', page)
+    )
+
+
+def test_the_period_and_filters_survive_a_visit_to_another_page(logged_in_client, household):
+    joint = account_id("Joint Revolut")
+    page = logged_in_client.get(
+        "/cashflow/", {"period": "2026-Q3", "member": "joint", "account": joint}
+    ).content.decode()
+
+    transactions = page_links(page)["Transactions"]
+    page = logged_in_client.get(transactions).content.decode()
+
+    assert (
+        page_links(page)["Money flow"]
+        == f"/money-flow/?period=2026-Q3&member=joint&account={joint}"
+    )
+    # The dashboard's Account filter doesn't narrow the Transactions page.
+    everything = logged_in_client.get("/transactions/").content.decode()
+    assert page.count('<tr id="transaction-') == everything.count('<tr id="transaction-')
+    # Filtering the Transactions page keeps them too.
+    carried = re.search(r'<input type="hidden" name="dashboard" value="([^"]*)">', page)
+    assert carried
+    page = logged_in_client.get(
+        "/transactions/", {"q": "salary", "dashboard": html.unescape(carried[1])}
+    ).content.decode()
+    assert page_links(page)["Cashflow"] == f"/cashflow/?period=2026-Q3&member=joint&account={joint}"
+    page = logged_in_client.get(page_links(page)["Rules"]).content.decode()
+    assert page_links(page)["Cashflow"] == f"/cashflow/?period=2026-Q3&member=joint&account={joint}"
