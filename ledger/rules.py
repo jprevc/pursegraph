@@ -2,7 +2,7 @@
 
 At import, Rules categorize only unresolved Transactions. Applied to existing Transactions, a Rule
 also overwrites outcomes other automatic processing set (`llm`, `rule`), never `manual`, `iban`,
-`pairing` or `parser` ones."""
+`pairing` or `parser` ones, and pairs the Transfers it makes as import does."""
 
 from django.db import transaction
 from django.db.models import Min, QuerySet
@@ -28,7 +28,17 @@ def overwritable_matches(rule: Rule) -> QuerySet[Transaction]:
 
 
 def apply_to_existing(rule: Rule) -> int:
-    return _set_outcome(overwritable_matches(rule), rule)
+    """Applies `rule` to the existing Transactions it matches, then pairs the Transfers it made, as at
+    import. Returns how many it set."""
+    from .transfers import pair  # transfers imports OVERWRITABLE from here
+
+    with transaction.atomic():
+        matches = overwritable_matches(rule)
+        pks = list(matches.values_list("pk", flat=True))
+        count = _set_outcome(matches, rule)
+        if rule.subcategory_id is None:
+            pair(Transaction.objects.filter(pk__in=pks))
+    return count
 
 
 def _set_outcome(transactions: QuerySet[Transaction], rule: Rule) -> int:
