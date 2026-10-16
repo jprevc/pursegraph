@@ -20,6 +20,10 @@ _Avoid_: User, family member, owner
 One bank account, owned by one Member or jointly by several, identified by its IBAN (occasionally several, when the bank re-issued it). A Member may own many Accounts. An Account may have no Statements at all (such as a Member's savings account at another bank) and exists then only so that money moved to it is recognised as a Transfer.
 _Avoid_: Bank account, wallet
 
+**Bucket**:
+The Accounts the dashboard shows as one Member's, in the Per Member view and the Member filter: the Accounts that Member owns alone. Every Account with several owners is in a single Joint bucket instead, never shared out among its owners. A Member who owns no Account alone has no bucket, so is neither offered by the Member filter nor shown in Per Member.
+_Avoid_: Share, portion
+
 **Statement**:
 One imported bank-statement file (PDF or CSV) covering a period of one Account.
 _Avoid_: Import, upload, file
