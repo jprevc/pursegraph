@@ -1,5 +1,5 @@
 {% load i18n %}{# The Transactions page's main area: the whole page includes it, and HTMX swaps it in alone. #}
-{% if swap_nav %}<title>{% translate "Transactions" %} · Pursegraph</title>
+{% if swap_sidebar %}<title>{% translate "Transactions" %} · Pursegraph</title>
 {% endif %}<h2>{% translate "Transactions" %}</h2>
 {% if any_transactions %}
 <form class="filters" method="get">
@@ -31,4 +31,4 @@
   <a class="button" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
 </div>
 {% endif %}
-{% if swap_nav %}{% include "dashboard/_views_nav.html" with nav=request.resolver_match.url_name %}{% endif %}
+{% if swap_sidebar %}{% include "_sidebar.html" %}{% endif %}

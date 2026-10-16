@@ -68,7 +68,9 @@ def test_admins_find_accounts_among_the_sidebar_admin_links(admin_client, logged
     assert not accounts_link(logged_in_client.get("/transactions/").content.decode())
 
 
-@pytest.mark.parametrize("url", ["/accounts/", "/accounts/new/", "/accounts/{pk}/edit/"])
+@pytest.mark.parametrize(
+    "url", ["/accounts/", "/accounts/new/", "/accounts/{pk}/edit/", "/accounts/{pk}/delete/"]
+)
 def test_the_sidebar_accounts_link_is_highlighted_on_the_account_pages(admin_client, member, url):
     account = make_account("Ana's Revolut", "revolut", member)
 

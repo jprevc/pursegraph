@@ -58,7 +58,7 @@ def test_an_empty_installation_asks_for_the_first_statement_on_every_view(logged
 def test_every_view_is_swapped_in_alone_via_htmx(logged_in_client, household, url):
     swapped = logged_in_client.get(url, headers={"HX-Request": "true"}).content.decode()
 
-    assert "<aside>" not in swapped
+    assert '<div class="shell">' not in swapped
     assert 'class="view-bar"' in swapped
 
 
@@ -80,12 +80,13 @@ def test_transactions_are_swapped_in_alone_via_htmx(logged_in_client, household)
         "/transactions/", headers={"HX-Request": "true"}
     ).content.decode()
 
-    assert "<aside>" not in swapped
+    assert '<div class="shell">' not in swapped
     assert "<h2>Transactions</h2>" in swapped
     assert "<title>Transactions · Pursegraph</title>" in swapped
-    # The sidebar's links come along: Transactions highlighted, and the views no longer swapped into a view
-    # that has left the page.
-    assert '<nav id="views" hx-swap-oob="true">' in swapped
+    assert "{#" not in swapped  # no template comment leaks
+    # The sidebar comes along: Transactions highlighted, and the views no longer swapped into a view that has
+    # left the page.
+    assert '<aside id="sidebar" hx-swap-oob="true">' in swapped
     assert re.search(r'<a class="nav on" href="/transactions/"', swapped)
     assert re.search(r'<a class="nav" href="/cashflow/">Cashflow</a>', swapped)
 
@@ -95,4 +96,13 @@ def test_restoring_transactions_from_history_gets_the_whole_page(logged_in_clien
         "/transactions/", headers={"HX-Request": "true", "HX-History-Restore-Request": "true"}
     ).content.decode()
 
-    assert "<aside>" in restored
+    assert '<div class="shell">' in restored
+
+
+def test_transactions_swapped_in_leave_no_other_sidebar_link_highlighted(admin_client, household):
+    swapped = admin_client.get(
+        "/transactions/", headers={"HX-Request": "true", "Referer": "http://testserver/import/"}
+    ).content.decode()
+
+    assert re.findall(r'<a class="nav on" href="([^"]*)"', swapped) == ["/transactions/"]
+    assert re.search(r'<a class="nav ?" href="/import/">Import</a>', swapped)

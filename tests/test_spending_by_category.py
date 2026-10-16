@@ -209,8 +209,8 @@ def test_an_htmx_request_gets_the_view_alone(logged_in_client, household):
         "/spending/", {"period": "2026-09"}, headers={"HX-Request": "true"}
     ).content.decode()
 
-    assert "<aside>" in full and 'id="view"' in full
-    assert "<aside>" not in swapped
+    assert '<div class="shell">' in full and 'id="view"' in full
+    assert '<div class="shell">' not in swapped
     assert spending_table(swapped) == spending_table(full)
 
 
@@ -281,7 +281,7 @@ def test_restoring_history_gets_the_whole_page(logged_in_client, household):
         headers={"HX-Request": "true", "HX-History-Restore-Request": "true"},
     )
 
-    assert "<aside>" in response.content.decode()
+    assert '<div class="shell">' in response.content.decode()
     assert "HX-Request" in response["Vary"]
 
 

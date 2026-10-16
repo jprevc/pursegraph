@@ -266,9 +266,9 @@ def transactions(request):
             "query": query.urlencode(),
             "categories": categories,
             "any_transactions": page.paginator.count or Transaction.objects.exists(),
-            # Swapped in alone, it also brings the sidebar's links, so that Transactions is highlighted and the
+            # Swapped in alone, it also brings the sidebar, so that only Transactions is highlighted and the
             # dashboard views no longer swap into a view that has left the page.
-            "swap_nav": alone,
+            "swap_sidebar": alone,
         },
     )
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
