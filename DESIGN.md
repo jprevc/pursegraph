@@ -1,7 +1,13 @@
 ---
 name: Pursegraph
-description: A household finance dashboard in the category standard, done impeccably: light sidebar, white cards, one indigo accent.
+description: The whole Household's money in one private picture, as a polished personal-finance dashboard.
 colors:
+  accent: "#4f46e5"
+  accent-text: "#4338ca"
+  accent-soft: "#eef2ff"
+  accent-ink: "#ffffff"
+  focus: "#6366f1"
+  mark-segment: "#c7d2fe"
   ground: "#f4f5f7"
   card: "#ffffff"
   raised: "#f9fafb"
@@ -12,64 +18,96 @@ colors:
   faint: "#9ca3af"
   line: "#e5e7eb"
   line-strong: "#d1d5db"
-  accent: "#4f46e5"
-  accent-ink: "#ffffff"
-  accent-soft: "#eef2ff"
-  accent-text: "#4338ca"
-  focus: "#6366f1"
   awaiting: "#9ca3af"
-colorsDark:
-  ground: "#0e1014"
-  card: "#171a20"
-  raised: "#1d2128"
-  hover: "#222731"
-  ink: "#f3f4f6"
-  ink-2: "#d1d5db"
-  muted: "#9ca3af"
-  faint: "#6b7280"
-  line: "#262b34"
-  line-strong: "#343a46"
-  accent: "#5850ec"
-  accent-ink: "#ffffff"
-  accent-soft: "#1e1b4b"
-  accent-text: "#a5b4fc"
-  focus: "#818cf8"
-  awaiting: "#6b7280"
-categoryColors:
-  light: ["#4e79a7", "#59a14f", "#f28e2b", "#b07aa1", "#76b7b2", "#edc948", "#ff9da7", "#9c755f", "#e15759", "#a0cbe8"]
-  dark: ["#6b9bd1", "#6cc05f", "#f5a04d", "#c697b8", "#8fd0ca", "#f1d45e", "#ffb3bb", "#b8917a", "#ef7a7b", "#b5d6ef"]
+  cat-0: "#4e79a7"
+  cat-1: "#59a14f"
+  cat-2: "#f28e2b"
+  cat-3: "#b07aa1"
+  cat-4: "#76b7b2"
+  cat-5: "#edc948"
+  cat-6: "#ff9da7"
+  cat-7: "#9c755f"
+  cat-8: "#e15759"
+  cat-9: "#a0cbe8"
+  accent-dark: "#5850ec"
+  accent-text-dark: "#a5b4fc"
+  accent-soft-dark: "#1e1b4b"
+  focus-dark: "#818cf8"
+  ground-dark: "#0e1014"
+  card-dark: "#171a20"
+  raised-dark: "#1d2128"
+  hover-dark: "#222731"
+  ink-dark: "#f3f4f6"
+  ink-2-dark: "#d1d5db"
+  muted-dark: "#9ca3af"
+  faint-dark: "#6b7280"
+  line-dark: "#262b34"
+  line-strong-dark: "#343a46"
+  awaiting-dark: "#6b7280"
+  cat-0-dark: "#6b9bd1"
+  cat-1-dark: "#6cc05f"
+  cat-2-dark: "#f5a04d"
+  cat-3-dark: "#c697b8"
+  cat-4-dark: "#8fd0ca"
+  cat-5-dark: "#f1d45e"
+  cat-6-dark: "#ffb3bb"
+  cat-7-dark: "#b8917a"
+  cat-8-dark: "#ef7a7b"
+  cat-9-dark: "#b5d6ef"
 typography:
-  page-title:
-    fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
-    fontSize: "24px"
-    fontWeight: 600
-    letterSpacing: "-0.01em"
-  stat-value:
-    fontFamily: "Inter, system-ui, sans-serif"
+  display:
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "28px"
     fontWeight: 600
+    lineHeight: 1.5
     letterSpacing: "-0.02em"
-  card-title:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFeature: "\"tnum\", \"cv11\", \"ss01\""
+  headline:
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: 1.5
+    letterSpacing: "-0.01em"
+    fontFeature: "\"cv11\", \"ss01\""
+  title:
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "15px"
     fontWeight: 600
+    lineHeight: 1.5
+    letterSpacing: "-0.01em"
+    fontFeature: "\"cv11\", \"ss01\""
   body:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.5
-  small:
-    fontFamily: "Inter, system-ui, sans-serif"
+    letterSpacing: "normal"
+    fontFeature: "\"cv11\", \"ss01\""
+  body-sm:
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "13px"
     fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: "normal"
+    fontFeature: "\"cv11\", \"ss01\""
   label:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
     fontSize: "12px"
     fontWeight: 500
+    lineHeight: 1.5
+    letterSpacing: "normal"
+    fontFeature: "\"cv11\", \"ss01\""
+  wordmark:
+    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
+    fontSize: "17px"
+    fontWeight: 700
+    lineHeight: 1.5
+    letterSpacing: "-0.02em"
 rounded:
-  card: "14px"
+  inner: "6px"
+  ctl: "8px"
   row: "10px"
-  control: "8px"
+  card: "14px"
   pill: "999px"
 spacing:
   s-1: "4px"
@@ -80,172 +118,224 @@ spacing:
   s-6: "24px"
   s-8: "32px"
 components:
-  card:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.card}"
-    shadow: "0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)"
   button:
     backgroundColor: "{colors.card}"
     textColor: "{colors.ink}"
-    border: "1px solid {colors.line-strong}"
-    rounded: "{rounded.control}"
+    typography: "{typography.body}"
+    rounded: "{rounded.ctl}"
+    padding: "0 12px"
     height: "36px"
+  button-hover:
+    backgroundColor: "{colors.hover}"
+  button-ghost:
+    backgroundColor: "transparent"
+    textColor: "{colors.muted}"
+    rounded: "{rounded.ctl}"
+    height: "36px"
+  button-ghost-hover:
+    backgroundColor: "{colors.hover}"
+    textColor: "{colors.ink}"
+  card:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.card}"
+    padding: "20px"
+  nav-item:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.ctl}"
+    padding: "7px 8px"
+  nav-item-hover:
+    backgroundColor: "{colors.hover}"
+    textColor: "{colors.ink}"
   nav-item-active:
     backgroundColor: "{colors.accent-soft}"
     textColor: "{colors.accent-text}"
-    rounded: "{rounded.control}"
-  badge:
+  count-badge:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.accent-ink}"
+    typography: "{typography.label}"
     rounded: "{rounded.pill}"
+    padding: "0 7px"
+    height: "20px"
+  category-row:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.row}"
+    padding: "10px 12px"
+  category-row-hover:
+    backgroundColor: "{colors.hover}"
+  category-row-open:
+    backgroundColor: "{colors.accent-soft}"
+  account-pill:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.ink-2}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "2px 8px"
+  view-pill:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink-2}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.pill}"
+    padding: "6px 12px"
+  view-pill-active:
+    backgroundColor: "{colors.accent-soft}"
+    textColor: "{colors.accent-text}"
 ---
 
 # Design System: Pursegraph
 
-Decided in [#62 Visual direction](https://github.com/jprevc/pursegraph/issues/62). The reference build is the prototype at `prototypes/62-visual-direction/` on the `prototype/62-visual-direction` branch: the Dashboard's Spending view and the app shell, in light and dark. Product context and voice are in `PRODUCT.md`, and domain terms are in `CONTEXT.md`.
+## Overview
 
-## 1. Overview
+**Creative North Star: "The Household Ledger, Done Straight"**
 
-**North Star: "The category standard, done impeccably."**
+Pursegraph deliberately looks like a polished personal-finance dashboard: a light sidebar, white cards on a cool grey ground, stat tiles, a Category donut and a single indigo accent. Monarch Money's craft is the bar. The convention is the point, because familiarity serves the least technical Member reading the Dashboard on a phone. Nothing quirky is smuggled in. Distinction comes from execution: exact figures, steady Category hues, quiet type and soft lift.
 
-Pursegraph deliberately looks like a polished personal-finance dashboard, and the bar for its craft is Monarch Money. It has a cool grey ground, white cards with a soft shadow, a light 240px sidebar, Dashboard stat tiles, a Category donut and one indigo accent. The convention is played straight. Familiarity serves the less technical reader, so there is no world costume and no quirk smuggled in. This was chosen over more distinctive directions (see the #62 decision).
+The density is calm, not terminal-like. A view shows a few large figures, one chart and one ranked list, and detail opens on request (drill-down) rather than up front. Copy and colour describe and never judge. A comparison reads "523,55 € less than September" in muted grey, with no red or green verdict. Dark mode is the same world at night: a near-black ground, raised graphite cards, and the same Category hues lifted in lightness so they keep their identity.
 
-**Key characteristics**
-- Cool-grey ground (`--ground`) under white cards (`--card`). In dark mode, the ground is near-black and the cards are raised graphite.
-- Inter everywhere, with tabular figures for every amount.
-- One indigo accent, used only for the active state, badges, links and focus.
-- Ten Category hues. A Category keeps the same hue in every view and chart.
-- 1.5px-stroke line icons at 16–18px.
-- Calm density: generous card padding and a 14px base size.
+The real app is server-rendered Django templates with HTMX, hand-written CSS custom properties and no build step. ECharts draws the charts. Every asset is self-hosted, including Inter as an OFL variable woff2 under `static/fonts/`, because the app runs offline from the internet on the LAN or a VPN.
 
-## 2. Colours
+**Key Characteristics:**
+- Cool grey ground, white 14px cards with soft ambient shadow, one indigo accent used only for chrome.
+- Inter throughout, with tabular figures on every amount, and sl-SI number formatting ("1.234,56 €").
+- Ten Category hues (Tableau-10-derived), keyed by Category id and identical in every view, with a lifted set for dark.
+- Charts that never rely on colour alone: directly labelled donut segments, and a hatch for Awaiting review.
+- 1.5px stroke icons, sentence-case labels, no uppercase tracking.
+- Light, System and Dark themes, with the system as the default.
 
-Every colour is a CSS custom property on `:root`. Templates never use raw hex values.
+## Colors
 
-### Neutrals
-- **Ground** `--ground`: the page background, and the track behind progress bars.
-- **Card** `--card`: cards, the sidebar, buttons and the phone top bar.
-- **Raised** `--raised`: table-row hover and pills.
-- **Hover** `--hover`: nav and Category row hover.
-- **Ink / Ink-2 / Muted / Faint**: primary text, secondary text, labels and meta, then chevrons and disabled.
-- **Line / Line-strong**: hairlines and table rules / control borders and chart leader lines.
+A neutral cool-grey interface carrying one indigo accent for chrome, plus a separate ten-hue Category palette that is the only colour data ever wears.
 
-### Accent
-- **Accent** `--accent` (#4f46e5): badge fills and the brand tile. It is never used for a large surface.
-- **Accent-soft / Accent-text**: the active nav item, the open Category row, the avatar and links.
-- **Focus** `--focus`: the focus ring.
+### Primary
+- **Household Indigo** (accent; accent-dark in dark): the single interface accent. It fills the Review queue count badge, the mark's tile, and (as Indigo Ink) the active navigation, links and the "graph" half of the wordmark. Dark mode lifts it slightly so white text still clears AA.
+- **Indigo Ink** (accent-text / accent-text-dark): accent text on light surfaces, such as the active nav item, links, the avatar initial and the wordmark's "graph". In dark it becomes a pale periwinkle.
+- **Indigo Wash** (accent-soft / accent-soft-dark): the selected-state ground for the active nav item, the active view pill, the open Category row and the avatar.
+- **Focus Indigo** (focus / focus-dark): the 2px focus ring only.
+- **Mark Periwinkle** (mark-segment): the smaller segment of the donut mark. It is used in the mark only.
 
-### Data
-- **Category hues** `--cat-0` … `--cat-9`: assigned to Categories in a stable order. The dark-mode set is the same hues with lightness raised.
-- **Awaiting** `--awaiting`: Awaiting-review spending. It is always drawn **hatched** (45° stripes, or an ECharts decal), never as a flat colour, so it can't be mistaken for a Category.
+### Neutral
+- **Cool Ground** (ground / ground-dark): the page background behind cards. It is also the track of bar meters and of the theme switch.
+- **Card White / Graphite** (card / card-dark): cards, the sidebar, controls and tooltips.
+- **Raised** (raised / raised-dark): Transaction-row hover and the Account pill fill.
+- **Hover** (hover / hover-dark): the hover ground for nav items, buttons and Category rows.
+- **Ink** (ink / ink-dark): headings, figures and primary text.
+- **Ink 2** (ink-2 / ink-2-dark): nav labels, Subcategory rows, donut labels and secondary body text.
+- **Muted** (muted / muted-dark): labels, meta text, comparisons, table headers and control icons.
+- **Faint** (faint / faint-dark): disclosure chevrons only.
+- **Line / Line Strong**: hairline dividers (line), and control borders, label lines and dimmed donut segments (line-strong).
 
-### Theming
-- `data-theme` on `<html>` takes `light`, `dark` or `system`. `system` follows `prefers-color-scheme`. The dark token block is repeated under `:root[data-theme="dark"]` and under `@media (prefers-color-scheme: dark) { :root[data-theme="system"] }`.
-- Charts read their colours from `getComputedStyle` tokens and are rebuilt with `setOption(notMerge)` when the theme changes (see #65).
+### Category palette
+- **cat-0 … cat-9** (and their `-dark` counterparts): ten Tableau-10-derived hues. A Category's hue is `cat-((id − 1) mod 10)`, so it is fixed by its Category id, never by its rank or the view it appears in. It colours the donut segment, the row dot, the share bar and the drill-down dot.
+- **Awaiting Grey** (awaiting / awaiting-dark): the neutral fill for Transactions in the Review queue. It is always paired with a 45° hatch.
 
-### Rules
-- **One-accent rule.** Indigo is the only brand colour, and it marks state, not decoration.
-- **No judging colours.** Spending is never red and saving is never green. Category hues carry identity, not sentiment (see `PRODUCT.md`: never a budgeting nag).
+### Named Rules
+**The One Indigo Rule.** Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category.
 
-## 3. Typography
+**The Fixed Hue Rule.** A Category wears the same hue in every view, chart and theme step (lifted in dark, never re-assigned). Hues are keyed by Category id, never by sort order.
 
-**Inter** (OFL), weights 400/500/600/700, with `font-feature-settings: "cv11", "ss01"`. The prototype loads it from Google Fonts. The real app **must self-host** the woff2 files under `static/`, because the app uses no CDN. The fallback stack is `system-ui, -apple-system, "Segoe UI", sans-serif`.
+**The Neutral Wait Rule.** Awaiting review is neutral grey plus a 45° hatch, everywhere it appears (dot, bar and donut segment). It never borrows a Category hue.
 
-| Role | Size | Weight | Notes |
-|---|---|---|---|
-| Page title (`h1`) | 24px (20px on phone) | 600 | -0.01em |
-| Stat value | 28px (15px on phone) | 600 | -0.02em, tabular |
-| Donut centre value | 24px (17px on phone) | 600 | tabular |
-| Card title (`h2`) | 15px | 600 | |
-| Body | 14px / 1.5 | 400–500 | |
-| Small / meta | 13px | 400 | muted |
-| Label / table header / nav group | 12px | 500 | muted, sentence case, no uppercase tracking |
+**The No Verdict Rule.** No red/green good/bad colouring. Comparisons are muted text that describes the difference, and Net is plain ink with its sign. A Category hue that happens to be red or green (cat-8, cat-1) carries no meaning beyond its Category.
 
-- **Numbers:** every amount uses `.num` (`font-variant-numeric: tabular-nums`) and is formatted with `Intl.NumberFormat('sl-SI', {style: 'currency', currency: 'EUR', useGrouping: 'always'})`, for example `4.210,00 €`. One format everywhere. This fixes the inconsistent number formats the critique found (#61).
-- **Wordmark:** "Purse" in ink plus "graph" in `--accent-text` 600, 17px 700, -0.02em, set beside the mark.
+## Typography
 
-## 4. Elevation
+**Display Font:** Inter (with system-ui, -apple-system, Segoe UI, sans-serif)
+**Body Font:** Inter (same stack)
 
-Two shadows, and borders only where needed:
-- `--shadow` sits under every card, tile and the pressed segment of a segmented control.
-- `--shadow-pop` is for overlays: the phone sidebar drawer and popovers.
-- In dark mode the shadows deepen and add a 1px white rim at 3–5% opacity, so cards keep their edge.
-- Cards have no border. Controls do have one (`--line-strong`), plus a 1px hairline shadow.
+**Character:** One neutral, highly legible grotesque does every job, with weight and size alone setting hierarchy. The `cv11` (single-storey a) and `ss01` (open digits) features are on globally, and every figure is set in tabular numerals so columns of amounts align. Production self-hosts Inter as a variable woff2 under `static/fonts/` (OFL). The prototype's Google Fonts link is for the prototype only.
 
-## 5. Layout and shell
+### Hierarchy
+- **Display** (600, 28px, −0.02em): stat-tile figures (Spent, Money in, Net). It drops to 15px on phones so three tiles fit one row.
+- **Headline** (600, 24px, −0.01em): the view title, and the donut's centre figure (at −0.02em). On phones they are 20px and 17px.
+- **Title** (600, 15px): card titles ("Share by Category", "Categories", the drill-down title).
+- **Body** (400 or 500, 14px, 1.5): Category names (500), Transaction descriptions (500), controls (500), nav items (500) and amounts (600).
+- **Body small** (400, 13px): card meta, comparisons, shares, Subcategory rows, the donut centre's caption and the drill-down footnote.
+- **Label** (500, 12px): nav group headings, table headers, the count badge (600) and the Account pill. It is sentence case and never uppercased or tracked.
+- **Wordmark** (700, 17px, −0.02em): "Purse" in ink and "graph" at 600 in Indigo Ink, set beside the mark (16px in the phone top bar).
 
-- **Desktop (above 900px):** a two-column grid with a sticky 240px sidebar and fluid content. `main` has a max width of 1360px and padding of 24px top and 32px sides.
-- **Sidebar**, top to bottom:
-  - the mark and wordmark;
-  - nav groups "Dashboard" (five views), "Ledger" (Transactions, Import, Review queue with a count badge, Rules) and "Admin" (Categories, LLM suggestions, Members);
-  - a footer holding the three-way theme switch (light / system / dark) and the Member, with a log-out button.
-  - #63 may still change this.
-- **Phone (900px and below):**
-  - The sidebar becomes a 280px off-canvas drawer with a scrim.
-  - A sticky 56px top bar is translucent and blurred, and holds the mark, a Review shortcut with its badge, and the menu button.
-  - The Dashboard views become a row of horizontally scrolling pills.
-  - The page itself never scrolls sideways.
-- **View bar:** the title, the period stepper (prev / label with "so far, to 16 Oct" / next, with next disabled at the present), the period unit select, and the Member and Account filters.
-- **Spending view:**
-  - three tiles (Spent, Money in, Net), each comparing with the previous period in plain words;
-  - a donut card (5fr) beside a ranked Category list card (7fr);
-  - a drill-down card that opens below them, titled with the Category's dot and name.
+### Named Rules
+**The Tabular Figures Rule.** Every amount, share, count and date figure uses `font-variant-numeric: tabular-nums`.
 
-## 6. Components
+**The Locale Figure Rule.** Amounts format with `Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' })`, giving "1.234,56 €". Shares are whole percent with a space ("26 %"). Net carries an explicit sign.
 
-- **Card:** `--card`, 14px radius, `--shadow`, 20px padding. The card head has a 15px/600 title, with meta pushed right.
-- **Button:** 36px tall, 8px radius, a `--line-strong` border, `--card` fill and 500 weight. The **ghost** variant has no border or fill and muted text. **Icon-only** buttons are 36×36 and always have an `aria-label`. Native `<select>` elements take the button style, with a chevron drawn as a background SVG.
-- **Nav item:** 7px × 8px padding, 8px radius, ink-2 text. Hover uses `--hover`. The active item is `accent-soft` with `accent-text` and `aria-current="page"`.
-- **Badge:** a pill filled with `--accent`, 12px/600, tabular, with an `aria-label` that names the count.
-- **Segmented control** (theme switch): `--ground` track, and the pressed segment is `--card` with `--shadow`, using `aria-pressed`.
-- **Category row:**
-  - grid columns are chevron, dot and name, a 6px pill bar, share %, then amount;
-  - hover uses `--hover` and the open row uses `accent-soft`;
-  - subcategories expand beneath the row.
-  - On phone, the bar is hidden.
-- **Table** (drill-down / Transactions):
-  - 12px muted headers, 12px × 20px cells and `--line` rules;
-  - the description sits over muted small meta.
-  - On phone, each row collapses into a two-column card and the table header is hidden.
-- **Pill:** for an Account or Member tag. `--raised` fill, a `--line` border, 12px/500.
-- **Icons:** inline SVG `<symbol>` sprite, 24 viewBox, 1.5 stroke, round caps and joins.
+## Layout
 
-## 7. Charts (ECharts)
+The desktop layout is a two-column shell: a sticky, full-height white sidebar (240px, with a right hairline), then the page. The main column is padded 24px top and 32px sides, up to 1360px wide. Every view opens with a view bar: the title on the left, then the period stepper (‹ period ›, with "so far, to 16 Oct" muted), the period unit select, and the Member and Account filters, all 36px high. Below it, three equal stat tiles (16px gap). Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
 
-- Use the SVG renderer. Colours come from tokens, and the tooltip uses `--card`, `--line` and `--ink` with Inter.
-- **Donut:** radius 56–78% (47–66% when narrower than 420px), `padAngle` 1.5, segment radius 5. The centre label shows the period total.
-- **Labels:** outside labels on desktop. When narrow, only Categories at 5% or more get a label.
-- **Two-way highlight:** hovering or focusing a list row highlights its segment, and the reverse. Opening a Category greys the other segments to `--line-strong`.
-- **Accessibility:** every chart has `role="img"` and an `aria-label`, and a table or list with every figure sits beside it. Colour is never the only way to tell series apart: Awaiting review is hatched.
-- **Motion:** a single 700ms `cubicOut` sweep when the page loads. Re-renders don't animate.
-- #64 settles the styling of the other views.
+**Phone (≤900px).** The sidebar becomes a 280px drawer that slides from the left over a 35% black scrim. It closes on the scrim or Escape. A sticky 56px top bar holds the mark and wordmark, a Review shortcut with its count badge, and the menu button. The bar is a 92% card tint with a backdrop blur and a bottom hairline. The Dashboard views become a horizontally scrolling row of pills. The main column pads 16px. The title takes a full row, the period stepper takes the next full row, and the Month, Member and Account controls share one row (their icons hidden, labels truncating). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Drill-down rows stack: description and amount on the first line, date, kind and Account inline in the caption, and the Outcome select full width below.
 
-## 8. Motion
+## Elevation & Depth
 
-Sparse. The drawer slides in over 250ms, the chevron rotates over 200ms, and both use `cubic-bezier(.16,1,.3,1)`. Then there is the donut sweep. Every transition is turned off under `prefers-reduced-motion: reduce`.
+The system uses soft ambient lift with tonal layering. Cards float on the grey ground through a faint two-layer shadow, with no border in light. In dark, the same role is a deeper black shadow plus a 3% white hairline ring, so graphite cards read as raised. Overlays (the phone drawer) use a larger "pop" shadow. Controls carry a barely-there 1px shadow under their border.
 
-## 9. Accessibility
+### Shadow Vocabulary
+- **Card** (`0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)`; dark: `0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03)`): every card, and the pressed segment of the theme switch.
+- **Pop** (`0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10)`; dark: `0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05)`): the phone sidebar drawer and other overlays.
+- **Control** (`0 1px 2px rgb(16 24 40 / .04)`): buttons, selects and the period stepper.
 
-WCAG 2.2 AA (see `PRODUCT.md`).
-- A visible `:focus-visible` ring: 2px `--focus`, 2px offset.
-- Text tokens meet AA on their surfaces in both themes. `--faint` is for decoration and disabled states only, never for information.
-- Drill-down swaps are `aria-live="polite"`.
+### Named Rules
+**The Soft Lift Rule.** Depth is diffuse and ambient, never a hard offset. Cards are borderless in light. Hairlines divide content inside cards, not cards from the ground.
 
-## 10. Brand
+## Shapes
 
-- **Mark:** a two-segment donut (white and `#c7d2fe`) on an 8px-radius indigo (`#4f46e5`) tile. It is `favicon.svg` in the prototype, and it is also the sidebar logo at 28px.
-- **Wordmark:** "Purse**graph**" in Inter (see Typography).
+The corners are gently rounded, nested from outside in: cards 14px, Category rows 10px, controls and nav items 8px, inner segments and the focus ring 6px. Counts, Account pills, view pills and share bars are full pills. Dots and the avatar are circles. Donut segments have a 5px corner radius and a 1.5° gap between them. The mark is an 8px-radius (on 32) indigo tile carrying a two-segment donut, white for the larger arc and Mark Periwinkle for the smaller. It stays the same in both themes.
 
-## 11. Do's and don'ts
+## Components
 
-**Do**
-- Use tokens for everything, and theme both modes from the same component CSS.
-- Keep each Category's hue identical across every view and chart.
-- Put the figures in a table or list beside every chart.
-- Write copy that is calm and factual and uses the `CONTEXT.md` terms.
+### Buttons
+Quiet, bordered and solid. They are never filled with indigo.
+- **Shape:** gently rounded (8px), 36px high (32px inside table rows), 12px horizontal padding. Icon-only buttons are 36px squares.
+- **Default:** a card fill, a Line Strong border, Ink text at 500, a muted 16px icon and the control shadow.
+- **Hover / Focus:** the Hover fill. Focus is a 2px Focus Indigo outline at a 2px offset.
+- **Ghost:** transparent and borderless, muted text, turning to Ink on Hover (close, log out, menu).
+- **Select:** the button style with a 16px muted chevron drawn at the right, and `appearance: none`.
 
-**Don't**
-- Use red or green to judge spending, or add streaks, goals or nudges.
-- Use a second accent colour, gradients, glassmorphism (beyond the phone top bar's blur) or neon in dark mode.
-- Load fonts or scripts from a CDN in the app.
-- Leave Awaiting review unhatched, or draw it in a Category hue.
+### Period stepper
+A single bordered 36px control: previous/next chevron buttons around a 600-weight period label with a muted 400 qualifier. Next is disabled at the current period (35% opacity).
+
+### Cards / Containers
+- **Corner Style:** 14px.
+- **Background:** card.
+- **Shadow Strategy:** Card shadow (see Elevation).
+- **Border:** none. Inner hairlines in Line divide the list total and table rows.
+- **Internal Padding:** 20px. The card head is 20px with no bottom padding, with a 15px title and optional muted meta at the right.
+
+### Stat tiles
+A muted 500 label, a Display figure and a muted 13px comparison sentence. The figure is never coloured by sign.
+
+### Category list (signature)
+Ranked rows, largest first, with Awaiting review always last. Each row shows a disclosure chevron, a hue dot and the Category name, a 6px pill share bar (Category hue on a ground track, scaled to the largest), the share percentage and the amount (600). Hover or focus lights the row (Hover fill) and highlights its donut segment. The open row takes Indigo Wash and expands its Subcategories (13px, Ink 2, indented). A Total row closes the card above a hairline. The Awaiting review row carries a "Review N" link to the Review queue.
+
+### Donut (signature)
+An ECharts SVG pie, radius 56–78% (47–66% when narrow), with the period total in the centre (Headline figure, muted caption). On hover the centre shows the hovered Category's amount and name. Segments are labelled directly in Ink 2, Inter 500 12px (11px narrow, and only segments of 5% or more when narrow), with Line Strong leader lines. Awaiting review is unlabelled and hatched with 45° white stripes at 45%. Hovering a segment highlights its row (and the reverse), with a 6px emphasis scale. With a Category open, other segments dim to Line Strong. The donut sweeps in once on load (700ms, cubic-out), and not at all under reduced motion. Tooltips use the card fill, a Line border and Ink text. The chart re-themes by rebuilding its options from CSS custom properties (`getComputedStyle`) and calling `setOption` with `notMerge` on theme switch, system scheme change and resize. ECharts 5.6 has no live theme switch.
+
+### Drill-down
+A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. A table follows: Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome (a 32px select), and Amount (right-aligned, 600). Rows have hairline dividers and a Raised hover. A muted footnote explains that changing an Outcome moves the amount between Categories.
+
+### Navigation
+- **Sidebar:** the wordmark and mark at the top. Then three sentence-case groups with muted 12px headings: Dashboard (the five views), Ledger (Transactions, Import, Review queue with a count badge, Rules) and Admin. Items are an 18px 1.5px-stroke icon plus a 500 label, Ink 2. Hover takes the Hover fill. Active takes Indigo Wash with Indigo Ink and `aria-current="page"`.
+- **Sidebar foot:** the theme switch (a three-segment Light / System / Dark control on a ground track, where the pressed segment takes the card fill and Card shadow; it sets `data-theme` on `<html>` and is remembered per browser), then the Member's avatar, name and role, and a ghost log-out button.
+- **Phone:** the top bar, drawer and view pills as described in Layout. The active pill takes Indigo Wash with Indigo Ink.
+
+### Icons
+Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. They are 18px in navigation and 16px in controls. Icons are inline SVG symbols, never glyphs or an icon font.
+
+## Do's and Don'ts
+
+### Do:
+- **Do** key every Category's hue to its Category id (`cat-((id − 1) mod 10)`), and use the same hue in every view and chart.
+- **Do** label donut segments directly and hatch Awaiting review, so no chart relies on colour alone.
+- **Do** set every figure in tabular numerals and format amounts as sl-SI EUR with grouping always on ("1.234,56 €").
+- **Do** write comparisons as neutral muted sentences ("523,55 € less than September").
+- **Do** define every colour as a CSS custom property, with a `[data-theme="dark"]` block and a `prefers-color-scheme` block for `data-theme="system"`, and rebuild chart options from those properties when the theme changes.
+- **Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.
+- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and drawer slide (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
+
+### Don't:
+- **Don't** use the indigo accent as a data colour, a chart series or a Category hue.
+- **Don't** give Awaiting review a Category hue, or show it without its hatch.
+- **Don't** colour spending, Net or comparisons red or green to mean good or bad.
+- **Don't** add uppercase tracked labels, kickers or eyebrows above titles. Labels are sentence case.
+- **Don't** use hard offset shadows or borders around cards. Lift is soft and ambient.
+- **Don't** load fonts, scripts or styles from a CDN in production.
