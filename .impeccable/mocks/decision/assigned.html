@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Pursegraph · Hiking map sketch</title>
+<link href="https://fonts.googleapis.com/css2?family=Signika:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#fbfbf8;--rail:#23412f;--rail-ink:#dfe9dc;--ink:#1b211d;--ink-2:#4a524c;--muted:#666d67;--contour:#a0622d;--seam:#dcd9cf;--forest:#cfe3c1;--trail:#d2232a;
+--c1:#3f7d3a;--c2:#a0622d;--c3:#2b6cb0;--c4:#c69a1b;--c5:#6b4f8a;--c6:#2a8c8c;--await:#9aa09b}
+*{box-sizing:border-box}html,body{margin:0;width:1440px;height:900px;overflow:hidden}
+body{background:var(--paper);color:var(--ink);font:15px/1.45 Signika,sans-serif;display:grid;grid-template-columns:232px 1fr}
+.rail{background:var(--rail);color:var(--rail-ink);padding:22px 14px;display:flex;flex-direction:column;gap:2px}
+.mark{display:flex;align-items:center;gap:10px;padding:0 10px 22px;font-weight:600;font-size:20px;letter-spacing:.01em;color:#fff}
+.blaze{width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 6px var(--trail)}
+.grp{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#b9cdbd;padding:14px 10px 6px}
+.rail a{color:var(--rail-ink);text-decoration:none;padding:7px 10px;border-radius:6px;display:flex;justify-content:space-between}
+.rail a.on{background:rgba(255,255,255,.12);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 var(--trail)}
+.rail .count{color:#b9cdbd;font-variant-numeric:tabular-nums}
+.who{margin-top:auto;padding:10px;font-size:13px;color:#b9cdbd;display:flex;justify-content:space-between}
+main{padding:24px 36px;display:grid;grid-template-rows:auto auto 1fr;gap:18px}
+.bar{display:flex;align-items:center;gap:14px}
+h1{font-size:26px;font-weight:600;margin:0 auto 0 0}
+.period{display:flex;align-items:center;gap:6px;font-weight:500}
+.period b{font-size:18px;color:var(--ink-2);padding:0 6px}
+.period small{color:var(--muted);font-weight:400}
+select,.ctl{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--seam);border-radius:6px;background:#fff;color:var(--ink)}
+.profile{border-top:1px solid var(--seam);border-bottom:1px solid var(--seam);display:grid;grid-template-columns:260px 1fr;align-items:center;gap:24px;padding:14px 0}
+.total .lbl{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.total .fig{font-size:40px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.total .sub{color:var(--ink-2);font-size:14px}
+svg text{font-family:Signika,sans-serif}
+.work{display:grid;grid-template-columns:1fr 400px;gap:0;border-top:0;min-height:0}
+.chart{padding-right:28px;border-right:1px solid var(--seam)}
+.row{display:grid;grid-template-columns:150px 1fr 90px;align-items:center;gap:12px;height:44px}
+.row .name{font-weight:500}
+.track{height:14px;position:relative}
+.fill{height:14px;border-radius:0 3px 3px 0}
+.row .amt{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.row.sel .name{color:var(--ink)}
+.row.sel .fill{outline:2px solid var(--trail);outline-offset:2px}
+.ring{display:inline-block;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 3.5px var(--trail);margin-right:6px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+.tbl{padding-left:28px}
+th,td{padding:7px 4px;border-bottom:1px solid var(--seam);text-align:left}
+th{font-weight:500;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.n{text-align:right;font-variant-numeric:tabular-nums}
+td.sw{width:14px}td.sw i{display:block;width:10px;height:10px;border-radius:2px}
+tr.sub td{color:var(--ink-2);font-size:13px}tr.sub td:nth-child(2){padding-left:18px}
+tfoot td{font-weight:600;border-bottom:0}
+.hint{color:var(--muted);font-size:13px;margin-top:10px}
+.syn{position:absolute;right:16px;bottom:12px;font-size:11px;color:var(--muted)}
+</style></head><body>
+<nav class="rail">
+ <div class="mark"><span class="blaze"></span>Pursegraph</div>
+ <div class="grp">Dashboard</div>
+ <a class="on" href="#">Spending</a><a href="#">Cash flow</a><a href="#">Trends</a><a href="#">Per Member</a><a href="#">Money flow</a>
+ <div class="grp">Ledger</div>
+ <a href="#">Transactions</a><a href="#">Import</a><a href="#">Review queue <span class="count">7</span></a><a href="#">Rules</a>
+ <div class="who"><span>maja</span><span>Log out</span></div>
+</nav>
+<main>
+ <div class="bar">
+  <h1>Spending by Category</h1>
+  <div class="period"><b>‹</b>October 2026 <small>so far, to 16 Oct</small><b>›</b></div>
+  <select><option>Month</option></select><select><option>All Members</option></select><span class="ctl">All Accounts</span>
+ </div>
+ <section class="profile">
+  <div class="total"><div class="lbl">Spent this month</div><div class="fig">2.380,55 €</div><div class="sub">across 6 Categories · 96,30 € awaiting review</div></div>
+  <svg width="1000" height="110" viewBox="0 0 1000 110">
+   <g stroke="#e7e2d6" stroke-width="1"><line x1="0" y1="20" x2="1000" y2="20"/><line x1="0" y1="55" x2="1000" y2="55"/><line x1="0" y1="90" x2="1000" y2="90"/></g>
+   <text x="0" y="16" font-size="11" fill="#666d67">2.000 €</text><text x="0" y="51" font-size="11" fill="#666d67">1.000 €</text>
+   <path d="M0 90 L32 86 L64 50 L96 48 L128 46 L160 44 L192 42 L224 39 L256 37 L288 34 L320 33 L352 30 L384 27 L416 24 L448 21 L480 13 L516 13" fill="none" stroke="#a0622d" stroke-width="2.5"/>
+   <path d="M0 90 L32 86 L64 50 L96 48 L128 46 L160 44 L192 42 L224 39 L256 37 L288 34 L320 33 L352 30 L384 27 L416 24 L448 21 L480 13 L516 13 L516 90Z" fill="#a0622d" opacity=".08"/>
+   <circle cx="516" cy="13" r="6" fill="#fff" stroke="#d2232a" stroke-width="3.5"/>
+   <text x="64" y="104" font-size="11" fill="#666d67">2 Oct · Rent</text><text x="500" y="104" font-size="11" fill="#666d67">16 Oct</text><text x="960" y="104" font-size="11" fill="#666d67">31 Oct</text>
+   <line x1="516" y1="95" x2="1000" y2="95" stroke="#dcd9cf" stroke-dasharray="3 4"/>
+  </svg>
+ </section>
+ <section class="work">
+  <div class="chart">
+   <div class="row"><span class="name">Home</span><div class="track"><div class="fill" style="width:100%;background:var(--c2)"></div></div><span class="amt">1.040,00 €</span></div>
+   <div class="row sel"><span class="name"><span class="ring"></span>Food</span><div class="track"><div class="fill" style="width:59%;background:var(--c1)"></div></div><span class="amt">612,40 €</span></div>
+   <div class="row"><span class="name">Transport</span><div class="track"><div class="fill" style="width:23%;background:var(--c3)"></div></div><span class="amt">238,75 €</span></div>
+   <div class="row"><span class="name">Children</span><div class="track"><div class="fill" style="width:18%;background:var(--c4)"></div></div><span class="amt">186,20 €</span></div>
+   <div class="row"><span class="name">Leisure</span><div class="track"><div class="fill" style="width:14%;background:var(--c5)"></div></div><span class="amt">142,00 €</span></div>
+   <div class="row"><span class="name">Health</span><div class="track"><div class="fill" style="width:6%;background:var(--c6)"></div></div><span class="amt">64,90 €</span></div>
+   <div class="row"><span class="name" style="color:var(--muted)">Awaiting review</span><div class="track"><div class="fill" style="width:9%;background:repeating-linear-gradient(90deg,var(--await) 0 6px,transparent 6px 9px)"></div></div><span class="amt">96,30 €</span></div>
+   <p class="hint">Click a bar or a Category to see its Transactions.</p>
+  </div>
+  <div class="tbl"><table>
+   <thead><tr><th></th><th>Category</th><th class="n">Spent</th></tr></thead>
+   <tbody>
+    <tr><td class="sw"><i style="background:var(--c2)"></i></td><td>Home</td><td class="n">1.040,00</td></tr>
+    <tr class="sub"><td></td><td>Rent</td><td class="n">850,00</td></tr>
+    <tr class="sub"><td></td><td>Utilities</td><td class="n">190,00</td></tr>
+    <tr><td class="sw"><i style="background:var(--c1)"></i></td><td><span class="ring"></span>Food</td><td class="n">612,40</td></tr>
+    <tr class="sub"><td></td><td>Groceries</td><td class="n">498,10</td></tr>
+    <tr class="sub"><td></td><td>Restaurants</td><td class="n">114,30</td></tr>
+    <tr><td class="sw"><i style="background:var(--c3)"></i></td><td>Transport</td><td class="n">238,75</td></tr>
+    <tr><td class="sw"><i style="background:var(--c4)"></i></td><td>Children</td><td class="n">186,20</td></tr>
+    <tr><td class="sw"><i style="background:var(--c5)"></i></td><td>Leisure</td><td class="n">142,00</td></tr>
+   </tbody>
+   <tfoot><tr><td></td><td>Total</td><td class="n">2.380,55 €</td></tr></tfoot>
+  </table></div>
+ </section>
+</main>
+<span class="syn">Synthetic data</span>
+</body></html>

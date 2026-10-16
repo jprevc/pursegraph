@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Pursegraph · Isotype sketch</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#ffffff;--ink:#1a1a1a;--ink-2:#4b4b4b;--muted:#6b6b6b;--rule:#e4e2dc;
+--home:#c8462b;--food:#6e8b3d;--transport:#2f4f7f;--children:#e3a72f;--leisure:#7b4b94;--health:#3c8d8a;--await:#b9b9b9}
+*{box-sizing:border-box}html,body{margin:0;width:1440px;height:900px;overflow:hidden}
+body{background:var(--paper);color:var(--ink);font:15px/1.45 Jost,sans-serif}
+header{background:var(--ink);color:#fff;height:56px;display:flex;align-items:center;gap:28px;padding:0 32px}
+.wm{font-weight:600;font-size:20px;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+.wm i{display:grid;grid-template-columns:repeat(2,8px);gap:2px}.wm i b{width:8px;height:8px;background:#fff}.wm i b:nth-child(4){background:var(--home)}
+header nav{display:flex;gap:4px}
+header a{color:#cfcfcf;text-decoration:none;padding:6px 10px;font-size:14px}
+header a.on{color:#fff;border-bottom:3px solid var(--home)}
+header .r{margin-left:auto;display:flex;gap:18px;font-size:14px;color:#cfcfcf}
+main{padding:28px 48px}
+.top{display:flex;align-items:flex-end;gap:24px;border-bottom:2px solid var(--ink);padding-bottom:16px}
+.fig{font-size:64px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.cap{font-size:15px;color:var(--ink-2);padding-bottom:6px}
+.cap b{color:var(--ink)}
+.ctl{margin-left:auto;display:flex;gap:8px;align-items:center}
+select,.c{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--rule);background:#fff}
+.key{display:flex;align-items:center;gap:8px;margin:16px 0 10px;color:var(--ink-2);font-size:14px}
+.u{display:inline-block;width:16px;height:16px}
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:170px 1fr 120px;align-items:center;gap:20px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.row .name{font-weight:500;font-size:17px}
+.row .name small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.units{display:flex;flex-wrap:wrap;gap:4px}
+.units span{width:16px;height:16px;background:var(--c)}
+.units span.part{width:8px}
+.row .amt{text-align:right;font-variant-numeric:tabular-nums;font-size:17px}
+.row.sel{background:#f6f5f1;margin:0 -12px;padding-left:12px;padding-right:12px}
+.hint{color:var(--muted);font-size:13px;margin-top:14px}
+.syn{position:absolute;right:16px;bottom:12px;font-size:11px;color:var(--muted)}
+</style></head><body>
+<header>
+ <div class="wm"><i><b></b><b></b><b></b><b></b></i>Pursegraph</div>
+ <nav><a class="on" href="#">Spending</a><a href="#">Cash flow</a><a href="#">Trends</a><a href="#">Per Member</a><a href="#">Money flow</a><a href="#">Transactions</a><a href="#">Import</a><a href="#">Review queue (7)</a><a href="#">Rules</a></nav>
+ <div class="r"><span>maja</span><span>Log out</span></div>
+</header>
+<main>
+ <div class="top">
+  <div class="fig">2.380,55 €</div>
+  <div class="cap">spent in <b>October 2026</b>, so far, to 16 Oct<br>‹ previous · next ›</div>
+  <div class="ctl"><select><option>Month</option></select><select><option>All Members</option></select><span class="c">All Accounts</span></div>
+ </div>
+ <div class="key"><span class="u" style="background:var(--ink)"></span> = 50 € spent · half a square = 25 €</div>
+ <div class="rows">
+<div class="row"><div class="name">Home<small>Rent, Utilities</small></div><div class="units" style="--c:var(--home)"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="part"></span></div><div class="amt">1.040,00 €</div></div>
+<div class="row sel"><div class="name">Food<small>Groceries, Restaurants</small></div><div class="units" style="--c:var(--food)"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><div class="amt">612,40 €</div></div>
+<div class="row"><div class="name">Transport<small>Fuel, Public transport</small></div><div class="units" style="--c:var(--transport)"><span></span><span></span><span></span><span></span><span class="part"></span></div><div class="amt">238,75 €</div></div>
+<div class="row"><div class="name">Children<small>School, Clothes</small></div><div class="units" style="--c:var(--children)"><span></span><span></span><span></span><span class="part"></span></div><div class="amt">186,20 €</div></div>
+<div class="row"><div class="name">Leisure<small>Sport, Outings</small></div><div class="units" style="--c:var(--leisure)"><span></span><span></span><span class="part"></span></div><div class="amt">142,00 €</div></div>
+<div class="row"><div class="name">Health<small>Pharmacy</small></div><div class="units" style="--c:var(--health)"><span></span></div><div class="amt">64,90 €</div></div>
+<div class="row"><div class="name">Awaiting review<small>7 Transactions</small></div><div class="units" style="--c:var(--await)"><span></span><span class="part"></span></div><div class="amt">96,30 €</div></div>
+ </div>
+ <p class="hint">Click a Category to see its Transactions.</p>
+</main>
+<span class="syn">Synthetic data</span>
+</body></html>
