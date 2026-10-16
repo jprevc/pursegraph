@@ -127,7 +127,7 @@ aside .this-month dd { margin: 0; }
 .split.wide { grid-template-columns: minmax(0, 1fr) 420px; }
 .split.wide .view-table td, .split.wide .view-table th { white-space: nowrap; }
 @media (max-width: 900px) { .split.wide { grid-template-columns: 1fr; } }
-aside nav#views { display: contents; }
+aside #sidebar, aside nav#views { display: contents; }
 .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .filter-bar .accounts { position: relative; }
 .filter-bar .accounts summary { margin: 0; padding: 6px 10px; border: 1px solid var(--ring); border-radius: 6px; background: #fff; color: inherit; }

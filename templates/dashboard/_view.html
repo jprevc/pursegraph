@@ -20,4 +20,4 @@
 <p class="muted">{% block empty %}{% endblock %}</p>
 {% endif %}
 <div id="drill"></div>
-{% if swap_nav %}{% include "dashboard/_views_nav.html" with nav=request.resolver_match.url_name %}{% endif %}
+{% if swap_nav %}{% include "_sidebar.html" %}{% endif %}

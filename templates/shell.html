@@ -1,38 +1,10 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% block body %}
-{% with nav=request.resolver_match.url_name %}
 <div class="shell">
   <aside>
-    <h1>Pursegraph</h1>
-    {% include "dashboard/_views_nav.html" %}
-    <a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{% url 'transactions' %}">{% translate "Transactions" %}</a>
-    <div class="sep"></div>
-    <a class="nav {% if nav == 'import' or nav == 'accounts' or nav == 'new_account' or nav == 'edit_account' %}on{% endif %}" href="{% url 'import' %}">{% translate "Import" %}</a>
-    <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}">{% translate "Review queue" %} <span id="review-queue-count">({{ review_queue_count }})</span></a>
-    {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
-    <a class="nav {% if nav == 'rules' or nav == 'new_rule' or nav == 'edit_rule' or nav == 'apply_rule' %}on{% endif %}" href="{% url 'rules' %}">{% translate "Rules" %}</a>
-    <div class="figures">
-      <p class="muted">{{ this_month.label }}</p>
-      <dl class="this-month">
-        <dt>{% translate "In" %}</dt><dd class="num">{{ this_month.money_in|floatformat:2 }}</dd>
-        <dt>{% translate "Spent" %}</dt><dd class="num">{{ this_month.money_out|floatformat:2 }}</dd>
-        <dt>{% translate "Net" %}</dt><dd class="num">{{ this_month.net|floatformat:2 }}</dd>
-      </dl>
-    </div>
-    {% if user.is_admin %}
-    <div class="sep"></div>
-    <a class="nav {% if nav == 'categories' %}on{% endif %}" href="{% url 'categories' %}">{% translate "Categories" %}</a>
-    <a class="nav {% if nav == 'suggestion_settings' %}on{% endif %}" href="{% url 'suggestion_settings' %}">{% translate "LLM suggestions" %}</a>
-    <a class="nav {% if nav == 'members' %}on{% endif %}" href="{% url 'members' %}">{% translate "Members" %}</a>
-    {% endif %}
-    <form class="logout" method="post" action="{% url 'logout' %}">
-      {% csrf_token %}
-      <span class="muted">{{ user.get_username }}</span>
-      <button type="submit">{% translate "Log out" %}</button>
-    </form>
+    {% include "_sidebar.html" %}
   </aside>
   <main>{% block main %}{% endblock %}</main>
 </div>
-{% endwith %}
 {% endblock %}
