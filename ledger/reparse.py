@@ -214,6 +214,7 @@ def refusal(result: ReparseResult) -> str:
     if result.added or result.removed:
         return "rows were added or removed"
     statement = result.statement
+    duplicate_ids = _duplicate_ids(statement)
     through = Transaction.statements.through.objects
     for changed in result.changed:
         t = changed.transaction
@@ -222,22 +223,23 @@ def refusal(result: ReparseResult) -> str:
             .exclude(statement=statement)
             .values_list("statement_id", flat=True)
         )
-        if others and others[0] < statement.pk:
+        if t.pk in duplicate_ids:
             return (
-                f"{_describe(t)} is a Duplicate here; re-parse Statement {others[0]}, which first"
+                f"{describe_row(t)} is a Duplicate here; re-parse Statement {others[0]}, which first"
                 " had it, instead"
             )
         if others and any(change.name in DUPLICATE_FIELDS for change in changed.changes):
             return (
-                f"the amount or running balance of {_describe(t)} changed, but Statement"
+                f"the amount or running balance of {describe_row(t)} changed, but Statement"
                 f"{'' if len(others) == 1 else 's'} {', '.join(map(str, others))}"
                 f" {'has' if len(others) == 1 else 'have'} it too"
             )
     return ""
 
 
-def _describe(t: Transaction) -> str:
-    return f"{t.date} {t.amount:.2f} {t.description}"
+def describe_row(transaction_or_row) -> str:
+    """A Transaction or re-parsed row on one line: its date, amount and description."""
+    return f"{transaction_or_row.date} {transaction_or_row.amount:.2f} {transaction_or_row.description}"
 
 
 def apply_changes(result: ReparseResult) -> list[OutcomeChange]:
@@ -295,6 +297,7 @@ def _outcome(t: Transaction) -> tuple:
 
 
 def describe_outcome(t: Transaction) -> str:
+    """The Transaction's outcome as the Member would read it, with what set it."""
     if t.is_transfer:
         if t.counterpart:
             pairing = f"paired with {t.counterpart}"

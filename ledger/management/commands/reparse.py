@@ -1,7 +1,14 @@
 from django.core.management.base import BaseCommand, CommandError
 
 from ledger.models import Statement, Transaction
-from ledger.reparse import ChangedRow, FieldChange, apply_changes, refusal, reparse
+from ledger.reparse import (
+    ChangedRow,
+    FieldChange,
+    apply_changes,
+    describe_row,
+    refusal,
+    reparse,
+)
 
 
 class Command(BaseCommand):
@@ -47,13 +54,13 @@ class Command(BaseCommand):
             ]
             for _day, row in sorted(rows, key=lambda dated: dated[0]):
                 if isinstance(row, ChangedRow):
-                    self.stdout.write(f"  ~ {_row(row.transaction)}")
+                    self.stdout.write(f"  ~ {describe_row(row.transaction)}")
                     for change in row.changes:
                         self.stdout.write(f"      {_change(change)}")
                 elif isinstance(row, Transaction):
-                    self.stdout.write(f"  - {_row(row)}")
+                    self.stdout.write(f"  - {describe_row(row)}")
                 else:
-                    self.stdout.write(f"  + {_row(row)}")
+                    self.stdout.write(f"  + {describe_row(row)}")
             if result.error:
                 failed += 1
                 self.stdout.write(f"  failed: {result.error}")
@@ -62,16 +69,18 @@ class Command(BaseCommand):
                 self.stdout.write("  no differences")
             elif not apply:
                 differing += 1
-            elif reason := refusal(result):
-                refused += 1
-                self.stdout.write(f"  refused: {reason}")
             else:
                 try:
-                    outcome_changes = apply_changes(result)
+                    reason = refusal(result)
+                    outcome_changes = [] if reason else apply_changes(result)
                 except Exception as error:
                     # Rolled back: this Statement fails, the others are still applied.
                     failed += 1
                     self.stdout.write(f"  failed: {type(error).__name__}: {error}")
+                    continue
+                if reason:
+                    refused += 1
+                    self.stdout.write(f"  refused: {reason}")
                     continue
                 applied += 1
                 count = len(result.changed)
@@ -80,7 +89,7 @@ class Command(BaseCommand):
                 )
                 for outcome in outcome_changes:
                     self.stdout.write(
-                        f"    {_row(outcome.transaction)}: {outcome.before} → {outcome.after}"
+                        f"    {describe_row(outcome.transaction)}: {outcome.before} → {outcome.after}"
                     )
 
         total = unchanged + differing + applied + refused + failed
@@ -94,10 +103,6 @@ class Command(BaseCommand):
             f"{total} Statement{'' if total == 1 else 's'} re-parsed: {unchanged} unchanged, "
             f"{differing} with differences, {failed} failed. Nothing was changed."
         )
-
-
-def _row(transaction_or_row) -> str:
-    return f"{transaction_or_row.date} {transaction_or_row.amount:.2f} {transaction_or_row.description}"
 
 
 def _value(value) -> str:
