@@ -106,3 +106,8 @@ def test_transactions_swapped_in_leave_no_other_sidebar_link_highlighted(admin_c
 
     assert re.findall(r'<a class="nav on" href="([^"]*)"', swapped) == ["/transactions/"]
     assert re.search(r'<a class="nav ?" href="/import/">Import</a>', swapped)
+
+
+@pytest.mark.parametrize("url", ["/", "/review/"])
+def test_no_template_comment_leaks_into_a_page_with_the_sidebar(logged_in_client, household, url):
+    assert "{#" not in logged_in_client.get(url).content.decode()

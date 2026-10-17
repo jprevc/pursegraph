@@ -8,6 +8,7 @@
 <p><a class="button" href="{% url 'new_rule' %}">{% translate "New Rule" %}</a></p>
 {% if rules %}
 <form id="rule-order" method="post" action="{% url 'reorder_rules' %}">{% csrf_token %}</form>
+<div class="scroll">
 <table class="rules">
   <thead><tr><th></th><th>{% translate "Description contains" %}</th><th>{% translate "Counterparty IBAN" %}</th><th>{% translate "Direction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th><th></th></tr></thead>
   <tbody>
@@ -33,6 +34,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 <script>
 // Drag a row to a new place; dropping it posts every Rule's id in the new order.
 (() => {

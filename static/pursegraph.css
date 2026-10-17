@@ -30,7 +30,7 @@ main { padding: 20px 28px 96px; }
 .login input { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid var(--ring); margin-bottom: 8px; }
 
 @media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
   aside { flex-direction: row; flex-wrap: wrap; align-items: center; }
   aside .sep { display: none; }
   aside .logout { margin: 0 0 0 auto; }
@@ -111,8 +111,8 @@ aside .suggestions-status { margin: 0 10px; font-size: 12px; }
 .hint { font-size: 13px; }
 #drill:not(:empty) { margin-top: 16px; }
 .htmx-request#view, .htmx-request #view { opacity: 0.5; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; } .split .chart { height: 320px; } }
-.stack { display: grid; gap: 12px; }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } .split .chart { height: 320px; } }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .stack .chart { height: 420px; }
 .scroll { overflow-x: auto; }
 aside .figures { margin: 12px 10px 0; font-size: 13px; }
@@ -126,7 +126,7 @@ aside .this-month dd { margin: 0; }
 @media (max-width: 900px) { aside .figures { margin: 0 10px; } aside .this-month { display: flex; gap: 4px 8px; } }
 .split.wide { grid-template-columns: minmax(0, 1fr) 420px; }
 .split.wide .view-table td, .split.wide .view-table th { white-space: nowrap; }
-@media (max-width: 900px) { .split.wide { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .split.wide { grid-template-columns: minmax(0, 1fr); } }
 aside #sidebar, aside nav#views { display: contents; }
 .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .filter-bar .accounts { position: relative; }
