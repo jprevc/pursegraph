@@ -172,14 +172,18 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
     padding: "2px 8px"
-  view-pill:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.ink-2}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.pill}"
-    padding: "6px 12px"
-  view-pill-active:
-    backgroundColor: "{colors.accent-soft}"
+  view-tab:
+    backgroundColor: "transparent"
+    textColor: "{colors.muted}"
+    typography: "{typography.body}"
+    padding: "8px 0 10px"
+  view-tab-active:
+    textColor: "{colors.accent-text}"
+    borderColor: "{colors.accent}"
+  tab-bar-item:
+    textColor: "{colors.muted}"
+    typography: "{typography.label}"
+  tab-bar-item-active:
     textColor: "{colors.accent-text}"
 ---
 
@@ -210,7 +214,7 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 ### Primary
 - **Household Indigo** (accent; accent-dark in dark): the single interface accent. It fills the Review queue count badge, the mark's tile, and (as Indigo Ink) the active navigation, links and the "graph" half of the wordmark. Dark mode lifts it slightly so white text still clears AA.
 - **Indigo Ink** (accent-text / accent-text-dark): accent text on light surfaces, such as the active nav item, links, the avatar initial and the wordmark's "graph". In dark it becomes a pale periwinkle.
-- **Indigo Wash** (accent-soft / accent-soft-dark): the selected-state ground for the active nav item, the active view pill, the open Category row and the avatar.
+- **Indigo Wash** (accent-soft / accent-soft-dark): the selected-state ground for the active nav item, the open Category row and the avatar. (The active view tab is an Indigo Ink label over a 2px Household Indigo underline, not a wash.)
 - **Focus Indigo** (focus / focus-dark): the 2px focus ring only.
 - **Mark Periwinkle** (mark-segment): the smaller segment of the donut mark. It is used in the mark only.
 
@@ -252,7 +256,7 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 - **Body** (400 or 500, 14px, 1.5): Category names (500), Transaction descriptions (500), controls (500), nav items (500) and amounts (600).
 - **Body small** (400, 13px): card meta, comparisons, shares, Subcategory rows, the donut centre's caption and the drill-down footnote.
 - **Label** (500, 12px): nav group headings, table headers, the count badge (600) and the Account pill. It is sentence case and never uppercased or tracked.
-- **Wordmark** (700, 17px, −0.02em): "Purse" in ink and "graph" at 600 in Indigo Ink, set beside the mark (16px in the phone top bar).
+- **Wordmark** (700, 17px, −0.02em): "Purse" in ink and "graph" at 600 in Indigo Ink, set beside the mark (16px in the phone brand row).
 
 ### Named Rules
 **The Tabular Figures Rule.** Every amount, share, count and date figure uses `font-variant-numeric: tabular-nums`.
@@ -261,17 +265,19 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 
 ## Layout
 
-The desktop layout is a two-column shell: a sticky, full-height white sidebar (240px, with a right hairline), then the page. The main column is padded 24px top and 32px sides, up to 1360px wide. Every view opens with a view bar: the title on the left, then the period stepper (‹ period ›, with "so far, to 16 Oct" muted), the period unit select, and the Member and Account filters, all 36px high. Below it, three equal stat tiles (16px gap). Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
+The desktop layout is a two-column shell: a sticky, full-height white sidebar (232px, with a right hairline), then the page. The main column is padded 24px top and 32px sides, up to 1360px wide.
 
-**Phone (≤900px).** The sidebar becomes a 280px drawer that slides from the left over a 35% black scrim. It closes on the scrim or Escape. A sticky 56px top bar holds the mark and wordmark, a Review shortcut with its count badge, and the menu button. The bar is a 92% card tint with a backdrop blur and a bottom hairline. The Dashboard views become a horizontally scrolling row of pills. The main column pads 16px. The title takes a full row, the period stepper takes the next full row, and the Month, Member and Account controls share one row (their icons hidden, labels truncating). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Drill-down rows stack: description and amount on the first line, date, kind and Account inline in the caption, and the Outcome select full width below.
+**Page header.** Every page opens with a title row: the page title (Headline) on the left and the page's one primary action, if any, on the right ("New Rule", "Accept 5 suggestions"). The Dashboard's title is "Dashboard", not the view's name. Under it, the five views are an in-page row of underline tabs (Spending, Cash flow, Category trends, Per Member, Money flow) over a Line hairline: they are lenses on the same period, not separate destinations. Under the tabs, a sticky filter bar holds the period stepper (‹ period ›, with "so far, to 16 Oct" muted) and the period unit select on the left, and the Member and Account filters pushed to the right, all 36px high. The bar sticks to the top on scroll on a 92% ground tint with a backdrop blur, so the period stays in view beside the figures. Transactions uses the same sticky bar for its own filters (search, Account, outcome). Other pages have the title row only. Below the Dashboard's filter bar, three equal stat tiles (16px gap). They carry the headline figures for the chosen period. There is no global "this month" figure anywhere in the shell. Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
+
+**Phone (≤900px).** The sidebar is replaced by a fixed 64px bottom tab bar with four items: Dashboard, Transactions, Review (with its count badge) and More. Each is a 22px icon over an 11px label, muted, and Indigo Ink when active. The bar is a 94% card tint with a backdrop blur and a top hairline, and it pads for the safe area. More opens a bottom sheet (18px top corners, a grip, the Pop shadow) over a 35% black scrim, closing on the scrim or Escape. It holds Import, the Manage links, the theme switch, and the Member's name and role with Log out. Import sits under More because Import needs only work on desktop. A plain 52px row above the content carries the mark and wordmark (it does not stick). The main column pads 16px and leaves room for the tab bar. The view tabs scroll sideways. In the sticky filter bar, the period stepper takes a full row, and the Month, Member and Account controls share the next row (their icons hidden, labels truncating with an ellipsis). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Drill-down rows stack: description and amount on the first line, date, kind and Account inline in the caption, and the Outcome select full width below.
 
 ## Elevation & Depth
 
-The system uses soft ambient lift with tonal layering. Cards float on the grey ground through a faint two-layer shadow, with no border in light. In dark, the same role is a deeper black shadow plus a 3% white hairline ring, so graphite cards read as raised. Overlays (the phone drawer) use a larger "pop" shadow. Controls carry a barely-there 1px shadow under their border.
+The system uses soft ambient lift with tonal layering. Cards float on the grey ground through a faint two-layer shadow, with no border in light. In dark, the same role is a deeper black shadow plus a 3% white hairline ring, so graphite cards read as raised. Overlays (the phone More sheet, the account popover and the Account filter) use a larger "pop" shadow. Controls carry a barely-there 1px shadow under their border.
 
 ### Shadow Vocabulary
 - **Card** (`0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)`; dark: `0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03)`): every card, and the pressed segment of the theme switch.
-- **Pop** (`0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10)`; dark: `0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05)`): the phone sidebar drawer and other overlays.
+- **Pop** (`0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10)`; dark: `0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05)`): the phone More sheet, popovers and other overlays.
 - **Control** (`0 1px 2px rgb(16 24 40 / .04)`): buttons, selects and the period stepper.
 
 ### Named Rules
@@ -279,7 +285,7 @@ The system uses soft ambient lift with tonal layering. Cards float on the grey g
 
 ## Shapes
 
-The corners are gently rounded, nested from outside in: cards 14px, Category rows 10px, controls and nav items 8px, inner segments and the focus ring 6px. Counts, Account pills, view pills and share bars are full pills. Dots and the avatar are circles. Donut segments have a 5px corner radius and a 1.5° gap between them. The mark is an 8px-radius (on 32) indigo tile carrying a two-segment donut, white for the larger arc and Mark Periwinkle for the smaller. It stays the same in both themes.
+The corners are gently rounded, nested from outside in: cards 14px, Category rows 10px, controls and nav items 8px, inner segments and the focus ring 6px. Counts, Account pills and share bars are full pills. The phone More sheet has 18px top corners. Dots and the avatar are circles. Donut segments have a 5px corner radius and a 1.5° gap between them. The mark is an 8px-radius (on 32) indigo tile carrying a two-segment donut, white for the larger arc and Mark Periwinkle for the smaller. It stays the same in both themes.
 
 ## Components
 
@@ -331,10 +337,14 @@ Every chart rebuilds its options from the CSS tokens and calls `setOption(…, {
 A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. A table follows: Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome (a 32px select), and Amount (right-aligned, 600). Rows have hairline dividers and a Raised hover. A muted footnote explains that changing an Outcome moves the amount between Categories.
 
 ### Navigation
-- **Sidebar:** the wordmark and mark at the top. Then three sentence-case groups with muted 12px headings: Dashboard (the five views), Ledger (Transactions, Import, Review queue with a count badge, Rules) and Admin. Items are an 18px 1.5px-stroke icon plus a 500 label, Ink 2. Hover takes the Hover fill. Active takes Indigo Wash with Indigo Ink and `aria-current="page"`.
-- **Sidebar foot:** the theme switch (a three-segment Light / System / Dark control on a ground track, where the pressed segment takes the card fill and Card shadow; it sets `data-theme` on `<html>` and is remembered per browser in `localStorage`), then the Member's avatar, name and role, and a ghost log-out button.
-- **Theme switch behaviour:** the three segments are a native radio group (visually hidden `<input type="radio" name="theme">` with labelled segments, each an icon plus its text), so arrow keys move between them and there is one tab stop. The switch stays `hidden` until `static/theme.js` runs, which checks the saved segment on load and again on `htmx:historyRestore`. Only the sidebar has it: login and registration simply honour the saved choice. `<html>` ships as `data-theme="system"`, and a blocking inline script in `base.html`'s `<head>`, before the stylesheet, applies the saved `theme` (only `light`, `dark` or `system`; anything else, or storage throwing, means `system`) before first paint. HTMX never replaces `<html>`, so swaps cannot flash. On a change, `theme.js` dispatches a `themechange` event on `document`, also when the system scheme changes while System is active, and `dashboard.js` rebuilds each mounted chart's options from it. The switch is instant, with no colour transition.
-- **Phone:** the top bar, drawer and view pills as described in Layout. The active pill takes Indigo Wash with Indigo Ink.
+The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
+- **Sidebar:** the wordmark and mark at the top. Then four destinations: Dashboard, Transactions, Review queue (with its count badge) and Import. Items are an 18px 1.5px-stroke icon plus a 500 15px label, Ink 2, padded 9px 12px. Hover takes the Hover fill. Active takes Indigo Wash with Indigo Ink and `aria-current="page"`. Dashboard stays active on all five views.
+- **Manage:** below the destinations, a collapsible group under a muted 12px "Manage" heading with a rotating chevron. It holds Rules for every Member, then Categories, LLM suggestions, Accounts and Members for admins. Its links are 14px, indented, without a separate Admin heading. The group is closed by default and opens when one of its pages is current.
+- **Review queue count:** an Indigo count badge on the Review queue item (sidebar) and on the Review tab (phone), shown to every Member and hidden when the queue is empty. The Dashboard's Awaiting review row also links to the queue ("Review 7").
+- **Sidebar foot:** a single account button (avatar, name and role, an up/down chevron). It opens a popover upward holding the theme switch (a three-segment Light / System / Dark control on a ground track, where the pressed segment takes the card fill and Card shadow; it sets `data-theme` on `<html>` and is remembered per browser in `localStorage`) and Log out.
+- **Theme switch behaviour:** the three segments are a native radio group (visually hidden `<input type="radio" name="theme">` with labelled segments, each an icon plus its text), so arrow keys move between them and there is one tab stop. The switch stays `hidden` until `static/theme.js` runs, which checks the saved segment on load and again on `htmx:historyRestore`. Only the shell has it, in the account popover (desktop) and the More sheet (phone): login and registration simply honour the saved choice. Radio groups are grouped by `name` across the whole document, so if both are rendered they use distinct names (`theme`, `theme-sheet`) and `theme.js` keeps them in step. `<html>` ships as `data-theme="system"`, and a blocking inline script in `base.html`'s `<head>`, before the stylesheet, applies the saved `theme` (only `light`, `dark` or `system`; anything else, or storage throwing, means `system`) before first paint. HTMX never replaces `<html>`, so swaps cannot flash. On a change, `theme.js` dispatches a `themechange` event on `document`, also when the system scheme changes while System is active, and `dashboard.js` rebuilds each mounted chart's options from it. The switch is instant, with no colour transition.
+- **Carried period and filters:** every link back to a Dashboard view carries the chosen period and the Member and Account filters in its URL, from any page. Transactions and the Dashboard views are swapped in by HTMX without a full reload.
+- **Phone:** the bottom tab bar and More sheet as described in Layout.
 
 ### Icons
 Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. They are 18px in navigation and 16px in controls. Icons are inline SVG symbols, never glyphs or an icon font.
@@ -349,7 +359,7 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** define every colour as a CSS custom property, with a `[data-theme="dark"]` block and a `prefers-color-scheme` block for `data-theme="system"`, and rebuild chart options from those properties when the theme changes.
 - **Do** set CSS `color-scheme` per theme, so native controls and scrollbars match, and ship `media`-scoped `<meta name="theme-color">` tags for the ground colour, rewritten by JS when the choice is Light or Dark.
 - **Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.
-- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and drawer slide (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
+- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and the More sheet's slide up (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
 
 ### Don't:
 - **Don't** use the indigo accent as a data colour, a chart series or a Category hue.
