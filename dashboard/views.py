@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from django.conf import settings
+from django.utils import formats
 from django.http import Http404
 from django.shortcuts import render
 from django.urls import reverse
@@ -11,7 +12,7 @@ from django.utils.http import urlencode
 from ledger.models import Statement, Transaction
 from ledger.views import categories_with_subcategories, wants_the_fragment_alone
 
-from . import queries
+from . import periods, queries
 from .periods import Period
 
 
@@ -83,6 +84,35 @@ def carried_params(params) -> list[tuple[str, str]]:
     )
 
 
+def _prototype_75(period: Period, filters: queries.Filters, chart: dict) -> dict:
+    """PROTOTYPE (#75 Period completeness): throwaway, only on prototype/75-completeness. Marks each month of a
+    chart over time with its state, draws Not tracked months as no data rather than 0, and floors the stepper."""
+    from . import completeness
+
+    c = completeness.of(period, filters)
+    start = completeness.household_start()
+    keys = [queries._month_key(m) for m in queries._months_shown(period, ())]
+    if len(keys) == len(chart.get("months", ())):
+        months = {queries._month_key(m): m for m in queries._months(period)}
+        chart["states"] = [c.month(k) for k in keys]
+        chart["reasons"] = [
+            completeness.reason(c.gaps, months[k]) if c.month(k) == completeness.PARTIAL
+            else f"So far, to {formats.date_format(periods.today(), 'j M')}" if c.month(k) == completeness.IN_PROGRESS
+            else "No Statements yet" if c.month(k) == completeness.NOT_TRACKED else ""
+            for k in keys
+        ]
+        tracked = [s != completeness.NOT_TRACKED for s in chart["states"]]
+        for name in ("in", "out", "net", "others"):
+            if name in chart:
+                chart[name] = [v if t else None for v, t in zip(chart[name], tracked, strict=True)]
+        for line in chart.get("lines", ()):
+            line["data"] = [v if t else None for v, t in zip(line["data"], tracked, strict=True)]
+    return {
+        "completeness": c,
+        "previous_off": bool(start and period.start <= start),
+    }
+
+
 def show(request, view: str):
     """A dashboard view, or where to start on an empty installation."""
     v = _view(view)
@@ -119,6 +149,8 @@ def show(request, view: str):
         # Swapped in alone, the view also brings the sidebar's links, so that they carry its period and filters.
         "swap_nav": wants_the_fragment_alone(request),
     }
+    if settings.DEBUG:
+        context.update(_prototype_75(period, filters, context["chart"]))
     template = view_template if wants_the_fragment_alone(request) else "dashboard/dashboard.html"
     response = render(request, template, context)
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])

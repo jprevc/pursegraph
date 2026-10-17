@@ -84,6 +84,34 @@
   };
 
   // ---------- Variant A: Classic axes ----------
+  // PROTOTYPE (#75 Period completeness): a labelled band behind each Partial and In progress month, Not tracked
+  // months as no data with a Faint axis label, and the tooltip opening with the reason. The bands ride on a
+  // series of their own, so that hiding a legend entry never hides them.
+  const BAND = { partial: 'Partial', in_progress: 'So far' };
+  const stateOf = (data, i) => data.states?.[i] || 'complete';
+  // Full-height bars on hidden axes of their own: a markArea from a month to itself has no width on a
+  // category axis, and on the shared axes the bars would join Cashflow's groups.
+  const bandSeries = data => data.states ? [{
+    type: 'bar', xAxisIndex: 1, yAxisIndex: 1, silent: true, z: 0, barWidth: '100%', cursor: 'default',
+    itemStyle: { color: css('--hover') }, emphasis: { disabled: true }, tooltip: { show: false },
+    label: { show: true, position: 'insideTop', distance: 6, ...text(11, 500, '--muted'), formatter: p => BAND[data.states[p.dataIndex]] || '' },
+    data: data.states.map(s => BAND[s] ? 1 : null),
+  }] : [];
+  const bandAxes = data => data.states ? {
+    x: [{ type: 'category', data: data.months, show: false, boundaryGap: true }],
+    y: [{ type: 'value', show: false, min: 0, max: 1 }],
+  } : { x: [], y: [] };
+  const monthAxis = (data, extra = {}) => categoryAxis(data.months, {
+    ...extra,
+    axisLabel: { ...text(12, 400, '--muted'),
+      color: (_v, i) => css(stateOf(data, i) === 'not_tracked' ? '--faint' : '--muted'),
+      formatter: (v, i) => stateOf(data, i) === 'in_progress' ? `${v} (so far)` : v },
+  });
+  const reasonLine = (data, i) => data.reasons?.[i]
+    ? `<div style="color:${css('--muted')};font-size:12px;margin:-2px 0 6px;max-width:260px;white-space:normal">${data.reasons[i]}</div>` : '';
+  const withReason = (data, i, title, html) => stateOf(data, i) === 'not_tracked'
+    ? `<div style="font-weight:600">${title}</div>${reasonLine(data, i)}`
+    : html.replace('</div>', `</div>${reasonLine(data, i)}`);
   const A = {
     spending: donut,
     cashflow: data => {
@@ -95,29 +123,33 @@
         ...(data.others ? [{ name: data.labels.others, type: 'line', cursor: 'pointer', data: marks(data.others, 'others'), symbol: 'circle', symbolSize: 7, lineStyle: { width: 2, type: 'dashed', color: css('--ink-2') }, itemStyle: { color: css('--ink-2') } }] : []),
       ];
       return {
-        ...base(), legend: legend(),
+        ...base(),
         tooltip: tooltip({ trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: css('--hover'), opacity: 0.6 } },
-          formatter: ps => table(ps[0].axisValue, ps.map(p => ({ name: p.seriesName, colour: p.color, value: p.seriesType === 'line' ? signed(p.value) : eur(p.value) }))) }),
+          formatter: ps => { ps = ps.filter(p => p.seriesName); const i = ps[0].dataIndex;
+            return withReason(data, i, ps[0].axisValue, table(ps[0].axisValue, ps.map(p => ({ name: p.seriesName, colour: p.color, value: p.seriesType === 'line' ? signed(p.value) : eur(p.value) })))); } }),
         grid: { left: 4, right: 8, top: 40, bottom: 4, containLabel: true },
-        xAxis: categoryAxis(data.months), yAxis: valueAxis(), series,
+        legend: legend({ data: series.map(x => x.name) }),
+        xAxis: [monthAxis(data), ...bandAxes(data).x], yAxis: [valueAxis(), ...bandAxes(data).y], series: [...bandSeries(data), ...series],
       };
     },
     trends: data => ({
-      ...base(), legend: legend(),
+      ...base(), legend: legend({ data: data.lines.map(l => l.name) }),
       tooltip: tooltip({ trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: css('--line-strong') } },
         formatter: ps => {
+          ps = ps.filter(p => p.seriesName); const i = ps[0].dataIndex;
           const sorted = [...ps].sort((a, b) => b.value - a.value);
-          return table(ps[0].axisValue, sorted.map(p => ({ name: p.seriesName, colour: p.color, hatched: isAwaiting(data.lines[p.seriesIndex].key), value: eur(p.value) })),
-            ['Total', eur(ps.reduce((s, p) => s + p.value, 0))]);
+          return withReason(data, i, ps[0].axisValue, table(ps[0].axisValue, sorted.map(p => ({ name: p.seriesName, colour: p.color, hatched: isAwaiting(data.lines[p.seriesIndex - (data.states ? 1 : 0)].key), value: eur(p.value) })),
+            ['Total', eur(ps.reduce((s, p) => s + p.value, 0))]));
         } }),
       grid: { left: 4, right: 32, top: 40, bottom: 4, containLabel: true },
-      xAxis: categoryAxis(data.months, { boundaryGap: false }), yAxis: valueAxis(),
-      series: data.lines.map(line => ({
+      // PROTOTYPE (#75): points at month centres (was boundaryGap: false), so a month is a column a band can fill.
+      xAxis: [monthAxis(data, { boundaryGap: true }), ...bandAxes(data).x], yAxis: [valueAxis(), ...bandAxes(data).y],
+      series: [...bandSeries(data), ...data.lines.map(line => ({
         name: line.name, type: 'line', cursor: 'pointer', showSymbol: false, symbol: 'circle', symbolSize: 7,
         emphasis: { focus: 'series' }, blur: { lineStyle: { opacity: 0.15 } },
         data: line.data.map((value, j) => ({ value, key: line.keys[j] })),
         lineStyle: { width: 2, color: hue(line.key), type: isAwaiting(line.key) ? 'dashed' : 'solid' }, itemStyle: { color: hue(line.key) },
-      })),
+      }))],
     }),
     per_member: data => ({
       ...base(), legend: legend(),

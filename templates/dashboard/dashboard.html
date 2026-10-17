@@ -4,6 +4,7 @@
 {% block head %}<script src="{% static 'vendor/echarts.min.js' %}" defer></script>
 {% if prototype_64 %}{# PROTOTYPE (#64 Chart styling): throwaway, only on prototype/64-chart-styling. #}
 <link rel="stylesheet" href="{% static 'prototype-64/skin.css' %}">
+<link rel="stylesheet" href="{% static 'prototype-75/skin.css' %}">{# PROTOTYPE (#75) #}
 <script src="{% static 'prototype-64/charts.js' %}" defer></script>
 {% else %}<script src="{% static 'dashboard.js' %}" defer></script>{% endif %}{% endblock %}
 {% block main %}

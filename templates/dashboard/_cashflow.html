@@ -1,5 +1,5 @@
 {% extends "dashboard/_view.html" %}
-{% load i18n %}
+{% load i18n proto75 %}
 {% block title %}{% translate "Cashflow" %}{% endblock %}
 {% block layout %}split wide{% endblock %}
 {% block table %}
@@ -8,11 +8,14 @@
   <tbody>
   {% for row in data.rows %}
   <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-    <td>{{ row.label }}</td>
+    {% with state=completeness|month_state:row.key %}
+    <td{% if state == "not_tracked" %} class="faint"{% endif %}>{{ row.label }}{% if state == "partial" %} <span class="qualifier">(partial)</span>{% elif state == "in_progress" %} <span class="qualifier">(so far)</span>{% endif %}</td>
+    {% if state == "not_tracked" %}<td class="num faint">—</td><td class="num faint">—</td>{% if chart.others %}<td class="num faint">—</td>{% endif %}<td class="num faint">—</td>{% else %}
     <td class="num">{{ row.money_in|floatformat:2 }}</td>
     <td class="num">{{ row.money_out|floatformat:2 }}</td>
     {% if chart.others %}<td class="num">{{ row.others|floatformat:2 }}</td>{% endif %}
-    <td class="num">{{ row.net|floatformat:2 }}</td>
+    <td class="num">{{ row.net|floatformat:2 }}</td>{% endif %}
+    {% endwith %}
   </tr>
   {% endfor %}
   </tbody>

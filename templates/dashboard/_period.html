@@ -1,6 +1,6 @@
 {% load i18n %}{# The period selector. Needs `period`, `filters`, `filter_query` and `view_url`; every control swaps #view. #}
 <div class="period" hx-target="#view" hx-push-url="true">
-  <a class="step" href="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" aria-label="{% translate 'Previous period' %}">‹</a>
+  {% if previous_off %}<span class="step off" aria-hidden="true">‹</span>{% else %}<a class="step" href="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" aria-label="{% translate 'Previous period' %}">‹</a>{% endif %}
   <span class="period-label">{{ period.label }}{% if period.so_far %} <span class="muted">{% blocktranslate with date=period.so_far|date:"j M Y" %}so far, to {{ date }}{% endblocktranslate %}</span>{% endif %}</span>
   {% if period.next %}<a class="step" href="{{ view_url }}?period={{ period.next.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.next.token }}{{ filter_query }}" aria-label="{% translate 'Next period' %}">›</a>{% else %}<span class="step off" aria-hidden="true">›</span>{% endif %}
   <form method="get" action="{{ view_url }}" hx-get="{{ view_url }}" hx-trigger="change">

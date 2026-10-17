@@ -1,18 +1,22 @@
-"""PROTOTYPE (#64), wipe me. Fills the scratch database with a synthetic Household over the last 12 months,
-spending in every Category, so each chart has enough to show. Run by run.sh, never against a real database."""
+"""PROTOTYPE (#75), wipe me. Fills the scratch database with a synthetic Household over the last 12 months,
+spending in every Category, so each chart has enough to show. Run by run.sh, never against a real database.
+
+Coverage, so every month state shows (#75): Ana's Sparkasse and Marko's N26 from 1 Jan 2026 and the Joint
+Revolut from 1 Feb, all up to today, except that Marko's N26 has no Statement for July. So Oct-Dec 2025 are
+Not tracked, July is Partial and the running month is In progress."""
 
 import random
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db import connection
 
-from ledger.models import Account, Subcategory, Transaction
+from ledger.models import Account, Statement, Subcategory, Transaction
 from members.models import Member
 
 assert "wipe_me" in connection.settings_dict["NAME"], "seed.py only runs against the PROTOTYPE scratch database"
 
-rng = random.Random(64)
+rng = random.Random(75)
 ana = Member.objects.create_user("ana", password="prototype", first_name="Ana", is_admin=True)
 marko = Member.objects.create_user("marko", password="prototype", first_name="Marko")
 
@@ -48,7 +52,7 @@ SPENDING = [
 ]
 salary, interest = sub("Income", "Salary"), sub("Income", "Interest")
 rows = []
-today = date(2026, 10, 16)
+today = date.today()
 for back in range(11, -1, -1):
     y, m = today.year, today.month - back
     if m < 1:
@@ -85,5 +89,21 @@ for back in range(11, -1, -1):
     if back < 2:
         add(anas, 45, "Unknown payment in")
 
+COVERAGE = {
+    anas: [(date(2026, 1, 1), today)],
+    markos: [(date(2026, 1, 1), date(2026, 6, 30)), (date(2026, 8, 1), today)],
+    joint: [(date(2026, 2, 1), today)],
+}
+for acc, ranges in COVERAGE.items():
+    for start, end in ranges:
+        month = start
+        while month <= end:  # one Statement a month
+            last = min(end, (month.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1))
+            Statement.objects.create(account=acc, format="csv", period_start=month, period_end=last,
+                                     opening_balance=0, closing_balance=0, imported_by=ana,
+                                     sha256=f"{acc.pk:04d}{month:%Y%m%d}".ljust(64, "0"), file=f"proto/{acc.pk}-{month:%Y-%m}.csv")
+            month = last + timedelta(days=1)
+# Only what a Statement covers was imported; Transfers to Savings stay one-sided.
+rows = [r for r in rows if r.account not in COVERAGE or any(s <= r.date <= e for s, e in COVERAGE[r.account])]
 Transaction.objects.bulk_create(rows)
 print(f"PROTOTYPE seed: {len(rows)} Transactions; log in as ana / prototype")

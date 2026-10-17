@@ -1,0 +1,12 @@
+/* PROTOTYPE (#75 Period completeness), throwaway: lives only on prototype/75-completeness. */
+.completeness {
+  display: flex; align-items: flex-start; gap: 8px; margin: -4px 0 16px;
+  color: var(--ink-2); font-size: 13px; line-height: 20px;
+}
+.completeness svg { flex: none; margin-top: 2px; color: var(--muted); }
+.completeness a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.completeness a:hover { color: var(--ink); text-decoration-color: currentColor; }
+.completeness .sep { color: var(--muted); margin: 0 6px; }
+.completeness .more { font: inherit; color: var(--accent-text); background: none; border: 0; padding: 0; cursor: pointer; }
+.view-table .qualifier { color: var(--muted); font-weight: 400; }
+.view-table .faint, .view-table td.faint { color: var(--faint); }
