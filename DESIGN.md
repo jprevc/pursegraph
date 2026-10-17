@@ -298,7 +298,7 @@ Quiet, bordered and solid. They are never filled with indigo.
 - **Select:** the button style with a 16px muted chevron drawn at the right, and `appearance: none`.
 
 ### Period stepper
-A single bordered 36px control: previous/next chevron buttons around a 600-weight period label with a muted 400 qualifier. Next is disabled at the current period (35% opacity).
+A single bordered 36px control: previous/next chevron buttons around a 600-weight period label with a muted 400 qualifier. Next is disabled at the current period (35% opacity). Previous is disabled once the period contains the Household's first Coverage day (the earliest of every Account that receives Statements, whatever the filters), so switching a filter never strands the reader. A typed URL for an earlier period still works and shows that period as Not tracked (see Period completeness).
 
 ### Cards / Containers
 - **Corner Style:** 14px.
@@ -308,7 +308,7 @@ A single bordered 36px control: previous/next chevron buttons around a 600-weigh
 - **Internal Padding:** 20px. The card head is 20px with no bottom padding, with a 15px title and optional muted meta at the right.
 
 ### Stat tiles
-A muted 500 label, a Display figure and a muted 13px comparison sentence. The figure is never coloured by sign.
+A muted 500 label, a Display figure and a muted 13px comparison sentence. The figure is never coloured by sign. When the period or the one it is compared with isn't Complete (see Period completeness), the comparison reads "Not comparable: July is incomplete" instead, naming the incomplete month (the period's own, if both are).
 
 ### Category list (signature)
 Ranked rows, largest first, with Awaiting review always last. Each row shows a disclosure chevron, a hue dot and the Category name, a 6px pill share bar (Category hue on a ground track, scaled to the largest), the share percentage and the amount (600). Hover or focus lights the row (Hover fill) and highlights its donut segment. The open row takes Indigo Wash and expands its Subcategories (13px, Ink 2, indented). A Total row closes the card above a hairline. The Awaiting review row carries a "Review N" link to the Review queue.
@@ -333,8 +333,35 @@ Per view:
 
 Every chart rebuilds its options from the CSS tokens and calls `setOption(…, { notMerge: true })` on theme switch, on system scheme change and when its width changes (the existing per-chart `ResizeObserver`), as the donut does.
 
+### Period completeness
+A missing Statement must never read as less spending. The Dashboard reads Coverage (derived, read-only: no new data, no URL change) and says how complete the period is. It considers only the Accounts the Member and Account filters include, so it never names an Account whose numbers aren't on screen. Accounts that receive no Statements are never considered.
+
+**Month states.** Each month, for the included Accounts, is one of:
+- **Complete:** no Gap. Drawn as usual, and a 0 is a real 0.
+- **Partial:** at least one included Account has a Gap in it (a missing July; or 16–30 Sep, after a mid-month import).
+- **In progress:** the running month, with no Gap up to today. Incomplete by time, not by a Gap.
+- **Not tracked:** before the first Coverage day of every included Account. There are no numbers, not zeros.
+
+The running month with a Gap is Partial. A longer period takes the first of Partial, In progress, Not tracked, Complete that any of its months is. A period that is wholly Not tracked shows the empty state ("No Statements cover this period yet") instead of a view.
+
+**Header line.** One line between the view bar and the stat tiles: Ink 2 13px with a muted 16px info icon, no fill, border or alert colour (the No Verdict Rule). It has up to two parts, joined by "·":
+1. **Gaps,** leading with the consequence: "Incomplete: no Statements yet from Luka's N26 for 1–31 Jul". Each Account name links to Import. Past two Accounts the rest collapse into "and 2 more", which expands in place.
+2. **Awaiting review:** "2.148 € (81 %) still awaiting review", linked to the Review queue, whenever the period's Awaiting review is not zero. It is a statement of fact, not a nudge, and never makes a period incomplete.
+
+The line is absent when neither part applies. In progress alone adds nothing here, because the stepper's "so far, to 17 Oct" already says it. On a phone it wraps and is never truncated.
+
+**Month-axis charts** (Cashflow, Category trends, and any view over several months). The data marks stay as they are, because they are real numbers, only incomplete. The month column carries the state:
+- **Partial / In progress:** a full-height band behind the month (ECharts `markArea`) in Raised, with a muted 11px label at its top, "Partial" or "So far". The axis label of the running month reads "Oct (so far)". The axis tooltip opens with the reason ("No Statements from Luka's N26 for 1–31 Jul", or "So far, to 17 Oct") above its table.
+- **Not tracked:** the month keeps its place on the axis with a Faint label, and its data is `null`: no bar, and lines break rather than dropping to 0. Its tooltip reads "No Statements yet".
+
+The bands' text labels are the non-colour cue. The hatch stays reserved for Awaiting review and the dash for Awaiting review as a line, so completeness uses neither.
+
+**Tables** beside the charts carry the same states in text: column headers "Jul (partial)" and "Oct (so far)", and "—" (never 0) in a Not tracked month's cells.
+
+**Periods.** Every view opens on the last full month, even when that month is Partial (the header line says why), and Category trends opens on the 12 months ending with it. The running month is reached only with ›, as In progress. There is no "this month so far" anywhere else.
+
 ### Drill-down
-A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. A table follows: Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome (a 32px select), and Amount (right-aligned, 600). Rows have hairline dividers and a Raised hover. A muted footnote explains that changing an Outcome moves the amount between Categories.
+A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. When the period isn't Complete, the title carries the same qualifier as the tables: "Food · July 2026 (partial)" or "(so far)". A table follows: Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome (a 32px select), and Amount (right-aligned, 600). Rows have hairline dividers and a Raised hover. A muted footnote explains that changing an Outcome moves the amount between Categories.
 
 ### Navigation
 The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
@@ -364,6 +391,7 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 ### Don't:
 - **Don't** use the indigo accent as a data colour, a chart series or a Category hue.
 - **Don't** give Awaiting review a Category hue, or show it without its hatch.
+- **Don't** draw a month without Coverage as 0, or compare a figure with an incomplete month without saying so.
 - **Don't** colour spending, Net or comparisons red or green to mean good or bad.
 - **Don't** add uppercase tracked labels, kickers or eyebrows above titles. Labels are sentence case.
 - **Don't** use hard offset shadows or borders around cards. Lift is soft and ambient.

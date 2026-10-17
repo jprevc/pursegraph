@@ -32,6 +32,10 @@ _Avoid_: Import, upload, file
 The dates of an Account for which Statements have already been imported.
 _Avoid_: Imported range, history
 
+**Gap**:
+A stretch of days for which an Account that receives Statements has none imported, from its first Coverage day up to today: both the days between its Statements and the days since its last one. Days before an Account's first Coverage day aren't a Gap (it isn't tracked yet), and neither are days after today.
+_Avoid_: Hole, missing data, outage
+
 **Transaction**:
 A single booked movement of money into or out of an Account, as listed on a Statement. Pending, reverted and declined card payments are not Transactions. Its date is the booking date: the day the bank applied it to the balance (Revolut's "Completed" date), not when it was started or its value date. The same Transaction can appear on several Statements of its Account. A bank fee is always a Transaction of its own, even when the bank lists it alongside the payment it belongs to.
 _Avoid_: Item, entry, line, movement
