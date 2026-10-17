@@ -889,7 +889,10 @@
     "dataColour": {
       "categoryKey": "cat-((CategoryId - 1) mod 10)",
       "awaiting": "awaiting grey plus 45deg hatch; donut decal rgba(255,255,255,.45)",
-      "accentIsData": false
+      "accentIsData": false,
+      "incomeSubcategories": "the Income Category's hue (Money in bars, Sankey income nodes)",
+      "moneyOut": "muted (a neutral; spending as a whole is no Category)",
+      "awaitingLine": "dashed awaiting grey (a line can't carry the hatch)"
     },
     "numberFormat": {
       "locale": "sl-SI",
@@ -897,6 +900,20 @@
       "example": "1.234,56 €",
       "share": "26 %",
       "numerals": "tabular-nums"
+    },
+    "charts": {
+      "style": "Classic axes (#64, variant A): legend top-left, quiet axes, axis tooltips as tables, a table beside every chart",
+      "legend": "top-left, 8px circle icons, ink-2 Inter 500 12px, 16px gap, scrolls; inactive line-strong",
+      "valueAxis": "whole euros (Intl sl-SI EUR, maximumFractionDigits 0), muted 12px; solid line gridlines; no axis line or ticks",
+      "categoryAxis": "line-strong baseline, no ticks, muted 12px labels",
+      "tooltip": "card fill, line border, 10px radius, pop shadow, ink 13px; axis tooltip = table sorted biggest first with a Total row; cents in amounts; Net signed",
+      "emphasis": "focus series; blur lines to .15, bar segments to .25",
+      "cashflow": "grouped bars: Money in = Income hue, Money out = muted, max 22px, 4px top radius; Net = 2px ink line, 7px points ringed in card",
+      "trends": "2px lines in Category hue, points on hover only; Awaiting review dashed",
+      "perMember": "horizontal stacked bars per Bucket, max 28px, 1.5px card-coloured segment borders, Awaiting hatched",
+      "sankey": "nodes 12px wide, 2px radius, 10px gap; links gradient at .3 (.6 on hover, adjacency focus); income labels left, Household top, the rest right, 'name amount'; overlapping labels hidden; Household ink-2, Saved/From savings/others muted",
+      "motion": "600ms cubicOut entrance; none under prefers-reduced-motion",
+      "aria": "aria.enabled on every chart"
     }
   },
   "components": [
