@@ -4,6 +4,20 @@ A self-hosted family finance overview. Household Members import their bank State
 
 Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it to the internet.
 
+![Spending by Category](docs/screenshots/spending.png)
+
+| Cashflow | Money flow |
+| --- | --- |
+| ![Cashflow](docs/screenshots/cashflow.png) | ![Money flow](docs/screenshots/money-flow.png) |
+
+The screenshots show a synthetic Household.
+
+- **Statement import:** parsers for Sparkasse SI, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
+- **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then a local LLM (Ollama) for the rest. Low-confidence suggestions wait in a Review queue.
+- **Dashboard:** spending by Category, cashflow, Category trends, per-Member and money-flow views, with drill-down to the Transactions and warnings for gaps in the imported periods.
+
+Built with Django 5.2, PostgreSQL, HTMX and ECharts, and deployed with Docker Compose. Tested with pytest against a real PostgreSQL, and checked with ruff and mypy.
+
 ## Running it
 
 1. Copy `.env.example` to `.env` and fill in `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS` and `POSTGRES_PASSWORD`. Create the data directory as the host user who will own it (`PURSEGRAPH_USER`, `1000:1000` by default):
