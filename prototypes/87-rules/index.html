@@ -1,0 +1,1161 @@
+<!doctype html>
+<!-- PROTOTYPE (#87 Rules): throwaway, lives only on prototype/87-rules. Never merge.
+     Three variants of the Rules pages, switchable via ?variant=A|B|C (or the black bar, or ← / → while nothing is
+     focused), each covering: Make a Rule from the Review queue (#83's "Saved as … · Undo · Make a Rule"), the live
+     "matches N" preview, the Rules list with per-Rule effect counts and reordering, and Delete.
+       A · Rules table + Rule page : a table with counts, drag plus ↑ ↓; the Rule is its own page, form left,
+                                     live preview right; Delete asks in a modal dialog.
+       B · Sentences, in place     : each Rule is a sentence; editing (and Make a Rule, under the Review queue row)
+                                     opens a sentence builder in place; order is a "1st / 2nd …" select; Delete has no
+                                     confirmation, it offers Undo instead.
+       C · Saved filter            : a master/detail list (drag, or Alt+↑/↓); a Rule's page is a filter bar over the
+                                     Transactions it would catch, each with Now → After; Delete confirms inline.
+     The matching engine mirrors ledger/rules.py (unaccented contains, exact IBAN, direction, Account; only awaiting,
+     LLM and Rule outcomes are overwritten). Saves are in memory.
+     Run from the repo root: python3 -m http.server 8087, then open http://localhost:8087/prototypes/87-rules/
+     All figures are synthetic. -->
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pursegraph · Rules prototype</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens (from DESIGN.md / the #62 prototype) ---------- */
+:root {
+  color-scheme: light;
+  --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --faint: #9ca3af;
+  --line: #e5e7eb; --line-strong: #d1d5db;
+  --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eef2ff; --accent-text: #4338ca;
+  --focus: #6366f1;
+  --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+  --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10);
+  --cat-0: #4e79a7; --cat-1: #59a14f; --cat-2: #f28e2b; --cat-3: #b07aa1; --cat-4: #76b7b2;
+  --cat-5: #edc948; --cat-6: #ff9da7; --cat-7: #9c755f; --cat-8: #e15759; --cat-9: #a0cbe8;
+  --awaiting: #9ca3af;
+  --r-card: 14px; --r-ctl: 8px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+}
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+} }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+a { color: var(--accent-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.trunc { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -80px; z-index: 100; background: var(--card); padding: 6px 10px; border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); }
+.skip:focus { top: 8px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.brand img { width: 28px; height: 28px; margin-right: 10px; }
+.brand span { color: var(--accent-text); font-weight: 600; }
+.badge { min-width: 22px; padding: 0 7px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
+
+/* ---------- Controls ---------- */
+.btn { text-decoration: none; font: inherit; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 var(--s-3); border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.icon-only { width: 36px; padding: 0; justify-content: center; }
+.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--ink); background: var(--hover); }
+.btn .icon { width: 16px; height: 16px; color: var(--muted); }
+select.btn { appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+input.btn { cursor: text; font-weight: 400; min-width: 0; }
+.period { display: flex; align-items: center; gap: 2px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); height: 36px; box-shadow: 0 1px 2px rgb(16 24 40 / .04); }
+.period .btn { border: 0; box-shadow: none; height: 34px; width: 32px; padding: 0; justify-content: center; background: none; }
+.period .btn[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
+.period-label small { font-weight: 400; color: var(--muted); }
+.theme { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; gap: 2px; background: var(--ground); border-radius: var(--r-ctl); }
+.theme button { display: grid; place-items: center; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.theme button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.theme .icon { width: 16px; height: 16px; }
+details.pop { position: relative; }
+details.pop > summary { list-style: none; }
+details.pop > summary::-webkit-details-marker { display: none; }
+.pop-panel { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--card); border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); padding: var(--s-2); display: grid; gap: 2px; }
+.pop-panel.right { left: auto; right: 0; }
+.pop-panel.up { top: auto; bottom: calc(100% + 6px); }
+.pop-panel label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; }
+.pop-panel label:hover { background: var(--hover); }
+.pop-panel .pop-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 8px 8px 2px; }
+.pop-panel .item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
+.pop-panel .item:hover { background: var(--hover); color: var(--ink); }
+.pop-panel .item.on { background: var(--accent-soft); color: var(--accent-text); }
+.pop-panel hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+
+/* ---------- Shared page content ---------- */
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-5) var(--s-5) 0; }
+.card-head h2 { font-size: 15px; font-weight: 600; margin-right: auto; }
+.card-head .meta { color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-bottom: var(--s-4); }
+.tile { padding: var(--s-5); }
+.tile .label { color: var(--muted); font-weight: 500; }
+.tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: var(--s-1); }
+.tile .compare { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.grid { display: grid; grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr); gap: var(--s-4); align-items: start; }
+.donut-wrap { position: relative; height: 340px; margin: var(--s-2) var(--s-4) var(--s-5); }
+.donut { position: absolute; inset: 0; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-center .k { color: var(--muted); font-size: 13px; font-weight: 500; }
+.donut-center .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.donut-center .s { color: var(--muted); font-size: 13px; }
+.cats { list-style: none; margin: var(--s-3) 0 0; padding: 0 var(--s-2) var(--s-2); }
+.cat { display: grid; grid-template-columns: minmax(0, 1fr) 140px 52px 104px; align-items: center; gap: var(--s-3); padding: 10px var(--s-3); border-radius: 10px; }
+.cat:hover, .cat.hot { background: var(--hover); }
+.cat .name { font-weight: 500; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bar { height: 6px; border-radius: var(--r-pill); background: var(--ground); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; }
+.cat .share { color: var(--muted); text-align: right; font-size: 13px; }
+.cat .amt { text-align: right; font-weight: 600; }
+.awaiting .dot { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.awaiting .bar i { background: repeating-linear-gradient(45deg, var(--awaiting) 0 3px, color-mix(in srgb, var(--awaiting) 40%, transparent) 3px 6px) !important; }
+.awaiting .name a { font-weight: 400; font-size: 13px; }
+.cats-total { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); font-weight: 600; }
+.lens { padding: var(--s-2) var(--s-5) var(--s-5); display: grid; gap: var(--s-3); }
+.lens-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 110px; gap: var(--s-3); align-items: center; }
+.lens-row .bar { height: 10px; }
+.lens-row .amt { text-align: right; font-weight: 600; }
+.stand-in { color: var(--muted); font-size: 13px; padding: 0 var(--s-5) var(--s-5); }
+.tx { width: 100%; border-collapse: collapse; }
+.tx th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-5) var(--s-2); border-bottom: 1px solid var(--line); }
+.tx td { padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tx tr:last-child td { border-bottom: 0; }
+.tx tbody tr:hover { background: var(--raised); }
+.tx .r { text-align: right; }
+.tx .desc { font-weight: 500; } .tx .desc small { display: block; font-weight: 400; color: var(--muted); }
+.tx .m-meta { display: none; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--raised); color: var(--ink-2); font-size: 12px; font-weight: 500; border: 1px solid var(--line); white-space: nowrap; }
+.empty { padding: var(--s-8) var(--s-5); text-align: center; color: var(--muted); }
+.drop { margin: var(--s-4) var(--s-5) var(--s-5); border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); padding: var(--s-8); text-align: center; color: var(--muted); }
+.stack { display: grid; gap: var(--s-4); }
+.synthetic { margin: var(--s-6) 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.page-sub { color: var(--muted); margin: -12px 0 var(--s-4); }
+
+/* =====================================================================
+   Variant B · Few destinations (jobs, not modules)
+   ===================================================================== */
+.vB .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.vB .page { min-width: 0; }
+.vB .sidebar { position: sticky; top: 0; height: 100vh; background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--s-5) var(--s-3); gap: 2px; }
+.vB .sidebar > .brand { padding: 2px var(--s-2) var(--s-6); }
+.vB .nav { display: flex; align-items: center; gap: 12px; padding: 9px var(--s-3); border-radius: var(--r-ctl); color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 15px; }
+.vB .nav:hover { background: var(--hover); color: var(--ink); }
+.vB .nav[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
+.vB .nav .badge { margin-left: auto; }
+.vB .manage { margin-top: var(--s-5); }
+.vB .manage summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-2) var(--s-3); border-radius: var(--r-ctl); }
+.vB .manage summary::-webkit-details-marker { display: none; }
+.vB .manage summary:hover { background: var(--hover); }
+.vB .manage summary .icon { width: 14px; height: 14px; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.vB .manage[open] summary .icon { transform: rotate(90deg); }
+.vB .manage .nav { font-size: 14px; padding: 6px var(--s-3) 6px 34px; }
+.vB .sidebar-foot { margin-top: auto; }
+.vB .account { width: 100%; display: flex; align-items: center; gap: 10px; padding: var(--s-2); border-radius: var(--r-ctl); cursor: pointer; }
+.vB .account:hover { background: var(--hover); }
+.vB .account .who { line-height: 1.25; } .vB .account .who small { color: var(--muted); }
+.vB .account .icon { margin-left: auto; color: var(--faint); width: 16px; height: 16px; }
+.vB .m-top, .vB .tabbar, .vB .sheet, .vB .scrim { display: none; }
+.vB main { padding: var(--s-6) var(--s-8) 110px; max-width: 1360px; }
+.vB .title-row { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.vB .title-row h1 { font-size: 24px; font-weight: 600; margin-right: auto; }
+.vB .tabs { display: flex; gap: var(--s-5); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.vB .tabs a { flex: none; padding: var(--s-2) 0 10px; color: var(--muted); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.vB .tabs a:hover { color: var(--ink); }
+.vB .tabs a[aria-current] { color: var(--accent-text); border-bottom-color: var(--accent); }
+.vB .context { position: sticky; top: 0; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-3) 0; margin-bottom: var(--s-3); background: color-mix(in srgb, var(--ground) 92%, transparent); backdrop-filter: blur(10px); }
+.vB .context .grow { flex: 1; }
+.vB .context .search { width: 260px; }
+@media (max-width: 900px) {
+  .vB .shell { grid-template-columns: minmax(0, 1fr); }
+  .vB .sidebar { display: none; }
+  .vB .m-top { display: flex; align-items: center; gap: var(--s-2); height: 52px; padding: 0 var(--s-4); }
+  .vB .m-top .brand { font-size: 16px; margin-right: auto; } .vB .m-top .brand img { width: 26px; height: 26px; }
+  .vB main { padding: 0 var(--s-4) 140px; }
+  .vB .title-row h1 { font-size: 20px; }
+  .vB .tabs { gap: var(--s-4); }
+  .vB .context { top: 0; margin: 0 calc(var(--s-4) * -1) var(--s-3); padding: var(--s-2) var(--s-4); }
+  .vB .context .period { flex-basis: 100%; justify-content: space-between; }
+  .vB .context .grow { display: none; }
+  .vB .context > select, .vB .context > details { flex: 1 1 0; min-width: 0; }
+  .vB .context .btn { width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .vB .context .search { flex-basis: 100%; width: 100%; }
+  .vB .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; inset: auto 0 0 0; z-index: 25; height: 64px; padding-bottom: env(safe-area-inset-bottom); background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-top: 1px solid var(--line); }
+  .vB .tabbar a, .vB .tabbar button { display: grid; justify-items: center; align-content: center; gap: 2px; color: var(--muted); text-decoration: none; font: inherit; font-size: 11px; font-weight: 500; border: 0; background: none; position: relative; cursor: pointer; }
+  .vB .tabbar .icon { width: 22px; height: 22px; }
+  .vB .tabbar [aria-current] { color: var(--accent-text); }
+  .vB .tabbar .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; line-height: 18px; padding: 0 5px; font-size: 11px; }
+  .vB .shell.menu-open .scrim { display: block; position: fixed; inset: 0; z-index: 26; background: rgb(0 0 0 / .35); }
+  .vB .shell.menu-open .sheet { display: grid; position: fixed; inset: auto 0 0 0; z-index: 27; background: var(--card); border-radius: 18px 18px 0 0; box-shadow: var(--shadow-pop); padding: var(--s-2) var(--s-4) calc(var(--s-6) + env(safe-area-inset-bottom)); gap: 2px; max-height: 80vh; overflow-y: auto; animation: up .25s cubic-bezier(.16,1,.3,1); }
+  .vB .sheet .grip { width: 36px; height: 4px; border-radius: 4px; background: var(--line-strong); margin: 4px auto var(--s-3); }
+  .vB .sheet .pop-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-2) var(--s-1); }
+  .vB .sheet .nav { font-size: 15px; padding: 11px var(--s-2); }
+  .vB .sheet .theme { margin: var(--s-2) 0; }
+  .vB .sheet .theme button { height: 36px; }
+}
+@keyframes up { from { transform: translateY(100%); } }
+
+/* ---------- Shared phone content ---------- */
+@media (max-width: 900px) {
+  .tiles { gap: var(--s-2); }
+  .tile { padding: var(--s-3) 10px; }
+  .tile .label { font-size: 12px; }
+  .tile .value { font-size: 15px; letter-spacing: -0.01em; white-space: nowrap; }
+  .tile .compare { display: none; }
+  .grid { grid-template-columns: 1fr; }
+  .donut-wrap { height: 260px; }
+  .donut-center .v { font-size: 17px; }
+  .cat { grid-template-columns: minmax(0, 1fr) 44px 92px; gap: var(--s-2); padding: 10px var(--s-2); }
+  .cat .bar { display: none; }
+  .awaiting .name a { display: none; }
+  .lens-row { grid-template-columns: 80px minmax(0, 1fr) 90px; }
+  .tx thead { display: none; }
+  .tx tr { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .tx td { padding: 0; border: 0; }
+  .tx .c-date, .tx .c-acct, .tx .c-out { display: none; }
+  .tx .m-meta { display: inline; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- PROTOTYPE switcher: deliberately NOT the design ---------- */
+.proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; background: #000; color: #fff; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 6px 24px rgb(0 0 0 / .35), 0 0 0 2px #facc15; }
+.proto button { white-space: nowrap; font: inherit; color: #000; background: #facc15; border: 0; border-radius: 999px; height: 26px; min-width: 26px; padding: 0 8px; cursor: pointer; font-weight: 700; }
+.proto button.toggle { background: #333; color: #fff; font-weight: 500; }
+.proto .lbl { font-weight: 700; padding: 0 4px; white-space: nowrap; }
+.proto .state { color: #a3a3a3; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+@media (max-width: 900px) { .proto .state { display: none; } .vB .proto { bottom: 76px; } }
+@media (max-width: 420px) { .proto .lbl small { display: none; } }
+
+
+/* =====================================================================
+   PROTOTYPE (#87): Rules
+   ===================================================================== */
+.page-sub { color: var(--muted); margin: 0 0 var(--s-4); max-width: 72ch; }
+.notice { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-4); margin-bottom: var(--s-4); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--ink); }
+.notice .icon { color: var(--accent-text); }
+.notice .grow { flex: 1; }
+.cap { color: var(--muted); font-size: 12px; }
+.hatch { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.oc-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
+.oc-label .cat-name { color: var(--muted); font-weight: 400; }
+.oc-label .sep { color: var(--faint); }
+.cond { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--r-pill); background: var(--raised); border: 1px solid var(--line); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.cond b { font-weight: 600; color: var(--ink); }
+.conds { display: flex; flex-wrap: wrap; gap: 4px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; letter-spacing: 0; }
+mark { background: color-mix(in srgb, var(--cat-5) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.fb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.fb .icon { width: 14px; height: 14px; }
+.fb a, .fb button.lnk { font: inherit; font-size: 12px; font-weight: 500; color: var(--accent-text); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn.danger-text { color: var(--ink); }
+.btn.sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+.field { display: grid; gap: 6px; }
+.field > span { font-weight: 500; font-size: 13px; }
+.field small { color: var(--muted); font-size: 12px; }
+.field .btn { width: 100%; }
+.form-grid { display: grid; gap: var(--s-4); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+.words { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.words .lbl { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.word { height: 30px; padding: 0 10px; border-radius: var(--r-pill); border: 1px dashed var(--line-strong); background: var(--card); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.word:hover { background: var(--hover); }
+.word.on { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+.src { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: var(--s-3) var(--s-4); border-radius: var(--r-ctl); background: var(--raised); border: 1px solid var(--line); }
+.src .k { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-weight: 500; }
+.src .d { font-weight: 600; }
+.src .a { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.src .m { color: var(--muted); font-size: 12px; grid-column: 1 / -1; }
+.amt { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* The live preview, shared numbers */
+.pv-sum { display: grid; gap: 6px; }
+.pv-big { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.pv-line { display: flex; align-items: baseline; gap: 8px; color: var(--ink-2); }
+.pv-line .n { min-width: 28px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+.pv-warn { display: flex; gap: 8px; align-items: flex-start; color: var(--ink-2); font-size: 13px; padding: var(--s-2) var(--s-3); border-radius: var(--r-ctl); background: var(--raised); border: 1px solid var(--line); }
+.pv-warn .icon { width: 16px; height: 16px; margin-top: 2px; color: var(--muted); }
+.pv-list { list-style: none; margin: 0; padding: 0; }
+.pv-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.pv-list .dt { color: var(--muted); white-space: nowrap; }
+.pv-list .ds { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.pv-list .to { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.pv-list .to .oc-label { font-weight: 400; font-size: 12px; }
+.pv-list .to .arrow { color: var(--faint); }
+.tag { font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap; line-height: 18px; }
+.tag.change { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.tag.src-row { border-style: dashed; }
+.empty-pv { color: var(--muted); padding: var(--s-4) 0; }
+
+/* Review queue (entry point for Make a Rule), #83 row */
+.rows { width: 100%; border-collapse: collapse; }
+.rows th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-4) var(--s-2); border-bottom: 1px solid var(--line); }
+.rows td { padding: 10px var(--s-4); border-bottom: 1px solid var(--line); vertical-align: top; }
+.rows tbody tr:last-child td { border-bottom: 0; }
+.rows .c-date { white-space: nowrap; color: var(--ink-2); width: 72px; }
+.rows .desc { font-weight: 500; } .rows .desc small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.rows tr.done > td:not(.c-out) { opacity: .62; }
+.rows .c-out { width: 44%; }
+.rows tr.inline > td { background: var(--raised); padding: var(--s-4); }
+
+/* ---------- A · Rules table + Rule page with a preview beside the form ---------- */
+.rt { width: 100%; border-collapse: collapse; }
+.rt th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-3) var(--s-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.rt td { padding: 12px var(--s-3); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.rt tbody tr:last-child td { border-bottom: 0; }
+.rt tbody tr:hover > td { background: var(--raised); }
+.rt tr.fresh > td { background: var(--accent-soft) !important; }
+.rt tr.dragging { opacity: .4; }
+.rt .pos { width: 1%; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rt .handle { cursor: grab; color: var(--faint); padding-right: 4px; user-select: none; }
+.rt .eff { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.rt .eff a { font-weight: 600; }
+.rt .eff small { display: block; color: var(--muted); font-size: 12px; }
+.rt .act { width: 1%; white-space: nowrap; text-align: right; }
+.rt .act .btn { height: 30px; }
+.rt .act .btn.icon-only { width: 30px; }
+.rule-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: var(--s-4); align-items: start; }
+.rule-edit .card { padding: var(--s-5); }
+.rule-edit .pv { position: sticky; top: var(--s-4); display: grid; gap: var(--s-3); max-height: calc(100vh - 32px); overflow: auto; }
+.rule-edit .pv h2 { font-size: 15px; font-weight: 600; }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); padding-top: var(--s-2); }
+.check { display: flex; align-items: flex-start; gap: 8px; }
+.check input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
+dialog.confirm { border: 0; border-radius: var(--r-card); padding: var(--s-6); max-width: 440px; width: calc(100vw - 32px); background: var(--card); color: var(--ink); box-shadow: var(--shadow-pop); }
+dialog.confirm::backdrop { background: rgb(0 0 0 / .4); }
+dialog.confirm h2 { font-size: 17px; margin-bottom: var(--s-2); }
+dialog.confirm p { margin: 0 0 var(--s-3); color: var(--ink-2); }
+dialog.confirm .form-actions { justify-content: flex-end; }
+
+/* ---------- B · Sentences, edited in place ---------- */
+.sl { list-style: none; margin: 0; padding: 0; }
+.sl > li { border-bottom: 1px solid var(--line); }
+.sl > li:last-child { border-bottom: 0; }
+.sr-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-3); align-items: center; padding: 12px var(--s-4); }
+.sr-row .order select { height: 30px; padding: 0 26px 0 8px; font-size: 13px; background-position: right 6px center; }
+.sentence { color: var(--ink-2); line-height: 1.7; min-width: 0; }
+.sentence b { color: var(--ink); font-weight: 600; }
+.sentence .q { font-weight: 600; color: var(--ink); background: var(--raised); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+.sentence .oc-label { font-weight: 600; color: var(--ink); vertical-align: middle; }
+.sr-row .eff { text-align: right; white-space: nowrap; font-size: 13px; color: var(--muted); }
+.sr-row .eff b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.sr-row .open-btn { font: inherit; text-align: left; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; min-width: 0; }
+.sr-row .open-btn:hover .sentence { color: var(--ink); }
+.sl > li.editing { background: var(--raised); }
+.sl > li.gone { padding: 12px var(--s-4); color: var(--muted); font-size: 13px; }
+.builder { padding: 0 var(--s-4) var(--s-4); display: grid; gap: var(--s-3); }
+.builder .sb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; line-height: 2.2; color: var(--ink-2); font-size: 15px; }
+.builder .sb .btn { height: 34px; font-size: 14px; }
+.builder .sb input.btn { width: 180px; }
+.builder .sb select.btn { max-width: 280px; }
+.builder .pvb { display: grid; gap: var(--s-2); padding: var(--s-3) var(--s-4); background: var(--card); border-radius: var(--r-ctl); border: 1px solid var(--line); }
+.builder .pvb .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.builder .pvb .head b { font-size: 15px; }
+.builder .pvb summary { cursor: pointer; color: var(--accent-text); font-weight: 500; font-size: 13px; }
+.ghost-lnk { font: inherit; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 6px 4px; }
+.ghost-lnk:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- C · Rule as a saved filter over Transactions ---------- */
+.md { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.md .rl { list-style: none; margin: 0; padding: var(--s-2); display: grid; gap: 2px; }
+.md .rl li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 2px var(--s-2); align-items: center; padding: 8px 10px; border-radius: var(--r-ctl); cursor: pointer; }
+.md .rl li:hover { background: var(--hover); }
+.md .rl li[aria-selected="true"] { background: var(--accent-soft); }
+.md .rl li.dragging { opacity: .4; }
+.md .rl .p { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.md .rl .t { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md .rl .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.md .rl .o { grid-column: 2 / -1; font-size: 12px; }
+.md .rl .o .oc-label { font-weight: 400; color: var(--ink-2); }
+.md .rl-hint { padding: 0 var(--s-4) var(--s-3); font-size: 12px; color: var(--muted); }
+.md .rl-hint kbd { font: inherit; font-weight: 600; color: var(--ink-2); }
+.det-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-5) var(--s-5) var(--s-3); }
+.det-head h2 { font-size: 17px; font-weight: 600; margin-right: auto; }
+.det-sub { padding: 0 var(--s-5) var(--s-3); display: grid; gap: var(--s-2); }
+.inline-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-3) var(--s-5); margin: 0 var(--s-5) var(--s-3); border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--raised); }
+.inline-confirm p { margin: 0 auto 0 0; }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-2); padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--line); }
+.filter-bar .field { gap: 4px; }
+.filter-bar .field > span { font-size: 12px; color: var(--muted); font-weight: 500; }
+.filter-bar .f-desc { flex: 2 1 220px; } .filter-bar .f-iban { flex: 1 1 200px; } .filter-bar .f-sm { flex: 0 1 150px; }
+.mt { width: 100%; border-collapse: collapse; }
+.mt th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-4) var(--s-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.mt td { padding: 9px var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 13px; }
+.mt tr.grp td { background: var(--raised); font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 6px var(--s-4); }
+.mt tr.srcrow td { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+.mt .c-now, .mt .c-after { white-space: nowrap; }
+.mt .c-after .oc-label { font-weight: 600; }
+.mt .same { color: var(--muted); }
+.mt .ds small { display: block; color: var(--muted); font-size: 12px; }
+.savebar { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(8px); border-radius: 0 0 var(--r-card) var(--r-card); }
+.savebar .grow { flex: 1; }
+.savebar select.btn { max-width: 300px; }
+.toast { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: var(--s-3); padding: 10px var(--s-4); border-radius: var(--r-ctl); background: var(--ink); color: var(--ground); box-shadow: var(--shadow-pop); font-size: 13px; }
+.sl > li.fresh { background: var(--accent-soft); }
+.m-back { display: none !important; }
+.toast button { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+
+/* ---------- Phone ---------- */
+@media (max-width: 900px) {
+  .rule-edit { grid-template-columns: minmax(0, 1fr); }
+  .rule-edit .pv { position: static; max-height: none; }
+  .md { grid-template-columns: minmax(0, 1fr); }
+  .md.has-sel .rl-card { display: none; }
+  .md:not(.has-sel) .det { display: none; }
+  .md.has-sel .m-back { display: inline-flex !important; }
+  .toast { bottom: 140px; }
+  .savebar { bottom: 64px; }
+}
+@media (max-width: 600px) {
+  .rt thead { display: none; }
+  .rt tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px var(--s-2); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .rt td { padding: 0; border: 0; background: none !important; }
+  .rt .c-rule { grid-column: 2 / -1; }
+  .rt .c-out { grid-column: 2 / 3; }
+  .rt .eff { grid-column: 3; }
+  .rt .act { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 6px; width: auto; }
+  .rt .act .btn { height: 44px; } .rt .act .btn.icon-only { width: 44px; }
+  .two { grid-template-columns: 1fr; }
+  .rows thead { display: none; }
+  .rows tr:not(.inline) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .rows tr:not(.inline) > td { padding: 0; border: 0; }
+  .rows .c-date, .rows .c-acct { display: none; }
+  .rows .c-out { grid-column: 1 / -1; width: auto; }
+  .rows tr.inline, .rows tr.inline > td { display: block; }
+  .sr-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .sr-row .order { grid-row: 2; grid-column: 1; }
+  .sr-row .eff { grid-row: 2; grid-column: 2; }
+  .sr-row .open-btn { grid-column: 1 / -1; }
+  .builder .sb input.btn, .builder .sb select.btn { width: 100%; max-width: none; height: 44px; }
+  .builder .sb { gap: 6px; }
+  .mt thead { display: none; }
+  .mt tr:not(.grp) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: 8px var(--s-4); border-bottom: 1px solid var(--line); }
+  .mt tr:not(.grp) td { padding: 0; border: 0; }
+  .mt .c-date { display: none; }
+  .mt .c-now { grid-column: 1; } .mt .c-after { grid-column: 2; }
+  .savebar select.btn { max-width: none; flex: 1 1 100%; }
+  .savebar .btn { height: 44px; }
+  .pv-list li { grid-template-columns: minmax(0, 1fr) auto; }
+  .pv-list .dt { display: none; }
+  .pv-list .to { grid-column: 1 / -1; }
+}
+/* ---------- Phone frame (prototype only) ---------- */
+.frame-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 0 90px; background: repeating-linear-gradient(45deg, #e5e7eb 0 10px, #eceef1 10px 20px); }
+.frame-wrap iframe { width: 390px; height: 844px; border: 10px solid #111; border-radius: 44px; background: #fff; box-shadow: 0 20px 60px rgb(0 0 0 / .3); }
+.framed .proto { display: none; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-4.2-7.6"/><path d="m9 11 3 3 9-9"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-updown" viewBox="0 0 24 24"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-rule" viewBox="0 0 24 24"><path d="M4 6h10M4 12h7M4 18h10M17 9l3 3-3 3"/></symbol>
+</svg>
+
+<div id="app"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<div class="proto" id="proto" role="region" aria-label="Prototype switcher (not part of the design)"></div>
+
+<script>
+// ===================== Synthetic Household (the seeded Category list) =====================
+const CATEGORY_LIST = [
+  ['Food', ['Groceries', 'Restaurants & cafés', 'Fast food & takeaway', 'Other']],
+  ['Home', ['Rent / mortgage', 'Utilities', 'Internet & phone', 'Furniture & household', 'Maintenance & repairs', 'Other']],
+  ['Transport', ['Fuel', 'Parking & tolls', 'Car maintenance', 'Car insurance & registration', 'Public transport & car sharing', 'Other']],
+  ['Health', ['Pharmacy', 'Doctor & dental', 'Health insurance', 'Other']],
+  ['Children', ['Childcare & school', 'Activities', 'Clothes & toys', 'Other']],
+  ['Shopping', ['Clothing & shoes', 'Electronics', 'Gifts', 'Personal care', 'Other']],
+  ['Leisure', ['Travel', 'Hobbies & sport', 'Entertainment & going out', 'Subscriptions & digital services', 'Other']],
+  ['Finance', ['Bank fees', 'Insurance (non-health)', 'Taxes & fines', 'Other']],
+  ['Other', ['Cash withdrawal', 'Payments to people', 'Miscellaneous']],
+  ['Income', ['Salary', 'Benefits & allowances', 'Interest', 'Gifts received', 'Other income']],
+];
+const CATS = CATEGORY_LIST.map(([name, subs], i) => ({ id: i + 1, name, hue: i % 10, subs: subs.map((s, j) => (i + 1) * 100 + j + 1) }));
+const SUBS = {};
+CATS.forEach(c => c.subs.forEach((id, j) => { SUBS[id] = { id, name: CATEGORY_LIST[c.id - 1][1][j], cat: c.name, hue: c.hue }; }));
+const sub = (cat, name) => Object.values(SUBS).find(s => s.cat === cat && s.name === name).id;
+const ACCTS = { m: 'Maja · N26', l: 'Luka · Revolut', j: 'Joint · Sparkasse' };
+const IB = { elektro: 'SI56020100012345678', telekom: 'SI56040000276543210', savings: 'SI56610000012340001', landlord: 'SI56191000098765432' };
+
+let TX, RULES, nextRuleId;
+function seed() {
+  const R = (id, o) => ({ id, contains: '', iban: '', dir: '', acct: '', ...o });
+  RULES = [
+    R(1, { contains: 'MERCATOR', out: sub('Food', 'Groceries') }),
+    R(2, { contains: 'PETROL', dir: 'out', out: sub('Transport', 'Fuel') }),
+    R(3, { iban: IB.elektro, out: sub('Home', 'Utilities') }),
+    R(4, { contains: 'ACME', dir: 'in', acct: 'm', out: sub('Income', 'Salary') }),
+    R(5, { iban: IB.landlord, out: sub('Home', 'Rent / mortgage') }),
+    R(6, { iban: IB.savings, out: 'transfer' }),
+    R(7, { contains: 'SPAR', out: sub('Food', 'Groceries') }),
+    R(8, { contains: 'SPARKASSE', out: sub('Finance', 'Bank fees') }),
+  ];
+  nextRuleId = 8;
+  TX = []; let n = 0;
+  const t = (date, desc, amount, acct, out, source, extra = {}) =>
+    TX.push({ id: 't' + (++n), date, desc, amount, acct, out: out ?? null, source: source ?? '', iban: '', rule: null, ...extra });
+  const G = sub('Food', 'Groceries'), SUBS_DIG = sub('Leisure', 'Subscriptions & digital services'), NET = sub('Home', 'Internet & phone');
+  // The three the Member just saved by hand in the Review queue (#83: "Saved as … · Undo · Make a Rule").
+  t('2026-10-01', 'HOFER 2201 LJUBLJANA', -61.30, 'j', G, 'manual', { queue: true, justSaved: true });
+  t('2026-10-13', 'PAYPAL *STEAMGAMES', -19.99, 'l', SUBS_DIG, 'manual', { queue: true, justSaved: true });
+  t('2026-10-06', 'Telekom Slovenije d.d.', -39.99, 'j', NET, 'manual', { queue: true, justSaved: true, iban: IB.telekom });
+  // Still waiting in the Review queue.
+  t('2026-10-11', 'Lekarna Ljubljana 12', -23.40, 'm', null, '', { queue: true });
+  t('2026-10-02', 'Bolt.eu', -11.02, 'l', null, '', { queue: true });
+  t('2026-10-07', 'Amazon EU S.a.r.l.', -31.90, 'l', null, '', { queue: true });
+  // Hofer: mostly groceries, two false friends set by hand, a refund.
+  t('2026-09-24', 'HOFER 2201 LJUBLJANA', -48.12, 'j', G, 'llm');
+  t('2026-09-12', 'HOFER 2187 DOMŽALE', -33.05, 'm', G, 'llm');
+  t('2026-09-02', 'Hofer Vič', -152.20, 'j', G, 'manual');
+  t('2026-08-27', 'HOFER 2201 LJUBLJANA', -72.40, 'j', null, '');
+  t('2026-08-14', 'HOFER 2201 LJUBLJANA', -19.99, 'l', sub('Food', 'Other'), 'llm');
+  t('2026-07-30', 'HOFER 2187 DOMŽALE', -54.10, 'm', null, '');
+  t('2026-07-11', 'Gostilna Hofer Bled', -86.00, 'l', sub('Food', 'Restaurants & cafés'), 'manual');
+  t('2026-06-20', 'HOFER REISEN Online', -420.00, 'm', sub('Leisure', 'Travel'), 'manual');
+  t('2026-06-05', 'HOFER 2201 LJUBLJANA', -38.70, 'j', G, 'llm');
+  t('2026-05-15', 'HOFER 2201 LJUBLJANA refund', 12.49, 'j', G, 'llm');
+  // PayPal: the processor is the same, the merchant isn't.
+  t('2026-09-13', 'PAYPAL *STEAMGAMES', -4.99, 'l', SUBS_DIG, 'llm');
+  t('2026-08-02', 'PAYPAL *STEAMGAMES', -59.99, 'l', sub('Leisure', 'Hobbies & sport'), 'llm');
+  t('2026-06-03', 'PAYPAL *STEAMGAMES', -12.49, 'l', null, '');
+  t('2026-09-20', 'PAYPAL *SPOTIFY', -10.99, 'm', SUBS_DIG, 'llm');
+  t('2026-08-20', 'PAYPAL *SPOTIFY', -10.99, 'm', SUBS_DIG, 'llm');
+  t('2026-07-18', 'PAYPAL *EBAY DE', -24.50, 'l', sub('Shopping', 'Electronics'), 'manual');
+  // Telekom: the IBAN is exact; a shop purchase without it is not the bill.
+  t('2026-09-06', 'Telekom Slovenije d.d.', -39.99, 'j', NET, 'llm', { iban: IB.telekom });
+  t('2026-08-06', 'Telekom Slovenije d.d.', -39.99, 'j', sub('Home', 'Utilities'), 'llm', { iban: IB.telekom });
+  t('2026-07-06', 'Telekom Slovenije d.d.', -39.99, 'j', null, '', { iban: IB.telekom });
+  t('2026-06-06', 'Telekom Slovenije d.d.', -44.99, 'j', NET, 'llm', { iban: IB.telekom });
+  t('2026-08-15', 'TELEKOM SLO PRODAJNA', -199.00, 'l', sub('Shopping', 'Electronics'), 'manual');
+  // Categorized by the existing Rules ('auto' runs them below).
+  ['2026-10-15', '2026-10-04', '2026-09-27', '2026-09-18', '2026-09-05', '2026-08-29', '2026-08-11', '2026-07-24', '2026-07-03', '2026-06-14', '2026-05-30', '2026-05-09'].forEach((d, i) => t(d, i % 3 ? 'MERCATOR CENTER ŠIŠKA' : 'Mercator Bežigrad', -(31.2 + i * 7.3), i % 2 ? 'm' : 'j', null, 'auto'));
+  ['2026-10-10', '2026-09-21', '2026-08-30', '2026-08-09', '2026-07-19', '2026-06-28'].forEach((d, i) => t(d, 'PETROL TRŽAŠKA', -(62 + i * 3.1), 'l', null, 'auto'));
+  t('2026-09-02', 'PETROL loyalty refund', 5.00, 'l', sub('Transport', 'Fuel'), 'manual');
+  ['2026-10-14', '2026-09-14', '2026-08-14', '2026-07-14', '2026-06-14', '2026-05-14'].forEach((d, i) => t(d, 'Elektro Ljubljana', -(96.1 - i * 4), 'j', null, 'auto', { iban: IB.elektro }));
+  ['2026-10-03', '2026-09-03', '2026-08-03', '2026-07-03', '2026-06-03', '2026-05-04'].forEach(d => t(d, 'Salary · Acme d.o.o.', 2410, 'm', null, 'auto'));
+  ['2026-10-01', '2026-09-01', '2026-08-01', '2026-07-01', '2026-06-01', '2026-05-01'].forEach(d => t(d, 'NAJEMNINA · J. Kovač', -850, 'j', null, 'auto', { iban: IB.landlord }));
+  ['2026-10-14', '2026-09-14', '2026-08-14', '2026-07-14', '2026-06-14'].forEach(d => t(d, 'To Savings · Delavska', -300, 'j', null, 'auto', { iban: IB.savings }));
+  ['2026-10-09', '2026-09-23', '2026-09-08', '2026-08-19', '2026-07-27', '2026-07-08', '2026-06-17'].forEach((d, i) => t(d, 'SPAR BEŽIGRAD', -(22.4 + i * 5.2), i % 2 ? 'm' : 'j', null, 'auto'));
+  ['2026-10-01', '2026-09-01', '2026-08-01', '2026-07-01', '2026-06-01', '2026-05-01'].forEach(d => t(d, 'SPARKASSE account fee', -4.5, 'j', null, 'auto'));
+  // Background.
+  t('2026-09-28', 'Lidl Rudnik', -138.40, 'j', G, 'llm');
+  t('2026-09-24', 'Wolt', -32.70, 'l', sub('Food', 'Fast food & takeaway'), 'llm');
+  t('2026-09-13', 'Kavarna Zvezda', -18.60, 'm', sub('Food', 'Restaurants & cafés'), 'manual');
+  TX.forEach(x => {
+    if (x.source !== 'auto') return;
+    x.source = '';
+    const r = RULES.find(r => matches(r, x));
+    if (r) { x.out = r.out; x.source = 'rule'; x.rule = r.id; }
+  });
+}
+
+// ===================== Helpers =====================
+const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const tidy = s => s.replace(/\s+/g, '').toUpperCase();
+const prettyIban = s => tidy(s).replace(/(.{4})/g, '$1 ').trim();
+const fmt = new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' });
+const signed = v => (v > 0 ? '+' : '') + fmt.format(v);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const day = d => `${+d.slice(8)} ${MONTHS[+d.slice(5, 7) - 1]}`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ic = n => `<svg class="icon" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const pl = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+const ORD = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+const SOURCE = { rule: 'by Rule', llm: 'by LLM', manual: 'by hand', iban: 'by IBAN', pairing: 'paired', '': '' };
+
+function dot(v) {
+  if (v == null || v === '') return `<span class="dot hatch" aria-hidden="true"></span>`;
+  if (v === 'transfer') return `<span class="dot" style="box-shadow:inset 0 0 0 1.5px var(--muted)" aria-hidden="true"></span>`;
+  return `<span class="dot" style="background:var(--cat-${SUBS[v].hue})" aria-hidden="true"></span>`;
+}
+const plain = v => v == null || v === '' ? 'Awaiting review' : v === 'transfer' ? 'Transfer' : `${SUBS[v].cat} › ${SUBS[v].name}`;
+const rich = v => v == null || v === '' || v === 'transfer' ? esc(plain(v)) : `<span class="cat-name">${esc(SUBS[v].cat)}</span> <span class="sep">›</span> ${esc(SUBS[v].name)}`;
+const label = v => `<span class="oc-label">${dot(v)}<span>${rich(v)}</span></span>`;
+function hl(desc, contains) {
+  const q = fold((contains || '').trim()); if (!q) return esc(desc);
+  const i = fold(desc).indexOf(q); if (i < 0) return esc(desc);
+  return esc(desc.slice(0, i)) + '<mark>' + esc(desc.slice(i, i + q.length)) + '</mark>' + esc(desc.slice(i + q.length));
+}
+
+// ===================== The Rule engine (mirrors ledger/rules.py) =====================
+const hasCond = r => !!(r.contains.trim() || r.iban.trim() || r.dir || r.acct);
+function matches(r, x) {
+  if (!hasCond(r)) return false;
+  if (r.contains.trim() && !fold(x.desc).includes(fold(r.contains.trim()))) return false;
+  if (r.iban.trim() && x.iban !== tidy(r.iban)) return false;
+  if (r.dir === 'in' && !(x.amount > 0)) return false;
+  if (r.dir === 'out' && !(x.amount < 0)) return false;
+  if (r.acct && x.acct !== r.acct) return false;
+  return true;
+}
+const overwritable = x => x.out == null || x.source === 'llm' || x.source === 'rule';
+const ruleById = id => RULES.find(r => r.id === id);
+const posOf = id => RULES.findIndex(r => r.id === id) + 1;
+const effect = r => TX.filter(x => x.source === 'rule' && x.rule === r.id).length;
+function ruleName(r) {
+  if (r.contains) return `“${r.contains}”`;
+  if (r.iban) return prettyIban(r.iban);
+  return `Rule ${posOf(r.id)}`;
+}
+// Matches of `r` that an earlier Rule takes at import, by that Rule.
+function takenAbove(r) {
+  const out = {}, p = posOf(r.id) - 1;
+  TX.filter(x => matches(r, x)).forEach(x => { const w = RULES.slice(0, p).find(e => matches(e, x)); if (w) out[w.id] = (out[w.id] || 0) + 1; });
+  return out;
+}
+// The live preview: what this draft would do to the existing Transactions.
+function preview(d) {
+  const P = { all: [], change: [], same: [], keep: [], keepDiff: [], fromRules: {}, shadow: {}, empty: !hasCond(d) };
+  if (P.empty) return P;
+  TX.forEach(x => {
+    if (!matches(d, x)) return;
+    P.all.push(x);
+    if (!overwritable(x)) { P.keep.push(x); if (d.out !== '' && x.out !== d.out) P.keepDiff.push(x); }
+    else if (d.out !== '' && x.out === d.out) P.same.push(x);
+    else { P.change.push(x); if (x.source === 'rule' && x.rule !== d.id) P.fromRules[x.rule] = (P.fromRules[x.rule] || 0) + 1; }
+  });
+  if (d.id) P.shadow = takenAbove(d);
+  return P;
+}
+function pvOrder(P, d) {
+  const src = d.from ? TX.find(x => x.id === d.from) : null;
+  const rank = x => x === src ? 0 : P.change.includes(x) ? 1 : P.keepDiff.includes(x) ? 2 : P.same.includes(x) ? 3 : 4;
+  return [...P.all].sort((a, b) => rank(a) - rank(b) || b.date.localeCompare(a.date));
+}
+const status = (P, x) => P.change.includes(x) ? 'change' : P.same.includes(x) ? 'same' : 'keep';
+
+// ===================== Make a Rule: what it pre-fills =====================
+// Payment processors put the merchant after "*"; store numbers and towns make a Rule store-specific.
+const PROCESSORS = ['PAYPAL', 'SUMUP', 'SQ', 'ZETTLE', 'IZETTLE', 'GOOGLE'];
+const PLACES = ['LJUBLJANA', 'MARIBOR', 'KRANJ', 'CELJE', 'KOPER', 'DOMZALE', 'BLED', 'VIC', 'SISKA', 'BEZIGRAD'];
+const bare = t => fold(t).toUpperCase().replace(/[^A-Z0-9.]/g, '');
+function suggestRange(words) {
+  let i = PROCESSORS.includes(bare(words[0])) && words.length > 1 ? 1 : 0, j = i;
+  while (j + 1 < words.length && j - i < 1 && !/\d/.test(words[j + 1]) && !PLACES.includes(bare(words[j + 1]))) j++;
+  return [i, j];
+}
+const wordsText = (words, r) => r ? words.slice(r[0], r[1] + 1).join(' ').replace(/^\*/, '') : '';
+function rangeFor(words, text) {
+  for (let i = 0; i < words.length; i++) for (let j = i; j < words.length; j++)
+    if (fold(wordsText(words, [i, j])) === fold(text.trim())) return [i, j];
+  return null;
+}
+function blankDraft() { return { id: null, contains: '', iban: '', dir: '', acct: '', out: '', from: null }; }
+function draftFrom(x) {
+  const d = { ...blankDraft(), from: x.id, out: x.out ?? '', words: x.desc.split(/\s+/) };
+  if (x.iban) { d.iban = x.iban; d.range = null; }
+  else { d.range = suggestRange(d.words); d.contains = wordsText(d.words, d.range); }
+  return d;
+}
+function draftOf(r) { return { ...blankDraft(), ...r, iban: r.iban ? prettyIban(r.iban) : '' }; }
+function clickWord(d, k) {
+  let r = d.range;
+  if (!r) r = [k, k];
+  else if (k < r[0]) r = [k, r[1]];
+  else if (k > r[1]) r = [r[0], k];
+  else if (r[0] === r[1]) r = null;
+  else if (k === r[0]) r = [k + 1, r[1]];
+  else if (k === r[1]) r = [r[0], k - 1];
+  else r = [k, k];
+  d.range = r; d.contains = wordsText(d.words, r);
+}
+
+// ===================== Mutations (in memory) =====================
+function saveRule(d, apply) {
+  const fields = { contains: d.contains.trim(), iban: tidy(d.iban), dir: d.dir, acct: d.acct, out: d.out };
+  let r;
+  if (d.id) { r = ruleById(d.id); Object.assign(r, fields); }
+  else { r = { id: ++nextRuleId, ...fields }; RULES.unshift(r); }
+  const P = preview({ ...r, id: r.id }); let changed = 0;
+  if (apply) [...P.change, ...P.same].forEach(x => { if (x.out !== r.out) changed++; x.out = r.out; x.source = 'rule'; x.rule = r.id; });
+  return { r, changed };
+}
+function deleteRule(id) {
+  const i = RULES.findIndex(r => r.id === id), r = RULES[i], n = effect(r);
+  RULES.splice(i, 1);
+  const touched = TX.filter(x => x.rule === id); touched.forEach(x => { x.rule = null; });
+  return { r, i, n, touched };
+}
+function restoreRule(g) { RULES.splice(g.i, 0, g.r); g.touched.forEach(x => { x.rule = g.r.id; }); }
+function moveTo(id, to) { const i = RULES.findIndex(r => r.id === id); const [r] = RULES.splice(i, 1); RULES.splice(Math.max(0, Math.min(RULES.length, to)), 0, r); }
+
+// ===================== State =====================
+const VARIANTS = { A: 'Rules table, Rule page with preview beside', B: 'Sentences, edited in place', C: 'Rule as a saved filter over Transactions' };
+const PAGES = { rules: 'Rules', edit: 'Rule', review: 'Review queue' };
+const qs = new URLSearchParams(location.search);
+seed();
+const S = {
+  variant: VARIANTS[qs.get('variant')] ? qs.get('variant') : 'A',
+  page: PAGES[qs.get('page')] ? qs.get('page') : 'review',
+  frame: qs.get('frame') === '1', framed: qs.get('framed') === '1',
+  d: null, origin: 'rules', apply: true, notice: null, fresh: null, del: null, gone: null, sel: RULES[0].id, toast: null, said: '',
+};
+if (S.page === 'edit') { S.d = draftFrom(TX[0]); S.origin = 'review'; }
+if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+
+// ===================== Shared form controls =====================
+function outcomeSelect(d, id = 'f-out') {
+  return `<select class="btn" id="${id}" data-f="out" aria-label="Outcome">${d.out === '' ? '<option value="">Choose an outcome</option>' : ''}${CATS.map(c => `<optgroup label="${esc(c.name)}">${c.subs.map(v => `<option value="${v}"${d.out === v ? ' selected' : ''}>${esc(c.name)} › ${esc(SUBS[v].name)}</option>`).join('')}</optgroup>`).join('')}<optgroup label="Not spending or income"><option value="transfer"${d.out === 'transfer' ? ' selected' : ''}>Transfer</option></optgroup></select>`;
+}
+const dirSelect = (d, id = 'f-dir', words = ['In or out', 'Money in', 'Money out']) => `<select class="btn" id="${id}" data-f="dir" aria-label="Direction"><option value="">${words[0]}</option><option value="in"${d.dir === 'in' ? ' selected' : ''}>${words[1]}</option><option value="out"${d.dir === 'out' ? ' selected' : ''}>${words[2]}</option></select>`;
+const acctSelect = (d, id = 'f-acct') => `<select class="btn" id="${id}" data-f="acct" aria-label="Account"><option value="">Any Account</option>${Object.entries(ACCTS).map(([k, v]) => `<option value="${k}"${d.acct === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
+const containsInput = (d, id = 'f-contains') => `<input class="btn" id="${id}" data-f="contains" value="${esc(d.contains)}" placeholder="e.g. HOFER" autocomplete="off" aria-label="Description contains">`;
+const ibanInput = (d, id = 'f-iban') => `<input class="btn mono" id="${id}" data-f="iban" value="${esc(d.iban ? prettyIban(d.iban) : '')}" placeholder="SI56 …" autocomplete="off" aria-label="Counterparty IBAN">`;
+function wordChips(d) {
+  if (!d.words) return '';
+  return `<div class="words" id="words"><span class="lbl">Words from it:</span>${d.words.map((w, k) => `<button type="button" class="word${d.range && k >= d.range[0] && k <= d.range[1] ? ' on' : ''}" data-word="${k}" id="w-${k}" aria-pressed="${!!(d.range && k >= d.range[0] && k <= d.range[1])}">${esc(w)}</button>`).join('')}</div>`;
+}
+function srcBlock(d, title = 'Made from the Transaction you just saved') {
+  const x = d.from && TX.find(t => t.id === d.from); if (!x) return '';
+  return `<div class="src"><span class="k">${title}</span><span class="d">${esc(x.desc)}</span><span class="a">${signed(x.amount)}</span>
+    <span class="m">${day(x.date)} · ${esc(ACCTS[x.acct])}${x.iban ? ` · <span class="mono">${prettyIban(x.iban)}</span>` : ''} · saved by hand as ${esc(plain(x.out))}</span></div>`;
+}
+const condPills = r => `<span class="conds">${r.contains ? `<span class="cond">contains <b>${esc(r.contains)}</b></span>` : ''}${r.iban ? `<span class="cond">IBAN <b class="mono">${prettyIban(r.iban)}</b></span>` : ''}${r.dir ? `<span class="cond">money <b>${r.dir}</b></span>` : ''}${r.acct ? `<span class="cond">on <b>${esc(ACCTS[r.acct])}</b></span>` : ''}</span>`;
+
+// The preview's words, shared by A and B (C shows the Transactions themselves).
+function pvSummary(P, d) {
+  if (P.empty) return `<p class="empty-pv">Give the Rule at least one condition to see what it matches.</p>`;
+  if (!P.all.length) return `<div class="pv-sum"><div class="pv-big">Matches no existing Transaction</div><span class="cap">It will still categorize matching Transactions at future imports.</span></div>`;
+  const o = d.out === '' ? 'the outcome you choose' : esc(plain(d.out));
+  const br = [['awaiting review', P.change.filter(x => x.out == null).length], ['by LLM', P.change.filter(x => x.source === 'llm').length], ['by another Rule', P.change.filter(x => x.source === 'rule').length]].filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(', ');
+  const lines = [
+    P.change.length ? `<div class="pv-line"><span class="n">${P.change.length}</span><span>would change to <b>${o}</b>${br ? ` <span class="cap">(${br})</span>` : ''}</span></div>` : '',
+    P.same.length ? `<div class="pv-line"><span class="n">${P.same.length}</span><span>already ${o}</span></div>` : '',
+    P.keep.length ? `<div class="pv-line"><span class="n">${P.keep.length}</span><span>keep their outcome <span class="cap">(set by hand, by IBAN or by pairing)</span></span></div>` : '',
+  ].join('');
+  return `<div class="pv-sum"><div class="pv-big">Matches ${pl(P.all.length, 'existing Transaction')}</div>${lines}</div>${pvWarnings(P, d)}`;
+}
+function pvWarnings(P, d) {
+  const w = [];
+  const src = d.from;
+  const diff = P.keepDiff.filter(x => x.id !== src);
+  if (diff.length) {
+    const ex = diff.slice(0, 2).map(x => `“${esc(x.desc)}” (${esc(plain(x.out))})`).join(' and ');
+    w.push(`${pl(diff.length, 'of them was', 'of them were')} set by hand to something else, such as ${ex}. A new one like ${diff.length === 1 ? 'it' : 'them'} would become ${esc(plain(d.out))} at import.`);
+  }
+  Object.entries(P.fromRules).forEach(([id, n]) => { const r = ruleById(+id); w.push(`Takes ${pl(n, 'Transaction')} over from Rule ${posOf(r.id)} (${esc(ruleName(r))}).`); });
+  Object.entries(P.shadow).forEach(([id, n]) => { const r = ruleById(+id); w.push(`At import, Rule ${posOf(r.id)} (${esc(ruleName(r))}) above wins on ${n} of these.`); });
+  return w.map(t => `<div class="pv-warn">${ic('alert')}<span>${t}</span></div>`).join('');
+}
+function pvList(P, d, max = 8) {
+  if (P.empty || !P.all.length) return '';
+  const list = pvOrder(P, d);
+  const li = x => {
+    const st = status(P, x), isSrc = x.id === d.from;
+    const to = st === 'change' ? `${label(x.out)}<span class="arrow">→</span>${label(d.out)}<span class="tag change">changes</span>`
+      : st === 'same' ? `${label(x.out)}<span class="tag">already</span>`
+      : `${label(x.out)}<span class="tag">keeps · ${SOURCE[x.source]}</span>`;
+    return `<li><span class="dt">${day(x.date)}</span><span class="ds">${hl(x.desc, d.contains)}</span><span class="amt">${signed(x.amount)}</span><span class="to">${isSrc ? '<span class="tag src-row">this one</span>' : ''}${to}</span></li>`;
+  };
+  return `<ul class="pv-list">${list.slice(0, max).map(li).join('')}</ul>${list.length > max ? `<details><summary class="cap" style="cursor:pointer;padding-top:6px">and ${list.length - max} more</summary><ul class="pv-list">${list.slice(max).map(li).join('')}</ul></details>` : ''}`;
+}
+const applyCount = d => { const P = preview(d); return P.change.length; };
+
+// ===================== Review queue (the entry point for Make a Rule) =====================
+function pageReview() {
+  const q = TX.filter(x => x.queue).sort((a, b) => (b.justSaved - a.justSaved) || b.date.localeCompare(a.date));
+  const waiting = q.filter(x => !x.justSaved).length;
+  const row = x => {
+    const out = x.justSaved
+      ? `${label(x.out)}<div class="fb">${ic('ok')}<span>Saved as ${esc(plain(x.out))}</span> · <button class="lnk" type="button">Undo</button> · <button class="lnk" type="button" data-make="${x.id}" id="make-${x.id}">Make a Rule</button></div>`
+      : `${label(null)} <span class="cap">· waiting</span>`;
+    const tr = `<tr class="${x.justSaved ? 'done' : ''}"><td class="c-date">${day(x.date)}</td><td class="desc">${esc(x.desc)}<small>${esc(ACCTS[x.acct])}</small></td><td class="amt">${signed(x.amount)}</td><td class="c-out">${out}</td></tr>`;
+    const inline = S.variant === 'B' && S.d && S.origin === 'review' && S.d.from === x.id ? `<tr class="inline"><td colspan="4">${builderB(S.d)}</td></tr>` : '';
+    return tr + inline;
+  };
+  return `<div class="title-row"><h1>Review queue</h1></div>
+    <p class="page-sub">${waiting} Transactions still need an outcome. The first three were just saved by hand; “Make a Rule” is the entry point under test.</p>
+    ${S.notice && S.variant !== 'C' ? noticeHtml() : ''}
+    <section class="card"><table class="rows"><thead><tr><th>Date</th><th>Transaction</th><th class="r">Amount</th><th>Outcome</th></tr></thead><tbody>${q.map(row).join('')}</tbody></table></section>`;
+}
+const noticeHtml = () => `<div class="notice" role="status">${ic('ok')}<span class="grow">${S.notice}</span><button class="btn ghost icon-only sm" type="button" data-dismiss aria-label="Dismiss">${ic('x')}</button></div>`;
+
+// ===================== Variant A · Rules table + a Rule page with the preview beside the form =====================
+function rulesA() {
+  const rows = RULES.map((r, i) => {
+    const n = effect(r), taken = takenAbove(r), tk = Object.entries(taken);
+    const note = tk.length ? `<small>${tk.map(([id, k]) => `${k} go to Rule ${posOf(+id)} above`).join(', ')}</small>` : '';
+    return `<tr draggable="true" data-dragrow="${r.id}" class="${S.fresh === r.id ? 'fresh' : ''}">
+      <td class="pos"><span class="handle" aria-hidden="true">⠿</span> ${i + 1}</td>
+      <td class="c-rule">${condPills(r)}</td>
+      <td class="c-out">${label(r.out)}</td>
+      <td class="eff"><a href="#" title="Transactions this Rule categorized">${n}</a> <span class="cap">${n === 1 ? 'Transaction' : 'Transactions'}</span>${note}</td>
+      <td class="act"><button class="btn ghost icon-only" type="button" data-move="${r.id}:up" id="up-${r.id}" aria-label="Move ${esc(ruleName(r))} up"${i === 0 ? ' disabled' : ''}>${ic('up')}</button><button class="btn ghost icon-only" type="button" data-move="${r.id}:down" id="down-${r.id}" aria-label="Move ${esc(ruleName(r))} down"${i === RULES.length - 1 ? ' disabled' : ''}>${ic('down')}</button>
+        <button class="btn sm" type="button" data-edit="${r.id}">Edit</button><button class="btn ghost sm" type="button" data-del="${r.id}" id="del-${r.id}">Delete</button></td></tr>`;
+  }).join('');
+  const del = S.del && ruleById(S.del);
+  const dlg = del ? `<dialog class="confirm" id="confirm" aria-labelledby="confirm-h"><h2 id="confirm-h">Delete the Rule ${esc(ruleName(del))}?</h2>
+      <p>It categorized ${pl(effect(del), 'Transaction')}. ${effect(del) ? 'They keep their outcome.' : ''} Future imports won't use it.</p>
+      <div class="form-actions"><button class="btn" type="button" data-cancel-del>Cancel</button><button class="btn primary" type="button" data-confirm-del="${del.id}">Delete Rule</button></div></dialog>` : '';
+  return `<div class="title-row"><h1>Rules</h1><button class="btn primary" type="button" data-new>New Rule</button></div>
+    <p class="page-sub">At import, each Transaction still awaiting review is categorized by the first Rule it matches, top to bottom. Drag a row, or use ↑ ↓, to change the order.</p>
+    ${S.notice ? noticeHtml() : ''}
+    <section class="card"><table class="rt"><thead><tr><th>#</th><th>Conditions</th><th>Outcome</th><th class="r" style="text-align:right">Categorized</th><th></th></tr></thead><tbody data-draglist>${rows}</tbody></table></section>${dlg}`;
+}
+function editA() {
+  const d = S.d, title = d.id ? 'Edit Rule' : d.from ? 'Make a Rule' : 'New Rule';
+  const x = d.from && TX.find(t => t.id === d.from);
+  return `<div class="title-row"><h1>${title}</h1><button class="btn ghost" type="button" data-cancel>${ic('left')}Back</button></div>
+    <div class="rule-edit">
+      <form class="card form-grid" onsubmit="return false">
+        ${srcBlock(d)}
+        <label class="field"><span>Description contains</span>${containsInput(d)}<small>Ignores case and accents.</small></label>
+        ${wordChips(d)}
+        <label class="field"><span>Counterparty IBAN</span>${ibanInput(d)}${x && x.iban && !d.iban ? `<small>This one has <span class="mono">${prettyIban(x.iban)}</span>. <a href="#" data-use-iban>Use it</a></small>` : ''}</label>
+        <div class="two"><label class="field"><span>Direction</span>${dirSelect(d)}</label><label class="field"><span>Account</span>${acctSelect(d)}</label></div>
+        <label class="field"><span>Outcome</span>${outcomeSelect(d)}</label>
+        <label class="check"><input type="checkbox" id="f-apply" data-apply${S.apply ? ' checked' : ''}><span id="apply-lbl">${applyLabelA(d)}</span></label>
+        <div class="form-actions"><button class="btn primary" type="button" data-save id="save">Save Rule</button><button class="btn ghost" type="button" data-cancel>Cancel</button>
+          ${d.id ? `<span style="flex:1"></span><button class="btn ghost" type="button" data-del="${d.id}">Delete Rule</button>` : ''}</div>
+        <p class="cap" style="margin:0">${d.id ? `It stays ${ORD(posOf(d.id))} in the order.` : 'A new Rule goes to the top, so it is checked first.'}</p>
+      </form>
+      <aside class="card pv" aria-labelledby="pv-h"><h2 id="pv-h">Preview</h2><div id="pv" aria-live="polite">${pvSummary(preview(d), d)}${pvList(preview(d), d)}</div></aside>
+    </div>`;
+}
+const applyLabelA = d => { const n = applyCount(d); return n ? `Also change the ${pl(n, 'existing Transaction')} it would change` : 'Nothing existing would change'; };
+
+// ===================== Variant B · Sentences, edited in place =====================
+function sentence(r) {
+  const parts = [];
+  if (r.contains) parts.push(`the description contains <span class="q">${esc(r.contains)}</span>`);
+  if (r.iban) parts.push(`the counterparty IBAN is <span class="q mono">${prettyIban(r.iban)}</span>`);
+  if (r.dir) parts.push(`it is money <b>${r.dir}</b>`);
+  if (r.acct) parts.push(`it is on <b>${esc(ACCTS[r.acct])}</b>`);
+  return `<span class="sentence">If ${parts.join(' and ')} → ${label(r.out)}</span>`;
+}
+function builderB(d) {
+  const n = applyCount(d), P = preview(d);
+  return `<div class="builder" role="group" aria-label="${d.id ? 'Edit Rule' : 'New Rule'}">
+    ${d.from && S.origin === 'review' ? `<span class="cap">A Rule for Transactions like the one above</span>` : ''}
+    <div class="sb">If the description contains ${containsInput(d, 'b-contains')} and the counterparty IBAN is ${ibanInput(d, 'b-iban')}
+      and it is ${dirSelect(d, 'b-dir', ['money in or out', 'money in', 'money out'])} on ${acctSelect(d, 'b-acct')}, categorize it as ${outcomeSelect(d, 'b-out')}.</div>
+    ${wordChips(d)}
+    <div class="pvb" id="pv" aria-live="polite">${pvB(P, d)}</div>
+    <div class="form-actions">
+      <button class="btn primary" type="button" data-save="apply" id="save"${P.empty || d.out === '' ? ' disabled' : ''}>${n ? `Save and change ${n}` : 'Save Rule'}</button>
+      ${n ? `<button class="btn" type="button" data-save="future">Save, future imports only</button>` : ''}
+      <button class="ghost-lnk" type="button" data-cancel>Cancel</button>
+      ${d.id ? `<span style="flex:1"></span><button class="btn ghost" type="button" data-del="${d.id}">Delete</button>` : ''}
+    </div></div>`;
+}
+function pvB(P, d) {
+  if (P.empty) return `<span class="cap">Give it at least one condition.</span>`;
+  if (!P.all.length) return `<div class="head"><b>Matches nothing yet</b><span class="cap">It will apply at future imports.</span></div>`;
+  const bits = [P.change.length && `<b>${P.change.length}</b> would change`, P.same.length && `${P.same.length} already ${esc(plain(d.out))}`, P.keep.length && `${P.keep.length} keep theirs`].filter(Boolean).join(' · ');
+  return `<div class="head"><b>Matches ${P.all.length}</b><span>${bits}</span></div>${pvWarnings(P, d)}
+    <details${P.keepDiff.length ? ' open' : ''}><summary>Show them</summary>${pvList(P, d, 50)}</details>`;
+}
+const goneB = () => `<li class="gone" role="status">Deleted the Rule ${esc(ruleName(S.gone.r))}. ${S.gone.n ? `The ${pl(S.gone.n, 'Transaction')} it categorized keep their outcome.` : ''} <button class="ghost-lnk" type="button" data-undo-del style="color:var(--accent-text)">Undo</button></li>`;
+function rulesB() {
+  const opts = (i) => RULES.map((_, k) => `<option value="${k}"${k === i ? ' selected' : ''}>${ORD(k + 1)}</option>`).join('');
+  const items = RULES.map((r, i) => {
+    const editing = S.d && S.d.id === r.id;
+    const tk = Object.entries(takenAbove(r)), n = effect(r);
+    const eff = `<span class="eff"><b>${n}</b> categorized${tk.length && !n ? `<br><span class="cap">all taken by Rule ${posOf(+tk[0][0])}</span>` : ''}</span>`;
+    const gone = S.gone && S.gone.i === i ? goneB() : '';
+    return gone + `<li class="${editing ? 'editing' : ''}${S.fresh === r.id ? ' fresh' : ''}"><div class="sr-row">
+      <span class="order"><select class="btn" data-order="${r.id}" id="ord-${r.id}" aria-label="Order of ${esc(ruleName(r))}" title="Checked in this place at import">${opts(i)}</select></span>
+      <button class="open-btn" type="button" data-edit="${r.id}" aria-expanded="${editing}">${sentence(r)}</button>${eff}</div>
+      ${editing ? builderB(S.d) : ''}</li>`;
+  }).join('');
+  const tail = S.gone && S.gone.i >= RULES.length ? goneB() : '';
+  const fresh = S.d && !S.d.id && S.origin === 'rules' ? `<li class="editing">${builderB(S.d)}</li>` : '';
+  return `<div class="title-row"><h1>Rules</h1><button class="btn primary" type="button" data-new>New Rule</button></div>
+    <p class="page-sub">Checked in order at import: the first Rule a Transaction matches decides it. Pick a Rule's place from its menu. Tap a Rule to edit it.</p>
+    ${S.notice ? noticeHtml() : ''}
+    <section class="card"><ul class="sl">${fresh}${items}${tail}</ul></section>`;
+}
+
+// ===================== Variant C · a Rule as a saved filter over Transactions =====================
+function rulesC() {
+  const r = ruleById(S.sel) || RULES[0];
+  const list = RULES.map((x, i) => `<li role="option" tabindex="${x.id === r.id ? 0 : -1}" aria-selected="${x.id === r.id}" data-sel="${x.id}" id="opt-${x.id}" draggable="true" data-dragrow="${x.id}">
+      <span class="p">${i + 1}</span><span class="t">${esc(ruleName(x))}</span><span class="n">${effect(x)}</span><span class="o">${label(x.out)}</span></li>`).join('');
+  const n = effect(r), tk = Object.entries(takenAbove(r));
+  const ms = TX.filter(x => matches(r, x)).sort((a, b) => b.date.localeCompare(a.date));
+  const mine = ms.filter(x => x.source === 'rule' && x.rule === r.id), other = ms.filter(x => !(x.source === 'rule' && x.rule === r.id));
+  const tr = x => `<tr><td class="c-date">${day(x.date)}</td><td class="ds">${hl(x.desc, r.contains)}<small>${esc(ACCTS[x.acct])}</small></td><td class="amt">${signed(x.amount)}</td><td class="c-now">${label(x.out)} <span class="cap">${SOURCE[x.source]}${x.source === 'rule' && x.rule !== r.id ? ' ' + (posOf(x.rule) || '') : ''}</span></td></tr>`;
+  const confirm = S.del === r.id ? `<div class="inline-confirm" role="alert"><p>Delete ${esc(ruleName(r))}? ${n ? `Its ${pl(n, 'Transaction')} keep their outcome; ` : ''}future imports won't use it.</p>
+      <button class="btn" type="button" data-cancel-del>Keep it</button><button class="btn primary" type="button" data-confirm-del="${r.id}" id="confirm-del">Delete Rule</button></div>` : '';
+  const i = posOf(r.id);
+  return `<div class="title-row"><h1>Rules</h1><button class="btn primary" type="button" data-new>New Rule</button></div>
+    <p class="page-sub">The first Rule a Transaction matches at import decides it. Each Rule is a filter over the Household's Transactions: select one to see what it caught.</p>
+    <div class="md${S.mobileDetail ? ' has-sel' : ''}">
+      <section class="card rl-card"><ul class="rl" role="listbox" aria-label="Rules, in order" data-draglist>${list}</ul><p class="rl-hint">Drag, or <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd>, to reorder.</p></section>
+      <section class="card det" aria-labelledby="det-h">
+        <div class="det-head"><button class="btn ghost icon-only m-back" type="button" data-back aria-label="All Rules">${ic('left')}</button><h2 id="det-h">${i}. ${esc(ruleName(r))} → ${label(r.out)}</h2>
+          <button class="btn icon-only" type="button" data-move="${r.id}:up" id="up-${r.id}" aria-label="Move up"${i === 1 ? ' disabled' : ''}>${ic('up')}</button><button class="btn icon-only" type="button" data-move="${r.id}:down" id="down-${r.id}" aria-label="Move down"${i === RULES.length ? ' disabled' : ''}>${ic('down')}</button>
+          <button class="btn" type="button" data-edit="${r.id}">Edit</button><button class="btn ghost" type="button" data-del="${r.id}" id="del-${r.id}">Delete</button></div>
+        ${confirm}
+        <div class="det-sub">${condPills(r)}<span>Categorized <b>${pl(n, 'Transaction')}</b>${tk.length ? `. ${tk.map(([id, k]) => `${k} of its matches go to Rule ${posOf(+id)} (${esc(ruleName(ruleById(+id)))}) above`).join('; ')}.` : '.'}</span></div>
+        <table class="mt"><thead><tr><th>Date</th><th>Transaction</th><th class="r" style="text-align:right">Amount</th><th>Outcome now</th></tr></thead><tbody>
+          ${mine.length ? `<tr class="grp"><td colspan="4">Categorized by this Rule · ${mine.length}</td></tr>${mine.map(tr).join('')}` : ''}
+          ${other.length ? `<tr class="grp"><td colspan="4">Also matches, decided otherwise · ${other.length}</td></tr>${other.map(tr).join('')}` : ''}
+          ${ms.length ? '' : `<tr><td colspan="4" class="cap">Matches no Transaction.</td></tr>`}
+        </tbody></table>
+      </section></div>`;
+}
+function editC() {
+  const d = S.d, title = d.id ? `Edit Rule ${posOf(d.id)}` : d.from ? 'Make a Rule' : 'New Rule';
+  const P = preview(d);
+  return `<div class="title-row"><h1>${title}</h1><button class="btn ghost" type="button" data-cancel>${ic('left')}Back</button></div>
+    <p class="page-sub">Narrow the filter until the list holds only the Transactions this Rule is for.${d.id ? '' : ' A new Rule is checked before every other.'}</p>
+    <section class="card">
+      <div class="filter-bar">
+        <label class="field f-desc"><span>Description contains</span>${containsInput(d)}</label>
+        <label class="field f-iban"><span>Counterparty IBAN</span>${ibanInput(d)}</label>
+        <label class="field f-sm"><span>Direction</span>${dirSelect(d)}</label>
+        <label class="field f-sm"><span>Account</span>${acctSelect(d)}</label>
+        ${d.words ? `<div style="flex-basis:100%">${wordChips(d)}</div>` : ''}
+      </div>
+      <div id="pv" aria-live="polite">${pvC(P, d)}</div>
+      <div class="savebar"><span>Categorize as</span>${outcomeSelect(d)}<span class="grow"></span>
+        <button class="btn ghost" type="button" data-cancel>Cancel</button>
+        <span id="save-wrap">${saveC(P, d)}</span></div>
+    </section>`;
+}
+function saveC(P, d) {
+  const off = P.empty || d.out === '';
+  return `${P.change.length ? `<button class="btn" type="button" data-save="future"${off ? ' disabled' : ''}>Future imports only</button> ` : ''}<button class="btn primary" type="button" data-save="apply" id="save"${off ? ' disabled' : ''}>${P.change.length ? `Save and change ${P.change.length}` : 'Save Rule'}</button>`;
+}
+function pvC(P, d) {
+  if (P.empty) return `<p class="empty-pv" style="padding:var(--s-6) var(--s-5)">Every condition you set must hold. Set one to see what it matches.</p>`;
+  const src = d.from && TX.find(x => x.id === d.from);
+  const warn = pvWarnings(P, d);
+  const tr = x => {
+    const st = status(P, x);
+    const after = st === 'change' ? label(d.out) : st === 'same' ? `<span class="same">no change</span>` : `<span class="same">keeps it · ${SOURCE[x.source]}</span>`;
+    return `<tr class="${x === src ? 'srcrow' : ''}"><td class="c-date">${day(x.date)}</td><td class="ds">${hl(x.desc, d.contains)}<small>${esc(ACCTS[x.acct])}${x === src ? ' · the one you just saved' : ''}</small></td><td class="amt">${signed(x.amount)}</td><td class="c-now">${label(x.out)}</td><td class="c-after">${after}</td></tr>`;
+  };
+  const groups = [['Will change', P.change], ['Set by hand to something else: kept now, but new ones like them would follow this Rule', P.keepDiff], ['Already ' + plain(d.out), P.same], ['Keep their outcome', P.keep.filter(x => !P.keepDiff.includes(x))]];
+  const body = groups.filter(([, l]) => l.length).map(([h, l]) => `<tr class="grp"><td colspan="5">${esc(h)} · ${l.length}</td></tr>${[...l].sort((a, b) => (b === src) - (a === src) || b.date.localeCompare(a.date)).map(tr).join('')}`).join('');
+  return `${warn ? `<div style="display:grid;gap:6px;padding:var(--s-3) var(--s-5) 0">${warn}</div>` : ''}
+    <table class="mt"><thead><tr><th>Date</th><th>Transaction</th><th style="text-align:right">Amount</th><th>Now</th><th>After saving</th></tr></thead>
+    <tbody>${body || `<tr><td colspan="5" class="cap" style="padding:var(--s-5)">Matches no existing Transaction. It will still apply at future imports.</td></tr>`}</tbody></table>`;
+}
+
+// ===================== Shell (the #63 chosen shell, variant B) =====================
+function shell(content) {
+  const cur = S.page === 'review' ? 'review' : 'rules';
+  const nav = (id, icon, text, badge = '') => `<a class="nav" href="#" data-nav="${id}"${cur === id ? ' aria-current="page"' : ''}>${ic(icon)}${text}${badge}</a>`;
+  const left = TX.filter(x => x.queue && !x.justSaved).length;
+  const brand = `<a class="brand" href="#"><img src="favicon.svg" alt="">Purse<span>graph</span></a>`;
+  return `<div class="shell">
+  <aside class="sidebar" aria-label="Main">${brand}
+    <a class="nav" href="#">${ic('home')}Dashboard</a><a class="nav" href="#">${ic('list')}Transactions</a>${nav('review', 'check', 'Review queue', `<span class="badge">${left}</span>`)}<a class="nav" href="#">${ic('upload')}Import</a>
+    <details class="manage" open><summary>${ic('right')}Manage</summary>${nav('rules', 'rule', 'Rules')}<a class="nav" href="#">Categories</a><a class="nav" href="#">Accounts</a><a class="nav" href="#">Members</a></details>
+    <div class="sidebar-foot"><div class="account"><span class="avatar" aria-hidden="true">M</span><span class="who">Maja<br><small>Admin</small></span>${ic('updown')}</div></div>
+  </aside>
+  <div class="page"><header class="m-top">${brand}</header>
+    <main id="main" tabindex="-1">${content}<p class="synthetic">Prototype · all figures are synthetic</p></main></div>
+  <nav class="tabbar" aria-label="Main"><a href="#">${ic('home')}Dashboard</a><a href="#">${ic('list')}Transactions</a>
+    <a href="#" data-nav="review"${cur === 'review' ? ' aria-current="page"' : ''}>${ic('check')}Review<span class="badge">${left}</span></a>
+    <a href="#" data-nav="rules"${cur === 'rules' ? ' aria-current="page"' : ''}>${ic('more')}More</a></nav></div>`;
+}
+
+// ===================== Render =====================
+function url(extra = {}) {
+  const p = new URLSearchParams({ variant: S.variant, page: S.page, ...(S.frame ? { frame: 1 } : {}), ...extra });
+  const t = document.documentElement.dataset.theme; if (t !== 'system') p.set('theme', t);
+  return `?${p}`;
+}
+function content() {
+  const v = S.variant;
+  if (S.page === 'review') return pageReview();
+  if (S.page === 'edit' && S.d && v !== 'B') return v === 'A' ? editA() : editC();
+  return v === 'A' ? rulesA() : v === 'B' ? rulesB() : rulesC();
+}
+function render(focus) {
+  document.body.className = 'vB' + (S.framed ? ' framed' : '');
+  if (S.variant === 'B' && S.page === 'edit') S.page = S.origin === 'review' ? 'review' : 'rules';
+  if (S.frame && !S.framed) {
+    document.getElementById('app').innerHTML = `<div class="frame-wrap"><iframe title="Phone, 390 × 844" src="${url({ framed: 1, frame: 0 })}"></iframe></div>`;
+  } else {
+    document.getElementById('app').innerHTML = `<a class="skip" href="#main">Skip to content</a>` + shell(content()) + (S.toast ? `<div class="toast" role="status">${S.toast}</div>` : '');
+    document.title = `${S.page === 'review' ? 'Review queue' : 'Rules'} · Pursegraph`;
+  }
+  history.replaceState(null, '', url());
+  renderProto();
+  const dlg = document.getElementById('confirm'); if (dlg && !dlg.open) { dlg.showModal(); dlg.addEventListener('close', () => { S.del = null; }); dlg.querySelector('[data-cancel-del]').focus(); }
+  if (focus) { const el = document.querySelector(focus); if (el) { el.focus(); if (el.setSelectionRange && el.type !== 'checkbox' && typeof el.value === 'string') el.setSelectionRange(el.value.length, el.value.length); } }
+}
+// Live preview: only the preview regions repaint, so typing keeps its caret.
+function refreshPreview() {
+  const d = S.d, P = preview(d), pv = document.getElementById('pv');
+  if (pv) pv.innerHTML = S.variant === 'A' ? pvSummary(P, d) + pvList(P, d) : S.variant === 'B' ? pvB(P, d) : pvC(P, d);
+  const w = document.getElementById('words'); if (w && d.words) w.outerHTML = wordChips(d);
+  const al = document.getElementById('apply-lbl'); if (al) al.textContent = applyLabelA(d);
+  const sw = document.getElementById('save-wrap'); if (sw) sw.innerHTML = saveC(P, d);
+  if (S.variant === 'B') { const n = P.change.length, s = document.getElementById('save'); if (s) { s.textContent = n ? `Save and change ${n}` : 'Save Rule'; s.disabled = P.empty || d.out === ''; }
+    const fut = document.querySelector('[data-save="future"]'); if (fut) fut.hidden = !n; }
+  S.said = P.empty ? 'No condition yet' : `Matches ${P.all.length}, ${P.change.length} would change`; renderProto();
+}
+function announce(text) { S.said = text; const live = document.getElementById('live'); live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); renderProto(); }
+function toast(text) { S.toast = text; clearTimeout(S.toastT); S.toastT = setTimeout(() => { S.toast = null; document.querySelector('.toast')?.remove(); }, 6000); }
+
+// ===================== Prototype switcher (not the design) =====================
+function renderProto() {
+  if (S.framed) return;
+  document.getElementById('proto').innerHTML = `<button type="button" data-proto="-1" aria-label="Previous variant">‹</button>
+    <span class="lbl">${S.variant} <small>(${VARIANTS[S.variant]})</small></span>
+    <button type="button" data-proto="1" aria-label="Next variant">›</button>
+    <span class="state" title="Last announcement / live preview">${S.said ? `said: “${esc(S.said)}”` : 'said: —'}</span>
+    <button class="toggle" type="button" data-proto="page">${S.page === 'review' ? 'go: Rules' : 'go: Review queue'}</button>
+    <button class="toggle" type="button" data-proto="frame">${S.frame ? 'phone ✓' : 'phone'}</button>
+    <button class="toggle" type="button" data-proto="theme">${document.documentElement.dataset.theme}</button>
+    <button class="toggle" type="button" data-proto="reset">reset</button>`;
+}
+
+// ===================== Events =====================
+function openEdit(d, origin) {
+  S.d = d; S.origin = origin; S.apply = true; S.del = null; S.notice = null; S.gone = null;
+  if (S.variant === 'B') { S.page = origin === 'review' ? 'review' : 'rules'; render('#b-contains'); }
+  else { S.page = 'edit'; render('#f-contains'); window.scrollTo(0, 0); }
+}
+function closeEdit() {
+  const back = S.origin; S.d = null; S.page = back === 'review' ? 'review' : 'rules'; render('#main');
+}
+function doSave(apply) {
+  const d = S.d, P = preview(d);
+  if (P.empty || d.out === '') return;
+  const isNew = !d.id, { r, changed } = saveRule(d, apply);
+  const msg = `${isNew ? 'Saved' : 'Updated'} the Rule ${ruleName(r)}${isNew ? ', first in the order' : ''}. ${apply ? (changed ? `${pl(changed, 'existing Transaction')} changed to ${plain(r.out)}.` : 'No existing Transaction changed.') : 'It applies from the next import.'}`;
+  S.d = null; S.fresh = r.id; S.sel = r.id;
+  if (S.variant === 'C') { toast(esc(msg)); S.notice = null; } else S.notice = esc(msg);
+  S.page = S.variant === 'B' && S.origin === 'review' ? 'review' : 'rules';
+  render('#main'); announce(msg);
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-nav],[data-make],[data-new],[data-edit],[data-cancel],[data-save],[data-word],[data-use-iban],[data-move],[data-del],[data-cancel-del],[data-confirm-del],[data-undo-del],[data-dismiss],[data-sel],[data-back],[data-proto],a[href="#"]');
+  if (!t) return;
+  const d = t.dataset;
+  if (t.tagName === 'A' || d.proto || d.nav) e.preventDefault();
+  if (d.nav) { S.page = d.nav; S.d = null; S.notice = null; S.del = null; render('#main'); return; }
+  if (d.make) { openEdit(draftFrom(TX.find(x => x.id === d.make)), 'review'); return; }
+  if (d.new !== undefined) { openEdit(blankDraft(), 'rules'); return; }
+  if (d.edit) { if (S.variant === 'B' && S.d && S.d.id === +d.edit) { S.d = null; render(`[data-edit="${d.edit}"]`); return; } openEdit(draftOf(ruleById(+d.edit)), 'rules'); return; }
+  if (d.cancel !== undefined) { closeEdit(); return; }
+  if (d.save !== undefined) { doSave(S.variant === 'A' ? S.apply : d.save !== 'future'); return; }
+  if (d.word) { clickWord(S.d, +d.word); render(`#w-${d.word}`); refreshPreview(); return; }
+  if (d.useIban !== undefined) { const x = TX.find(t => t.id === S.d.from); S.d.iban = x.iban; render('#f-iban'); return; }
+  if (d.move) { const [id, dir] = d.move.split(':'); const i = posOf(+id) - 1; moveTo(+id, dir === 'up' ? i - 1 : i + 1); S.fresh = null;
+    const r = ruleById(+id); announce(`Moved ${ruleName(r)} to ${ORD(posOf(+id))}.`); render(document.querySelector(`#${dir}-${id}`) ? `#${dir}-${id}` : null); if (document.activeElement?.disabled || document.activeElement === document.body) document.querySelector(`#${dir === 'up' ? 'down' : 'up'}-${id}`)?.focus(); return; }
+  if (d.del) {
+    if (S.variant === 'B') { // B: no confirmation; Undo instead.
+      S.gone = deleteRule(+d.del); S.d = null; S.notice = null; render('[data-undo-del]'); announce(`Deleted the Rule ${ruleName(S.gone.r)}. Undo is available.`); return;
+    }
+    if (S.variant === 'A' && S.page === 'edit') { S.page = 'rules'; S.d = null; }
+    S.del = +d.del; S.sel = +d.del; render(S.variant === 'C' ? '#confirm-del' : null); return;
+  }
+  if (d.cancelDel !== undefined) { const id = S.del; S.del = null; render(`#del-${id}`); return; }
+  if (d.confirmDel) { const g = deleteRule(+d.confirmDel); S.del = null; S.sel = RULES[Math.min(g.i, RULES.length - 1)]?.id; const msg = `Deleted the Rule ${ruleName(g.r)}.${g.n ? ` The ${pl(g.n, 'Transaction')} it categorized keep their outcome.` : ''}`;
+    if (S.variant === 'C') toast(esc(msg)); else S.notice = esc(msg); render('#main'); announce(msg); return; }
+  if (d.undoDel !== undefined) { const g = S.gone; restoreRule(g); S.gone = null; render(`[data-edit="${g.r.id}"]`); announce(`Restored the Rule ${ruleName(g.r)}.`); return; }
+  if (d.dismiss !== undefined) { S.notice = null; S.fresh = null; render('#main'); return; }
+  if (d.sel) { S.sel = +d.sel; S.del = null; S.mobileDetail = true; render(`#opt-${d.sel}`); return; }
+  if (d.back !== undefined) { S.mobileDetail = false; render(`#opt-${S.sel}`); return; }
+  if (d.proto) {
+    const keys = Object.keys(VARIANTS);
+    if (d.proto === 'frame') S.frame = !S.frame;
+    else if (d.proto === 'page') { S.page = S.page === 'review' ? 'rules' : 'review'; S.d = null; }
+    else if (d.proto === 'theme') { const order = ['system', 'light', 'dark'], h = document.documentElement; h.dataset.theme = order[(order.indexOf(h.dataset.theme) + 1) % 3]; }
+    else if (d.proto === 'reset') { seed(); Object.assign(S, { d: null, notice: null, fresh: null, del: null, gone: null, sel: RULES[0].id, said: '', toast: null }); }
+    else { S.variant = keys[(keys.indexOf(S.variant) + +d.proto + keys.length) % keys.length]; S.del = null; S.gone = null; S.notice = null;
+      if (S.d && S.variant !== 'B' && (S.page === 'review' || S.page === 'rules')) S.page = 'edit'; }
+    render(); return;
+  }
+});
+document.addEventListener('input', e => {
+  const f = e.target.dataset.f; if (!f || !S.d || e.target.tagName === 'SELECT') return;
+  S.d[f] = e.target.value;
+  if (f === 'contains' && S.d.words) S.d.range = rangeFor(S.d.words, e.target.value);
+  refreshPreview();
+});
+document.addEventListener('change', e => {
+  if (e.target.dataset.apply !== undefined) { S.apply = e.target.checked; return; }
+  if (e.target.dataset.order) { const id = +e.target.dataset.order; moveTo(id, +e.target.value); S.fresh = id; announce(`Moved ${ruleName(ruleById(id))} to ${ORD(posOf(id))}.`); render(`#ord-${id}`); return; }
+  const f = e.target.dataset.f; if (!f || !S.d || e.target.tagName !== 'SELECT') return;
+  const v = e.target.value; S.d[f] = f === 'out' ? (v === '' || v === 'transfer' ? v : +v) : v;
+  render(`#${e.target.id}`);
+});
+// Drag to reorder (A's rows, C's list); the buttons / Alt+arrows are the keyboard alternative.
+let dragged = null;
+document.addEventListener('dragstart', e => { const row = e.target.closest?.('[data-dragrow]'); if (!row) return; dragged = row; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+document.addEventListener('dragover', e => {
+  const over = e.target.closest?.('[data-dragrow]'); if (!dragged || !over || over === dragged) return; e.preventDefault();
+  const box = over.getBoundingClientRect(); over.parentNode.insertBefore(dragged, e.clientY > box.top + box.height / 2 ? over.nextSibling : over);
+});
+document.addEventListener('drop', e => { if (dragged) e.preventDefault(); });
+document.addEventListener('dragend', () => {
+  if (!dragged) return; const ids = [...dragged.parentNode.querySelectorAll('[data-dragrow]')].map(el => +el.dataset.dragrow);
+  const id = +dragged.dataset.dragrow; dragged = null;
+  RULES.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)); S.fresh = id; announce(`Moved ${ruleName(ruleById(id))} to ${ORD(posOf(id))}.`); render();
+});
+document.addEventListener('keydown', e => {
+  // C: the list is a listbox; ↑/↓ select, Alt+↑/↓ move the selected Rule.
+  const opt = e.target.closest?.('.rl [data-sel]');
+  if (opt && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault(); const id = +opt.dataset.sel, i = posOf(id) - 1, j = e.key === 'ArrowUp' ? i - 1 : i + 1;
+    if (j < 0 || j >= RULES.length) return;
+    if (e.altKey) { moveTo(id, j); announce(`Moved ${ruleName(ruleById(id))} to ${ORD(j + 1)}.`); render(`#opt-${id}`); }
+    else { S.sel = RULES[j].id; render(`#opt-${S.sel}`); }
+    return;
+  }
+  if (opt && e.key === 'Enter') { S.mobileDetail = true; render(`#opt-${opt.dataset.sel}`); return; }
+  if (e.key === 'Escape' && S.d && S.variant === 'B') { closeEdit(); return; }
+  if (e.target !== document.body && e.target.id !== 'main') return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); document.querySelector(`[data-proto="${e.key === 'ArrowLeft' ? -1 : 1}"]`)?.click(); }
+});
+render();
+</script>
+</body>
+</html>
