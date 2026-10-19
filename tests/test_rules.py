@@ -378,3 +378,80 @@ def test_applying_a_transfer_rule_never_pairs_with_a_manual_outcome(logged_in_cl
         Source.MANUAL,
         None,
     )
+
+
+def test_applying_a_transfer_rule_reports_the_counterparts_pairing_converted(logged_in_client):
+    make_transaction("To savings")
+    Transaction.objects.create(
+        account=make_account("Savings", "other"),
+        date="2026-06-02",
+        amount=Decimal("10.00"),
+        description="From checking",
+        subcategory_id=groceries(),
+        source=Source.LLM,
+    )
+    make_rule(logged_in_client, "transfer", description_contains="to savings")
+
+    response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
+
+    assert [str(m) for m in response.context["messages"]] == [
+        "1 Transaction categorized by the Rule. 1 categorized Transaction converted to a Transfer."
+    ]
+
+
+def test_applying_a_transfer_rule_reports_a_tie_left_for_review(logged_in_client):
+    make_transaction("To savings")
+    for name in ("Savings", "Holiday fund"):
+        Transaction.objects.create(
+            account=make_account(name, "other"),
+            date="2026-06-02",
+            amount=Decimal("10.00"),
+            description="From checking",
+        )
+    make_rule(logged_in_client, "transfer", description_contains="to savings")
+
+    response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
+
+    page = response.content.decode()
+    assert "1 Transaction categorized by the Rule." in page
+    assert "1 Transfer with several possible counterparts waits in the Review queue" in page
+    assert "converted" not in page
+
+
+@pytest.mark.parametrize("outcome", ["transfer", "groceries"])
+def test_applying_a_rule_whose_pairing_changes_nothing_reports_only_the_rule(
+    logged_in_client, outcome
+):
+    make_transaction("To savings")
+    Transaction.objects.create(
+        account=make_account("Savings", "other"),
+        date="2026-06-02",
+        amount=Decimal("10.00"),
+        description="From checking",  # unresolved, so pairing doesn't convert a Category
+    )
+    make_rule(
+        logged_in_client,
+        groceries() if outcome == "groceries" else outcome,
+        description_contains="to savings",
+    )
+
+    response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
+
+    messages = [str(m) for m in response.context["messages"]]
+    assert messages == ["1 Transaction categorized by the Rule."]
+
+
+@pytest.mark.parametrize(("outcome", "noted"), [("transfer", True), ("groceries", False)])
+def test_only_a_transfer_rule_warns_that_pairing_may_convert_counterparts(
+    logged_in_client, outcome, noted
+):
+    make_transaction("To savings")
+    make_rule(
+        logged_in_client,
+        groceries() if outcome == "groceries" else outcome,
+        description_contains="to savings",
+    )
+
+    offer = logged_in_client.get(f"/rules/{rule_id('to savings')}/apply/").content.decode()
+
+    assert ("may also convert a counterpart" in offer) == noted
