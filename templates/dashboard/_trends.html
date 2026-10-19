@@ -5,7 +5,7 @@
 {% block table %}
 <div class="scroll">
 <table class="view-table">
-  <thead><tr><th>{% translate "Category" %}</th>{% for month in chart.months %}{% with state=chart.states|at:forloop.counter0 %}<th class="num{% if state == "not_tracked" %} faint{% endif %}">{{ month }}{% if state == "partial" %} <span class="qualifier">(partial)</span>{% elif state == "in_progress" %} <span class="qualifier">(so far)</span>{% endif %}</th>{% endwith %}{% endfor %}<th class="num">{% translate "Total" %}</th></tr></thead>
+  <thead><tr><th>{% translate "Category" %}</th>{% for month in chart.months %}{% with state=chart.states|at:forloop.counter0 %}<th class="num{% if state == "not_tracked" %} faint{% endif %}">{{ month }}{% if state == "partial" %} <span class="qualifier">(partial)</span>{% elif state == "partly_tracked" %} <span class="qualifier">(partly tracked)</span>{% elif state == "in_progress" %} <span class="qualifier">(so far)</span>{% endif %}</th>{% endwith %}{% endfor %}<th class="num">{% translate "Total" %}</th></tr></thead>
   <tbody>
   {% for row in data.rows %}
   <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">

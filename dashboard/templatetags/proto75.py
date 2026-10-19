@@ -17,3 +17,10 @@ def at(items, index):
 @register.filter
 def month_state(completeness, key):
     return completeness.month(key) if completeness and key else "complete"
+
+
+@register.filter
+def tracked_from(pair):
+    from dashboard.completeness import tracked_from_label
+
+    return tracked_from_label(*pair)

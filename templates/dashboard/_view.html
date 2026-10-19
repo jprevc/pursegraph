@@ -1,16 +1,18 @@
-{% load i18n %}{# A dashboard view's frame: the whole page includes the view, and HTMX swaps it in alone. #}
+{% load i18n proto75 %}{# A dashboard view's frame: the whole page includes the view, and HTMX swaps it in alone. #}
 <div class="view-bar">
   <h2>{% block title %}{% endblock %}</h2>
   {% include "dashboard/_period.html" %}
   {% include "dashboard/_filters.html" %}
 </div>
-{% if completeness.by_account or completeness.awaiting %}{# PROTOTYPE (#75 Period completeness): throwaway. #}
+{% if completeness.by_account or completeness.tracked_from or completeness.awaiting %}{# PROTOTYPE (#75 Period completeness): throwaway. #}
 <p class="completeness">
   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
   <span>
   {% with gaps=completeness.by_account %}{% if gaps %}Incomplete: no Statements yet from
     {% for account, days in gaps %}{% if forloop.counter == 3 %}<button type="button" class="more" onclick="this.hidden=true;this.nextElementSibling.hidden=false">and {{ gaps|length|add:"-2" }} more</button><span hidden>{% endif %}{% if forloop.counter > 1 %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a href="{% url 'import' %}">{{ account }}</a> for {{ days }}{% if forloop.last and forloop.counter > 2 %}</span>{% endif %}{% endfor %}{% endif %}{% endwith %}
-  {% if completeness.by_account and completeness.awaiting %}<span class="sep" aria-hidden="true">·</span>{% endif %}
+  {% if completeness.by_account and completeness.tracked_from %}<span class="sep" aria-hidden="true">·</span>{% endif %}
+  {% for pair in completeness.tracked_from %}{% if not forloop.first %}, {% endif %}{{ pair|tracked_from }}{% endfor %}
+  {% if completeness.awaiting and completeness.by_account or completeness.awaiting and completeness.tracked_from %}<span class="sep" aria-hidden="true">·</span>{% endif %}
   {% if completeness.awaiting %}<a href="{% url 'review_queue' %}">{{ completeness.awaiting|floatformat:"2g" }} € ({{ completeness.awaiting_share }} %) still awaiting review</a>{% endif %}
   </span>
 </p>

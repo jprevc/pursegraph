@@ -9,7 +9,7 @@
   {% for row in data.rows %}
   <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
     {% with state=completeness|month_state:row.key %}
-    <td{% if state == "not_tracked" %} class="faint"{% endif %}>{{ row.label }}{% if state == "partial" %} <span class="qualifier">(partial)</span>{% elif state == "in_progress" %} <span class="qualifier">(so far)</span>{% endif %}</td>
+    <td{% if state == "not_tracked" %} class="faint"{% endif %}>{{ row.label }}{% if state == "partial" %} <span class="qualifier">(partial)</span>{% elif state == "partly_tracked" %} <span class="qualifier">(partly tracked)</span>{% elif state == "in_progress" %} <span class="qualifier">(so far)</span>{% endif %}</td>
     {% if state == "not_tracked" %}<td class="num faint">—</td><td class="num faint">—</td>{% if chart.others %}<td class="num faint">—</td>{% endif %}<td class="num faint">—</td>{% else %}
     <td class="num">{{ row.money_in|floatformat:2 }}</td>
     <td class="num">{{ row.money_out|floatformat:2 }}</td>

@@ -84,10 +84,10 @@
   };
 
   // ---------- Variant A: Classic axes ----------
-  // PROTOTYPE (#75 Period completeness): a labelled band behind each Partial and In progress month, Not tracked
+  // PROTOTYPE (#75 Period completeness): a labelled band behind each Partial, Partly tracked and In progress month, Not tracked
   // months as no data with a Faint axis label, and the tooltip opening with the reason. The bands ride on a
   // series of their own, so that hiding a legend entry never hides them.
-  const BAND = { partial: 'Partial', in_progress: 'So far' };
+  const BAND = { partial: 'Partial', partly_tracked: 'Partly tracked', in_progress: 'So far' };
   const stateOf = (data, i) => data.states?.[i] || 'complete';
   // Full-height bars on hidden axes of their own: a markArea from a month to itself has no width on a
   // category axis, and on the shared axes the bars would join Cashflow's groups.

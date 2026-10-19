@@ -17,9 +17,9 @@ from ledger.models import Account
 from . import periods, queries
 from .periods import Period
 
-COMPLETE, PARTIAL, IN_PROGRESS, NOT_TRACKED = "complete", "partial", "in_progress", "not_tracked"
+COMPLETE, PARTIAL, PARTLY, IN_PROGRESS, NOT_TRACKED = "complete", "partial", "partly_tracked", "in_progress", "not_tracked"
 # A longer Period takes the first of these that any of its months is.
-PRECEDENCE = [PARTIAL, IN_PROGRESS, NOT_TRACKED, COMPLETE]
+PRECEDENCE = [PARTIAL, PARTLY, IN_PROGRESS, NOT_TRACKED, COMPLETE]
 
 
 @dataclass(frozen=True)
@@ -67,8 +67,12 @@ def _state(month: Period, accounts) -> str:
     within = DateRange(month.start, month.end)
     if any(_gaps(coverage, within) for _a, coverage in accounts):
         return PARTIAL
-    if not any(coverage and coverage[0].start <= month.end for _a, coverage in accounts):
+    started = [bool(coverage) and coverage[0].start <= month.end for _a, coverage in accounts]
+    if not any(started):
         return NOT_TRACKED
+    # Before some included Account's first Coverage day: an Account opened later, or history never imported.
+    if not all(coverage and coverage[0].start <= month.start for _a, coverage in accounts):
+        return PARTLY
     return IN_PROGRESS if month.so_far else COMPLETE
 
 
@@ -76,6 +80,7 @@ def _state(month: Period, accounts) -> str:
 class Completeness:
     state: str
     gaps: list[AccountGap]
+    tracked_from: list[tuple[Account, date]]  # Accounts not yet tracked during part of the Period another one is
     months: dict[str, str]  # month key → state
     awaiting: Decimal
     spent: Decimal
@@ -102,16 +107,30 @@ def of(period: Period, filters: queries.Filters) -> Completeness:
     state = next((s for s in PRECEDENCE if s in months.values()), COMPLETE)
     within = DateRange(period.start, period.end)
     gaps = [AccountGap(a, g) for a, coverage in accounts for g in _gaps(coverage, within)]
+    any_start = min((c[0].start for _a, c in accounts if c), default=None)
+    tracked_from = [
+        (a, c[0].start) for a, c in accounts
+        if any_start and c and c[0].start > max(period.start, any_start) and any_start <= period.end
+    ] + [(a, None) for a, c in accounts if not c and any_start and any_start <= period.end]
     spending = queries._spending(period, filters)
     spent = -(spending.aggregate(t=Sum("amount"))["t"] or Decimal(0))
     awaiting = -(spending.filter(subcategory__isnull=True).aggregate(t=Sum("amount"))["t"] or Decimal(0))
-    return Completeness(state, gaps, months, awaiting, spent)
+    return Completeness(state, gaps, tracked_from, months, awaiting, spent)
 
 
 def household_start() -> date | None:
     """The Household's first Coverage day, whatever the filters: where the stepper's ‹ stops."""
     starts = [c[0].start for _a, c in _accounts(queries.Filters()) if c]
     return min(starts) if starts else None
+
+
+def tracked_from_label(account: Account, start: date | None) -> str:
+    return f"{account} is tracked from {formats.date_format(start, 'j M Y')}" if start else f"{account} has no Statements yet"
+
+
+def partly_reason(tracked_from, month: Period) -> str:
+    """The tooltip's first line for a Partly tracked month."""
+    return "; ".join(tracked_from_label(a, d) for a, d in tracked_from if d is None or d > month.start)
 
 
 def reason(gaps: list[AccountGap], month: Period) -> str:

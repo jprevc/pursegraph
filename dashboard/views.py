@@ -97,6 +97,7 @@ def _prototype_75(period: Period, filters: queries.Filters, chart: dict) -> dict
         chart["states"] = [c.month(k) for k in keys]
         chart["reasons"] = [
             completeness.reason(c.gaps, months[k]) if c.month(k) == completeness.PARTIAL
+            else completeness.partly_reason(c.tracked_from, months[k]) if c.month(k) == completeness.PARTLY
             else f"So far, to {formats.date_format(periods.today(), 'j M')}" if c.month(k) == completeness.IN_PROGRESS
             else "No Statements yet" if c.month(k) == completeness.NOT_TRACKED else ""
             for k in keys
