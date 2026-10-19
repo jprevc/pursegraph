@@ -394,9 +394,9 @@ def test_applying_a_transfer_rule_reports_the_counterparts_pairing_converted(log
 
     response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
 
-    page = response.content.decode()
-    assert "1 Transaction categorized by the Rule." in page
-    assert "1 categorized Transaction converted to a Transfer" in page
+    assert [str(m) for m in response.context["messages"]] == [
+        "1 Transaction categorized by the Rule. 1 categorized Transaction converted to a Transfer."
+    ]
 
 
 def test_applying_a_transfer_rule_reports_a_tie_left_for_review(logged_in_client):
@@ -419,7 +419,9 @@ def test_applying_a_transfer_rule_reports_a_tie_left_for_review(logged_in_client
 
 
 @pytest.mark.parametrize("outcome", ["transfer", "groceries"])
-def test_applying_a_rule_pairing_changes_nothing_reports_only_the_rule(logged_in_client, outcome):
+def test_applying_a_rule_whose_pairing_changes_nothing_reports_only_the_rule(
+    logged_in_client, outcome
+):
     make_transaction("To savings")
     Transaction.objects.create(
         account=make_account("Savings", "other"),
