@@ -1,0 +1,1073 @@
+<!doctype html>
+<!-- PROTOTYPE (#86 Import, Accounts and Coverage): throwaway, lives only on prototype/86-import-accounts. Never merge.
+     Three variants of the Import page (multi-file progress, per-file outcomes, cause-first rejections, the summary that
+     hands over to the Review queue), the Coverage timeline and the Accounts admin page, switchable via ?variant=A|B|C
+     (or the black bar, or ← / → while nothing is focused). ?page=import|accounts picks the page. Built inside the chosen
+     #63 shell (variant B), desktop only (the map says Import and admin only need to work on desktop).
+       A · Batch report      : one column. A results report on top (headline, three tiles, Review now), then one
+                               expandable row per file, needs-you first. Coverage is a bar per Account on its own axis,
+                               gaps striped as today. Accounts stays a table.
+       B · Accounts board    : the page is the Household's Accounts on one shared time axis; files drop anywhere. Results
+                               land on their Account's row ("New 1–30 Sep"); files that need you sit in a tray above.
+                               Gaps are outlined slots with an Import action. Accounts admin is the same board, rows edit
+                               in place.
+       C · Guided flow       : Choose → Import → Results steps. Results lead with "Needs you" cards, then a quiet done
+                               list, then a hand-over band to the Review queue. Coverage is an Account × month grid that
+                               uses the Dashboard's completeness words. Accounts are cards, edited in a side drawer.
+     The upload is stubbed (one POST, as the real view: upload progress, then "checking"). The bar runs the import,
+     toggles "every rejection" (adds a file for each other rejection cause), admin/member, the theme and a reset.
+     Run from the repo root: python3 -m http.server 8086, then open http://localhost:8086/prototypes/86-import-accounts/
+     All figures are synthetic. -->
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pursegraph · Import prototype</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens (from DESIGN.md / the #62 prototype) ---------- */
+:root {
+  color-scheme: light;
+  --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --faint: #9ca3af;
+  --line: #e5e7eb; --line-strong: #d1d5db;
+  --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eef2ff; --accent-text: #4338ca;
+  --focus: #6366f1;
+  --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+  --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10);
+  --cat-0: #4e79a7; --cat-1: #59a14f; --cat-2: #f28e2b; --cat-3: #b07aa1; --cat-4: #76b7b2;
+  --cat-5: #edc948; --cat-6: #ff9da7; --cat-7: #9c755f; --cat-8: #e15759; --cat-9: #a0cbe8;
+  --awaiting: #9ca3af;
+  --r-card: 14px; --r-ctl: 8px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+}
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+} }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+a { color: var(--accent-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.trunc { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -80px; z-index: 100; background: var(--card); padding: 6px 10px; border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); }
+.skip:focus { top: 8px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.brand img { width: 28px; height: 28px; margin-right: 10px; }
+.brand span { color: var(--accent-text); font-weight: 600; }
+.badge { min-width: 22px; padding: 0 7px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
+
+/* ---------- Controls ---------- */
+.btn { text-decoration: none; font: inherit; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 var(--s-3); border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.icon-only { width: 36px; padding: 0; justify-content: center; }
+.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--ink); background: var(--hover); }
+.btn .icon { width: 16px; height: 16px; color: var(--muted); }
+select.btn { appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+input.btn { cursor: text; font-weight: 400; min-width: 0; }
+.period { display: flex; align-items: center; gap: 2px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); height: 36px; box-shadow: 0 1px 2px rgb(16 24 40 / .04); }
+.period .btn { border: 0; box-shadow: none; height: 34px; width: 32px; padding: 0; justify-content: center; background: none; }
+.period .btn[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
+.period-label small { font-weight: 400; color: var(--muted); }
+.theme { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; gap: 2px; background: var(--ground); border-radius: var(--r-ctl); }
+.theme button { display: grid; place-items: center; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.theme button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.theme .icon { width: 16px; height: 16px; }
+details.pop { position: relative; }
+details.pop > summary { list-style: none; }
+details.pop > summary::-webkit-details-marker { display: none; }
+.pop-panel { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--card); border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); padding: var(--s-2); display: grid; gap: 2px; }
+.pop-panel.right { left: auto; right: 0; }
+.pop-panel.up { top: auto; bottom: calc(100% + 6px); }
+.pop-panel label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; }
+.pop-panel label:hover { background: var(--hover); }
+.pop-panel .pop-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 8px 8px 2px; }
+.pop-panel .item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
+.pop-panel .item:hover { background: var(--hover); color: var(--ink); }
+.pop-panel .item.on { background: var(--accent-soft); color: var(--accent-text); }
+.pop-panel hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+
+/* ---------- Shared page content ---------- */
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-5) var(--s-5) 0; }
+.card-head h2 { font-size: 15px; font-weight: 600; margin-right: auto; }
+.card-head .meta { color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-bottom: var(--s-4); }
+.tile { padding: var(--s-5); }
+.tile .label { color: var(--muted); font-weight: 500; }
+.tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: var(--s-1); }
+.tile .compare { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.grid { display: grid; grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr); gap: var(--s-4); align-items: start; }
+.donut-wrap { position: relative; height: 340px; margin: var(--s-2) var(--s-4) var(--s-5); }
+.donut { position: absolute; inset: 0; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-center .k { color: var(--muted); font-size: 13px; font-weight: 500; }
+.donut-center .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.donut-center .s { color: var(--muted); font-size: 13px; }
+.cats { list-style: none; margin: var(--s-3) 0 0; padding: 0 var(--s-2) var(--s-2); }
+.cat { display: grid; grid-template-columns: minmax(0, 1fr) 140px 52px 104px; align-items: center; gap: var(--s-3); padding: 10px var(--s-3); border-radius: 10px; }
+.cat:hover, .cat.hot { background: var(--hover); }
+.cat .name { font-weight: 500; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bar { height: 6px; border-radius: var(--r-pill); background: var(--ground); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; }
+.cat .share { color: var(--muted); text-align: right; font-size: 13px; }
+.cat .amt { text-align: right; font-weight: 600; }
+.awaiting .dot { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.awaiting .bar i { background: repeating-linear-gradient(45deg, var(--awaiting) 0 3px, color-mix(in srgb, var(--awaiting) 40%, transparent) 3px 6px) !important; }
+.awaiting .name a { font-weight: 400; font-size: 13px; }
+.cats-total { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); font-weight: 600; }
+.lens { padding: var(--s-2) var(--s-5) var(--s-5); display: grid; gap: var(--s-3); }
+.lens-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 110px; gap: var(--s-3); align-items: center; }
+.lens-row .bar { height: 10px; }
+.lens-row .amt { text-align: right; font-weight: 600; }
+.stand-in { color: var(--muted); font-size: 13px; padding: 0 var(--s-5) var(--s-5); }
+.tx { width: 100%; border-collapse: collapse; }
+.tx th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-5) var(--s-2); border-bottom: 1px solid var(--line); }
+.tx td { padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tx tr:last-child td { border-bottom: 0; }
+.tx tbody tr:hover { background: var(--raised); }
+.tx .r { text-align: right; }
+.tx .desc { font-weight: 500; } .tx .desc small { display: block; font-weight: 400; color: var(--muted); }
+.tx .m-meta { display: none; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--raised); color: var(--ink-2); font-size: 12px; font-weight: 500; border: 1px solid var(--line); white-space: nowrap; }
+.empty { padding: var(--s-8) var(--s-5); text-align: center; color: var(--muted); }
+.drop { margin: var(--s-4) var(--s-5) var(--s-5); border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); padding: var(--s-8); text-align: center; color: var(--muted); }
+.stack { display: grid; gap: var(--s-4); }
+.synthetic { margin: var(--s-6) 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.page-sub { color: var(--muted); margin: -12px 0 var(--s-4); }
+/* =====================================================================
+   Variant B · Few destinations (jobs, not modules)
+   ===================================================================== */
+.vB .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.vB .page { min-width: 0; }
+.vB .sidebar { position: sticky; top: 0; height: 100vh; background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--s-5) var(--s-3); gap: 2px; }
+.vB .sidebar > .brand { padding: 2px var(--s-2) var(--s-6); }
+.vB .nav { display: flex; align-items: center; gap: 12px; padding: 9px var(--s-3); border-radius: var(--r-ctl); color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 15px; }
+.vB .nav:hover { background: var(--hover); color: var(--ink); }
+.vB .nav[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
+.vB .nav .badge { margin-left: auto; }
+.vB .manage { margin-top: var(--s-5); }
+.vB .manage summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-2) var(--s-3); border-radius: var(--r-ctl); }
+.vB .manage summary::-webkit-details-marker { display: none; }
+.vB .manage summary:hover { background: var(--hover); }
+.vB .manage summary .icon { width: 14px; height: 14px; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.vB .manage[open] summary .icon { transform: rotate(90deg); }
+.vB .manage .nav { font-size: 14px; padding: 6px var(--s-3) 6px 34px; }
+.vB .sidebar-foot { margin-top: auto; }
+.vB .account { width: 100%; display: flex; align-items: center; gap: 10px; padding: var(--s-2); border-radius: var(--r-ctl); cursor: pointer; }
+.vB .account:hover { background: var(--hover); }
+.vB .account .who { line-height: 1.25; } .vB .account .who small { color: var(--muted); }
+.vB .account .icon { margin-left: auto; color: var(--faint); width: 16px; height: 16px; }
+.vB .m-top, .vB .tabbar, .vB .sheet, .vB .scrim { display: none; }
+.vB main { padding: var(--s-6) var(--s-8) 110px; max-width: 1360px; }
+.vB .title-row { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.vB .title-row h1 { font-size: 24px; font-weight: 600; margin-right: auto; }
+.vB .tabs { display: flex; gap: var(--s-5); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.vB .tabs a { flex: none; padding: var(--s-2) 0 10px; color: var(--muted); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.vB .tabs a:hover { color: var(--ink); }
+.vB .tabs a[aria-current] { color: var(--accent-text); border-bottom-color: var(--accent); }
+.vB .context { position: sticky; top: 0; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-3) 0; margin-bottom: var(--s-3); background: color-mix(in srgb, var(--ground) 92%, transparent); backdrop-filter: blur(10px); }
+.vB .context .grow { flex: 1; }
+.vB .context .search { width: 260px; }
+/* ---------- PROTOTYPE switcher: deliberately NOT the design ---------- */
+.proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; background: #000; color: #fff; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 6px 24px rgb(0 0 0 / .35), 0 0 0 2px #facc15; }
+.proto button { white-space: nowrap; font: inherit; color: #000; background: #facc15; border: 0; border-radius: 999px; height: 26px; min-width: 26px; padding: 0 8px; cursor: pointer; font-weight: 700; }
+.proto button.toggle { background: #333; color: #fff; font-weight: 500; }
+.proto .lbl { font-weight: 700; padding: 0 4px; white-space: nowrap; }
+.proto .state { color: #a3a3a3; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+
+/* =====================================================================
+   PROTOTYPE (#86): Import, Accounts and Coverage
+   ===================================================================== */
+:root { --cov: #64748b; --cov-new: var(--accent); }
+:root[data-theme="dark"] { --cov: #8b95a7; }
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { --cov: #8b95a7; } }
+.vB main { max-width: 1180px; }
+[tabindex="-1"]:focus { outline: none; }
+.btn.primary { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.btn.primary:hover { background: var(--ink-2); }
+.btn.primary .icon { color: inherit; }
+.btn.sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.link { font: inherit; color: var(--accent-text); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.muted { color: var(--muted); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; letter-spacing: .01em; }
+.sec-h { display: flex; align-items: baseline; gap: var(--s-3); margin: var(--s-8) 0 var(--s-3); }
+.sec-h h2 { font-size: 17px; font-weight: 600; margin-right: auto; }
+.card-pad { padding: var(--s-5); }
+.notice { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); margin-bottom: var(--s-4); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--accent-text); font-weight: 500; }
+.notice .icon { width: 18px; height: 18px; }
+.notice .grow { flex: 1; }
+
+/* ---------- Drop zone + staged files + progress ---------- */
+.dropzone { border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); padding: var(--s-8) var(--s-6); text-align: center; color: var(--muted); background: var(--card); }
+.dropzone .icon { width: 28px; height: 28px; color: var(--faint); margin-bottom: var(--s-2); }
+.dropzone strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+.dropzone.slim { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); text-align: left; }
+.dropzone.slim .icon { width: 20px; height: 20px; margin: 0; }
+.dropzone.slim strong { display: inline; font-size: 14px; margin: 0; }
+.dropzone.slim .grow { flex: 1; }
+.staged { list-style: none; margin: var(--s-4) 0 0; padding: 0; text-align: left; border-top: 1px solid var(--line); }
+.staged li { display: grid; grid-template-columns: 20px minmax(0, 1fr) 80px 120px 32px; gap: var(--s-3); align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+.staged li .icon { width: 16px; height: 16px; color: var(--faint); }
+.staged li .sz { color: var(--muted); text-align: right; font-size: 13px; }
+.staged li .st { color: var(--muted); font-size: 13px; }
+.staged-foot { display: flex; align-items: center; gap: var(--s-3); padding-top: var(--s-4); }
+.staged-foot .grow { flex: 1; text-align: left; color: var(--muted); font-size: 13px; }
+.progress { height: 6px; border-radius: var(--r-pill); background: var(--ground); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .2s linear; }
+.progress.indet i { width: 30% !important; animation: indet 1.1s ease-in-out infinite; }
+@keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.prog-line { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+.prog-line b { color: var(--ink); font-weight: 600; }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); border-top-color: var(--accent); animation: spin .8s linear infinite; display: inline-block; vertical-align: -2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Status words (never red/green: icon + word) ---------- */
+.status { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.status .icon { width: 16px; height: 16px; }
+.status.ok { color: var(--ink); }
+.status.ok .icon { color: var(--accent-text); }
+.status.need { color: var(--ink); }
+.status.need .icon { color: var(--cat-2); }
+.status.no { color: var(--ink); }
+.status.no .icon { color: var(--ink); }
+.status.same { color: var(--muted); font-weight: 500; }
+
+/* ---------- Domain counts ---------- */
+.counts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.counts li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--s-2); color: var(--ink-2); }
+.counts li b { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.counts li.zero { color: var(--muted); } .counts li.zero b { color: var(--muted); font-weight: 500; }
+.counts a { font-weight: 500; }
+
+/* ---------- Rejection (shared copy) ---------- */
+.rej h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.rej p { margin: 0 0 6px; color: var(--ink-2); max-width: 70ch; }
+.rej .next { color: var(--ink); }
+.rej details { margin-top: var(--s-2); }
+.rej summary { cursor: pointer; color: var(--accent-text); font-weight: 500; font-size: 13px; width: max-content; }
+.diag { margin-top: var(--s-3); padding: var(--s-4); border-radius: var(--r-ctl); background: var(--raised); border: 1px solid var(--line); display: grid; gap: var(--s-4); }
+.diag dl { display: grid; grid-template-columns: max-content max-content; gap: 4px var(--s-6); margin: 0; }
+.diag dt { color: var(--muted); } .diag dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+.diag dd.hl, .diag td.hl { font-weight: 700; box-shadow: inset 0 -2px 0 var(--cat-2); }
+.mini { border-collapse: collapse; font-size: 13px; }
+.mini th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px var(--s-4) 4px 0; border-bottom: 1px solid var(--line); }
+.mini td { padding: 4px var(--s-4) 4px 0; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.mini .r { text-align: right; }
+.mini tr:last-child td { border-bottom: 0; }
+
+/* ---------- Choose-the-Account step (shared form) ---------- */
+.choose { display: grid; gap: var(--s-3); }
+.choose fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.choose legend { font-weight: 600; margin-bottom: 6px; }
+.choose label.opt { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); cursor: pointer; background: var(--card); }
+.choose label.opt:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.choose .new-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); padding-left: 28px; }
+.field { display: grid; gap: 4px; }
+.field > span { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.field input[type=text], .field select { height: 36px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); padding: 0 10px; font: inherit; background: var(--card); color: var(--ink); }
+.field .hint { font-size: 12px; color: var(--muted); }
+.checks { display: flex; flex-wrap: wrap; gap: 6px var(--s-4); }
+.checks label { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- Coverage: shared bits ---------- */
+.seg-list { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px var(--s-4); font-size: 13px; color: var(--muted); }
+.seg-list .gap-t { color: var(--ink); font-weight: 500; }
+
+/* ---------- A · Batch report ---------- */
+.vA-summary { padding: var(--s-5); display: grid; gap: var(--s-4); }
+.vA-summary .head { display: flex; align-items: flex-start; gap: var(--s-4); }
+.vA-summary h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
+.vA-summary .sub { color: var(--muted); margin-top: 2px; }
+.vA-summary .head .grow { flex: 1; }
+.vA-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-3); }
+.vA-tiles > div { padding: var(--s-3) var(--s-4); border-radius: 10px; background: var(--raised); border: 1px solid var(--line); }
+.vA-tiles .k { color: var(--muted); font-size: 13px; font-weight: 500; }
+.vA-tiles .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.vA-tiles a { font-size: 13px; font-weight: 500; }
+.vA-files { margin-top: var(--s-4); }
+.vA-file { border-top: 1px solid var(--line); }
+.vA-file:first-child { border-top: 0; }
+.vA-file > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 150px minmax(0, 1.2fr) minmax(0, 1.5fr) 20px; gap: var(--s-4); align-items: center; padding: 14px var(--s-5); }
+.vA-file > summary::-webkit-details-marker { display: none; }
+.vA-file > summary:hover { background: var(--raised); }
+.vA-file > summary .fname { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vA-file > summary .fname small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.vA-file > summary .gist { color: var(--ink-2); font-size: 13px; }
+.vA-file > summary .chev { width: 16px; height: 16px; color: var(--faint); transition: transform .2s; }
+.vA-file[open] > summary .chev { transform: rotate(90deg); }
+.vA-file .body { padding: 0 var(--s-5) var(--s-5) calc(150px + var(--s-5) + var(--s-4)); }
+.vA-cov-row { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: var(--s-5); padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); }
+.vA-cov-row:first-of-type { border-top: 0; }
+.acct-name { font-weight: 600; }
+.acct-meta { color: var(--muted); font-size: 13px; }
+.vA-bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; margin-top: 2px; }
+.vA-bar span { display: block; min-width: 3px; position: relative; }
+.vA-bar .covered { background: var(--cov); }
+.vA-bar .covered.new { background: var(--cov-new); }
+.vA-bar .gap { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 55%, transparent) 0 2px, transparent 2px 6px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 40%, transparent); }
+.vA-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.vA-cov-row details { margin-top: var(--s-2); }
+.vA-cov-row summary { cursor: pointer; font-size: 13px; color: var(--accent-text); font-weight: 500; width: max-content; }
+
+/* ---------- Statement table (shared) ---------- */
+.stmts { width: 100%; border-collapse: collapse; margin-top: var(--s-2); font-size: 13px; }
+.stmts th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px var(--s-3) 6px 0; border-bottom: 1px solid var(--line); }
+.stmts td { padding: 6px var(--s-3) 6px 0; border-bottom: 1px solid var(--line); }
+.stmts .r { text-align: right; }
+.stmts tr.new td { background: var(--accent-soft); }
+
+/* ---------- Accounts table (A) ---------- */
+.acct-table { width: 100%; border-collapse: collapse; }
+.acct-table th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-4) var(--s-2); border-bottom: 1px solid var(--line); }
+.acct-table td { padding: 12px var(--s-4); border-bottom: 1px solid var(--line); vertical-align: top; }
+.acct-table tr:last-child td { border-bottom: 0; }
+.acct-table .r { text-align: right; }
+.acct-table tr.flash td { animation: flash 2.4s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } }
+.acct-table .acts { display: flex; gap: var(--s-2); justify-content: flex-end; align-items: center; }
+.why { font-size: 12px; color: var(--muted); display: block; text-align: right; margin-top: 4px; max-width: 220px; margin-left: auto; }
+.owners { display: flex; flex-wrap: wrap; gap: 6px; }
+.owner { display: inline-flex; align-items: center; gap: 6px; }
+.owner .avatar { width: 22px; height: 22px; font-size: 11px; }
+
+/* ---------- B · Accounts board ---------- */
+.vB-banner { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-4) var(--s-5); margin-bottom: var(--s-4); }
+.vB-banner .icon { width: 22px; height: 22px; color: var(--accent-text); }
+.vB-banner .grow { flex: 1; }
+.vB-banner b { font-size: 15px; }
+.vB-tray { margin-bottom: var(--s-4); }
+.vB-tray .item { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: var(--s-5); padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); }
+.vB-tray .item:first-of-type { border-top: 0; }
+.vB-tray .item .fname { font-weight: 500; font-size: 13px; overflow-wrap: anywhere; }
+.board { overflow: hidden; }
+.board-axis, .board-row { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: var(--s-5); padding: 0 var(--s-5); }
+.board-axis { padding-top: var(--s-4); padding-bottom: var(--s-2); border-bottom: 1px solid var(--line); }
+.axis { position: relative; height: 18px; font-size: 12px; color: var(--muted); }
+.axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.axis span.yr { font-weight: 600; color: var(--ink-2); transform: none; }
+.board-row { padding-top: var(--s-4); padding-bottom: var(--s-4); border-bottom: 1px solid var(--line); align-items: start; }
+.board-row:last-child { border-bottom: 0; }
+.board-row.open { background: var(--raised); }
+.board-row .who .acct-name { display: flex; align-items: center; gap: 8px; }
+.track { position: relative; height: 30px; margin-top: 2px; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 14px; border-top: 1px solid var(--line); }
+.track .tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); opacity: .7; }
+.track .seg { position: absolute; top: 4px; height: 22px; border-radius: 5px; }
+.track .seg.covered { background: var(--cov); }
+.track .seg.covered.new { background: var(--cov-new); }
+.track .seg.gap { top: 4px; background: var(--card); border: 1.5px solid var(--ink-2); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--ink); cursor: pointer; padding: 0; font-family: inherit; overflow: hidden; white-space: nowrap; }
+.track .seg.gap:hover { background: var(--hover); }
+.track .today { position: absolute; top: -4px; bottom: -4px; border-left: 1.5px solid var(--ink); }
+.track .today span { position: absolute; top: -14px; left: -16px; font-size: 10px; color: var(--muted); }
+.track-note { display: flex; flex-wrap: wrap; gap: 4px var(--s-4); font-size: 13px; color: var(--muted); margin-top: 6px; }
+.track-note .new-t { color: var(--accent-text); font-weight: 600; }
+.board-row .expand { grid-column: 1 / -1; padding: var(--s-3) 0 var(--s-2); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-6); }
+.board-row .expand h4 { margin: 0 0 var(--s-2); font-size: 13px; font-weight: 600; }
+.no-stmts { font-size: 13px; color: var(--muted); padding-top: 6px; }
+
+/* ---------- C · Guided flow ---------- */
+.steps { display: flex; align-items: center; gap: var(--s-3); margin: 0 0 var(--s-5); padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+.steps li { display: flex; align-items: center; gap: 8px; }
+.steps li .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line-strong); font-weight: 600; font-size: 12px; background: var(--card); }
+.steps li[aria-current] { color: var(--ink); font-weight: 600; }
+.steps li[aria-current] .n { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.steps li.done .n { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+.steps .sep { width: 40px; border-top: 1px solid var(--line-strong); }
+.vC-hero { max-width: 760px; margin: 0 auto; }
+.vC-group h2 { font-size: 15px; font-weight: 600; margin: var(--s-6) 0 var(--s-3); display: flex; align-items: center; gap: 8px; }
+.vC-group h2 .count { color: var(--muted); font-weight: 500; }
+.vC-need { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: var(--s-3); padding: var(--s-5); margin-bottom: var(--s-3); }
+.vC-need .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--raised); border: 1px solid var(--line); }
+.vC-need .ic .icon { width: 18px; height: 18px; }
+.vC-need .fname { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.vC-need .acts { display: flex; gap: var(--s-2); margin-top: var(--s-3); }
+.vC-done { list-style: none; margin: 0; padding: 0; }
+.vC-done > li { padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-4); }
+.vC-done > li:first-child { border-top: 0; }
+.vC-done .line1 { font-weight: 600; }
+.vC-done .line2 { color: var(--muted); font-size: 13px; grid-column: 1 / -1; }
+.vC-done details { grid-column: 1 / -1; margin-top: 6px; }
+.vC-done summary { cursor: pointer; color: var(--accent-text); font-size: 13px; font-weight: 500; width: max-content; }
+.vC-next { display: flex; align-items: center; gap: var(--s-5); padding: var(--s-6); margin-top: var(--s-6); background: var(--ink); color: var(--card); border-radius: var(--r-card); }
+.vC-next .grow { flex: 1; }
+.vC-next b { font-size: 18px; display: block; }
+.vC-next span { opacity: .75; }
+.vC-next .btn { background: var(--card); color: var(--ink); border-color: var(--card); height: 40px; }
+.grid-cov { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 12px; table-layout: fixed; }
+.grid-cov th { font-weight: 500; color: var(--muted); padding: 2px; text-align: center; }
+.grid-cov th.acct { text-align: left; width: 210px; color: var(--ink); padding-left: var(--s-5); }
+.grid-cov th.acct small { display: block; color: var(--muted); font-weight: 400; }
+.grid-cov td { height: 40px; border-radius: 6px; text-align: center; vertical-align: middle; padding: 0 2px; line-height: 1.2; }
+.grid-cov td.full { background: var(--cov); color: transparent; }
+.grid-cov td.full.new { background: var(--cov-new); color: var(--accent-ink); font-weight: 600; }
+.grid-cov td.part { background: linear-gradient(90deg, var(--cov) var(--p), transparent var(--p)); box-shadow: inset 0 0 0 1.5px var(--cov); color: var(--ink); font-weight: 600; }
+.grid-cov td.gap { box-shadow: inset 0 0 0 1.5px var(--ink-2); color: var(--ink); font-weight: 600; }
+.grid-cov td.gap button { font: inherit; font-weight: 600; color: var(--accent-text); background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.grid-cov td.none { color: var(--faint); }
+.grid-cov td.sofar { box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--muted); }
+.grid-legend { display: flex; gap: var(--s-5); padding: var(--s-2) var(--s-5) var(--s-5); font-size: 12px; color: var(--muted); }
+.grid-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.acct-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s-4); }
+.acct-card { padding: var(--s-5); display: grid; gap: var(--s-3); align-content: start; }
+.acct-card.flash { animation: flashc 2.4s ease-out; }
+@keyframes flashc { from { box-shadow: 0 0 0 3px var(--accent), var(--shadow); } }
+.acct-card .top { display: flex; align-items: flex-start; gap: var(--s-2); }
+.acct-card .top .grow { flex: 1; }
+.acct-card dl { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 4px var(--s-3); margin: 0; font-size: 13px; }
+.acct-card dt { color: var(--muted); }
+.acct-card dd { margin: 0; }
+.drawer-scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .3); z-index: 60; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; background: var(--card); z-index: 61; box-shadow: var(--shadow-pop); padding: var(--s-6); overflow-y: auto; display: grid; gap: var(--s-4); align-content: start; animation: slide .25s cubic-bezier(.16,1,.3,1); }
+@keyframes slide { from { transform: translateX(100%); } }
+.drawer h2 { font-size: 18px; font-weight: 600; }
+.danger-zone { border-top: 1px solid var(--line); padding-top: var(--s-4); display: grid; gap: var(--s-2); }
+.danger-zone h3 { font-size: 13px; font-weight: 600; }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 70; background: var(--ink); color: var(--card); padding: 10px 16px; border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.toast .icon { width: 16px; height: 16px; }
+
+/* ---------- Confirm dialog (Delete Statement / Account: kept as today) ---------- */
+dialog { border: 0; border-radius: var(--r-card); padding: var(--s-6); width: 460px; background: var(--card); color: var(--ink); box-shadow: var(--shadow-pop); }
+dialog::backdrop { background: rgb(0 0 0 / .35); }
+dialog h2 { font-size: 17px; font-weight: 600; margin-bottom: var(--s-3); }
+dialog p { margin: 0 0 var(--s-3); color: var(--ink-2); }
+dialog .acts { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: var(--s-4); }
+.btn.danger { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-4.2-7.6"/><path d="m9 11 3 3 9-9"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+  <symbol id="i-ask" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.5v.2M12 17h.01"/></symbol>
+  <symbol id="i-same" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 10h8M8 14h8"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-updown" viewBox="0 0 24 24"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+</svg>
+
+<div id="app"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<div class="proto" id="proto" role="region" aria-label="Prototype switcher (not part of the design)"></div>
+<dialog id="dlg"></dialog>
+
+<script>
+// ===================== Dates and numbers =====================
+const DAY = 864e5;
+const d = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+const TODAY = d('2026-10-19');
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const P = t => { const x = new Date(t); return [x.getUTCDate(), x.getUTCMonth(), x.getUTCFullYear()]; };
+const fd = t => { const [a, m, y] = P(t); return `${a} ${MON[m]} ${y}`; };
+function fr(a, b) {
+  const [d1, m1, y1] = P(a), [d2, m2, y2] = P(b);
+  if (y1 === y2 && m1 === m2) return d1 === d2 ? fd(a) : `${d1}–${d2} ${MON[m1]} ${y1}`;
+  if (y1 === y2) return `${d1} ${MON[m1]} – ${d2} ${MON[m2]} ${y2}`;
+  return `${fd(a)} – ${fd(b)}`;
+}
+const monthEnd = (y, m) => Date.UTC(y, m + 1, 0);
+const days = (a, b) => Math.round((b - a) / DAY) + 1;
+const pl = (n, one, many) => `${n.toLocaleString('sl-SI')} ${n === 1 ? one : many}`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ic = n => `<svg class="icon" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+
+// ===================== Household (synthetic) =====================
+const MEMBERS = { maja: { name: 'Maja', role: 'Admin' }, luka: { name: 'Luka', role: 'Member' } };
+const owners = a => a.owners.map(o => MEMBERS[o].name).join(', ');
+const ownerChips = a => `<span class="owners">${a.owners.map(o => `<span class="owner"><span class="avatar" aria-hidden="true">${MEMBERS[o].name[0]}</span>${MEMBERS[o].name}</span>`).join('')}</span>`;
+function monthly(from, to, fmt, by, base) {
+  const out = []; let [y, m] = from.split('-').map(Number); m -= 1;
+  const [ty, tm] = to.split('-').map(Number); let i = 0;
+  while (y < ty || (y === ty && m <= tm - 1)) {
+    const start = Date.UTC(y, m, 1), end = monthEnd(y, m);
+    out.push({ start, end, tx: base + ((i * 7 + m * 3) % 19), fmt, at: end + 3 * DAY, by, manual: (i * 5) % 4 });
+    i++; m++; if (m === 12) { m = 0; y++; }
+  }
+  return out;
+}
+let ACCOUNTS, RESULTS;
+function seed() {
+  ACCOUNTS = [
+    { id: 1, name: "Maja's Sparkasse", bank: 'Sparkasse SI', owners: ['maja'], ibans: ['SI56 1910 0001 2345 678'], rules: 3, stmts: monthly('2025-01', '2026-08', 'PDF', 'maja', 52) },
+    { id: 2, name: "Luka's N26", bank: 'N26', owners: ['luka'], ibans: ['DE89 1001 1001 2345 6789 00'], rules: 1, stmts: [...monthly('2025-03', '2026-06', 'PDF', 'luka', 30), ...monthly('2026-08', '2026-08', 'PDF', 'luka', 30)] },
+    { id: 3, name: 'Joint Revolut', bank: 'Revolut', owners: ['maja', 'luka'], ibans: ['LT12 3250 0123 4567 8901'], rules: 0, stmts: [
+      { start: d('2026-02-01'), end: d('2026-04-30'), tx: 88, fmt: 'CSV', at: d('2026-05-02'), by: 'maja', manual: 6 },
+      { start: d('2026-05-01'), end: d('2026-06-30'), tx: 61, fmt: 'CSV', at: d('2026-07-03'), by: 'luka', manual: 2 }] },
+    { id: 4, name: "Maja's savings", bank: 'Other', owners: ['maja'], ibans: ['SI56 0510 0801 2345 678'], rules: 1, stmts: [], none: true },
+  ];
+  RESULTS = null;
+}
+const acct = id => ACCOUNTS.find(a => a.id === id);
+
+// The batch the Member "chooses". kind: ok | need (choose the Account) | no (rejected) | same (already imported)
+const BATCH = [
+  { file: 'sparkasse_2026-08.pdf', size: '182 KB', kind: 'same', acct: 1, at: d('2026-09-03') },
+  { file: 'sparkasse_2026-09.pdf', size: '176 KB', kind: 'ok', acct: 1, fmt: 'PDF', start: d('2026-09-01'), end: d('2026-09-30'), c: { imported: 64, dup: 0, pending: 0, paired: 2, oneSided: 1, converted: 0, ambiguous: 0, rules: 41, waiting: 20 } },
+  { file: 'n26_statement_2026-07.pdf', size: '96 KB', kind: 'no', why: 'totals', acct: 2 },
+  { file: 'n26_statement_2026-09.pdf', size: '102 KB', kind: 'ok', acct: 2, fmt: 'PDF', start: d('2026-09-01'), end: d('2026-09-30'), c: { imported: 38, dup: 0, pending: 0, paired: 1, oneSided: 0, converted: 1, ambiguous: 0, rules: 29, waiting: 8 } },
+  { file: 'revolut-joint_2026-06-01_2026-10-15.csv', size: '41 KB', kind: 'ok', acct: 3, fmt: 'CSV', start: d('2026-06-01'), end: d('2026-10-15'), c: { imported: 71, dup: 22, pending: 4, paired: 2, oneSided: 0, converted: 0, ambiguous: 1, rules: 52, waiting: 15 } },
+  { file: 'revolut-luka_2026.csv', size: '58 KB', kind: 'need', bank: 'Revolut', fmt: 'CSV', start: d('2026-01-01'), end: d('2026-10-14'), iban: 'LT59 3250 0987 6543 2101', c: { imported: 212, dup: 0, pending: 6, paired: 9, oneSided: 0, converted: 0, ambiguous: 0, rules: 160, waiting: 43 } },
+  { file: 'IMG_2041.pdf', size: '2,4 MB', kind: 'no', why: 'unreadable' },
+];
+// "every rejection": one more file for each other cause the importer can give.
+const EXTRA = [
+  { file: 'statement.docx', size: '24 KB', kind: 'no', why: 'type' },
+  { file: 'sparkasse_2026-10-01_2026-10-17.pdf', size: '88 KB', kind: 'no', why: 'continuity', acct: 1 },
+  { file: 'revolut-joint_2026-q2.csv', size: '19 KB', kind: 'no', why: 'mismatch', acct: 3 },
+  { file: 'n26_2026-10.pdf', size: '91 KB', kind: 'no', why: 'bank' },
+  { file: 'revolut_export.csv', size: '12 KB', kind: 'no', why: 'iban' },
+  { file: 'savings_2026.pdf', size: '64 KB', kind: 'no', why: 'nostmts' },
+];
+
+// ===================== State =====================
+const VARIANTS = { A: 'Batch report', B: 'Accounts board', C: 'Guided flow' };
+const qs = new URLSearchParams(location.search);
+const S = {
+  variant: VARIANTS[qs.get('variant')] ? qs.get('variant') : 'A', page: qs.get('page') === 'accounts' ? 'accounts' : 'import',
+  stage: 'idle', pct: 0, all: qs.has('all'), role: qs.get('role') === 'member' ? 'member' : 'admin',
+  lookFor: null, editing: null, saved: null, open: {}, said: '', removed: new Set(), toast: null,
+};
+const me = () => S.role === 'admin' ? 'maja' : 'luka';
+const isAdmin = () => S.role === 'admin';
+const batch = () => [...BATCH, ...(S.all ? EXTRA : [])].filter(f => !S.removed.has(f.file));
+const ORDER = { need: 0, no: 1, ok: 2, same: 3 };
+const byNeed = list => [...list].sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
+const ok = () => (RESULTS || []).filter(r => r.kind === 'ok');
+const total = k => ok().reduce((s, r) => s + r.c[k], 0);
+const waiting = () => total('waiting') + total('ambiguous');
+const reviewBadge = () => 12 + waiting();
+
+// ===================== Coverage =====================
+// Day by day: covered by an older Statement, by one from this import ("new"), or a Gap (up to today).
+function coverage(a) {
+  if (!a.stmts.length) return [];
+  const first = Math.min(...a.stmts.map(s => s.start)), segs = [];
+  for (let t = first; t <= TODAY; t += DAY) {
+    const k = a.stmts.some(s => !s.new && s.start <= t && t <= s.end) ? 'covered' : a.stmts.some(s => s.new && s.start <= t && t <= s.end) ? 'new' : 'gap';
+    const last = segs.at(-1);
+    if (last && last.kind === k) last.end = t; else segs.push({ kind: k, start: t, end: t });
+  }
+  segs.forEach((s, i) => { s.days = days(s.start, s.end); s.trailing = s.kind === 'gap' && i === segs.length - 1; });
+  return segs;
+}
+const gaps = a => coverage(a).filter(s => s.kind === 'gap');
+const lastEnd = a => Math.max(...a.stmts.map(s => s.end));
+const gapText = g => g.trailing ? `Gap ${fr(g.start, g.end)}, since the last Statement` : `Gap ${fr(g.start, g.end)}`;
+const segText = s => s.kind === 'gap' ? gapText(s) : `${s.kind === 'new' ? 'Covered by this import' : 'Covered'} ${fr(s.start, s.end)}`;
+const srList = a => `<ol class="sr">${coverage(a).map(s => `<li>${segText(s)}</li>`).join('')}</ol>`;
+
+// ===================== Shared copy: domain counts =====================
+function counts(r) {
+  const c = r.c, li = (v, text, show = true) => show ? `<li class="${v ? '' : 'zero'}"><b>${v ? v.toLocaleString('sl-SI') : 'No'}</b><span>${text}</span></li>` : '';
+  const tr = c.paired + c.oneSided;
+  return `<ul class="counts">
+    ${li(c.imported, c.imported === 1 ? 'Transaction imported' : 'Transactions imported')}
+    ${li(c.dup, c.dup ? `${c.dup === 1 ? 'Duplicate' : 'Duplicates'} skipped: already imported from an earlier Statement` : 'Duplicates')}
+    ${li(c.pending, `card payments still pending or declined, left out`, c.pending > 0)}
+    ${li(tr, tr ? `${tr === 1 ? 'Transfer' : 'Transfers'} recognised: ${c.paired} paired, ${c.oneSided} one-sided` : 'Transfers')}
+    ${li(c.converted, `categorized Transaction is now a Transfer`, c.converted > 0)}
+    ${li(c.ambiguous, `Transfer has several possible other sides, so it waits in the Review queue`, c.ambiguous > 0)}
+    ${li(c.rules, 'categorized by Rules')}
+    ${li(c.waiting, `wait for suggestions and review · <a href="#">Review queue</a>`)}
+  </ul>`;
+}
+const gist = r => `${pl(r.c.imported, 'Transaction', 'Transactions')} · ${r.c.waiting + r.c.ambiguous} to review${r.c.dup ? ` · ${r.c.dup} Duplicates skipped` : ''}`;
+
+// ===================== Shared copy: rejections, cause first =====================
+function diagTotals() {
+  const rows = [['1 Jul', 'Salary ACME d.o.o.', '+2.100,00', '3.284,10'], ['2 Jul', 'HOFER 2201 LJUBLJANA', '−48,32', '3.235,78'], ['3 Jul', 'Petrol Tivoli', '−61,04', '3.174,74'], ['4 Jul', 'Spotify', '−11,99', '3.162,75'], ['5 Jul', 'Rent, Novak', '−650,00', '2.512,75']];
+  return `<div class="diag">
+    <dl><dt>Opening balance</dt><dd>1.184,10 €</dd><dt>All rows read, added up</dt><dd>−292,45 €</dd>
+      <dt>So the closing balance should be</dt><dd>891,65 €</dd><dt>The Statement prints</dt><dd class="hl">871,65 €</dd></dl>
+    <table class="mini"><thead><tr><th></th><th class="r">Money in</th><th class="r">Payments in</th><th class="r">Money out</th><th class="r">Payments out</th></tr></thead>
+      <tbody><tr><th>Printed on the Statement</th><td class="r">2.340,00 €</td><td class="r">4</td><td class="r">2.652,45 €</td><td class="r">31</td></tr>
+      <tr><th>Read by Pursegraph</th><td class="r">2.340,00 €</td><td class="r">4</td><td class="r hl">2.632,45 €</td><td class="r hl">30</td></tr></tbody></table>
+    <details><summary>All 34 rows read</summary><table class="mini"><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th class="r">Balance</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="r">${r[2]}</td><td class="r">${r[3]}</td></tr>`).join('')}<tr><td colspan="4" class="muted">… 29 more</td></tr></tbody></table></details>
+  </div>`;
+}
+function rejection(r) {
+  const n = id => acct(id)?.name ?? '';
+  switch (r.why) {
+    case 'totals': return { head: 'A payment seems to be missing',
+      cause: 'The Statement lists 31 payments out, totalling 2.652,45 €. Pursegraph read 30 of them, totalling 2.632,45 €: 20,00 € short. So nothing from this file was imported.',
+      next: `Keep the file: the N26 reader needs a fix to read it. Until then, ${n(2)} has a Gap for 1–31 Jul 2026.`, more: 'Show the reconciliation', details: diagTotals() };
+    case 'unreadable': return { head: 'Not a Statement Pursegraph can read',
+      cause: "This PDF doesn't look like a Statement from Sparkasse, N26 or Revolut.",
+      next: "Download the Statement from your bank's website or app and import that; scans and photos can't be read. If this is a downloaded Statement, keep it: the reader may need a fix.",
+      more: 'What the reader found', details: `<div class="diag"><p class="mono">No Sparkasse, N26 or Revolut layout on page 1 of 1 (the page has no text, only an image).</p></div>` };
+    case 'type': return { head: 'Not a PDF or CSV file',
+      cause: 'This is a Word document. Only PDF Statements, and the CSV exports Revolut gives, can be imported.',
+      next: 'Download the Statement from your bank as a PDF (or a CSV from Revolut) and import that.' };
+    case 'continuity': return { head: "Doesn't follow on from what's imported",
+      cause: `It starts on 1 Oct 2026 with 2.410,00 €, but ${n(1)} ended 30 Sep 2026 with 2.390,00 €. So nothing from this file was imported.`,
+      next: 'A Statement in between may be missing, or a balance was misread. If the dates do follow on, keep the file: the Sparkasse reader may need a fix.',
+      more: 'Show the balances', details: `<div class="diag"><dl><dt>${esc(n(1))}, closing 30 Sep 2026</dt><dd>2.390,00 €</dd><dt>This Statement, opening 1 Oct 2026</dt><dd class="hl">2.410,00 €</dd></dl></div>` };
+    case 'mismatch': return { head: "Disagrees with what's already imported",
+      cause: `On 3 days inside ${n(3)}'s Coverage, its rows don't match the Transactions already imported. So nothing from this file was imported.`,
+      next: 'This usually means the bank re-booked or reverted a payment after the earlier export. Compare the rows; keep the file if they look wrong.',
+      more: 'Show the 3 days that differ', details: `<div class="diag"><table class="mini"><thead><tr><th>Date</th><th></th><th>Description</th><th class="r">Amount</th></tr></thead><tbody>
+        <tr><td>12 May</td><td>Imported before, not in this file</td><td>Bolt.eu</td><td class="r">−14,20</td></tr>
+        <tr><td>12 May</td><td>In this file, not imported before</td><td>Bolt.eu</td><td class="r">−12,80</td></tr>
+        <tr><td>27 May</td><td>In this file, not imported before</td><td>Refund Zara</td><td class="r">+39,95</td></tr>
+        <tr><td>3 Jun</td><td>Imported before, not in this file</td><td>Wolt</td><td class="r">−23,50</td></tr></tbody></table></div>` };
+    case 'bank': return { head: 'Wrong bank for that Account',
+      cause: `This is an N26 Statement, but ${n(3)} is a Revolut Account.`,
+      next: 'Import it again and choose an N26 Account, or a new one.' };
+    case 'iban': return { head: `This Statement belongs to ${n(3)}`,
+      cause: `Its IBAN LT12 3250 0123 4567 8901 is on ${n(3)}, but ${n(1)} was chosen.`,
+      next: `Import it again without choosing an Account: it goes to ${n(3)} by its IBAN.` };
+    case 'nostmts': return { head: `${n(4)} takes no Statements`,
+      cause: `It's an Account with bank "Other": it is known only by its IBANs, so that money moved to it counts as a Transfer.`,
+      next: "Choose another Account for this Statement, or ask an admin to change the Account's bank." };
+  }
+}
+function rejectionBody(r, { head = true } = {}) {
+  const x = rejection(r);
+  return `<div class="rej">${head ? `<h3>${esc(x.head)}</h3>` : ''}<p>${esc(x.cause)}</p><p class="next">${esc(x.next)}</p>
+    ${x.details ? `<details><summary>${x.more}</summary>${x.details}</details>` : ''}</div>`;
+}
+const sameBody = r => `<div class="rej"><p>This Statement went into ${esc(acct(r.acct).name)} on ${fd(r.at)}. Nothing changed.</p></div>`;
+function chooseForm(r) {
+  const revs = ACCOUNTS.filter(a => a.bank === 'Revolut');
+  return `<form class="choose" data-choose="${esc(r.file)}">
+    <div class="rej"><p>A Revolut Statement, ${fr(r.start, r.end)}. Its IBAN <span class="mono">${r.iban}</span> isn't on any Account yet.
+      Pick the Account it belongs to, or create one. The IBAN is added to it, so next time the Statement goes there by itself.</p></div>
+    <fieldset><legend class="sr">Account</legend>
+      ${revs.map(a => `<label class="opt"><input type="radio" name="acct" value="${a.id}"> ${esc(a.name)} <span class="muted">· ${owners(a)}</span></label>`).join('')}
+      <label class="opt"><input type="radio" name="acct" value="new" checked> A new Revolut Account</label>
+      <div class="new-fields"><label class="field"><span>Name</span><input type="text" name="name" value="Luka's Revolut"></label>
+        <div class="field"><span>Owners</span><div class="checks">${Object.entries(MEMBERS).map(([k, m]) => `<label><input type="checkbox" name="own" value="${k}"${k === 'luka' ? ' checked' : ''}> ${m.name}</label>`).join('')}</div>
+        <span class="hint">Several owners make it a joint Account.</span></div></div>
+    </fieldset>
+    <div><button class="btn primary" type="submit">Import into this Account</button></div></form>`;
+}
+const STATUS = {
+  ok: () => `<span class="status ok">${ic('ok')}Imported</span>`,
+  need: () => `<span class="status need">${ic('ask')}Needs an Account</span>`,
+  no: () => `<span class="status no">${ic('alert')}Not imported</span>`,
+  same: () => `<span class="status same">${ic('same')}Already imported</span>`,
+};
+function headline() {
+  const r = RESULTS, k = kind => r.filter(x => x.kind === kind).length;
+  const files = ok().length, rest = [k('need') && pl(k('need'), 'file needs an Account', 'files need an Account'), k('no') && `${pl(k('no'), "file wasn't", "files weren't")} imported`, k('same') && `${pl(k('same'), 'was', 'were')} already imported`].filter(Boolean);
+  return { title: `${pl(total('imported'), 'Transaction', 'Transactions')} imported from ${pl(files, 'file', 'files')}`, sub: rest.join(' · ') };
+}
+
+// ===================== Shared: picking files, upload progress =====================
+function stagedList() {
+  const list = batch();
+  return `<ul class="staged">${list.map(f => `<li>${ic('file')}<span class="trunc">${esc(f.file)}</span><span class="sz">${f.size}</span>
+      <span class="st">${S.stage === 'staged' ? 'Ready' : S.stage === 'uploading' ? 'Uploading' : '<span class="spin"></span> Checking'}</span>
+      ${S.stage === 'staged' ? `<button class="btn ghost icon-only sm" type="button" data-remove="${esc(f.file)}" aria-label="Remove ${esc(f.file)}">${ic('x')}</button>` : '<span></span>'}</li>`).join('')}</ul>`;
+}
+function progress() {
+  const n = batch().length;
+  if (S.stage === 'uploading') return `<p class="prog-line"><span><b>Uploading ${pl(n, 'file', 'files')}</b></span><span class="num">${S.pct} %</span></p><div class="progress" role="progressbar" aria-label="Upload" aria-valuenow="${S.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${S.pct}%"></i></div>`;
+  return `<p class="prog-line"><span><b>Checking and importing ${pl(n, 'Statement', 'Statements')}</b> · oldest first, so each one's Duplicates are found</span><span>a few seconds per file</span></p><div class="progress indet" role="progressbar" aria-label="Importing"><i></i></div>`;
+}
+const BANKS = 'PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports. Several at once.';
+function lookForNote() {
+  if (!S.lookFor) return '';
+  const a = acct(S.lookFor.acct), g = S.lookFor;
+  return `<div class="notice">${ic('file')}<span class="grow">For ${esc(a.name)}: a Statement covering ${fr(g.start, g.end)}. Download it from ${a.bank === 'Sparkasse SI' ? 'Sparkasse' : a.bank} and drop it here.</span><button class="btn ghost icon-only sm" type="button" data-lookfor="clear" aria-label="Dismiss">${ic('x')}</button></div>`;
+}
+
+// ===================== Shared: Statements table, Account form =====================
+function stmtTable(a) {
+  const list = [...a.stmts].sort((x, y) => y.start - x.start);
+  return `<table class="stmts"><thead><tr><th>Period</th><th>Format</th><th class="r">Transactions</th><th>Imported</th><th></th></tr></thead><tbody>
+    ${list.map(s => `<tr class="${s.new ? 'new' : ''}"><td>${fr(s.start, s.end)}</td><td>${s.fmt}</td><td class="r num">${s.tx}</td><td>${fd(s.at)}, ${MEMBERS[s.by].name}</td>
+      <td class="r">${isAdmin() || s.by === me() ? `<button class="link" type="button" data-delstmt="${a.id}:${s.start}">Delete</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+}
+function accountForm(a, { inline = false } = {}) {
+  return `<form class="choose" data-save="${a ? a.id : 'new'}">
+    <label class="field"><span>Name</span><input type="text" name="name" value="${esc(a?.name ?? '')}"></label>
+    <label class="field"><span>Bank</span><select name="bank">${['Sparkasse SI', 'N26', 'Revolut', 'Other'].map(b => `<option${a?.bank === b ? ' selected' : ''}>${b}</option>`).join('')}</select>
+      <span class="hint">"Other" is for an Account whose Statements aren't imported, such as savings at another bank. Money moved to its IBANs counts as a Transfer.</span></label>
+    <div class="field"><span>Owners</span><div class="checks">${Object.entries(MEMBERS).map(([k, m]) => `<label><input type="checkbox" name="own" value="${k}"${a?.owners.includes(k) ? ' checked' : ''}> ${m.name}</label>`).join('')}</div>
+      <span class="hint">Several owners make it a joint Account, shown in the Joint bucket.</span></div>
+    <label class="field"><span>IBANs</span><input type="text" name="ibans" class="mono" value="${esc(a?.ibans.join(', ') ?? '')}"><span class="hint">Separate several with commas.</span></label>
+    <div style="display:flex;gap:8px"><button class="btn primary" type="submit">Save Account</button><button class="btn" type="button" data-cancel>Cancel</button></div></form>`;
+}
+// Why Delete is missing, said where Delete would be.
+const deleteBlock = a => a.stmts.length
+  ? `<p class="muted" style="margin:0">Can't be deleted while it has ${pl(a.stmts.length, 'Statement', 'Statements')}. Delete them first${a.stmts.length > 3 ? ', or keep the Account: Statements are the record' : ''}.</p>`
+  : `<div><button class="btn danger" type="button" data-delacct="${a.id}">Delete Account</button></div>`;
+
+// ===================== A · Batch report =====================
+function importA() {
+  let html = `<div class="title-row"><h1>Import</h1></div>`;
+  if (S.stage === 'done') {
+    const h = headline();
+    html += `<section class="card vA-summary" aria-labelledby="sum-h"><div class="head"><div class="grow"><h2 id="sum-h" tabindex="-1">${h.title}</h2><p class="sub">${h.sub}</p></div>
+        <a class="btn primary" href="#">Review ${waiting()} Transactions ${ic('arrow')}</a></div>
+      <div class="vA-tiles"><div><div class="k">Transactions imported</div><div class="v">${total('imported')}</div></div>
+        <div><div class="k">Duplicates skipped</div><div class="v">${total('dup')}</div></div>
+        <div><div class="k">Wait for review</div><div class="v">${waiting()}</div><a href="#">Open the Review queue</a></div></div></section>
+      <section class="card vA-files" aria-label="Files">${byNeed(RESULTS).map(r => fileRowA(r)).join('')}</section>`;
+  }
+  html += `<div style="margin-top:16px">${lookForNote()}</div><section class="card" style="padding:16px" id="drop">${dropA()}</section>`;
+  html += `<div class="sec-h"><h2>Coverage</h2><span class="muted">What each Account's Statements cover, up to today</span></div>
+    <section class="card">${ACCOUNTS.map(covRowA).join('')}</section>`;
+  return html;
+}
+function dropA() {
+  if (S.stage === 'idle' || S.stage === 'done') return `<div class="dropzone${S.stage === 'done' ? ' slim' : ''}">${ic('upload')}<div class="grow"><strong>${S.stage === 'done' ? 'Import more Statements' : 'Drop Statements here'}</strong> ${BANKS}</div>
+      ${S.stage === 'done' ? '' : '<div style="height:12px"></div>'}<button class="btn" type="button" data-choosefiles>Choose files</button></div>`;
+  return `${S.stage === 'staged' ? '' : progress()}${stagedList()}
+    ${S.stage === 'staged' ? `<div class="staged-foot"><span class="grow">Each file is checked on its own: one that fails doesn't stop the others.</span><button class="btn" type="button" data-reset>Cancel</button><button class="btn primary" type="button" data-go>Import ${pl(batch().length, 'file', 'files')}</button></div>` : ''}`;
+}
+function fileRowA(r) {
+  const a = r.acct && acct(r.acct);
+  const where = r.kind === 'ok' ? `${esc(a.name)} · ${fr(r.start, r.end)}` : r.kind === 'need' ? `Revolut · ${fr(r.start, r.end)}` : r.kind === 'same' ? esc(a.name) : rejection(r).head;
+  const g = r.kind === 'ok' ? gist(r) : r.kind === 'need' ? 'Choose the Account to import it into' : r.kind === 'same' ? 'Nothing changed' : 'Nothing from this file was imported';
+  const open = r.kind === 'need' || r.kind === 'no' || S.open[r.file];
+  const body = r.kind === 'ok' ? counts(r) + (gapsAfter(r)) : r.kind === 'need' ? chooseForm(r) : r.kind === 'same' ? sameBody(r) : rejectionBody(r, { head: false });
+  return `<details class="vA-file"${open ? ' open' : ''}><summary>${STATUS[r.kind]()}<span class="fname">${esc(r.file)}<small>${r.kind === 'no' ? '' : ''}</small></span><span class="gist"><b style="font-weight:500;color:var(--ink)">${where}</b><br>${g}</span>${ic('right').replace('class="icon"', 'class="icon chev"')}</summary>
+    <div class="body">${body}</div></details>`;
+}
+function gapsAfter(r) {
+  const a = acct(r.acct), gs = gaps(a).filter(g => !g.trailing);
+  return gs.map(g => `<p class="muted" style="margin:8px 0 0">${ic('alert').replace('class="icon"', 'class="icon" style="width:14px;height:14px;vertical-align:-2px"')} ${esc(a.name)} still has a Gap: ${fr(g.start, g.end)}. <button class="link" type="button" data-gap="${a.id}:${g.start}:${g.end}">Import a Statement for it</button></p>`).join('');
+}
+function covRowA(a) {
+  const segs = coverage(a);
+  const head = `<div><div class="acct-name">${esc(a.name)}</div><div class="acct-meta">${a.bank} · ${owners(a)}</div><div class="acct-meta mono">${a.ibans.join(', ')}</div></div>`;
+  if (!segs.length) return `<div class="vA-cov-row">${head}<p class="muted" style="margin:0">Takes no Statements: money moved to its IBAN counts as a Transfer.</p></div>`;
+  return `<div class="vA-cov-row">${head}<div>
+    <div class="vA-bar" aria-hidden="true">${segs.map(s => `<span class="${s.kind === 'new' ? 'covered new' : s.kind}" style="flex-grow:${s.days}" title="${segText(s)}"></span>`).join('')}</div>${srList(a)}
+    <div class="vA-ends" aria-hidden="true"><span>${fd(segs[0].start)}</span><span>Today, ${fd(TODAY)}</span></div>
+    <ul class="seg-list">${gaps(a).map(g => `<li><span class="gap-t">${gapText(g)}</span> · <button class="link" type="button" data-gap="${a.id}:${g.start}:${g.end}">Import</button></li>`).join('')}
+      <li>Last Statement ends ${fd(lastEnd(a))}</li>${segs.some(s => s.kind === 'new') ? '<li style="color:var(--accent-text);font-weight:500">Indigo: this import</li>' : ''}</ul>
+    <details${S.open['st' + a.id] ? ' open' : ''} data-keep="st${a.id}"><summary>${pl(a.stmts.length, 'Statement', 'Statements')}</summary>${stmtTable(a)}</details></div></div>`;
+}
+function accountsA() {
+  if (S.editing != null) {
+    const a = S.editing === 'new' ? null : acct(S.editing);
+    return `<div class="title-row"><h1>${a ? `Edit ${esc(a.name)}` : 'New Account'}</h1></div><section class="card card-pad" style="max-width:560px">${accountForm(a)}</section>`;
+  }
+  const saved = S.saved && acct(S.saved);
+  return `<div class="title-row"><h1>Accounts</h1><button class="btn primary" type="button" data-edit="new">${ic('plus')}New Account</button></div>
+    ${saved ? `<div class="notice" role="status">${ic('ok')}<span class="grow">Saved ${esc(saved.name)}.</span></div>` : ''}
+    <section class="card"><table class="acct-table"><thead><tr><th>Account</th><th>Owners</th><th>IBANs</th><th class="r">Statements</th><th class="r"><span class="sr">Actions</span></th></tr></thead><tbody>
+    ${ACCOUNTS.map(a => `<tr class="${S.saved === a.id ? 'flash' : ''}"><td><div class="acct-name">${esc(a.name)}</div><div class="acct-meta">${a.bank}</div></td><td>${ownerChips(a)}</td>
+      <td class="mono">${a.ibans.join('<br>')}</td><td class="r num">${a.none ? '<span class="muted">Takes none</span>' : a.stmts.length}</td>
+      <td><div class="acts"><button class="btn sm" type="button" data-edit="${a.id}">Edit</button>${a.stmts.length ? `<button class="btn sm" type="button" disabled aria-describedby="why-${a.id}">Delete</button>` : `<button class="btn sm" type="button" data-delacct="${a.id}">Delete</button>`}</div>
+      ${a.stmts.length ? `<span class="why" id="why-${a.id}">Has ${pl(a.stmts.length, 'Statement', 'Statements')}: delete them under Import first.</span>` : ''}</td></tr>`).join('')}
+    </tbody></table></section>
+    <p class="muted" style="margin-top:12px">An Account is usually created at Import, from a Statement's IBAN. Create one here for an Account that takes no Statements, such as savings at another bank.</p>`;
+}
+
+// ===================== B · Accounts board =====================
+const AX0 = d('2025-01-01'), AX1 = TODAY + DAY;
+const xp = t => ((t - AX0) / (AX1 - AX0) * 100).toFixed(3);
+function axis() {
+  let out = '';
+  for (let y = 2025; y <= 2026; y++) for (let m = 0; m < 12; m += 3) {
+    const t = Date.UTC(y, m, 1); if (t > TODAY) continue;
+    out += m === 0 ? `<span class="yr" style="left:${xp(t)}%">${y}</span>` : `<span style="left:${xp(t)}%">${MON[m]}</span>`;
+  }
+  return `<div class="axis" aria-hidden="true">${out}</div>`;
+}
+function ticks() {
+  let out = '';
+  for (let y = 2025; y <= 2026; y++) for (let m = 0; m < 12; m += 3) { const t = Date.UTC(y, m, 1); if (t > AX0 && t <= TODAY) out += `<i class="tick" style="left:${xp(t)}%"></i>`; }
+  return out;
+}
+function gapLabel(g) {
+  const [d1, m1] = P(g.start), [, m2] = P(g.end), whole = d1 === 1 && g.end === monthEnd(P(g.end)[2], m2);
+  if (g.trailing) return `${g.days} d`;
+  return whole ? (m1 === m2 ? MON[m1] : `${MON[m1]}–${MON[m2]}`) : `${g.days} d`;
+}
+function boardRow(a, mode) {
+  const segs = coverage(a), open = S.open['b' + a.id], editing = S.editing === a.id, newSeg = a.stmts.filter(s => s.new);
+  const res = RESULTS && ok().filter(r => r.acct === a.id);
+  const who = `<div class="who"><div class="acct-name">${esc(a.name)}${S.saved === a.id ? ` <span class="status ok" role="status">${ic('ok')}Saved</span>` : ''}</div>
+    <div class="acct-meta">${a.bank} · ${owners(a)}</div>
+    <div style="display:flex;gap:12px;margin-top:4px;font-size:13px">${a.none ? '' : `<button class="link" type="button" data-toggle="b${a.id}" aria-expanded="${!!open}">${pl(a.stmts.length, 'Statement', 'Statements')}</button>`}
+      ${isAdmin() ? `<button class="link" type="button" data-edit="${a.id}">Edit</button>` : ''}</div></div>`;
+  const track = segs.length ? `<div class="track">${ticks()}${segs.map(s => s.kind === 'gap'
+      ? `<button class="seg gap" type="button" style="left:${xp(s.start)}%;width:${xp(s.start + s.days * DAY) - xp(s.start)}%" data-gap="${a.id}:${s.start}:${s.end}" aria-label="${gapText(s)}: import a Statement" title="${gapText(s)}">${xp(s.start + s.days * DAY) - xp(s.start) > 2.2 ? gapLabel(s) : ''}</button>`
+      : `<span class="seg covered${s.kind === 'new' ? ' new' : ''}" style="left:${xp(s.start)}%;width:${xp(s.start + s.days * DAY) - xp(s.start)}%" title="${segText(s)}" aria-hidden="true"></span>`).join('')}
+      <span class="today" style="left:100%" aria-hidden="true"><span>today</span></span></div>${srList(a)}
+    <div class="track-note">${res && res.length ? res.map(r => `<span class="new-t">New: ${fr(r.start, r.end)} · ${pl(r.c.imported, 'Transaction', 'Transactions')}, ${r.c.waiting + r.c.ambiguous} to review</span>`).join('') : ''}
+      ${gaps(a).map(g => `<span>${gapText(g)}</span>`).join('')}<span>Tracked from ${fd(segs[0].start)}</span></div>`
+    : `<p class="no-stmts">Takes no Statements: money moved to its IBAN counts as a Transfer.</p>`;
+  let expand = '';
+  if (editing) expand = `<div class="expand"><div>${accountForm(a)}</div><div><h4>Delete</h4>${deleteBlock(a)}</div></div>`;
+  else if (open) expand = `<div class="expand" style="grid-template-columns:1fr">${stmtTable(a)}</div>`;
+  return `<div class="board-row${open || editing ? ' open' : ''}">${who}<div>${track}</div>${expand}</div>`;
+}
+function board(mode) {
+  return `<section class="card board" aria-label="Accounts and their Coverage"><div class="board-axis"><span class="muted" style="font-size:12px">Account</span>${axis()}</div>
+    ${ACCOUNTS.map(a => boardRow(a, mode)).join('')}${S.editing === 'new' ? `<div class="board-row open"><div class="who"><div class="acct-name">New Account</div></div><div></div><div class="expand"><div>${accountForm(null)}</div><div></div></div></div>` : ''}</section>`;
+}
+function importB() {
+  let html = `<div class="title-row"><h1>Import</h1><button class="btn primary" type="button" data-choosefiles>${ic('upload')}Choose files</button></div>`;
+  html += lookForNote();
+  html += `<div class="dropzone slim card" style="margin-bottom:16px;${S.stage === 'idle' || S.stage === 'done' ? '' : 'display:block'}">${S.stage === 'idle' || S.stage === 'done'
+    ? `${ic('upload')}<span class="grow"><strong>Drop Statements anywhere on this page.</strong> ${BANKS}</span>`
+    : `${S.stage === 'staged' ? '' : progress()}${stagedList()}${S.stage === 'staged' ? `<div class="staged-foot"><span class="grow">Each file lands on its Account's row below.</span><button class="btn" type="button" data-reset>Cancel</button><button class="btn primary" type="button" data-go>Import ${pl(batch().length, 'file', 'files')}</button></div>` : ''}`}</div>`;
+  if (S.stage === 'done') {
+    const h = headline(), need = byNeed(RESULTS).filter(r => r.kind === 'need' || r.kind === 'no'), same = RESULTS.filter(r => r.kind === 'same');
+    html += `<section class="card vB-banner">${ic('check')}<div class="grow"><b id="sum-h" tabindex="-1">${h.title}</b><div class="muted">${waiting()} wait for review${h.sub ? ' · ' + h.sub : ''}</div></div><a class="btn primary" href="#">Review now ${ic('arrow')}</a></section>`;
+    if (need.length) html += `<section class="card vB-tray" aria-labelledby="tray-h"><div class="card-head" style="padding-bottom:8px"><h2 id="tray-h">Needs you · ${pl(need.length, 'file', 'files')}</h2></div>
+      ${need.map(r => `<div class="item"><div>${STATUS[r.kind]()}<div class="fname">${esc(r.file)}</div></div><div>${r.kind === 'need' ? `<h3 style="font-size:15px;margin-bottom:4px">Which Account is this?</h3>${chooseForm(r)}` : rejectionBody(r)}</div></div>`).join('')}</section>`;
+    if (same.length) html += `<p class="muted" style="margin:-4px 0 16px">${same.map(r => `${STATUS.same()} ${esc(r.file)} went into ${esc(acct(r.acct).name)} on ${fd(r.at)}; nothing changed.`).join('<br>')}</p>`;
+  }
+  return html + board('import') + `<p class="muted" style="margin-top:12px">Click an outlined Gap to import a Statement for it. Indigo is this import.</p>`;
+}
+function accountsB() {
+  return `<div class="title-row"><h1>Accounts</h1><button class="btn primary" type="button" data-edit="new">${ic('plus')}New Account</button></div>
+    <p class="page-sub">The same rows as Import: each Account with its Coverage. Edit opens in place.</p>${board('accounts')}`;
+}
+
+// ===================== C · Guided flow =====================
+function steps() {
+  const at = { idle: 1, staged: 1, uploading: 2, checking: 2, done: 3 }[S.stage];
+  const st = (n, t) => `<li${at === n ? ' aria-current="step"' : ''} class="${at > n ? 'done' : ''}"><span class="n">${at > n ? '✓' : n}</span>${t}</li>`;
+  return `<ol class="steps" aria-label="Import steps">${st(1, 'Choose files')}<li class="sep" aria-hidden="true"></li>${st(2, 'Import')}<li class="sep" aria-hidden="true"></li>${st(3, 'Check the results')}</ol>`;
+}
+function covGrid() {
+  const months = []; for (let i = 12; i >= 0; i--) { const t = new Date(Date.UTC(2026, 9 - i, 1)); months.push([t.getUTCFullYear(), t.getUTCMonth()]); }
+  const cell = (a, [y, m]) => {
+    const s = Date.UTC(y, m, 1), e = Math.min(monthEnd(y, m), TODAY), segs = coverage(a);
+    const running = monthEnd(y, m) > TODAY, label = `${MONTH[m]} ${y}`;
+    if (!segs.length || e < segs[0].start) return `<td class="none" aria-label="${label}: not tracked">·</td>`;
+    const inM = segs.filter(g => g.end >= s && g.start <= e).map(g => ({ ...g, start: Math.max(g.start, s), end: Math.min(g.end, e) }));
+    const cov = inM.filter(g => g.kind !== 'gap').reduce((n, g) => n + days(g.start, g.end), 0), all = days(s, e), isNew = inM.some(g => g.kind === 'new');
+    const gp = inM.find(g => g.kind === 'gap');
+    if (cov === all && !running) return `<td class="full${isNew ? ' new' : ''}" aria-label="${label}: complete${isNew ? ', new in this import' : ''}">${isNew ? 'new' : ''}</td>`;
+    if (cov === 0) return `<td class="gap"><button type="button" data-gap="${a.id}:${gp.start}:${gp.end}" aria-label="${label}: no Statement. Import one">Import</button></td>`;
+    const covEnd = Math.max(...inM.filter(g => g.kind !== 'gap').map(g => g.end));
+    return `<td class="part" style="--p:${Math.round(cov / days(s, monthEnd(y, m)) * 100)}%" aria-label="${label}: ${running ? 'so far' : 'partial'}, covered to ${fd(covEnd)}">to ${P(covEnd)[0]}</td>`;
+  };
+  return `<table class="grid-cov"><thead><tr><th class="acct"><span class="sr">Account</span></th>${months.map(([y, m]) => `<th scope="col">${MON[m]}${m === 0 || (y === 2025 && m === 9) ? `<br><small>${y}</small>` : ''}</th>`).join('')}</tr></thead><tbody>
+    ${ACCOUNTS.map(a => `<tr><th class="acct" scope="row">${esc(a.name)}<small>${a.bank} · ${owners(a)}</small></th>${a.none ? `<td colspan="13" class="none" style="text-align:left;padding-left:8px">Takes no Statements: money moved to its IBAN counts as a Transfer</td>` : months.map(mo => cell(a, mo)).join('')}</tr>`).join('')}</tbody></table>
+    <div class="grid-legend"><span><i style="background:var(--cov)"></i>Complete</span><span><i style="background:var(--cov-new)"></i>New in this import</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--cov)"></i>"to 15": covered to the 15th</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--ink-2)"></i>Gap: no Statement yet</span><span>· Not tracked yet</span></div>`;
+}
+function importC() {
+  if (S.stage !== 'done') return `<div class="title-row"><h1>Import</h1></div>${steps()}
+    <div class="vC-hero">${lookForNote()}<section class="card" style="padding:20px">${S.stage === 'idle'
+      ? `<div class="dropzone" style="border-width:2px;padding:48px">${ic('upload')}<strong>Drop this week's Statements here</strong>${BANKS}<div style="height:16px"></div><button class="btn primary" type="button" data-choosefiles>Choose files</button></div>`
+      : `${S.stage === 'staged' ? '' : progress()}${stagedList()}${S.stage === 'staged' ? `<div class="staged-foot"><span class="grow">Next, each file is checked and imported on its own.</span><button class="btn" type="button" data-reset>Cancel</button><button class="btn primary" type="button" data-go>Import ${pl(batch().length, 'file', 'files')}</button></div>` : ''}`}</section></div>
+    <div class="sec-h"><h2>Coverage, last 13 months</h2><span class="muted">Click a Gap to import a Statement for it</span></div><section class="card" style="padding-top:12px">${covGrid()}</section>`;
+  const need = byNeed(RESULTS).filter(r => r.kind === 'need' || r.kind === 'no'), done = ok(), same = RESULTS.filter(r => r.kind === 'same');
+  return `<div class="title-row"><h1 id="sum-h" tabindex="-1">Import results</h1><button class="btn" type="button" data-reset>${ic('upload')}Import more</button></div>${steps()}
+    ${need.length ? `<div class="vC-group"><h2>Needs you <span class="count">${need.length}</span></h2>${need.map(r => `<section class="card vC-need"><div class="ic">${ic(r.kind === 'need' ? 'ask' : 'alert')}</div><div>
+      <div class="fname">${esc(r.file)}</div>${r.kind === 'need' ? `<h3 style="font-size:15px;margin-bottom:4px">Which Account is this?</h3>${chooseForm(r)}` : rejectionBody(r)}</div></section>`).join('')}</div>` : ''}
+    <div class="vC-group"><h2>Imported <span class="count">${done.length}</span></h2><section class="card"><ul class="vC-done">${done.map(r => `<li><span class="line1">${esc(acct(r.acct).name)} · ${fr(r.start, r.end)}</span><span class="muted">${esc(r.file)}</span>
+      <span class="line2">${gist(r)}</span><details><summary>All counts</summary><div style="margin-top:8px">${counts(r)}</div></details></li>`).join('')}</ul></section></div>
+    ${same.length ? `<div class="vC-group"><h2>Already imported <span class="count">${same.length}</span></h2><section class="card"><ul class="vC-done">${same.map(r => `<li><span class="line1">${esc(r.file)}</span><span class="line2">Went into ${esc(acct(r.acct).name)} on ${fd(r.at)}. Nothing changed.</span></li>`).join('')}</ul></section></div>` : ''}
+    <div class="vC-next"><div class="grow"><b>Next: ${waiting()} Transactions wait for review</b><span>From this import. Suggestions are being prepared; the queue fills in as they arrive.</span></div><a class="btn" href="#">Open the Review queue ${ic('arrow')}</a></div>
+    <div class="sec-h"><h2>Coverage after this import</h2></div><section class="card" style="padding-top:12px">${covGrid()}</section>`;
+}
+function accountsC() {
+  const a = S.editing != null && S.editing !== 'new' ? acct(S.editing) : null;
+  const drawer = S.editing != null ? `<div class="drawer-scrim" data-cancel></div><aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="dr-h"><div style="display:flex;align-items:center"><h2 id="dr-h" style="margin-right:auto">${a ? esc(a.name) : 'New Account'}</h2><button class="btn ghost icon-only" type="button" data-cancel aria-label="Close">${ic('x')}</button></div>
+      ${accountForm(a)}${a && !a.none ? `<div class="danger-zone"><h3>${pl(a.stmts.length, 'Statement', 'Statements')}</h3>${stmtTable(a)}</div>` : ''}${a ? `<div class="danger-zone"><h3>Delete this Account</h3>${deleteBlock(a)}</div>` : ''}</aside>` : '';
+  return `<div class="title-row"><h1>Accounts</h1><button class="btn primary" type="button" data-edit="new">${ic('plus')}New Account</button></div>
+    <div class="acct-cards">${ACCOUNTS.map(x => { const segs = coverage(x), gs = gaps(x).filter(g => !g.trailing); return `<section class="card acct-card${S.saved === x.id ? ' flash' : ''}"><div class="top"><div class="grow"><div class="acct-name">${esc(x.name)}</div><div class="acct-meta">${x.bank}</div></div><button class="btn sm" type="button" data-edit="${x.id}">Edit</button></div>
+      <dl><dt>Owners</dt><dd>${ownerChips(x)}</dd><dt>IBANs</dt><dd class="mono">${x.ibans.join('<br>')}</dd>
+        <dt>Statements</dt><dd>${x.none ? 'Takes none: money moved here counts as a Transfer' : `${x.stmts.length} · tracked from ${fd(segs[0].start)}`}</dd>
+        ${gs.length ? `<dt>Gaps</dt><dd>${gs.map(g => fr(g.start, g.end)).join(', ')}</dd>` : ''}</dl></section>`; }).join('')}</div>${drawer}
+    ${S.toast ? `<div class="toast" role="status">${ic('ok')}${esc(S.toast)}</div>` : ''}`;
+}
+
+// ===================== Shell =====================
+function shell(content) {
+  const nav = (id, icon, text, badge = '') => `<a class="nav" href="#" data-nav="${id}"${S.page === id ? ' aria-current="page"' : ''}>${ic(icon)}${text}${badge}</a>`;
+  const sub = (id, text) => `<a class="nav" href="#"${id ? ` data-nav="${id}"` : ''}${S.page === id ? ' aria-current="page"' : ''}>${text}</a>`;
+  return `<div class="shell"><aside class="sidebar" aria-label="Main"><a class="brand" href="#"><img src="favicon.svg" alt="">Purse<span>graph</span></a>
+    ${nav('dashboard', 'home', 'Dashboard')}${nav('transactions', 'list', 'Transactions')}${nav('review', 'check', 'Review queue', `<span class="badge">${reviewBadge()}</span>`)}${nav('import', 'upload', 'Import')}
+    <details class="manage" open><summary>${ic('right')}Manage</summary>${sub(null, 'Rules')}${isAdmin() ? sub(null, 'Categories') + sub(null, 'LLM suggestions') + sub('accounts', 'Accounts') + sub(null, 'Members') : ''}</details>
+    <div class="sidebar-foot"><div class="account"><span class="avatar" aria-hidden="true">${MEMBERS[me()].name[0]}</span><span class="who">${MEMBERS[me()].name}<br><small>${MEMBERS[me()].role}</small></span>${ic('updown')}</div></div></aside>
+    <div class="page"><main id="main" tabindex="-1">${content}<p class="synthetic">Prototype · all figures are synthetic · today is ${fd(TODAY)}</p></main></div></div>`;
+}
+const PAGES = { import: { A: importA, B: importB, C: importC }, accounts: { A: accountsA, B: accountsB, C: accountsC } };
+function url() {
+  const p = new URLSearchParams({ variant: S.variant, page: S.page });
+  if (S.stage === 'done') p.set('stage', 'done'); if (S.all) p.set('all', 1); if (S.role === 'member') p.set('role', 'member');
+  const t = document.documentElement.dataset.theme; if (t !== 'system') p.set('theme', t);
+  return `?${p}`;
+}
+function render(focus) {
+  document.body.className = 'vB';
+  let content = S.page === 'accounts' && !isAdmin() ? `<div class="title-row"><h1>Accounts</h1></div><p class="muted">Only admins manage Accounts. Your Accounts and their Coverage are on Import.</p>` : PAGES[S.page]?.[S.variant]?.() ?? `<div class="title-row"><h1>Not in this prototype</h1></div>`;
+  document.getElementById('app').innerHTML = `<a class="skip" href="#main">Skip to content</a>` + shell(content);
+  document.title = `${S.page === 'accounts' ? 'Accounts' : 'Import'} · Pursegraph`;
+  history.replaceState(null, '', url());
+  renderProto();
+  if (focus) document.querySelector(focus)?.focus();
+}
+function announce(text) { S.said = text; const live = document.getElementById('live'); live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); renderProto(); }
+
+// ===================== The import (stubbed: one POST, like the real view) =====================
+let timer;
+function finish() {
+  clearInterval(timer);
+  RESULTS = batch().map(f => ({ ...f }));
+  for (const r of RESULTS.filter(r => r.kind === 'ok')) acct(r.acct).stmts.push({ start: r.start, end: r.end, tx: r.c.imported + r.c.dup, fmt: r.fmt, at: TODAY, by: me(), manual: 0, new: true });
+  S.stage = 'done'; S.lookFor = null;
+  render('#sum-h');
+  const h = headline(); announce(`Import finished. ${h.title}. ${waiting()} wait for review. ${h.sub}.`);
+}
+function go() {
+  S.stage = 'uploading'; S.pct = 0; render(); announce(`Uploading ${pl(batch().length, 'file', 'files')}.`);
+  timer = setInterval(() => {
+    S.pct = Math.min(100, S.pct + 9);
+    if (S.pct < 100) { const bar = document.querySelector('.progress i'); if (bar) bar.style.width = S.pct + '%'; const l = document.querySelector('.prog-line .num'); if (l) l.textContent = S.pct + ' %'; return; }
+    clearInterval(timer); S.stage = 'checking'; render(); announce('Upload finished. Checking and importing.');
+    timer = setTimeout(finish, 2000);
+  }, 140);
+}
+function resolve(form) {
+  const r = RESULTS.find(x => x.file === form.dataset.choose), fdata = new FormData(form), choice = fdata.get('acct');
+  let a;
+  if (choice === 'new') { a = { id: Math.max(...ACCOUNTS.map(x => x.id)) + 1, name: fdata.get('name') || 'New Account', bank: 'Revolut', owners: fdata.getAll('own'), ibans: [r.iban], rules: 0, stmts: [] }; ACCOUNTS.splice(ACCOUNTS.length - 1, 0, a); }
+  else { a = acct(+choice); a.ibans.push(r.iban); }
+  Object.assign(r, { kind: 'ok', acct: a.id });
+  a.stmts.push({ start: r.start, end: r.end, tx: r.c.imported, fmt: r.fmt, at: TODAY, by: me(), manual: 0, new: true });
+  render('#sum-h'); announce(`Imported ${r.file} into ${a.name}: ${pl(r.c.imported, 'Transaction', 'Transactions')}, ${r.c.waiting} to review.`);
+}
+function saveAccount(form) {
+  const fdata = new FormData(form), id = form.dataset.save;
+  const vals = { name: fdata.get('name'), bank: fdata.get('bank'), owners: fdata.getAll('own'), ibans: String(fdata.get('ibans')).split(',').map(s => s.trim()).filter(Boolean) };
+  let a;
+  if (id === 'new') { a = { id: Math.max(...ACCOUNTS.map(x => x.id)) + 1, rules: 0, stmts: [], none: vals.bank === 'Other', ...vals }; ACCOUNTS.push(a); }
+  else { a = acct(+id); Object.assign(a, vals); }
+  S.editing = null; S.saved = a.id; S.toast = S.variant === 'C' ? `Saved ${a.name}` : null;
+  render(); announce(`Saved ${a.name}.`);
+  setTimeout(() => { S.toast = null; if (S.variant === 'C') document.querySelector('.toast')?.remove(); }, 3000);
+}
+
+// ===================== Delete confirmations (the trust ritual, kept) =====================
+function confirmDelete(html) { const dlg = document.getElementById('dlg'); dlg.innerHTML = html; dlg.showModal(); }
+function askDeleteStatement(id, start) {
+  const a = acct(id), s = a.stmts.find(x => x.start === start), lost = Math.round(s.tx * .8);
+  confirmDelete(`<h2>Delete this Statement?</h2><p><b>${esc(a.name)}</b>: ${fr(s.start, s.end)}</p>
+    <p>${pl(lost, 'Transaction appears', 'Transactions appear')} on no other Statement and will be deleted with it. ${fr(s.start, s.end)} becomes a Gap in ${esc(a.name)}'s Coverage.</p>
+    <p>${s.manual ? `<b>${pl(s.manual, 'outcome set by hand', 'outcomes set by hand')} will be lost.</b>` : 'No outcomes set by hand will be lost.'}</p>
+    <form method="dialog" class="acts"><button class="btn" value="no">Cancel</button><button class="btn danger" value="yes" data-confirm="stmt:${id}:${start}">Delete Statement</button></form>`);
+}
+function askDeleteAccount(id) {
+  const a = acct(id);
+  confirmDelete(`<h2>Delete ${esc(a.name)}?</h2><p>${a.rules ? `<b>${pl(a.rules, 'Rule only for this Account', 'Rules only for this Account')} will be deleted with it.</b>` : 'No Rules are only for this Account.'}</p>
+    <p>Money moved to its IBAN ${esc(a.ibans[0])} will no longer count as a Transfer.</p>
+    <form method="dialog" class="acts"><button class="btn" value="no">Cancel</button><button class="btn danger" value="yes" data-confirm="acct:${id}">Delete Account</button></form>`);
+}
+
+// ===================== Prototype switcher (not the design) =====================
+function renderProto() {
+  document.getElementById('proto').innerHTML = `<button type="button" data-proto="-1" aria-label="Previous variant">‹</button>
+    <span class="lbl">${S.variant} <small>(${VARIANTS[S.variant]})</small></span>
+    <button type="button" data-proto="1" aria-label="Next variant">›</button>
+    <button class="toggle" type="button" data-proto="page">${S.page === 'import' ? 'page: Import' : 'page: Accounts'}</button>
+    <button class="toggle" type="button" data-proto="run">${S.stage === 'done' ? 'results ✓' : 'jump to results'}</button>
+    <button class="toggle" type="button" data-proto="all" title="Add a file for every other rejection cause">${S.all ? 'every rejection ✓' : 'every rejection'}</button>
+    <button class="toggle" type="button" data-proto="role">${S.role === 'admin' ? 'as Maja (admin)' : 'as Luka (member)'}</button>
+    <button class="toggle" type="button" data-proto="theme">${document.documentElement.dataset.theme}</button>
+    <button class="toggle" type="button" data-proto="reset">reset</button>
+    <span class="state" title="The last screen-reader announcement">${S.said ? `said: “${esc(S.said)}”` : 'said: —'}</span>`;
+}
+function resetAll() { clearInterval(timer); clearTimeout(timer); seed(); S.stage = 'idle'; S.removed = new Set(); S.open = {}; S.editing = null; S.saved = null; S.lookFor = null; }
+
+// ===================== Events =====================
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-nav],[data-choosefiles],[data-go],[data-reset],[data-remove],[data-gap],[data-lookfor],[data-toggle],[data-edit],[data-cancel],[data-delstmt],[data-delacct],[data-confirm],[data-proto],a[href="#"]');
+  if (!t) return;
+  const dd = t.dataset;
+  if (dd.confirm) { const [k, id, start] = dd.confirm.split(':');
+    if (k === 'stmt') { const a = acct(+id); a.stmts = a.stmts.filter(s => s.start !== +start); announce(`Deleted the Statement. ${a.name}'s Coverage shrank to match.`); }
+    else { ACCOUNTS.splice(ACCOUNTS.findIndex(a => a.id === +id), 1); announce('Deleted the Account.'); }
+    setTimeout(() => render(), 0); return; }
+  e.preventDefault();
+  if (dd.nav) { if (dd.nav === 'import' || dd.nav === 'accounts') { S.page = dd.nav; S.editing = null; S.saved = null; render('#main'); } return; }
+  if (dd.choosefiles !== undefined) { S.stage = 'staged'; S.removed = new Set(); render('[data-go]'); announce(`${pl(batch().length, 'file', 'files')} chosen.`); return; }
+  if (dd.go !== undefined) { go(); return; }
+  if (dd.reset !== undefined) { clearInterval(timer); S.stage = 'idle'; render('#main'); return; }
+  if (dd.remove) { S.removed.add(dd.remove); if (!batch().length) S.stage = 'idle'; render('[data-go]'); return; }
+  if (dd.gap) { const [id, s, en] = dd.gap.split(':').map(Number); S.lookFor = { acct: id, start: s, end: en }; if (S.stage === 'done' && S.variant === 'C') S.stage = 'idle'; S.page = 'import'; render(); document.querySelector('.notice')?.scrollIntoView({ block: 'center' }); document.querySelector('[data-choosefiles]')?.focus(); return; }
+  if (dd.lookfor) { S.lookFor = null; render(); return; }
+  if (dd.toggle) { S.open[dd.toggle] = !S.open[dd.toggle]; S.editing = null; render(`[data-toggle="${dd.toggle}"]`); return; }
+  if (dd.edit) { S.editing = dd.edit === 'new' ? 'new' : +dd.edit; S.saved = null; render('form[data-save] input'); return; }
+  if (dd.cancel !== undefined) { const id = S.editing; S.editing = null; render(id != null && id !== 'new' ? `[data-edit="${id}"]` : null); return; }
+  if (dd.delstmt) { const [id, s] = dd.delstmt.split(':').map(Number); askDeleteStatement(id, s); return; }
+  if (dd.delacct) { askDeleteAccount(+dd.delacct); return; }
+  if (dd.proto) {
+    const keys = Object.keys(VARIANTS);
+    if (dd.proto === 'page') { S.page = S.page === 'import' ? 'accounts' : 'import'; S.editing = null; }
+    else if (dd.proto === 'run') { if (S.stage !== 'done') { resetAll(); finish(); return; } }
+    else if (dd.proto === 'all') { S.all = !S.all; if (S.stage === 'done') { resetAll(); finish(); return; } }
+    else if (dd.proto === 'role') S.role = S.role === 'admin' ? 'member' : 'admin';
+    else if (dd.proto === 'theme') { const order = ['system', 'light', 'dark'], h = document.documentElement; h.dataset.theme = order[(order.indexOf(h.dataset.theme) + 1) % 3]; }
+    else if (dd.proto === 'reset') resetAll();
+    else { S.variant = keys[(keys.indexOf(S.variant) + +dd.proto + keys.length) % keys.length]; S.editing = null; }
+    render(); return;
+  }
+});
+document.addEventListener('submit', e => {
+  if (e.target.dataset.choose) { e.preventDefault(); resolve(e.target); }
+  else if (e.target.dataset.save) { e.preventDefault(); saveAccount(e.target); }
+});
+document.addEventListener('toggle', e => { const k = e.target.dataset?.keep; if (k) S.open[k] = e.target.open; }, true);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && S.editing != null && S.variant === 'C') { const id = S.editing; S.editing = null; render(`[data-edit="${id}"]`); return; }
+  if (e.target !== document.body && e.target.id !== 'main') return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const keys = Object.keys(VARIANTS); S.variant = keys[(keys.indexOf(S.variant) + (e.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length]; S.editing = null; render(); }
+});
+// Drag-and-drop stands in for "Choose files": dropping anything stages the synthetic batch.
+document.addEventListener('dragover', e => { if (S.page === 'import') e.preventDefault(); });
+document.addEventListener('drop', e => { if (S.page !== 'import') return; e.preventDefault(); S.stage = 'staged'; S.removed = new Set(); render('[data-go]'); });
+
+if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+seed();
+if (qs.get('stage') === 'done') finish(); else render();
+</script>
+</body>
+</html>
