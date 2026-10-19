@@ -5,7 +5,7 @@
 #   /backups/daily/pursegraph-YYYY-MM-DD.dump    one per night
 #   /backups/monthly/pursegraph-YYYY-MM.dump     the month's first daily dump (a hard link)
 #
-# Dumps are in pg_dump's custom format; the README describes restoring one.
+# Dumps are in pg_dump's custom format; docs/operations.md describes restoring one.
 # `backup.sh once` takes one dump now and exits.
 set -eu
 
