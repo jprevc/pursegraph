@@ -185,6 +185,20 @@ components:
     typography: "{typography.label}"
   tab-bar-item-active:
     textColor: "{colors.accent-text}"
+  outcome-chip:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink-2}"
+    typography: "{typography.body}"
+    rounded: "{rounded.pill}"
+    padding: "0 12px"
+    height: "36px"
+  outcome-chip-hover:
+    backgroundColor: "{colors.hover}"
+    textColor: "{colors.ink}"
+  outcome-chip-current:
+    backgroundColor: "{colors.accent-soft}"
+    textColor: "{colors.accent-text}"
+    borderColor: "{colors.accent}"
 ---
 
 # Design System: Pursegraph
@@ -269,7 +283,7 @@ The desktop layout is a two-column shell: a sticky, full-height white sidebar (2
 
 **Page header.** Every page opens with a title row: the page title (Headline) on the left and the page's one primary action, if any, on the right ("New Rule", "Accept 5 suggestions"). The Dashboard's title is "Dashboard", not the view's name. Under it, the five views are an in-page row of underline tabs (Spending, Cash flow, Category trends, Per Member, Money flow) over a Line hairline: they are lenses on the same period, not separate destinations. Under the tabs, a sticky filter bar holds the period stepper (‹ period ›, with "so far, to 16 Oct" muted) and the period unit select on the left, and the Member and Account filters pushed to the right, all 36px high. The bar sticks to the top on scroll on a 92% ground tint with a backdrop blur, so the period stays in view beside the figures. Transactions uses the same sticky bar for its own filters (search, Account, outcome). Other pages have the title row only. Below the Dashboard's filter bar, three equal stat tiles (16px gap). They carry the headline figures for the chosen period. There is no global "this month" figure anywhere in the shell. Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
 
-**Phone (≤900px).** The sidebar is replaced by a fixed 64px bottom tab bar with four items: Dashboard, Transactions, Review (with its count badge) and More. Each is a 22px icon over an 11px label, muted, and Indigo Ink when active. The bar is a 94% card tint with a backdrop blur and a top hairline, and it pads for the safe area. More opens a bottom sheet (18px top corners, a grip, the Pop shadow) over a 35% black scrim, closing on the scrim or Escape. It holds Import, the Manage links, the theme switch, and the Member's name and role with Log out. Import sits under More because Import needs only work on desktop. A plain 52px row above the content carries the mark and wordmark (it does not stick). The main column pads 16px and leaves room for the tab bar. The view tabs scroll sideways. In the sticky filter bar, the period stepper takes a full row, and the Month, Member and Account controls share the next row (their icons hidden, labels truncating with an ellipsis). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Drill-down rows stack: description and amount on the first line, date, kind and Account inline in the caption, and the Outcome select full width below.
+**Phone (≤900px).** The sidebar is replaced by a fixed 64px bottom tab bar with four items: Dashboard, Transactions, Review (with its count badge) and More. Each is a 22px icon over an 11px label, muted, and Indigo Ink when active. The bar is a 94% card tint with a backdrop blur and a top hairline, and it pads for the safe area. More opens a bottom sheet (18px top corners, a grip, the Pop shadow) over a 35% black scrim, closing on the scrim or Escape. It holds Import, the Manage links, the theme switch, and the Member's name and role with Log out. Import sits under More because Import needs only work on desktop. A plain 52px row above the content carries the mark and wordmark (it does not stick). The main column pads 16px and leaves room for the tab bar. The view tabs scroll sideways. In the sticky filter bar, the period stepper takes a full row, and the Month, Member and Account controls share the next row (their icons hidden, labels truncating with an ellipsis). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Transaction rows stack as cards (see Transaction row).
 
 ## Elevation & Depth
 
@@ -363,7 +377,34 @@ The bands' text labels are the non-colour cue. The hatch stays reserved for Awai
 **Periods.** Every view opens on the last full month, even when that month is Partial (the header line says why), and Category trends opens on the 12 months ending with it. The running month is reached only with ›, as In progress. There is no "this month so far" anywhere else.
 
 ### Drill-down
-A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. When the period isn't Complete, the title carries the same qualifier as the tables: "Food · July 2026 (partial)", "(partly tracked)" or "(so far)". A table follows: Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome (a 32px select), and Amount (right-aligned, 600). Rows have hairline dividers and a Raised hover. A muted footnote explains that changing an Outcome moves the amount between Categories.
+A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. When the period isn't Complete, the title carries the same qualifier as the tables: "Food · July 2026 (partial)", "(partly tracked)" or "(so far)". A table of Transaction rows follows (see Transaction row). A muted footnote explains that changing an outcome moves the amount between Categories.
+
+### Transaction row
+One row is shared by the Review queue, Transactions and the drill-down. Its columns are Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome, and Amount (right-aligned, 600, tabular). Rows have hairline dividers and a Raised hover. Every Member can change an outcome on every surface, always through an explicit action.
+- **The outcome is text, not a control.** It reads as the Category's hue dot, then "Category › Subcategory", with the Category in Muted, the › in Faint and the Subcategory in Ink at 500. It always names its Category, so the eight "Other" catch-alls never read alike. A Transfer gets a hollow Muted ring, and Awaiting review gets the hatched dot. A muted source caption follows ("by Rule", "by LLM", "by hand", "by IBAN", "paired").
+- **Actions on reading surfaces.** Transactions and the drill-down show a "Change" text button in Indigo Ink.
+- **Actions in the Review queue.** They depend on the row:
+  - with a suggestion: the suggested outcome as text, "86 % sure" in Muted, an Accept button (32px) and a "Something else" text button;
+  - without one: "Awaiting review" and a Choose button;
+  - an ambiguous Transfer: "Transfer", "other side unknown" and "Pick the other side".
+- **Action layout.** The actions keep a fixed place at the end of the cell. A long outcome ("Leisure › Subscriptions & digital services") wraps its own label and never pushes the actions onto a new line.
+- **Picking with a fine pointer: the chip panel.** Change, Choose, Something else and Pick the other side open a panel in a full-width row under the Transaction, on the Raised fill.
+  - **Title row:** "Choose an outcome for *description*", with a Cancel text button.
+  - **Ambiguous Transfer:** the candidate other sides come first, as bordered cards (description, date · Account, amount).
+  - **Chips:** "Most used" chips (the Household's five most-used outcomes, each "Category › Subcategory"), then one chip per Category (hue dot and name), then Transfer. A Category chip swaps the chips for its Subcategories, with "‹ All Categories" to go back.
+  - **Chip style:** 36px pills with the card fill and a Line Strong border. The current outcome's chip takes Indigo Wash with an Indigo border.
+  - **Focus:** only one panel is open at a time. Opening it moves focus to the first chip; Escape or Cancel closes it and returns focus to the button that opened it.
+- **Picking with a coarse pointer: the native select.** Under `(pointer: coarse)`, the same buttons are a transparent native `<select>` laid over the button, so a tap opens the OS picker. The select is 16px, so iOS doesn't zoom.
+  - **Options:** each reads "Category › Subcategory", in optgroups: the other side of a Transfer, Suggested, Most used, each Category, then Transfer.
+  - **Gate:** the pointer, not the width. A narrow desktop window still has a keyboard, so it keeps the panel.
+- **What commits.** Only a deliberate choice: Accept, a tap on a Subcategory, Most used or Transfer chip, a pairing card, or a confirmed pick in the OS picker (a touch picker fires `change` only on confirm). Arrow keys never save. Without JS, each row is a form with a select and a Save button.
+- **After a save.** The row swaps in place, and a muted line appears under the outcome: "✓ Saved as Category › Subcategory · Undo". After a save by hand in the Review queue it adds "· Make a Rule". The line goes after 10 s. Undo restores the previous outcome and its source.
+- **A failed save.** The row stays as it was and says so in Ink with an alert icon: "Couldn't save *outcome*. Nothing changed. Try again". It uses no red.
+- **Focus after a save.** In the Review queue, focus moves to the next Transaction still waiting. Elsewhere, it returns to the row's Change. Every save, failure and Undo is announced politely.
+- **Phone (≤600px).** Each row is a stacked card:
+  - description and amount on the first line;
+  - date, kind and Account in a muted caption;
+  - the outcome, with its actions under it at 44px (Accept stretches; Change and Something else stay text buttons).
 
 ### Navigation
 The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
@@ -388,9 +429,11 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** define every colour as a CSS custom property, with a `[data-theme="dark"]` block and a `prefers-color-scheme` block for `data-theme="system"`, and rebuild chart options from those properties when the theme changes.
 - **Do** set CSS `color-scheme` per theme, so native controls and scrollbars match, and ship `media`-scoped `<meta name="theme-color">` tags for the ground colour, rewritten by JS when the choice is Light or Dark.
 - **Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.
+- **Do** commit an outcome only on a deliberate choice (Accept, a chip, a confirmed OS pick), always name it "Category › Subcategory", and offer Undo after every save.
 - **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and the More sheet's slide up (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
 
 ### Don't:
+- **Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.
 - **Don't** use the indigo accent as a data colour, a chart series or a Category hue.
 - **Don't** give Awaiting review a Category hue, or show it without its hatch.
 - **Don't** draw a month without Coverage as 0, or compare a figure with an incomplete month without saying so.
