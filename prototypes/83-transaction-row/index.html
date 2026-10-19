@@ -9,6 +9,8 @@
                                        chips, then Category → Subcategory chips. A tap on a Subcategory saves.
        C · Native select + Save      : the select, labelled "Category › Subcategory", only stages; Save / Accept (or
                                        Enter) commits. Works without JS.
+       D · Chosen (#83 verdict)      : B, but on a coarse pointer Change / Choose / Something else is a native select
+                                       that saves on pick. The bar's "touch" toggle fakes a coarse pointer on desktop.
      Saves are stubbed (400 ms). The bar toggles a 390 px phone frame, failing saves, the theme and a reset; it also shows
      the last screen-reader announcement.
      Run from the repo root: python3 -m http.server 8083, then open http://localhost:8083/prototypes/83-transaction-row/
@@ -340,6 +342,12 @@ details.pop > summary::-webkit-details-marker { display: none; }
 .link-btn { font: inherit; font-weight: 500; color: var(--accent-text); background: none; border: 0; padding: 6px 4px; cursor: pointer; }
 .link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+/* ---------- D · B with a native select on touch ---------- */
+.native { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.native .icon { width: 14px; height: 14px; }
+.native select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
+.native:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
 /* ---------- C · native select + explicit Save ---------- */
 .oc select.btn { height: 32px; flex: 1 1 220px; min-width: 0; max-width: 340px; }
 .oc .dirty { font-size: 12px; color: var(--muted); }
@@ -354,7 +362,9 @@ details.pop > summary::-webkit-details-marker { display: none; }
   .rows .desc { order: 1; } .rows .desc small { display: none; }
   .rows .amt { order: 2; }
   .rows .c-out { order: 4; grid-column: 1 / -1; width: auto; padding-top: var(--s-2) !important; }
-  .oc { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .oc { gap: var(--s-2) var(--s-3); }
+  .oc > .oc-label { flex: 1 1 60%; }
+  .oc > .btn { flex: 1 1 auto; justify-content: center; }
   .oc .btn, .chip, .oc select.btn { height: 44px; max-width: none; }
   .oc .anchor, .oc .chip { width: 100%; }
   .chip.quiet { border-color: var(--line); padding-left: 10px; }
@@ -465,14 +475,14 @@ const ic = n => `<svg class="icon" aria-hidden="true"><use href="#i-${n}"/></svg
 const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // ===================== State =====================
-const VARIANTS = { A: 'Chip + search picker', B: 'Text + Change, chip panel', C: 'Native select + Save' };
+const VARIANTS = { A: 'Chip + search picker', B: 'Text + Change, chip panel', C: 'Native select + Save', D: 'Chosen: B, native select on touch' };
 const PAGES = { dashboard: 'Dashboard', transactions: 'Transactions', review: 'Review queue' };
 const qs = new URLSearchParams(location.search);
 const S = {
   variant: VARIANTS[qs.get('variant')] ? qs.get('variant') : 'A',
   page: PAGES[qs.get('page')] ? qs.get('page') : 'review',
   frame: qs.get('frame') === '1', framed: qs.get('framed') === '1',
-  fail: qs.get('fail') === '1',
+  fail: qs.get('fail') === '1', touch: qs.get('touch') === '1',
   open: null, q: '', act: 0, catStep: null, dirty: {}, fb: {}, busy: null, said: '',
 };
 const surface = () => S.page === 'review' ? 'edit' : 'read';
@@ -554,8 +564,28 @@ function outcomeA(r) {
 }
 
 // ===================== Variant B · text + Change, chip panel =====================
+const isTouch = () => S.variant === 'D' && (S.touch || matchMedia('(pointer: coarse)').matches);
+// D on touch: the button is a label over a transparent native select. The OS picker fires `change` only on confirm,
+// so a pick saves at once (Undo covers a mis-pick). A fine pointer keeps B's chip panel.
+function nativeB(r, text, cls) {
+  const o = v => `<option value="${v}">${esc(plain(v, r))}</option>`;
+  let opts = `<option value="" selected disabled hidden>${esc(text)}</option>`;
+  if (r.pairs) opts += `<optgroup label="Transfer: the other side">${r.pairs.map(p => `<option value="${p.id}">${esc(p.date)} · ${esc(p.account)} · ${signed(p.amount)}</option>`).join('')}</optgroup>`;
+  if (r.sugg && !r.done) opts += `<optgroup label="Suggested">${o(r.sugg)}</optgroup>`;
+  opts += `<optgroup label="Most used">${MOST_USED.map(o).join('')}</optgroup>`;
+  opts += CATS.map(c => `<optgroup label="${esc(c.name)}">${c.subs.map(o).join('')}</optgroup>`).join('');
+  opts += `<optgroup label="Not spending or income">${o('transfer')}</optgroup>`;
+  return `<label class="native ${cls}${S.busy === r.id ? ' busy' : ''}">${esc(text)} ${ic('down')}<select data-ctl="${r.id}" data-native="${r.id}" aria-label="${esc(text)}: outcome for ${esc(r.desc)}">${opts}</select></label>`;
+}
 function outcomeB(r) {
   const edit = surface() === 'edit' && !r.done, busy = S.busy === r.id ? ' busy' : '';
+  if (isTouch()) {
+    if (!edit) return `<div class="oc">${label(r.out, r)}${r.source ? `<span class="cap">${SOURCE[r.source]}</span>` : ''}${nativeB(r, 'Change', 'link-btn')}${feedback(r)}</div>`;
+    if (r.pairs) return `<div class="oc">${label('transfer', r)}<span class="cap">other side unknown</span>${nativeB(r, 'Pick the other side', 'btn')}${feedback(r)}</div>`;
+    if (r.sugg) return `<div class="oc">${label(r.sugg, r)}<span class="cap">${pct(r)}</span>
+      <button type="button" class="btn${busy}" data-accept="${r.id}">Accept</button>${nativeB(r, 'Something else', 'link-btn')}${feedback(r)}</div>`;
+    return `<div class="oc">${label(null, r)}${nativeB(r, 'Choose', 'btn')}${feedback(r)}</div>`;
+  }
   if (!edit) return `<div class="oc">${label(r.out, r)}${r.source ? `<span class="cap">${SOURCE[r.source]}</span>` : ''}
       <button type="button" class="link-btn" data-ctl="${r.id}" data-open="${r.id}" aria-expanded="${S.open === r.id}">Change</button>${feedback(r)}</div>`;
   if (r.pairs) return `<div class="oc">${label('transfer', r)}<span class="cap">other side unknown</span>
@@ -606,7 +636,7 @@ function outcomeC(r) {
 
 // ===================== The row =====================
 function row(r) {
-  const out = { A: outcomeA, B: outcomeB, C: outcomeC }[S.variant](r);
+  const out = { A: outcomeA, B: outcomeB, C: outcomeC, D: outcomeB }[S.variant](r);
   return `<tr class="row${r.done ? ' done' : ''}" id="row-${r.id}">
     <td class="c-date">${esc(r.date)}</td>
     <td class="desc">${esc(r.desc)}<small>${esc(r.kind)}</small></td>
@@ -614,7 +644,7 @@ function row(r) {
     <td class="c-out">${out}</td>
     <td class="r amt">${signed(r.amount)}</td>
     <td class="m-meta">${esc(r.date)} · ${esc(r.kind)} · ${esc(r.account)}</td></tr>
-    ${S.variant === 'B' && S.open === r.id ? panelB(r) : ''}`;
+    ${'BD'.includes(S.variant) && S.open === r.id ? panelB(r) : ''}`;
 }
 const table = list => `<table class="rows"><thead><tr><th>Date</th><th>Transaction</th><th>Account</th><th>Outcome</th><th class="r">Amount</th><th class="sr">Details</th></tr></thead>
   <tbody>${list.map(row).join('')}</tbody></table>`;
@@ -663,7 +693,7 @@ function shell(content) {
 
 // ===================== Render =====================
 function url(extra = {}) {
-  const p = new URLSearchParams({ variant: S.variant, page: S.page, ...(S.fail ? { fail: 1 } : {}), ...(S.frame ? { frame: 1 } : {}), ...extra });
+  const p = new URLSearchParams({ variant: S.variant, page: S.page, ...(S.fail ? { fail: 1 } : {}), ...(S.touch ? { touch: 1 } : {}), ...(S.frame ? { frame: 1 } : {}), ...extra });
   const t = document.documentElement.dataset.theme; if (t !== 'system') p.set('theme', t);
   return `?${p}`;
 }
@@ -724,6 +754,7 @@ function renderProto() {
     <button type="button" data-proto="1" aria-label="Next variant">›</button>
     <span class="state" title="The last screen-reader announcement">${S.said ? `said: “${esc(S.said)}”` : 'said: —'}</span>
     <button class="toggle" type="button" data-proto="frame">${S.frame ? 'phone ✓' : 'phone'}</button>
+${S.variant === 'D' ? `<button class="toggle" type="button" data-proto="touch" title="Pretend the pointer is coarse (a phone), to see the native select">${S.touch ? 'touch ✓' : 'touch'}</button>` : ''}
     <button class="toggle" type="button" data-proto="fail" title="Make every save fail, to see the error state">${S.fail ? 'saves fail ✓' : 'saves fail'}</button>
     <button class="toggle" type="button" data-proto="theme">${document.documentElement.dataset.theme}</button>
     <button class="toggle" type="button" data-proto="reset">reset</button>`;
@@ -750,6 +781,7 @@ document.addEventListener('click', e => {
     const keys = Object.keys(VARIANTS);
     if (d.proto === 'frame') S.frame = !S.frame;
     else if (d.proto === 'fail') S.fail = !S.fail;
+    else if (d.proto === 'touch') S.touch = !S.touch;
     else if (d.proto === 'theme') { const order = ['system', 'light', 'dark'], h = document.documentElement; h.dataset.theme = order[(order.indexOf(h.dataset.theme) + 1) % 3]; }
     else if (d.proto === 'reset') { seed(); S.fb = {}; S.dirty = {}; S.open = null; S.said = ''; }
     else { S.variant = keys[(keys.indexOf(S.variant) + +d.proto + keys.length) % keys.length]; S.open = null; S.dirty = {}; }
@@ -757,6 +789,7 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset.native) { commit(e.target.dataset.native, e.target.value); return; }
   const id = e.target.dataset.select; if (!id) return;
   S.dirty[id] = e.target.value; render(ctl(id));
 });

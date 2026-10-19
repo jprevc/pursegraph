@@ -24,7 +24,9 @@ It also shows the last screen-reader announcement.
 | **B · Text + Change, chip panel** | Text plus its source ("by Rule"). In the queue: Accept / Something else, or Choose. | A panel under the row: Most used chips, then Category chips leading to Subcategory chips. Ambiguous pairings show as cards. | A tap on a Subcategory chip. |
 | **C · Native select + Save** | A native select whose options read "Category › Subcategory", with Most used on top. | The OS picker, which is native on a phone. | Save / Accept, or Enter. Changing the select only stages it ("Not saved yet"). Works without JS. |
 
-**Shared by all three:**
+**D · Chosen** is B on a fine pointer. On a coarse pointer (`(pointer: coarse)`, faked on desktop by the bar's **touch**), Change / Choose / Something else / Pick the other side is a native select laid over the button, and a pick saves at once.
+
+**Shared by all of them:**
 
 - **Saved.** An inline "✓ Saved as … · Undo" that disappears after 10 s. In the queue it is followed by "· Make a Rule" ([#54](https://github.com/jprevc/pursegraph/issues/54)).
 - **Failed save.** "Couldn't save … Nothing changed. Try again"; focus stays on the row.
@@ -34,4 +36,12 @@ It also shows the last screen-reader announcement.
 
 ## Findings
 
-_To be filled in from the session's verdict._
+**Verdict: B, but use the native select on a phone** (variant D). Every Member can change an outcome on reading surfaces, through an explicit Change. On a phone, a pick from the OS picker saves at once, and Undo covers a mis-pick.
+
+- **Gate on `(pointer: coarse)`, not width.** A touch OS picker fires `change` only when a choice is confirmed, so saving on pick can't repeat the P0. A narrow desktop window still has a keyboard, and Chromium fires `change` on each ArrowDown of a closed select, so it keeps the chip panel.
+- **The OS picker can't show hue dots or "% sure".** Every option reads "Category › Subcategory", and a "Suggested" group at the top carries the suggestion.
+- **Long outcomes wrap.** "Leisure › Subscriptions & digital services" with "86 % sure" pushes "Something else" onto a second line on desktop. The build should give the actions a stable place in the cell, not let them flow after the label.
+- **A's chip looked like a select**, and its quiet reading-surface state hid that it was editable. **C's** Save on every row was noisy, and staging was one tap too many for weekly triage.
+- **Make a Rule** fits naturally in the "Saved as … · Undo" line, after a save by hand in the queue.
+
+Shots are in `shots/`: A, B and C at desktop, and D at desktop (light and dark) and on a touch phone.
