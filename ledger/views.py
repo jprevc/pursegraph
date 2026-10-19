@@ -515,16 +515,34 @@ def apply_rule(request, pk):
     """GET offers to apply the Rule to the existing Transactions it matches; POST applies it."""
     rule = get_object_or_404(Rule.objects.select_related("account", "subcategory__category"), pk=pk)
     if request.method == "POST":
-        count = rule_edits.apply_to_existing(rule)
-        messages.success(
-            request,
+        count, pairing = rule_edits.apply_to_existing(rule)
+        sentences = [
             ngettext(
                 "%(count)d Transaction categorized by the Rule.",
                 "%(count)d Transactions categorized by the Rule.",
                 count,
             )
-            % {"count": count},
-        )
+            % {"count": count}
+        ]
+        if pairing.converted_count:
+            sentences.append(
+                ngettext(
+                    "%(count)d categorized Transaction converted to a Transfer.",
+                    "%(count)d categorized Transactions converted to Transfers.",
+                    pairing.converted_count,
+                )
+                % {"count": pairing.converted_count}
+            )
+        if pairing.ambiguous_count:
+            sentences.append(
+                ngettext(
+                    "%(count)d Transfer with several possible counterparts waits in the Review queue.",
+                    "%(count)d Transfers with several possible counterparts wait in the Review queue.",
+                    pairing.ambiguous_count,
+                )
+                % {"count": pairing.ambiguous_count}
+            )
+        messages.success(request, " ".join(sentences))
         return redirect("rules")
     return render(
         request,

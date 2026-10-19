@@ -4,10 +4,15 @@ At import, Rules categorize only unresolved Transactions. Applied to existing Tr
 also overwrites outcomes other automatic processing set (`llm`, `rule`), never `manual`, `iban`,
 `pairing` or `parser` ones, and pairs the Transfers it makes as import does."""
 
+from typing import TYPE_CHECKING
+
 from django.db import transaction
 from django.db.models import Min, QuerySet
 
 from .models import Rule, Source, Transaction, TransactionQuerySet
+
+if TYPE_CHECKING:
+    from .transfers import Pairing
 
 # The automatic outcomes a Rule applied to existing Transactions may overwrite.
 OVERWRITABLE = [Source.LLM, Source.RULE]
@@ -27,18 +32,19 @@ def overwritable_matches(rule: Rule) -> QuerySet[Transaction]:
     return matches.unresolved() | matches.filter(source__in=OVERWRITABLE)
 
 
-def apply_to_existing(rule: Rule) -> int:
+def apply_to_existing(rule: Rule) -> tuple[int, "Pairing"]:
     """Applies `rule` to the existing Transactions it matches, then pairs the Transfers it made, as at
-    import. Returns how many it set."""
-    from .transfers import pair  # transfers imports OVERWRITABLE from here
+    import. Returns how many it set, and what pairing did."""
+    from .transfers import Pairing, pair  # transfers imports OVERWRITABLE from here
 
     with transaction.atomic():
         matches = overwritable_matches(rule)
         pks = list(matches.values_list("pk", flat=True))
         count = _set_outcome(matches, rule)
+        pairing = Pairing()
         if rule.subcategory_id is None:
-            pair(Transaction.objects.filter(pk__in=pks))
-    return count
+            pairing = pair(Transaction.objects.filter(pk__in=pks))
+    return count, pairing
 
 
 def _set_outcome(transactions: QuerySet[Transaction], rule: Rule) -> int:
