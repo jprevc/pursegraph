@@ -10,12 +10,14 @@
   <button type="submit">{% translate "Filter" %}</button>
 </form>
 {% if page.object_list %}
+<div class="scroll">
 <table>
   <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
   <tbody>
   {% for t in page.object_list %}{% include "ledger/_transaction_row.html" %}{% endfor %}
   </tbody>
 </table>
+</div>
 {% if page.has_other_pages %}
 <nav class="pages">
   {% if page.has_previous %}<a href="?{% if query %}{{ query }}&{% endif %}page={{ page.previous_page_number }}">{% translate "Newer" %}</a>{% endif %}

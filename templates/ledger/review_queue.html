@@ -13,12 +13,14 @@
   <button type="submit">{% blocktranslate count n=suggested|length %}Accept {{ n }} suggestion{% plural %}Accept all {{ n }} suggestions{% endblocktranslate %}</button>
 </form>
 {% endif %}
+<div class="scroll">
 <table>
   <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
   <tbody>
   {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <div class="empty"><p>{% translate "Nothing to review." %}</p></div>
 {% endif %}

@@ -7,6 +7,7 @@
 <p class="muted">{% translate "An Account with bank “Other” has no Statements: it is known only by its IBANs, so that money moved to it is recognised as a Transfer." %}</p>
 <p><a class="button" href="{% url 'new_account' %}">{% translate "New Account" %}</a> <a href="{% url 'import' %}">{% translate "Back to Import" %}</a></p>
 {% if accounts %}
+<div class="scroll">
 <table>
   <thead><tr><th>{% translate "Name" %}</th><th>{% translate "Bank" %}</th><th>{% translate "Owners" %}</th><th>{% translate "IBANs" %}</th><th class="num">{% translate "Statements" %}</th><th></th></tr></thead>
   <tbody>
@@ -27,6 +28,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <div class="empty"><p>{% translate "No Accounts yet." %}</p></div>
 {% endif %}
