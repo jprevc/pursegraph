@@ -1,0 +1,796 @@
+<!doctype html>
+<!-- PROTOTYPE (#83 Transaction row and outcome control): throwaway, lives only on prototype/83-transaction-row. Never merge.
+     Three variants of the shared Transaction row + outcome control, switchable via ?variant=A|B|C (or the black bar,
+     or ← / → while nothing is focused), each on the three surfaces that use it: Review queue (editing),
+     Transactions and the Dashboard drill-down (reading). Built inside the chosen #63 shell (variant B).
+       A · Chip + search picker      : the outcome is a chip; it opens a searchable listbox (Suggested, Most used, every
+                                       Category, Transfer). Arrows only move the highlight; Enter or a click saves.
+       B · Text + Change, chip panel : the outcome is text; Change / Choose opens a panel under the row with Most used
+                                       chips, then Category → Subcategory chips. A tap on a Subcategory saves.
+       C · Native select + Save      : the select, labelled "Category › Subcategory", only stages; Save / Accept (or
+                                       Enter) commits. Works without JS.
+     Saves are stubbed (400 ms). The bar toggles a 390 px phone frame, failing saves, the theme and a reset; it also shows
+     the last screen-reader announcement.
+     Run from the repo root: python3 -m http.server 8083, then open http://localhost:8083/prototypes/83-transaction-row/
+     All figures are synthetic. -->
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pursegraph · Transaction row prototype</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens (from DESIGN.md / the #62 prototype) ---------- */
+:root {
+  color-scheme: light;
+  --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --faint: #9ca3af;
+  --line: #e5e7eb; --line-strong: #d1d5db;
+  --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eef2ff; --accent-text: #4338ca;
+  --focus: #6366f1;
+  --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+  --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10);
+  --cat-0: #4e79a7; --cat-1: #59a14f; --cat-2: #f28e2b; --cat-3: #b07aa1; --cat-4: #76b7b2;
+  --cat-5: #edc948; --cat-6: #ff9da7; --cat-7: #9c755f; --cat-8: #e15759; --cat-9: #a0cbe8;
+  --awaiting: #9ca3af;
+  --r-card: 14px; --r-ctl: 8px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+}
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+} }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+a { color: var(--accent-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.trunc { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -80px; z-index: 100; background: var(--card); padding: 6px 10px; border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); }
+.skip:focus { top: 8px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.brand img { width: 28px; height: 28px; margin-right: 10px; }
+.brand span { color: var(--accent-text); font-weight: 600; }
+.badge { min-width: 22px; padding: 0 7px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
+
+/* ---------- Controls ---------- */
+.btn { text-decoration: none; font: inherit; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 var(--s-3); border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.icon-only { width: 36px; padding: 0; justify-content: center; }
+.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--ink); background: var(--hover); }
+.btn .icon { width: 16px; height: 16px; color: var(--muted); }
+select.btn { appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+input.btn { cursor: text; font-weight: 400; min-width: 0; }
+.period { display: flex; align-items: center; gap: 2px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); height: 36px; box-shadow: 0 1px 2px rgb(16 24 40 / .04); }
+.period .btn { border: 0; box-shadow: none; height: 34px; width: 32px; padding: 0; justify-content: center; background: none; }
+.period .btn[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
+.period-label small { font-weight: 400; color: var(--muted); }
+.theme { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; gap: 2px; background: var(--ground); border-radius: var(--r-ctl); }
+.theme button { display: grid; place-items: center; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.theme button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.theme .icon { width: 16px; height: 16px; }
+details.pop { position: relative; }
+details.pop > summary { list-style: none; }
+details.pop > summary::-webkit-details-marker { display: none; }
+.pop-panel { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--card); border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); padding: var(--s-2); display: grid; gap: 2px; }
+.pop-panel.right { left: auto; right: 0; }
+.pop-panel.up { top: auto; bottom: calc(100% + 6px); }
+.pop-panel label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; }
+.pop-panel label:hover { background: var(--hover); }
+.pop-panel .pop-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 8px 8px 2px; }
+.pop-panel .item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
+.pop-panel .item:hover { background: var(--hover); color: var(--ink); }
+.pop-panel .item.on { background: var(--accent-soft); color: var(--accent-text); }
+.pop-panel hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+
+/* ---------- Shared page content ---------- */
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-5) var(--s-5) 0; }
+.card-head h2 { font-size: 15px; font-weight: 600; margin-right: auto; }
+.card-head .meta { color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-bottom: var(--s-4); }
+.tile { padding: var(--s-5); }
+.tile .label { color: var(--muted); font-weight: 500; }
+.tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: var(--s-1); }
+.tile .compare { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.grid { display: grid; grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr); gap: var(--s-4); align-items: start; }
+.donut-wrap { position: relative; height: 340px; margin: var(--s-2) var(--s-4) var(--s-5); }
+.donut { position: absolute; inset: 0; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-center .k { color: var(--muted); font-size: 13px; font-weight: 500; }
+.donut-center .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.donut-center .s { color: var(--muted); font-size: 13px; }
+.cats { list-style: none; margin: var(--s-3) 0 0; padding: 0 var(--s-2) var(--s-2); }
+.cat { display: grid; grid-template-columns: minmax(0, 1fr) 140px 52px 104px; align-items: center; gap: var(--s-3); padding: 10px var(--s-3); border-radius: 10px; }
+.cat:hover, .cat.hot { background: var(--hover); }
+.cat .name { font-weight: 500; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bar { height: 6px; border-radius: var(--r-pill); background: var(--ground); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; }
+.cat .share { color: var(--muted); text-align: right; font-size: 13px; }
+.cat .amt { text-align: right; font-weight: 600; }
+.awaiting .dot { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.awaiting .bar i { background: repeating-linear-gradient(45deg, var(--awaiting) 0 3px, color-mix(in srgb, var(--awaiting) 40%, transparent) 3px 6px) !important; }
+.awaiting .name a { font-weight: 400; font-size: 13px; }
+.cats-total { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); font-weight: 600; }
+.lens { padding: var(--s-2) var(--s-5) var(--s-5); display: grid; gap: var(--s-3); }
+.lens-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 110px; gap: var(--s-3); align-items: center; }
+.lens-row .bar { height: 10px; }
+.lens-row .amt { text-align: right; font-weight: 600; }
+.stand-in { color: var(--muted); font-size: 13px; padding: 0 var(--s-5) var(--s-5); }
+.tx { width: 100%; border-collapse: collapse; }
+.tx th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-5) var(--s-2); border-bottom: 1px solid var(--line); }
+.tx td { padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tx tr:last-child td { border-bottom: 0; }
+.tx tbody tr:hover { background: var(--raised); }
+.tx .r { text-align: right; }
+.tx .desc { font-weight: 500; } .tx .desc small { display: block; font-weight: 400; color: var(--muted); }
+.tx .m-meta { display: none; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--raised); color: var(--ink-2); font-size: 12px; font-weight: 500; border: 1px solid var(--line); white-space: nowrap; }
+.empty { padding: var(--s-8) var(--s-5); text-align: center; color: var(--muted); }
+.drop { margin: var(--s-4) var(--s-5) var(--s-5); border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); padding: var(--s-8); text-align: center; color: var(--muted); }
+.stack { display: grid; gap: var(--s-4); }
+.synthetic { margin: var(--s-6) 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.page-sub { color: var(--muted); margin: -12px 0 var(--s-4); }
+
+/* =====================================================================
+   Variant B · Few destinations (jobs, not modules)
+   ===================================================================== */
+.vB .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.vB .page { min-width: 0; }
+.vB .sidebar { position: sticky; top: 0; height: 100vh; background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--s-5) var(--s-3); gap: 2px; }
+.vB .sidebar > .brand { padding: 2px var(--s-2) var(--s-6); }
+.vB .nav { display: flex; align-items: center; gap: 12px; padding: 9px var(--s-3); border-radius: var(--r-ctl); color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 15px; }
+.vB .nav:hover { background: var(--hover); color: var(--ink); }
+.vB .nav[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
+.vB .nav .badge { margin-left: auto; }
+.vB .manage { margin-top: var(--s-5); }
+.vB .manage summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-2) var(--s-3); border-radius: var(--r-ctl); }
+.vB .manage summary::-webkit-details-marker { display: none; }
+.vB .manage summary:hover { background: var(--hover); }
+.vB .manage summary .icon { width: 14px; height: 14px; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.vB .manage[open] summary .icon { transform: rotate(90deg); }
+.vB .manage .nav { font-size: 14px; padding: 6px var(--s-3) 6px 34px; }
+.vB .sidebar-foot { margin-top: auto; }
+.vB .account { width: 100%; display: flex; align-items: center; gap: 10px; padding: var(--s-2); border-radius: var(--r-ctl); cursor: pointer; }
+.vB .account:hover { background: var(--hover); }
+.vB .account .who { line-height: 1.25; } .vB .account .who small { color: var(--muted); }
+.vB .account .icon { margin-left: auto; color: var(--faint); width: 16px; height: 16px; }
+.vB .m-top, .vB .tabbar, .vB .sheet, .vB .scrim { display: none; }
+.vB main { padding: var(--s-6) var(--s-8) 110px; max-width: 1360px; }
+.vB .title-row { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.vB .title-row h1 { font-size: 24px; font-weight: 600; margin-right: auto; }
+.vB .tabs { display: flex; gap: var(--s-5); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.vB .tabs a { flex: none; padding: var(--s-2) 0 10px; color: var(--muted); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.vB .tabs a:hover { color: var(--ink); }
+.vB .tabs a[aria-current] { color: var(--accent-text); border-bottom-color: var(--accent); }
+.vB .context { position: sticky; top: 0; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-3) 0; margin-bottom: var(--s-3); background: color-mix(in srgb, var(--ground) 92%, transparent); backdrop-filter: blur(10px); }
+.vB .context .grow { flex: 1; }
+.vB .context .search { width: 260px; }
+@media (max-width: 900px) {
+  .vB .shell { grid-template-columns: minmax(0, 1fr); }
+  .vB .sidebar { display: none; }
+  .vB .m-top { display: flex; align-items: center; gap: var(--s-2); height: 52px; padding: 0 var(--s-4); }
+  .vB .m-top .brand { font-size: 16px; margin-right: auto; } .vB .m-top .brand img { width: 26px; height: 26px; }
+  .vB main { padding: 0 var(--s-4) 140px; }
+  .vB .title-row h1 { font-size: 20px; }
+  .vB .tabs { gap: var(--s-4); }
+  .vB .context { top: 0; margin: 0 calc(var(--s-4) * -1) var(--s-3); padding: var(--s-2) var(--s-4); }
+  .vB .context .period { flex-basis: 100%; justify-content: space-between; }
+  .vB .context .grow { display: none; }
+  .vB .context > select, .vB .context > details { flex: 1 1 0; min-width: 0; }
+  .vB .context .btn { width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .vB .context .search { flex-basis: 100%; width: 100%; }
+  .vB .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; inset: auto 0 0 0; z-index: 25; height: 64px; padding-bottom: env(safe-area-inset-bottom); background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-top: 1px solid var(--line); }
+  .vB .tabbar a, .vB .tabbar button { display: grid; justify-items: center; align-content: center; gap: 2px; color: var(--muted); text-decoration: none; font: inherit; font-size: 11px; font-weight: 500; border: 0; background: none; position: relative; cursor: pointer; }
+  .vB .tabbar .icon { width: 22px; height: 22px; }
+  .vB .tabbar [aria-current] { color: var(--accent-text); }
+  .vB .tabbar .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; line-height: 18px; padding: 0 5px; font-size: 11px; }
+  .vB .shell.menu-open .scrim { display: block; position: fixed; inset: 0; z-index: 26; background: rgb(0 0 0 / .35); }
+  .vB .shell.menu-open .sheet { display: grid; position: fixed; inset: auto 0 0 0; z-index: 27; background: var(--card); border-radius: 18px 18px 0 0; box-shadow: var(--shadow-pop); padding: var(--s-2) var(--s-4) calc(var(--s-6) + env(safe-area-inset-bottom)); gap: 2px; max-height: 80vh; overflow-y: auto; animation: up .25s cubic-bezier(.16,1,.3,1); }
+  .vB .sheet .grip { width: 36px; height: 4px; border-radius: 4px; background: var(--line-strong); margin: 4px auto var(--s-3); }
+  .vB .sheet .pop-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-2) var(--s-1); }
+  .vB .sheet .nav { font-size: 15px; padding: 11px var(--s-2); }
+  .vB .sheet .theme { margin: var(--s-2) 0; }
+  .vB .sheet .theme button { height: 36px; }
+}
+@keyframes up { from { transform: translateY(100%); } }
+
+/* ---------- Shared phone content ---------- */
+@media (max-width: 900px) {
+  .tiles { gap: var(--s-2); }
+  .tile { padding: var(--s-3) 10px; }
+  .tile .label { font-size: 12px; }
+  .tile .value { font-size: 15px; letter-spacing: -0.01em; white-space: nowrap; }
+  .tile .compare { display: none; }
+  .grid { grid-template-columns: 1fr; }
+  .donut-wrap { height: 260px; }
+  .donut-center .v { font-size: 17px; }
+  .cat { grid-template-columns: minmax(0, 1fr) 44px 92px; gap: var(--s-2); padding: 10px var(--s-2); }
+  .cat .bar { display: none; }
+  .awaiting .name a { display: none; }
+  .lens-row { grid-template-columns: 80px minmax(0, 1fr) 90px; }
+  .tx thead { display: none; }
+  .tx tr { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .tx td { padding: 0; border: 0; }
+  .tx .c-date, .tx .c-acct, .tx .c-out { display: none; }
+  .tx .m-meta { display: inline; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- PROTOTYPE switcher: deliberately NOT the design ---------- */
+.proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; background: #000; color: #fff; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 6px 24px rgb(0 0 0 / .35), 0 0 0 2px #facc15; }
+.proto button { white-space: nowrap; font: inherit; color: #000; background: #facc15; border: 0; border-radius: 999px; height: 26px; min-width: 26px; padding: 0 8px; cursor: pointer; font-weight: 700; }
+.proto button.toggle { background: #333; color: #fff; font-weight: 500; }
+.proto .lbl { font-weight: 700; padding: 0 4px; white-space: nowrap; }
+.proto .state { color: #a3a3a3; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+@media (max-width: 900px) { .proto .state { display: none; } .vB .proto { bottom: 76px; } }
+@media (max-width: 420px) { .proto .lbl small { display: none; } }
+
+/* =====================================================================
+   PROTOTYPE (#83): the Transaction row and its outcome control
+   ===================================================================== */
+.rows { width: 100%; border-collapse: collapse; }
+.rows th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-4) var(--s-2); border-bottom: 1px solid var(--line); }
+.rows td { padding: 10px var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.rows tbody tr:last-child td { border-bottom: 0; }
+.rows tr.row:hover > td { background: var(--raised); }
+.rows .r { text-align: right; }
+.rows .c-date { white-space: nowrap; color: var(--ink-2); width: 72px; }
+.rows .desc { font-weight: 500; } .rows .desc small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.rows .amt { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rows .c-out { width: 44%; }
+.rows .m-meta { display: none; }
+.rows tr.done > td { opacity: .62; }
+.rows tr.done > td.c-out { opacity: 1; }
+.cap { color: var(--muted); font-size: 12px; }
+.hatch { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.oc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s-2); }
+.oc .btn { height: 32px; }
+.oc-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
+.oc-label .cat-name { color: var(--muted); font-weight: 400; }
+.oc-label .sep { color: var(--faint); }
+.fb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-basis: 100%; }
+.fb .icon { width: 14px; height: 14px; }
+.fb button { font: inherit; font-size: 12px; font-weight: 500; color: var(--accent-text); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.fb.err { color: var(--ink); }
+.fb.err .icon { color: var(--ink); }
+.btn.busy { opacity: .6; pointer-events: none; }
+.page-sub { color: var(--muted); margin: 0 0 var(--s-4); }
+.note { font-size: 12px; color: var(--muted); padding: var(--s-3) var(--s-5) var(--s-4); border-top: 1px solid var(--line); }
+.drill-head { display: flex; align-items: center; gap: 10px; padding: var(--s-4) var(--s-5) var(--s-2); }
+.drill-head h2 { font-size: 15px; font-weight: 600; margin-right: auto; }
+.standin { padding: var(--s-6) var(--s-5); color: var(--muted); font-size: 13px; text-align: center; }
+.queue-clear { padding: var(--s-6) var(--s-5); text-align: center; }
+
+/* ---------- A · combobox chip + searchable popover ---------- */
+.chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; height: 32px; padding: 0 10px 0 10px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); text-align: left; }
+.chip:hover { background: var(--hover); }
+.chip .icon { width: 16px; height: 16px; color: var(--muted); margin-left: auto; }
+.chip .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip.suggested { border-style: dashed; }
+.chip.quiet { border-color: transparent; background: none; box-shadow: none; padding-left: 4px; }
+.chip.quiet .icon { opacity: 0; }
+.chip.quiet:hover, .chip.quiet:focus-visible { border-color: var(--line-strong); background: var(--card); }
+.chip.quiet:hover .icon, .chip.quiet:focus-visible .icon { opacity: 1; }
+.anchor { position: relative; max-width: 100%; display: inline-flex; min-width: 0; }
+.lb { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; width: 340px; max-height: 380px; display: flex; flex-direction: column; background: var(--card); border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); overflow: hidden; }
+.lb-search { display: flex; align-items: center; gap: 8px; padding: 0 var(--s-3); border-bottom: 1px solid var(--line); }
+.lb-search .icon { width: 16px; height: 16px; color: var(--muted); }
+.lb-search input { flex: 1; min-width: 0; height: 42px; border: 0; background: none; color: var(--ink); font: inherit; outline: none; }
+.lb-list { overflow-y: auto; padding: var(--s-1) var(--s-1) var(--s-2); margin: 0; list-style: none; }
+.lb-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 10px 10px 4px; display: flex; align-items: center; gap: 8px; }
+.lb-o { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; cursor: pointer; color: var(--ink-2); }
+.lb-o .cat-name { color: var(--muted); }
+.lb-o .k { margin-left: auto; color: var(--muted); font-size: 12px; }
+.lb-o[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-text); }
+.lb-o[aria-selected="true"] .cat-name, .lb-o[aria-selected="true"] .k { color: var(--accent-text); }
+.lb-o.current::after { content: "✓"; margin-left: auto; color: var(--muted); }
+.lb-empty { padding: var(--s-4); color: var(--muted); text-align: center; }
+.lb-foot { border-top: 1px solid var(--line); padding: 8px 12px; font-size: 12px; color: var(--muted); display: flex; gap: var(--s-3); }
+.lb-foot kbd { font: inherit; font-weight: 600; color: var(--ink-2); }
+.lb-scrim { display: none; }
+.lb-title { display: none; }
+
+/* ---------- B · text + Change, chips panel under the row ---------- */
+.rows tr.panel > td { background: var(--raised); padding: var(--s-3) var(--s-4) var(--s-4); }
+.pick { display: grid; gap: var(--s-3); }
+.pick-h { display: flex; align-items: center; gap: var(--s-2); font-size: 12px; font-weight: 500; color: var(--muted); }
+.pick-h .grow { flex: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink-2); font: inherit; font-weight: 500; cursor: pointer; }
+.chips button:hover { background: var(--hover); color: var(--ink); }
+.chips button.on { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.chips button .cat-name { color: var(--muted); font-weight: 400; }
+.pair { display: grid; gap: 6px; }
+.pair button { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.pair button:hover { background: var(--hover); }
+.link-btn { font: inherit; font-weight: 500; color: var(--accent-text); background: none; border: 0; padding: 6px 4px; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- C · native select + explicit Save ---------- */
+.oc select.btn { height: 32px; flex: 1 1 220px; min-width: 0; max-width: 340px; }
+.oc .dirty { font-size: 12px; color: var(--muted); }
+
+/* ---------- Phone: each row a stacked card ---------- */
+@media (max-width: 600px) {
+  .rows thead { display: none; }
+  .rows tr.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .rows tr.row > td { padding: 0; border: 0; background: none !important; }
+  .rows .c-date, .rows .c-acct { display: none; }
+  .rows .m-meta { display: block; grid-column: 1 / -1; order: 3; color: var(--muted); font-size: 12px; }
+  .rows .desc { order: 1; } .rows .desc small { display: none; }
+  .rows .amt { order: 2; }
+  .rows .c-out { order: 4; grid-column: 1 / -1; width: auto; padding-top: var(--s-2) !important; }
+  .oc { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .oc .btn, .chip, .oc select.btn { height: 44px; max-width: none; }
+  .oc .anchor, .oc .chip { width: 100%; }
+  .chip.quiet { border-color: var(--line); padding-left: 10px; }
+  .chip.quiet .icon { opacity: 1; }
+  .rows tr.panel { display: block; }
+  .rows tr.panel > td { display: block; }
+  .chips button { min-height: 44px; }
+  .lb-scrim { display: block; position: fixed; inset: 0; z-index: 60; background: rgb(0 0 0 / .35); }
+  .lb { position: fixed; z-index: 61; inset: auto 0 0 0; top: auto; width: auto; max-height: 78vh; border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom); animation: up .25s cubic-bezier(.16,1,.3,1); }
+  .lb-o { padding: 12px 10px; }
+  .lb-foot { display: none; }
+  .lb-title { display: flex; justify-content: space-between; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-2); }
+  .lb-title b { font-weight: 600; }
+}
+
+/* ---------- Phone frame (prototype only) ---------- */
+.frame-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 0 90px; background: repeating-linear-gradient(45deg, #e5e7eb 0 10px, #eceef1 10px 20px); }
+.frame-wrap iframe { width: 390px; height: 844px; border: 10px solid #111; border-radius: 44px; background: #fff; box-shadow: 0 20px 60px rgb(0 0 0 / .3); }
+.framed .proto { display: none; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-4.2-7.6"/><path d="m9 11 3 3 9-9"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-updown" viewBox="0 0 24 24"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol>
+</svg>
+
+<div id="app"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<div class="proto" id="proto" role="region" aria-label="Prototype switcher (not part of the design)"></div>
+
+<script>
+// ===================== Synthetic Household (the seeded Category list) =====================
+const CATEGORY_LIST = [
+  ['Food', ['Groceries', 'Restaurants & cafés', 'Fast food & takeaway', 'Other']],
+  ['Home', ['Rent / mortgage', 'Utilities', 'Internet & phone', 'Furniture & household', 'Maintenance & repairs', 'Other']],
+  ['Transport', ['Fuel', 'Parking & tolls', 'Car maintenance', 'Car insurance & registration', 'Public transport & car sharing', 'Other']],
+  ['Health', ['Pharmacy', 'Doctor & dental', 'Health insurance', 'Other']],
+  ['Children', ['Childcare & school', 'Activities', 'Clothes & toys', 'Other']],
+  ['Shopping', ['Clothing & shoes', 'Electronics', 'Gifts', 'Personal care', 'Other']],
+  ['Leisure', ['Travel', 'Hobbies & sport', 'Entertainment & going out', 'Subscriptions & digital services', 'Other']],
+  ['Finance', ['Bank fees', 'Insurance (non-health)', 'Taxes & fines', 'Other']],
+  ['Other', ['Cash withdrawal', 'Payments to people', 'Miscellaneous']],
+  ['Income', ['Salary', 'Benefits & allowances', 'Interest', 'Gifts received', 'Other income']],
+];
+// A Category's hue is cat-((id - 1) mod 10); Subcategory ids are catId*100 + n.
+const CATS = CATEGORY_LIST.map(([name, subs], i) => ({ id: i + 1, name, hue: i % 10, subs: subs.map((s, j) => (i + 1) * 100 + j + 1) }));
+const SUBS = {};
+CATS.forEach(c => c.subs.forEach((id, j) => { SUBS[id] = { id, name: CATEGORY_LIST[c.id - 1][1][j], cat: c.name, hue: c.hue }; }));
+const sub = (cat, name) => Object.values(SUBS).find(s => s.cat === cat && s.name === name).id;
+// The Household's most-used outcomes (would come from a count over its Transactions).
+const MOST_USED = [sub('Food', 'Groceries'), sub('Transport', 'Fuel'), sub('Food', 'Restaurants & cafés'), sub('Home', 'Utilities'), sub('Leisure', 'Subscriptions & digital services')];
+
+let ROWS;
+function seed() {
+  ROWS = {
+    review: [
+      { id: 'q1', date: '13 Oct', desc: 'PAYPAL *STEAMGAMES', kind: 'Card payment', account: 'Luka · Revolut', amount: -19.99, out: null, sugg: sub('Leisure', 'Subscriptions & digital services'), conf: .86 },
+      { id: 'q2', date: '11 Oct', desc: 'Lekarna Ljubljana 12', kind: 'Card payment', account: 'Maja · N26', amount: -23.40, out: null, sugg: sub('Health', 'Pharmacy'), conf: .97 },
+      { id: 'q3', date: '9 Oct', desc: 'SEPA from J. Kranjc', kind: 'Incoming payment', account: 'Joint · Sparkasse', amount: 40.00, out: null },
+      { id: 'q4', date: '7 Oct', desc: 'Amazon EU S.a.r.l.', kind: 'Card payment', account: 'Luka · Revolut', amount: -31.90, out: null, sugg: sub('Shopping', 'Other'), conf: .51 },
+      { id: 'q5', date: '6 Oct', desc: 'Telekom Slovenije', kind: 'Direct debit', account: 'Joint · Sparkasse', amount: -39.99, out: null, sugg: sub('Home', 'Internet & phone'), conf: .93 },
+      { id: 'q6', date: '4 Oct', desc: 'To Luka Novak', kind: 'Outgoing transfer', account: 'Maja · N26', amount: -50.00, out: null, pairs: [
+        { id: 'pair-1', date: '4 Oct', account: 'Luka · Revolut', desc: 'From Maja Novak', amount: 50 },
+        { id: 'pair-2', date: '5 Oct', account: 'Joint · Sparkasse', desc: 'SEPA Maja Novak', amount: 50 }] },
+      { id: 'q7', date: '2 Oct', desc: 'Bolt.eu', kind: 'Card payment', account: 'Luka · Revolut', amount: -11.02, out: null, sugg: sub('Transport', 'Public transport & car sharing'), conf: .62 },
+      { id: 'q8', date: '1 Oct', desc: 'HOFER 2201 LJUBLJANA', kind: 'Card payment', account: 'Joint · Sparkasse', amount: -61.30, out: null, sugg: sub('Food', 'Groceries'), conf: .99 },
+    ],
+    transactions: [
+      { id: 't1', date: '15 Oct', desc: 'Mercator Center', kind: 'Card payment', account: 'Maja · N26', amount: -84.62, out: sub('Food', 'Groceries'), source: 'rule' },
+      { id: 't2', date: '14 Oct', desc: 'Elektro Ljubljana', kind: 'Direct debit', account: 'Joint · Sparkasse', amount: -96.10, out: sub('Home', 'Utilities'), source: 'rule' },
+      { id: 't3', date: '14 Oct', desc: 'To Savings · Delavska', kind: 'Standing order', account: 'Joint · Sparkasse', amount: -300.00, out: 'transfer', source: 'iban' },
+      { id: 't4', date: '12 Oct', desc: 'Gostilna Pri Lojzetu', kind: 'Card payment', account: 'Luka · Revolut', amount: -64.30, out: sub('Food', 'Restaurants & cafés'), source: 'llm' },
+      { id: 't5', date: '10 Oct', desc: 'Petrol Tržaška', kind: 'Card payment', account: 'Luka · Revolut', amount: -71.20, out: sub('Transport', 'Fuel'), source: 'rule' },
+      { id: 't6', date: '8 Oct', desc: 'Müller Citypark', kind: 'Card payment', account: 'Maja · N26', amount: -27.85, out: sub('Shopping', 'Other'), source: 'manual' },
+      { id: 't7', date: '3 Oct', desc: 'Salary · Acme d.o.o.', kind: 'Incoming payment', account: 'Maja · N26', amount: 2410.00, out: sub('Income', 'Salary'), source: 'rule' },
+      { id: 't8', date: '1 Oct', desc: 'Rent · Novak', kind: 'Standing order', account: 'Joint · Sparkasse', amount: -850.00, out: sub('Home', 'Rent / mortgage'), source: 'rule' },
+    ],
+    dashboard: [
+      { id: 'd1', date: '28 Sep', desc: 'Lidl Rudnik', kind: 'Card payment', account: 'Joint · Sparkasse', amount: -138.40, out: sub('Food', 'Groceries'), source: 'rule' },
+      { id: 'd2', date: '24 Sep', desc: 'Wolt', kind: 'Card payment', account: 'Luka · Revolut', amount: -32.70, out: sub('Food', 'Fast food & takeaway'), source: 'llm' },
+      { id: 'd3', date: '19 Sep', desc: 'Spar Bežigrad', kind: 'Card payment', account: 'Maja · N26', amount: -46.15, out: sub('Food', 'Groceries'), source: 'rule' },
+      { id: 'd4', date: '13 Sep', desc: 'Kavarna Zvezda', kind: 'Card payment', account: 'Maja · N26', amount: -18.60, out: sub('Food', 'Restaurants & cafés'), source: 'manual' },
+      { id: 'd5', date: '9 Sep', desc: 'DM drogerie markt', kind: 'Card payment', account: 'Joint · Sparkasse', amount: -24.30, out: sub('Food', 'Other'), source: 'llm' },
+      { id: 'd6', date: '2 Sep', desc: 'Hofer Vič', kind: 'Card payment', account: 'Joint · Sparkasse', amount: -152.20, out: sub('Food', 'Groceries'), source: 'rule' },
+    ],
+  };
+}
+seed();
+const SOURCE = { rule: 'by Rule', llm: 'by LLM', manual: 'by hand', iban: 'by IBAN', pairing: 'paired' };
+const fmt = new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' });
+const eur = v => fmt.format(v);
+const signed = v => (v > 0 ? '+' : '') + eur(v);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ic = n => `<svg class="icon" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// ===================== State =====================
+const VARIANTS = { A: 'Chip + search picker', B: 'Text + Change, chip panel', C: 'Native select + Save' };
+const PAGES = { dashboard: 'Dashboard', transactions: 'Transactions', review: 'Review queue' };
+const qs = new URLSearchParams(location.search);
+const S = {
+  variant: VARIANTS[qs.get('variant')] ? qs.get('variant') : 'A',
+  page: PAGES[qs.get('page')] ? qs.get('page') : 'review',
+  frame: qs.get('frame') === '1', framed: qs.get('framed') === '1',
+  fail: qs.get('fail') === '1',
+  open: null, q: '', act: 0, catStep: null, dirty: {}, fb: {}, busy: null, said: '',
+};
+const surface = () => S.page === 'review' ? 'edit' : 'read';
+const rows = () => ROWS[S.page];
+const findRow = id => Object.values(ROWS).flat().find(r => r.id === id);
+const queueLeft = () => ROWS.review.filter(r => !r.done).length;
+const resolved = r => r.done || (surface() === 'read');
+
+// ===================== The outcome as text =====================
+function dot(v) {
+  if (v == null) return `<span class="dot hatch" aria-hidden="true"></span>`;
+  if (v === 'transfer' || String(v).startsWith('pair')) return `<span class="dot" style="box-shadow:inset 0 0 0 1.5px var(--muted)" aria-hidden="true"></span>`;
+  return `<span class="dot" style="background:var(--cat-${SUBS[v].hue})" aria-hidden="true"></span>`;
+}
+function plain(v, r) {
+  if (v == null) return 'Awaiting review';
+  if (v === 'transfer') return 'Transfer';
+  if (String(v).startsWith('pair')) { const p = r.pairs.find(p => p.id === v); return `Transfer with ${p.account}`; }
+  return `${SUBS[v].cat} › ${SUBS[v].name}`;
+}
+function rich(v, r) {
+  if (v == null || v === 'transfer' || String(v).startsWith('pair')) return esc(plain(v, r));
+  return `<span class="cat-name">${esc(SUBS[v].cat)}</span> <span class="sep">›</span> ${esc(SUBS[v].name)}`;
+}
+const label = (v, r) => `<span class="oc-label">${dot(v)}<span class="lbl">${rich(v, r)}</span></span>`;
+const pct = r => `${Math.round(r.conf * 100)} % sure`;
+
+function feedback(r) {
+  const f = S.fb[r.id]; if (!f) return '';
+  if (f.kind === 'err') return `<div class="fb err" data-fb="${r.id}">${ic('alert')}<span>Couldn't save ${esc(plain(f.value, r))}. Nothing changed.</span><button type="button" data-retry="${r.id}">Try again</button></div>`;
+  const rule = f.manual && S.page === 'review' ? ` · <a href="#" class="fb-link">Make a Rule</a>` : '';
+  return `<div class="fb" data-fb="${r.id}">${ic('ok')}<span>Saved as ${esc(plain(r.out, r))}</span> · <button type="button" data-undo="${r.id}">Undo</button>${rule}</div>`;
+}
+
+// ===================== Variant A · chip + searchable picker =====================
+function optionsFor(r) {
+  const q = fold(S.q.trim()), opts = [];
+  const add = (section, value, html, k = '') => opts.push({ section, value, html, k });
+  if (!q) {
+    if (r.pairs) r.pairs.forEach(p => add('Transfer: the other side', p.id, `${dot('pair')}<span>${esc(p.date)} · ${esc(p.account)} · ${esc(p.desc)}</span>`, signed(p.amount)));
+    if (r.sugg && !r.done) add('Suggested', r.sugg, `${dot(r.sugg)}<span>${rich(r.sugg)}</span>`, pct(r));
+    MOST_USED.forEach(v => add('Most used', v, `${dot(v)}<span>${rich(v)}</span>`));
+    CATS.forEach(c => c.subs.forEach(v => add(c.name, v, `${dot(v)}<span>${esc(SUBS[v].name)}</span>`)));
+    add('Not spending or income', 'transfer', `${dot('transfer')}<span>Transfer${r.pairs ? ', one-sided' : ''}</span>`);
+  } else {
+    Object.values(SUBS).filter(s => fold(`${s.cat} ${s.name}`).includes(q)).forEach(s => add('Matches', s.id, `${dot(s.id)}<span>${rich(s.id)}</span>`));
+    if (fold('transfer').includes(q)) add('Matches', 'transfer', `${dot('transfer')}<span>Transfer</span>`);
+  }
+  return opts;
+}
+function listboxItems(r) {
+  const opts = optionsFor(r); let html = '', last = null;
+  if (!opts.length) return `<li class="lb-empty" role="presentation">No outcome matches “${esc(S.q)}”</li>`;
+  opts.forEach((o, i) => {
+    if (o.section !== last) {
+      const cat = CATS.find(c => c.name === o.section);
+      html += `<li class="lb-h" role="presentation">${cat ? `<span class="dot" style="background:var(--cat-${cat.hue})"></span>` : ''}${esc(o.section)}</li>`; last = o.section;
+    }
+    html += `<li class="lb-o${o.value === r.out ? ' current' : ''}" role="option" id="opt-${i}" data-pick="${o.value}" aria-selected="${i === S.act}">${o.html}${o.k ? `<span class="k">${esc(o.k)}</span>` : ''}</li>`;
+  });
+  return html;
+}
+function outcomeA(r) {
+  const edit = surface() === 'edit' && !r.done, open = S.open === r.id;
+  const shown = r.out ?? (edit ? r.sugg : null);
+  const text = edit && r.pairs ? 'Pick the other side' : edit && !r.sugg ? 'Choose an outcome' : null;
+  const cls = surface() === 'read' ? 'chip quiet' : edit && r.sugg ? 'chip suggested' : 'chip';
+  const chip = `<button type="button" class="${cls}${S.busy === r.id ? ' busy' : ''}" data-ctl="${r.id}" data-open="${r.id}" aria-haspopup="listbox" aria-expanded="${open}"
+      aria-label="Outcome: ${esc(text ?? plain(shown, r))}${edit && r.sugg ? ', suggested, ' + pct(r) : ''}. Change">
+      ${text ? `<span class="oc-label">${dot(null)}<span class="lbl">${text}</span></span>` : label(shown, r)}${ic('down')}</button>`;
+  const pop = open ? `<div class="lb-scrim" data-close></div><div class="lb"><div class="lb-title"><b>${esc(r.desc)}</b><span>${signed(r.amount)}</span></div>
+      <div class="lb-search">${ic('search')}<input id="lb-input" role="combobox" aria-expanded="true" aria-controls="lb-list" aria-activedescendant="opt-${S.act}" aria-autocomplete="list"
+        placeholder="Search Categories" autocomplete="off" value="${esc(S.q)}" aria-label="Search outcomes for ${esc(r.desc)}"></div>
+      <ul class="lb-list" id="lb-list" role="listbox" aria-label="Outcomes">${listboxItems(r)}</ul>
+      <div class="lb-foot"><span><kbd>↑↓</kbd> move</span><span><kbd>Enter</kbd> save</span><span><kbd>Esc</kbd> close</span></div></div>` : '';
+  const after = edit && r.sugg ? `<button type="button" class="btn${S.busy === r.id ? ' busy' : ''}" data-accept="${r.id}">Accept</button><span class="cap">${pct(r)}</span>`
+    : !edit && r.source ? `<span class="cap">${SOURCE[r.source]}</span>` : '';
+  return `<div class="oc"><span class="anchor">${chip}${pop}</span>${after}${feedback(r)}</div>`;
+}
+
+// ===================== Variant B · text + Change, chip panel =====================
+function outcomeB(r) {
+  const edit = surface() === 'edit' && !r.done, busy = S.busy === r.id ? ' busy' : '';
+  if (!edit) return `<div class="oc">${label(r.out, r)}${r.source ? `<span class="cap">${SOURCE[r.source]}</span>` : ''}
+      <button type="button" class="link-btn" data-ctl="${r.id}" data-open="${r.id}" aria-expanded="${S.open === r.id}">Change</button>${feedback(r)}</div>`;
+  if (r.pairs) return `<div class="oc">${label('transfer', r)}<span class="cap">other side unknown</span>
+      <button type="button" class="btn${busy}" data-ctl="${r.id}" data-open="${r.id}" aria-expanded="${S.open === r.id}">Pick the other side</button>${feedback(r)}</div>`;
+  if (r.sugg) return `<div class="oc">${label(r.sugg, r)}<span class="cap">${pct(r)}</span>
+      <button type="button" class="btn${busy}" data-ctl="${r.id}" data-accept="${r.id}">Accept</button>
+      <button type="button" class="link-btn" data-open="${r.id}" aria-expanded="${S.open === r.id}">Something else</button>${feedback(r)}</div>`;
+  return `<div class="oc">${label(null, r)}<button type="button" class="btn${busy}" data-ctl="${r.id}" data-open="${r.id}" aria-expanded="${S.open === r.id}">Choose</button>${feedback(r)}</div>`;
+}
+function panelB(r) {
+  const chip = (v, html) => `<button type="button" data-pick="${v}"${v === r.out ? ' class="on" aria-pressed="true"' : ''}>${html}</button>`;
+  let body = '';
+  if (r.pairs) body += `<div class="pick-h">The other side of this Transfer</div><div class="pair">${r.pairs.map(p =>
+    `<button type="button" data-pick="${p.id}">${ic('swap')}<span><b>${esc(p.desc)}</b><br><span class="cap">${esc(p.date)} · ${esc(p.account)}</span></span><span class="amt">${signed(p.amount)}</span></button>`).join('')}</div>`;
+  if (S.catStep == null) {
+    body += `<div class="pick-h">Most used</div><div class="chips">${MOST_USED.map(v => chip(v, `${dot(v)}${rich(v)}`)).join('')}</div>
+      <div class="pick-h">Category</div><div class="chips">${CATS.map(c => `<button type="button" data-cat="${c.id}"><span class="dot" style="background:var(--cat-${c.hue})"></span>${esc(c.name)}</button>`).join('')}
+      ${chip('transfer', `${dot('transfer')}Transfer${r.pairs ? ', one-sided' : ''}`)}</div>`;
+  } else {
+    const c = CATS.find(c => c.id === S.catStep);
+    body += `<div class="pick-h"><button type="button" class="link-btn" data-cat="back">‹ All Categories</button><span class="dot" style="background:var(--cat-${c.hue})"></span>${esc(c.name)}</div>
+      <div class="chips">${c.subs.map(v => chip(v, esc(SUBS[v].name))).join('')}</div>`;
+  }
+  return `<tr class="panel"><td colspan="6"><div class="pick" role="group" aria-label="Choose an outcome for ${esc(r.desc)}">
+    <div class="pick-h"><span class="grow">Choose an outcome for <b>${esc(r.desc)}</b></span><button type="button" class="link-btn" data-close>Cancel</button></div>${body}</div></td></tr>`;
+}
+
+// ===================== Variant C · native select + explicit Save =====================
+function outcomeC(r) {
+  const edit = surface() === 'edit' && !r.done, dirty = S.dirty[r.id];
+  const value = dirty ?? r.out ?? (edit ? r.sugg : null) ?? '';
+  const o = v => `<option value="${v}"${String(v) === String(value) ? ' selected' : ''}>${esc(plain(v, r))}</option>`;
+  let opts = '';
+  if (r.pairs && edit) opts += `<option value=""${value === '' ? ' selected' : ''}>Pick the other side</option><optgroup label="Transfer: the other side">${r.pairs.map(p =>
+    `<option value="${p.id}"${p.id === value ? ' selected' : ''}>${esc(p.date)} · ${esc(p.account)} · ${esc(p.desc)} ${signed(p.amount)}</option>`).join('')}</optgroup>`;
+  else if (value === '') opts += `<option value="" selected>Awaiting review</option>`;
+  // Most used repeats outcomes listed below; a selected value matches its own Category group.
+  opts += `<optgroup label="Most used">${MOST_USED.map(v => `<option value="${v}">${esc(plain(v))}</option>`).join('')}</optgroup>`;
+  opts += CATS.map(c => `<optgroup label="${esc(c.name)}">${c.subs.map(o).join('')}</optgroup>`).join('');
+  opts += `<optgroup label="Not spending or income">${o('transfer')}</optgroup>`;
+  const isAccept = edit && r.sugg && dirty == null;
+  const canSave = isAccept || (dirty != null && dirty !== String(r.out ?? ''));
+  const cap = isAccept ? `<span class="cap">${pct(r)}</span>` : dirty != null && canSave ? `<span class="dirty">Not saved yet</span>`
+    : r.source && !edit ? `<span class="cap">${SOURCE[r.source]}</span>` : '';
+  return `<div class="oc"><select class="btn${S.busy === r.id ? ' busy' : ''}" data-ctl="${r.id}" data-select="${r.id}" aria-label="Outcome for ${esc(r.desc)}">${opts}</select>
+    ${canSave || edit ? `<button type="button" class="btn${S.busy === r.id ? ' busy' : ''}" data-save="${r.id}"${canSave ? '' : ' disabled style="opacity:.45"'}>${isAccept ? 'Accept' : 'Save'}</button>` : ''}${cap}${feedback(r)}</div>`;
+}
+
+// ===================== The row =====================
+function row(r) {
+  const out = { A: outcomeA, B: outcomeB, C: outcomeC }[S.variant](r);
+  return `<tr class="row${r.done ? ' done' : ''}" id="row-${r.id}">
+    <td class="c-date">${esc(r.date)}</td>
+    <td class="desc">${esc(r.desc)}<small>${esc(r.kind)}</small></td>
+    <td class="c-acct"><span class="pill">${esc(r.account)}</span></td>
+    <td class="c-out">${out}</td>
+    <td class="r amt">${signed(r.amount)}</td>
+    <td class="m-meta">${esc(r.date)} · ${esc(r.kind)} · ${esc(r.account)}</td></tr>
+    ${S.variant === 'B' && S.open === r.id ? panelB(r) : ''}`;
+}
+const table = list => `<table class="rows"><thead><tr><th>Date</th><th>Transaction</th><th>Account</th><th>Outcome</th><th class="r">Amount</th><th class="sr">Details</th></tr></thead>
+  <tbody>${list.map(row).join('')}</tbody></table>`;
+
+// ===================== Pages (in the #63 shell, variant B) =====================
+function pageReview() {
+  const left = queueLeft(), sugg = ROWS.review.filter(r => !r.done && r.sugg).length;
+  const head = `<div class="title-row"><h1>Review queue</h1>${sugg ? `<button class="btn" type="button" data-bulk>Accept ${sugg} suggestions</button>` : ''}</div>
+    <p class="page-sub">${left ? `${left} Transactions still need an outcome.` : 'Every Transaction has an outcome.'}</p>`;
+  return head + `<section class="card">${table(ROWS.review)}${left ? '' : `<div class="queue-clear"><b>Queue clear.</b> <a href="#" data-nav="dashboard">See September on the Dashboard</a></div>`}</section>`;
+}
+function pageTransactions() {
+  return `<div class="title-row"><h1>Transactions</h1></div>
+    <div class="context"><input class="btn search" placeholder="Search descriptions" aria-label="Search"><select class="btn" aria-label="Account"><option>All Accounts</option></select><select class="btn" aria-label="Outcome"><option>Any outcome</option></select></div>
+    <section class="card">${table(ROWS.transactions)}</section>`;
+}
+function pageDashboard() {
+  const total = ROWS.dashboard.reduce((s, r) => s + (SUBS[r.out]?.cat === 'Food' ? r.amount : 0), 0);
+  const n = ROWS.dashboard.filter(r => SUBS[r.out]?.cat === 'Food').length;
+  return `<div class="title-row"><h1>Dashboard</h1></div>
+    <nav class="tabs" aria-label="Dashboard views"><a href="#" aria-current="page">Spending</a><a href="#">Cash flow</a><a href="#">Category trends</a><a href="#">Per Member</a><a href="#">Money flow</a></nav>
+    <div class="context"><div class="period"><button class="btn" type="button" aria-label="Previous">${ic('left')}</button><span class="period-label">September 2026</span><button class="btn" type="button" aria-label="Next">${ic('right')}</button></div></div>
+    <div class="stack"><section class="card standin">Spending view: tiles, donut and Category list, as in the #62–#75 prototypes. Food is open below.</section>
+    <section class="card" aria-labelledby="drill-h"><div class="drill-head"><span class="dot" style="background:var(--cat-0)"></span><h2 id="drill-h">Food · September 2026</h2>
+      <span class="cap">${n} Transactions · ${eur(-total)}</span><button class="btn ghost icon-only" type="button" aria-label="Close">${ic('x')}</button></div>
+      ${table(ROWS.dashboard)}<div class="note">Changing an outcome moves the amount to its new Category; the figures above update.</div></section></div>`;
+}
+
+function shell(content) {
+  const nav = (id, icon, text, badge = '') => `<a class="nav" href="#" data-nav="${id}"${S.page === id ? ' aria-current="page"' : ''}>${ic(icon)}${text}${badge}</a>`;
+  const left = queueLeft(), badge = left ? `<span class="badge">${left}</span>` : '';
+  const brand = `<a class="brand" href="#" data-nav="dashboard"><img src="favicon.svg" alt="">Purse<span>graph</span></a>`;
+  return `<div class="shell">
+  <aside class="sidebar" aria-label="Main">${brand}
+    ${nav('dashboard', 'home', 'Dashboard')}${nav('transactions', 'list', 'Transactions')}${nav('review', 'check', 'Review queue', badge)}<a class="nav" href="#">${ic('upload')}Import</a>
+    <details class="manage"><summary>${ic('right')}Manage</summary></details>
+    <div class="sidebar-foot"><div class="account"><span class="avatar" aria-hidden="true">M</span><span class="who">Maja<br><small>Admin</small></span>${ic('updown')}</div></div>
+  </aside>
+  <div class="page"><header class="m-top">${brand}</header>
+    <main id="main" tabindex="-1">${content}<p class="synthetic">Prototype · all figures are synthetic</p></main></div>
+  <nav class="tabbar" aria-label="Main"><a href="#" data-nav="dashboard"${S.page === 'dashboard' ? ' aria-current="page"' : ''}>${ic('home')}Dashboard</a>
+    <a href="#" data-nav="transactions"${S.page === 'transactions' ? ' aria-current="page"' : ''}>${ic('list')}Transactions</a>
+    <a href="#" data-nav="review"${S.page === 'review' ? ' aria-current="page"' : ''}>${ic('check')}Review${left ? `<span class="badge">${left}</span>` : ''}</a>
+    <button type="button">${ic('more')}More</button></nav></div>`;
+}
+
+// ===================== Render =====================
+function url(extra = {}) {
+  const p = new URLSearchParams({ variant: S.variant, page: S.page, ...(S.fail ? { fail: 1 } : {}), ...(S.frame ? { frame: 1 } : {}), ...extra });
+  const t = document.documentElement.dataset.theme; if (t !== 'system') p.set('theme', t);
+  return `?${p}`;
+}
+function render(focus) {
+  document.body.className = 'vB' + (S.framed ? ' framed' : '');
+  if (S.frame && !S.framed) {
+    const src = url({ framed: 1, frame: 0 });
+    document.getElementById('app').innerHTML = `<div class="frame-wrap"><iframe title="Phone, 390 × 844" src="${src}"></iframe></div>`;
+  } else {
+    document.getElementById('app').innerHTML = `<a class="skip" href="#main">Skip to content</a>` + shell({ review: pageReview, transactions: pageTransactions, dashboard: pageDashboard }[S.page]());
+    document.title = `${PAGES[S.page]} · Pursegraph`;
+  }
+  history.replaceState(null, '', url());
+  renderProto();
+  if (focus) document.querySelector(focus)?.focus();
+}
+function announce(text) {
+  S.said = text; const live = document.getElementById('live');
+  live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); renderProto();
+}
+
+// ===================== Saving (stubbed: 400 ms, fails while "fail saves" is on) =====================
+const ctl = id => `[data-ctl="${id}"]`;
+function nextOpen(id) {
+  const list = rows(), i = list.findIndex(r => r.id === id);
+  return [...list.slice(i + 1), ...list.slice(0, i)].find(r => !r.done)?.id;
+}
+function commit(id, value, { accept = false } = {}) {
+  const r = findRow(id); value = value === 'transfer' || String(value).startsWith('pair') ? value : +value;
+  S.open = null; S.q = ''; S.catStep = null; S.busy = id; delete S.fb[id]; render(ctl(id));
+  setTimeout(() => {
+    S.busy = null;
+    if (S.fail) { S.fb[id] = { kind: 'err', value }; render(ctl(id)); announce(`Couldn't save ${plain(value, r)}. Nothing changed.`); return; }
+    const prev = { out: r.out, source: r.source, done: r.done };
+    r.out = value; r.source = String(value).startsWith('pair') ? 'pairing' : accept ? 'llm' : 'manual';
+    delete S.dirty[id];
+    const inQueue = S.page === 'review';
+    if (inQueue) r.done = true;
+    S.fb[id] = { kind: 'ok', prev, manual: r.source === 'manual' };
+    // In the Review queue focus moves on to the next Transaction still waiting; elsewhere it stays on the row.
+    const to = inQueue ? nextOpen(id) : id;
+    render(to ? ctl(to) : '#main');
+    announce(`Saved ${r.desc} as ${plain(value, r)}.${inQueue ? ` ${queueLeft()} left to review.` : ''}`);
+    clearTimeout(S.fb[id].timer);
+    S.fb[id].timer = setTimeout(() => { if (S.fb[id]?.kind === 'ok') { delete S.fb[id]; document.querySelector(`[data-fb="${id}"]`)?.remove(); } }, 10000);
+  }, 400);
+}
+function undo(id) {
+  const r = findRow(id), f = S.fb[id]; if (!f?.prev) return;
+  Object.assign(r, f.prev); delete S.fb[id]; render(ctl(id)); announce(`Undone. ${r.desc} is back to ${plain(r.out, r)}.`);
+}
+
+// ===================== Prototype switcher (not the design) =====================
+function renderProto() {
+  if (S.framed) return;
+  document.getElementById('proto').innerHTML = `<button type="button" data-proto="-1" aria-label="Previous variant">‹</button>
+    <span class="lbl">${S.variant} <small>(${VARIANTS[S.variant]})</small></span>
+    <button type="button" data-proto="1" aria-label="Next variant">›</button>
+    <span class="state" title="The last screen-reader announcement">${S.said ? `said: “${esc(S.said)}”` : 'said: —'}</span>
+    <button class="toggle" type="button" data-proto="frame">${S.frame ? 'phone ✓' : 'phone'}</button>
+    <button class="toggle" type="button" data-proto="fail" title="Make every save fail, to see the error state">${S.fail ? 'saves fail ✓' : 'saves fail'}</button>
+    <button class="toggle" type="button" data-proto="theme">${document.documentElement.dataset.theme}</button>
+    <button class="toggle" type="button" data-proto="reset">reset</button>`;
+}
+
+// ===================== Events =====================
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-nav],[data-open],[data-accept],[data-pick],[data-cat],[data-close],[data-undo],[data-retry],[data-save],[data-bulk],[data-proto],.fb-link,a[href="#"]');
+  if (!t) { if (S.open && !e.target.closest('.lb, tr.panel')) { const id = S.open; S.open = null; render(); } return; }
+  e.preventDefault();
+  const d = t.dataset;
+  if (d.nav) { S.page = d.nav; S.open = null; S.fb = {}; render('#main'); window.scrollTo(0, 0); return; }
+  if (d.open) { const same = S.open === d.open; S.open = same ? null : d.open; S.q = ''; S.act = 0; S.catStep = null;
+    render(same ? ctl(d.open) : S.variant === 'A' ? '#lb-input' : 'tr.panel button:not(.link-btn), tr.panel [data-pick]'); return; }
+  if (d.close !== undefined) { const id = S.open; S.open = null; S.catStep = null; render(id ? ctl(id) : null); return; }
+  if (d.cat) { S.catStep = d.cat === 'back' ? null : +d.cat; render(d.cat === 'back' ? `[data-cat="${S.catStep ?? ''}"], tr.panel [data-cat]` : 'tr.panel [data-pick]'); return; }
+  if (d.pick) { commit(S.open, d.pick); return; }
+  if (d.accept) { const r = findRow(d.accept); commit(r.id, r.sugg, { accept: true }); return; }
+  if (d.undo) { undo(d.undo); return; }
+  if (d.retry) { const f = S.fb[d.retry]; commit(d.retry, f.value); return; }
+  if (d.save) { const r = findRow(d.save), v = S.dirty[r.id]; if (v != null) commit(r.id, v); else if (r.sugg) commit(r.id, r.sugg, { accept: true }); return; }
+  if (d.bulk !== undefined) { ROWS.review.filter(r => !r.done && r.sugg).forEach(r => { r.out = r.sugg; r.source = 'llm'; r.done = true; }); render('#main'); announce(`Accepted the suggestions. ${queueLeft()} left to review.`); return; }
+  if (d.proto) {
+    const keys = Object.keys(VARIANTS);
+    if (d.proto === 'frame') S.frame = !S.frame;
+    else if (d.proto === 'fail') S.fail = !S.fail;
+    else if (d.proto === 'theme') { const order = ['system', 'light', 'dark'], h = document.documentElement; h.dataset.theme = order[(order.indexOf(h.dataset.theme) + 1) % 3]; }
+    else if (d.proto === 'reset') { seed(); S.fb = {}; S.dirty = {}; S.open = null; S.said = ''; }
+    else { S.variant = keys[(keys.indexOf(S.variant) + +d.proto + keys.length) % keys.length]; S.open = null; S.dirty = {}; }
+    render(); return;
+  }
+});
+document.addEventListener('change', e => {
+  const id = e.target.dataset.select; if (!id) return;
+  S.dirty[id] = e.target.value; render(ctl(id));
+});
+document.addEventListener('input', e => {
+  if (e.target.id !== 'lb-input') return;
+  S.q = e.target.value; S.act = 0;
+  document.getElementById('lb-list').innerHTML = listboxItems(findRow(S.open));
+  e.target.setAttribute('aria-activedescendant', 'opt-0');
+});
+document.addEventListener('keydown', e => {
+  // A: the combobox moves its highlight on arrows and saves only on Enter.
+  if (e.target.id === 'lb-input') {
+    const r = findRow(S.open), opts = optionsFor(r);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); S.act = Math.max(0, Math.min(opts.length - 1, S.act + (e.key === 'ArrowDown' ? 1 : -1)));
+      document.querySelectorAll('.lb-o').forEach(o => o.setAttribute('aria-selected', o.id === `opt-${S.act}`));
+      document.getElementById(`opt-${S.act}`)?.scrollIntoView({ block: 'nearest' });
+      e.target.setAttribute('aria-activedescendant', `opt-${S.act}`);
+    } else if (e.key === 'Enter') { e.preventDefault(); if (opts[S.act]) commit(r.id, opts[S.act].value); }
+    else if (e.key === 'Escape') { e.preventDefault(); S.open = null; render(ctl(r.id)); }
+    else if (e.key === 'Tab') { S.open = null; render(ctl(r.id)); }
+    return;
+  }
+  // C: Enter on the select saves, like the Save button.
+  if (e.target.dataset.select && e.key === 'Enter') { e.preventDefault(); document.querySelector(`[data-save="${e.target.dataset.select}"]`)?.click(); return; }
+  if (e.key === 'Escape' && S.open) { const id = S.open; S.open = null; S.catStep = null; render(ctl(id)); return; }
+  // Variant switching only while nothing in the page has focus, so keyboard testing in the rows isn't hijacked.
+  if (e.target !== document.body && e.target.id !== 'main') return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const keys = Object.keys(VARIANTS); S.variant = keys[(keys.indexOf(S.variant) + (e.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length]; S.open = null; S.dirty = {}; render(); }
+});
+
+if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
+render();
+</script>
+</body>
+</html>
