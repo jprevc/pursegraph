@@ -35,9 +35,20 @@ Totals ("out / in") leave out Transfers, as the Dashboard does.
 
 ## Findings
 
-_To fill in after the review: the verdict, and what's taken from each variant._
+**Verdict: B, the facet rail with numbered pages**, as built. Its DESIGN.md section, *Transactions page*, is on `feature/85`.
 
-Things to look at while flipping:
+- **Filters:** Period, Member, Account, Outcome (Category, then its Subcategories), Decided by and Amount, as a rail. Each option shows its count with the other filters held. There is one choice per facet.
+- **Length:** 25 per page, with numbered pages. "26–50 of 192" says where you are.
+- **Deep link:** the Dashboard's own query params, plus `outcome`. A breadcrumb leads back.
+- **Sources:** the Decided facet explains each one. A caption's hover title gives the specific reason.
+- **Phone:** the rail becomes a sheet with "Show N Transactions".
+
+What the other variants raised, as they were left:
+
+- **A's per-row popover** ("Matched the Rule “HOFER”") was the only way to see a specific reason on touch or keyboard. B's hover title isn't reachable there.
+- **C's query words** were not taken: discoverability for the least technical Member, and translation.
+
+The questions the review weighed:
 
 - **The filter count.** Is the A bar too crowded at 1,280 px with all four selects and More? Is B's rail worth 252 px of width beside a 5-column row?
 - **Per-option counts (B).** Do they earn their cost? They need a count query per facet option on every change.
