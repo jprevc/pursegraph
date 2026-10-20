@@ -31,4 +31,8 @@ The page is static, inside the #63 shell. Use the black bar to switch the varian
 - B's reduced nav hides pages until the first import.
 - All three say how many tries are left after the 2nd wrong password ("3 more tries before luka is locked…"), which says how the lockout works.
 
-Shots in `shots/`: every state per variant, desktop light and phone dark, plus `*-empty-<page>.png` for the first-run pages. Verdict: _pending. Pick a variant, or parts of each._
+Shots in `shots/`: every state per variant, desktop light and phone dark, plus `*-empty-<page>.png` for the first-run pages. **Verdict: B (Setup mode)**, written into DESIGN.md in PR #96, with these answers:
+- Keep hiding Transactions, the Review queue and Rules until the first import.
+- Show the tries left from the 3rd wrong try.
+- The loading dim and line show only after 300 ms.
+- In the spec, buttons stay standard (not filled with indigo), and the Coverage timeline is Muted, not a Category hue.
