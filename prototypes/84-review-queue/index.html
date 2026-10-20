@@ -309,6 +309,13 @@ details.done-list > summary .cap { font-weight: 400; font-size: 13px; }
 .hist li { display: flex; align-items: center; gap: 8px; }
 .hist li .cap { margin-left: auto; }
 .back { display: none; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) var(--s-4); }
+.showres { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; min-height: 32px; }
+.showres input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.pick.inline { padding: 0; background: none; }
+.decide h3 { font-size: 13px; font-weight: 600; margin: 0; }
+.decide .sugg-k { font-size: 12px; font-weight: 500; color: var(--muted); }
+.decide-or { border-top: 1px solid var(--line); padding-top: var(--s-3); display: grid; gap: var(--s-3); }
 @media (max-width: 900px) {
   .md { grid-template-columns: minmax(0, 1fr); }
   .md.detail-open .md-list { display: none; }
@@ -421,7 +428,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const day = iso => { const [, m, d] = iso.split('-'); return `${+d} ${MONTHS[m - 1]}`; };
 
 // ===================== State =====================
-const VARIANTS = { A: 'Sorted list, confidence tiers', B: 'One card at a time', C: 'Grouped by description' };
+const VARIANTS = { A: 'Sorted list, confidence tiers', B: 'One card at a time', C: 'Grouped by description', D: 'C revised: inline outcome choices' };
 const PAGES = { review: 'Review queue', transactions: 'Transactions', dashboard: 'Dashboard' };
 const qs = new URLSearchParams(location.search);
 const S = {
@@ -492,13 +499,17 @@ function actionButtons(r, { big = false, target = r.id, acceptLabel = 'Accept' }
   if (r.sugg) return `<button type="button" class="btn${big ? ' primary' : ''}${busy}" data-accept="${target}">${acceptLabel}</button>${opener('Something else', big ? 'btn' : 'link-btn')}`;
   return opener('Choose', `btn${big ? ' primary' : ''}${busy}`);
 }
-function picker(r, target = r.id) {
+function picker(r, target = r.id, { inline = false } = {}) {
   const chip = (v, html) => `<button type="button" data-pick="${v}">${html}</button>`;
   let body = '';
-  if (r.pairs) body += `<div class="pick-h">The other side of this Transfer</div><div class="pair">${r.pairs.map(p =>
+  if (r.pairs) body += `${inline ? '' : '<div class="pick-h">The other side of this Transfer</div>'}<div class="pair">${r.pairs.map(p =>
     `<button type="button" data-pick="${p.id}">${ic('swap')}<span><b>${esc(p.desc)}</b><br><span class="cap">${esc(p.date)} · ${esc(p.account)}</span></span><span class="amt">${signed(p.amount)}</span></button>`).join('')}</div>`;
   if (S.catStep == null) {
-    body += `<div class="pick-h">Most used</div><div class="chips">${MOST_USED.map(v => chip(v, `${dot(v)}${rich(v)}`)).join('')}</div>
+    // D: what was used last time comes first when the suggestion disagrees with it.
+    const lastDiffers = inline && r.last && r.sugg && r.last.out !== r.sugg;
+    if (inline && r.pairs) body += `<div class="pick-h">Or something else</div>`;
+    if (lastDiffers) body += `<div class="pick-h">Used last time</div><div class="chips">${chip(r.last.out, `${dot(r.last.out)}${rich(r.last.out)}`)}</div>`;
+    body += `<div class="pick-h">Most used</div><div class="chips">${MOST_USED.filter(v => !inline || (v !== r.sugg && !(lastDiffers && v === r.last.out))).map(v => chip(v, `${dot(v)}${rich(v)}`)).join('')}</div>
       <div class="pick-h">Category</div><div class="chips">${CATS.map(c => `<button type="button" data-cat="${c.id}"><span class="dot" style="background:var(--cat-${c.hue})"></span>${esc(c.name)}</button>`).join('')}
       ${chip('transfer', `${dot('transfer')}Transfer${r.pairs ? ', one-sided' : ''}`)}</div>`;
   } else {
@@ -506,6 +517,7 @@ function picker(r, target = r.id) {
     body += `<div class="pick-h"><button type="button" class="link-btn" data-cat="back">‹ All Categories</button><span class="dot" style="background:var(--cat-${c.hue})"></span>${esc(c.name)}</div>
       <div class="chips">${c.subs.map(v => chip(v, esc(SUBS[v].name))).join('')}</div>`;
   }
+  if (inline) return `<div class="pick inline" data-target="${esc(target)}" role="group" aria-label="Choose an outcome for ${esc(r.desc)}">${body}</div>`;
   return `<div class="pick" role="group" aria-label="Choose an outcome for ${esc(r.desc)}">
     <div class="pick-h"><span class="grow">Choose an outcome for <b>${esc(r.desc)}</b></span><button type="button" class="link-btn" data-close>Cancel</button></div>${body}</div>`;
 }
@@ -602,8 +614,11 @@ function groups() {
 }
 function variantC() {
   const all = groups(), w = all.filter(g => !g.done), d = all.filter(g => g.done);
-  const shown = S.cFilter === 'waiting' ? w : all;
-  if (!shown.find(g => g.key === S.cur)) S.cur = shown[0]?.key ?? null;
+  const D = S.variant === 'D';
+  const shown = D ? (S.showResolved ? all : w) : S.cFilter === 'waiting' ? w : all;
+  // D: a group decided just now stays open (its follow-ups are there) even though "Show resolved" hides it from the list.
+  const keep = D && all.find(x => x.key === S.cur && S.fb['g:' + x.key]);
+  if (!keep && !shown.find(g => g.key === S.cur)) S.cur = shown[0]?.key ?? null;
   const g = all.find(x => x.key === S.cur);
   const head = `<div class="title-row"><h1>Review queue</h1></div>
     <p class="page-sub">${waiting().length ? `${waiting().length} Transactions in ${w.length} groups still need an outcome` : 'Nothing left to review.'}</p>`;
@@ -615,12 +630,13 @@ function variantC() {
       <span class="g-desc">${esc(x.desc)}${n > 1 ? ` <span class="n">×${n}</span>` : ''}</span><span class="g-amt amt">${signed(x.total)}</span>
       <span class="g-sub">${sub}</span></button></li>`; };
   const list = `<section class="card md-list" aria-label="Groups">
-    <div class="filter" role="group" aria-label="Show"><button type="button" data-cfilter="all" aria-pressed="${S.cFilter === 'all'}">All ${all.length}</button><button type="button" data-cfilter="waiting" aria-pressed="${S.cFilter === 'waiting'}">Waiting ${w.length}</button></div>
+    ${D ? `<div class="list-head"><span class="cap">${w.length} waiting</span><label class="showres"><input type="checkbox" data-showres${S.showResolved ? ' checked' : ''}> Show resolved${d.length ? ` (${d.length})` : ''}</label></div>`
+      : `<div class="filter" role="group" aria-label="Show"><button type="button" data-cfilter="all" aria-pressed="${S.cFilter === 'all'}">All ${all.length}</button><button type="button" data-cfilter="waiting" aria-pressed="${S.cFilter === 'waiting'}">Waiting ${w.length}</button></div>`}
     <ul class="groups">${shown.map(li).join('') || `<li class="standin">Nothing waiting.</li>`}</ul></section>`;
  const clearNow = !w.length && !(g && S.fb['g:' + g.key]?.kind === 'ok');
   const detail = clearNow ? `<section class="card">${queueClear(ROWS.filter(r => r.done).length)}</section>` : g ? detailC(g) : `<section class="card standin">Pick a group.</section>`;
   return head + bulkBanner() + `<div class="md${S.detailOpen ? ' detail-open' : ''}">${list}${detail}</div>`
-    + keysHint([['j', 'next group'], ['k', 'previous'], ['Enter', 'accept for all'], ['e', 'something else'], ['u', 'undo']]);
+    + (D ? '' : keysHint([['j', 'next group'], ['k', 'previous'], ['Enter', 'accept for all'], ['e', 'something else'], ['u', 'undo']]));
 }
 function detailC(g) {
   const r = g.head, n = g.rows.length, key = 'g:' + g.key;
@@ -630,6 +646,7 @@ function detailC(g) {
   const nextG = groups().find(x => !x.done && x.key !== g.key);
   const what = g.done ? `<div class="oc">${label(r.out, r)}<span class="cap">${SOURCE[r.source]}</span>${feedbackGroup(g)}</div>
        <div class="acts">${nextG ? `<button type="button" class="btn primary" data-group="${esc(nextG.key)}">Next: ${esc(nextG.desc)} ›</button>` : `<button type="button" class="btn primary" data-nav="dashboard">Queue clear · See September on the Dashboard</button>`}</div>`
+    : S.variant === 'D' ? decideD(r, n, key) + feedbackGroup(g)
     : `<div class="oc">${r.pairs ? `${label('transfer', r)}<span class="cap">other side unknown</span>` : r.sugg ? `${label(r.sugg, r)}<span class="cap">${pct(r)}</span>` : label(null, r)}</div>
        ${S.open === key && !isTouch() ? picker(r, key) : ''}
        <div class="acts">${actionButtons(r, { big: true, target: key, acceptLabel: n > 1 ? `Accept for all ${n}` : 'Accept' })}</div>${feedbackGroup(g)}`;
@@ -639,6 +656,15 @@ function detailC(g) {
     <section><h3>${n > 1 ? `${n} Transactions with this description` : 'Transaction'}</h3>${txs}</section>
     <section><h3>Last time</h3>${hist}</section>
     <div class="decide">${what}</div></section>`;
+}
+// D: no "Something else" button. The suggestion has one Accept; the other outcomes are always open below it.
+function decideD(r, n, key) {
+  const busy = S.busy === key ? ' busy' : '';
+  const sugg = r.sugg ? `<span class="sugg-k">Suggested · ${pct(r)}</span><div class="oc">${label(r.sugg, r)}</div>
+    <div class="acts"><button type="button" class="btn primary${busy}" data-accept="${esc(key)}">${n > 1 ? `Accept for all ${n}` : 'Accept'}</button></div>` : '';
+  const heading = r.pairs ? 'Which is the other side of this Transfer?' : r.sugg ? 'Or choose another outcome' : `Choose an outcome${n > 1 ? ` for all ${n}` : ''}`;
+  const rest = `<div class="${r.sugg ? 'decide-or' : 'decide-or" style="border:0;padding:0'}"><h3>${heading}</h3>${picker(r, key, { inline: true })}</div>`;
+  return sugg + rest;
 }
 function feedbackGroup(g) {
   const f = S.fb['g:' + g.key]; if (!f) return '';
@@ -696,7 +722,7 @@ function render(focus) {
   if (S.frame && !S.framed) {
     document.getElementById('app').innerHTML = `<div class="frame-wrap"><iframe title="Phone, 390 × 844" src="${url({ framed: 1, frame: 0 })}"></iframe></div>`;
   } else {
-    const page = S.page === 'review' ? { A: variantA, B: variantB, C: variantC }[S.variant]() : S.page === 'transactions' ? pageTransactions() : pageDashboard();
+    const page = S.page === 'review' ? { A: variantA, B: variantB, C: variantC, D: variantC }[S.variant]() : S.page === 'transactions' ? pageTransactions() : pageDashboard();
     document.getElementById('app').innerHTML = `<a class="skip" href="#main">Skip to content</a>` + shell(page);
     const left = waiting().length;
     document.title = S.page === 'review' ? `Review queue${left ? ` (${left})` : ''} · Pursegraph` : `${PAGES[S.page]} · Pursegraph`;
@@ -753,7 +779,7 @@ function undo(target) {
   const r = f.prev[0].x;
   if (S.variant === 'A') S.cur = r.id;
   if (S.variant === 'B') S.skipped = S.skipped.filter(id => id !== r.id);
-  if (S.variant === 'C') S.cur = r.desc;
+  if ('CD'.includes(S.variant)) S.cur = r.desc;
   render(S.variant === 'A' ? firstAction(r.id) : S.variant === 'B' ? '#card-h' : '#d-h');
   announce(`Undone. ${r.desc} is back in the queue.`);
 }
@@ -793,7 +819,7 @@ document.addEventListener('click', e => {
   if (d.open) { const same = S.open === d.open; S.open = same ? null : d.open; S.catStep = null; render(same ? `[data-open="${d.open}"]` : '.pick [data-pick], .pick [data-cat]'); return; }
   if (d.close !== undefined) { const id = S.open; S.open = null; S.catStep = null; render(id ? `[data-open="${id}"]` : null); return; }
   if (d.cat) { S.catStep = d.cat === 'back' ? null : +d.cat; render(d.cat === 'back' ? '.pick [data-cat]' : '.pick [data-pick]'); return; }
-  if (d.pick) { commit(S.open, d.pick); return; }
+  if (d.pick) { commit(t.closest('[data-target]')?.dataset.target ?? S.open, d.pick); return; }
   if (d.accept) { const r = d.accept.startsWith('g:') ? ROWS.find(x => x.desc === d.accept.slice(2)) : find(d.accept); commit(d.accept, r.sugg, { accept: true }); return; }
   if (d.undo) { undo(d.undo); return; }
   if (d.retry) { commit(d.retry, S.fb[d.retry].value); return; }
@@ -803,7 +829,7 @@ document.addEventListener('click', e => {
   if (d.see) { S.filterIds = d.see.split(','); S.page = 'transactions'; render('#main'); return; }
   if (d.clearFilter !== undefined) { S.filterIds = null; render('#main'); return; }
   if (d.skip) { S.skipped = [...S.skipped.filter(id => id !== d.skip), d.skip]; S.open = null; render('#card-h'); announce(`Skipped ${find(d.skip).desc}. It comes back at the end.`); return; }
-  if (d.group) { S.cur = d.group; S.open = null; S.detailOpen = true; render('#d-h'); return; }
+  if (d.group) { S.cur = d.group; S.open = null; S.catStep = null; S.detailOpen = true; render('#d-h'); return; }
   if (d.cfilter) { S.cFilter = d.cfilter; S.cur = null; S.detailOpen = false; render(); return; }
   if (d.back !== undefined) { S.detailOpen = false; render(`[data-group="${CSS.escape(S.cur ?? '')}"]`); return; }
   if (d.rule) { announce('(prototype) Would open the Rule form pre-filled from this Transaction.'); return; }
@@ -819,7 +845,9 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('toggle', e => { if (e.target.matches?.('details.done-list')) S.doneOpen = e.target.open; }, true);
-document.addEventListener('change', e => { if (e.target.dataset.native) commit(e.target.dataset.native, e.target.value); });
+document.addEventListener('change', e => {
+  if (e.target.matches('[data-showres]')) { S.showResolved = e.target.checked; render('[data-showres]'); return; }
+  if (e.target.dataset.native) commit(e.target.dataset.native, e.target.value); });
 
 // Keyboard shortcuts (desktop): never while typing or inside the picker; never with modifiers.
 document.addEventListener('keydown', e => {
@@ -827,7 +855,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select, [contenteditable], .pick')) return;
   const onBody = e.target === document.body || e.target.id === 'main';
   if (onBody && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { const keys = Object.keys(VARIANTS); S.variant = keys[(keys.indexOf(S.variant) + (e.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length]; S.open = null; S.cur = null; render(); return; }
-  if (S.page !== 'review') return;
+  if (S.page !== 'review' || S.variant === 'D') return;
   const k = e.key;
   if (k === 'u' && S.lastSaved) { e.preventDefault(); undo(S.lastSaved); return; }
   if (S.variant === 'A') {

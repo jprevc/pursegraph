@@ -31,10 +31,16 @@ It also shows the last screen-reader announcement.
 | **After a bulk accept** | "Accepted 6 … · Undo · See them in Transactions", which opens Transactions filtered to "Accepted just now · 6". | — | "Saved all 3 … · Undo · Make a Rule for "Bolt.eu" · See them in Transactions". |
 | **Keyboard** | `j`/`k` move, `Enter` accepts, `e` opens Something else, `u` undoes. | `Enter` accepts, `e` opens Something else, `s` skips, `u` undoes the last save. | `j`/`k` move between groups, `Enter` accepts for all, `e` opens Something else, `u` undoes. |
 
+**D · C revised** is C with three changes from the first review:
+
+- **A "Show resolved" checkbox** replaces the All / Waiting tabs. It is off by default, so the list shows only groups still waiting. A group you just decided stays open in the detail pane, with its follow-ups (Undo, Make a Rule, See them in Transactions, Next), although it leaves the list.
+- **No "Something else" button.** The decide box shows "Suggested · 78 % sure", the outcome and one Accept ("Accept for all 3"). Below it, the other outcomes are always open as chips under "Or choose another outcome". When the suggestion differs from what was used last time, a "Used last time" chip comes first, then Most used (without the suggested outcome), then the Categories. With no suggestion the heading is "Choose an outcome". An ambiguous Transfer asks "Which is the other side of this Transfer?" over the candidate cards, then "Or something else". The detail pane has room, so the chips are used on a phone as well, at 44 px.
+- **No keyboard shortcuts**, and no key hints.
+
 **Shared by all of them:** "Queue clear" says that September 2026 is now complete. Its primary action is "See September on the Dashboard" and its secondary one is "October so far". After a save, focus moves to the next waiting item. Shortcuts never fire while typing, inside the picker or with a modifier key, and the key hints are hidden on touch.
 
 ## Findings
 
-_Verdict pending: to be filled in once a variant is chosen._
+_Leaning to D (C revised). The verdict is still to be confirmed._
 
 Shots are in `shots/`: desktop shots of each variant at the start, with the picker open, after a save and at "Queue clear"; A after its bulk accept; C's group detail; and each variant on a phone in dark mode.
