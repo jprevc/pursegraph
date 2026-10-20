@@ -1,0 +1,860 @@
+<!doctype html>
+<!-- PROTOTYPE (#84 Review queue): throwaway, lives only on prototype/84-review-queue. Never merge.
+     Three variants of the Review queue, switchable via ?variant=A|B|C (or the black bar, or ← / → while nothing is
+     focused). Built inside the #63 shell (variant B) with the #83 Transaction row (D: text + Change, chip panel, native
+     select on a coarse pointer).
+       A · Sorted list, confidence tiers : one page, three sections (Very likely ≥ 90 % · Check these · Needs you).
+                                           Bulk accept only for the Very likely tier. Decided rows leave for a "Done"
+                                           section with Undo; counts stay live. j/k, Enter, e, u.
+       B · One card at a time            : a triage deck, surest first. Accept / Something else / Skip, Up next beside
+                                           it on desktop, thumb buttons on a phone. No bulk. Enter, e, s, u.
+       C · Grouped by description        : master–detail. Same description = one group, decided together ("Accept for
+                                           all 3"), with that description's history beside it. Decided groups stay in
+                                           place, ticked, with Make a Rule and Next; an All / Waiting filter. j/k, Enter, e, u.
+     Each ends on "Queue clear", handing over the Dashboard for September (the month the queue completed).
+     Saves are stubbed (400 ms). The bar toggles a 390 px phone frame, touch (coarse pointer), failing saves, the theme
+     and a reset; it also shows the last screen-reader announcement.
+     Run from the repo root: python3 -m http.server 8084, then open http://localhost:8084/prototypes/84-review-queue/
+     All figures are synthetic. -->
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pursegraph · Review queue prototype</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens (from DESIGN.md / the #62 prototype) ---------- */
+:root {
+  color-scheme: light;
+  --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --faint: #9ca3af;
+  --line: #e5e7eb; --line-strong: #d1d5db;
+  --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eef2ff; --accent-text: #4338ca;
+  --focus: #6366f1;
+  --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+  --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10);
+  --cat-0: #4e79a7; --cat-1: #59a14f; --cat-2: #f28e2b; --cat-3: #b07aa1; --cat-4: #76b7b2;
+  --cat-5: #edc948; --cat-6: #ff9da7; --cat-7: #9c755f; --cat-8: #e15759; --cat-9: #a0cbe8;
+  --awaiting: #9ca3af;
+  --r-card: 14px; --r-ctl: 8px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+}
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+} }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+a { color: var(--accent-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
+.num, .amt { font-variant-numeric: tabular-nums; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -80px; z-index: 100; background: var(--card); padding: 6px 10px; border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); }
+.skip:focus { top: 8px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.brand img { width: 28px; height: 28px; margin-right: 10px; }
+.brand span { color: var(--accent-text); font-weight: 600; }
+.badge { min-width: 22px; padding: 0 7px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
+.btn { text-decoration: none; font: inherit; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 var(--s-3); border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
+.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--ink); background: var(--hover); }
+.btn.busy { opacity: .6; pointer-events: none; }
+.btn .icon { width: 16px; height: 16px; }
+.link-btn { font: inherit; font-weight: 500; color: var(--accent-text); background: none; border: 0; padding: 6px 4px; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--raised); color: var(--ink-2); font-size: 12px; font-weight: 500; border: 1px solid var(--line); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.hatch { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.cap { color: var(--muted); font-size: 12px; }
+.synthetic { margin: var(--s-6) 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.page-sub { color: var(--muted); margin: 0 0 var(--s-4); }
+kbd { font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 5px; border-radius: 4px; border: 1px solid var(--line-strong); background: var(--raised); color: var(--ink-2); }
+
+/* ---------- Shell (#63 variant B) ---------- */
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.page { min-width: 0; }
+.sidebar { position: sticky; top: 0; height: 100vh; background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--s-5) var(--s-3); gap: 2px; }
+.sidebar > .brand { padding: 2px var(--s-2) var(--s-6); }
+.nav { display: flex; align-items: center; gap: 12px; padding: 9px var(--s-3); border-radius: var(--r-ctl); color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 15px; }
+.nav:hover { background: var(--hover); color: var(--ink); }
+.nav[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
+.nav .badge { margin-left: auto; }
+.manage { margin-top: var(--s-5); font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-2) var(--s-3); display: flex; gap: 8px; align-items: center; }
+.manage .icon { width: 14px; height: 14px; }
+.sidebar-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: var(--s-2); }
+.sidebar-foot small { color: var(--muted); }
+.m-top, .tabbar { display: none; }
+main { padding: var(--s-6) var(--s-8) 110px; max-width: 1360px; }
+.title-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-3); margin-bottom: var(--s-2); }
+.title-row h1 { font-size: 24px; font-weight: 600; margin-right: auto; }
+.tabs { display: flex; gap: var(--s-5); border-bottom: 1px solid var(--line); margin-bottom: var(--s-4); }
+.tabs a { padding: var(--s-2) 0 10px; color: var(--muted); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs a[aria-current] { color: var(--accent-text); border-bottom-color: var(--accent); }
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: none; }
+  .m-top { display: flex; align-items: center; height: 52px; padding: 0 var(--s-4); }
+  .m-top .brand { font-size: 16px; } .m-top .brand img { width: 26px; height: 26px; }
+  main { padding: 0 var(--s-4) 140px; }
+  .title-row h1 { font-size: 20px; }
+  .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; inset: auto 0 0 0; z-index: 25; height: 64px; padding-bottom: env(safe-area-inset-bottom); background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-top: 1px solid var(--line); }
+  .tabbar a { display: grid; justify-items: center; align-content: center; gap: 2px; color: var(--muted); text-decoration: none; font-size: 11px; font-weight: 500; position: relative; }
+  .tabbar .icon { width: 22px; height: 22px; }
+  .tabbar [aria-current] { color: var(--accent-text); }
+  .tabbar .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; line-height: 18px; padding: 0 5px; font-size: 11px; }
+}
+
+/* ---------- The #83 outcome text, feedback and chip panel ---------- */
+.oc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s-2); }
+.oc-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
+.oc-label .cat-name { color: var(--muted); font-weight: 400; }
+.oc-label .sep { color: var(--faint); }
+.oc .acts { display: inline-flex; align-items: center; gap: var(--s-1); margin-left: auto; }
+.rows .oc { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.rows .oc > .fb, .rows .oc > .last { grid-column: 1 / -1; }
+.oc-main { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s-2); min-width: 0; }
+.oc .btn { height: 32px; }
+.fb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-basis: 100%; }
+.fb .icon { width: 14px; height: 14px; }
+.fb button, .fb a { font: inherit; font-size: 12px; font-weight: 500; color: var(--accent-text); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.fb.err { color: var(--ink); }
+.last { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 12px; color: var(--muted); margin-top: 4px; flex-basis: 100%; }
+.last .dot { width: 6px; height: 6px; }
+.last.differs b { color: var(--ink-2); font-weight: 500; }
+.pick { display: grid; gap: var(--s-3); padding: var(--s-3) var(--s-4) var(--s-4); background: var(--raised); border-radius: var(--r-ctl); }
+.pick-h { display: flex; align-items: center; gap: var(--s-2); font-size: 12px; font-weight: 500; color: var(--muted); }
+.pick-h .grow { flex: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink-2); font: inherit; font-weight: 500; cursor: pointer; }
+.chips button:hover { background: var(--hover); color: var(--ink); }
+.chips button .cat-name { color: var(--muted); font-weight: 400; }
+.pair { display: grid; gap: 6px; }
+.pair button { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.pair button:hover { background: var(--hover); }
+.native { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.native .icon { width: 14px; height: 14px; }
+.native select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
+.native:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s-2); padding: 10px var(--s-4); margin-bottom: var(--s-4); border-radius: var(--r-ctl); background: var(--card); box-shadow: var(--shadow); }
+.banner .icon { width: 16px; height: 16px; color: var(--muted); }
+.banner .grow { flex: 1; }
+.keys { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); margin-top: var(--s-4); color: var(--muted); font-size: 12px; }
+@media (pointer: coarse), (max-width: 900px) { .keys { display: none; } }
+.clear { padding: var(--s-8) var(--s-6); text-align: center; display: grid; justify-items: center; gap: var(--s-3); }
+.clear .tick { width: 48px; height: 48px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; }
+.clear .tick .icon { width: 26px; height: 26px; }
+.clear h2 { font-size: 20px; font-weight: 600; }
+.clear p { margin: 0; color: var(--muted); max-width: 46ch; }
+.clear .row-btns { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: center; margin-top: var(--s-2); }
+
+/* ---------- Transaction rows (the #83 row, with context) ---------- */
+.rows { width: 100%; border-collapse: collapse; }
+.rows th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-4) var(--s-2); border-bottom: 1px solid var(--line); }
+.rows td { padding: 10px var(--s-4); border-bottom: 1px solid var(--line); vertical-align: top; }
+.rows tbody tr:last-child td { border-bottom: 0; }
+.rows tr.row:hover > td { background: var(--raised); }
+.rows tr.row.cur > td { background: var(--raised); }
+.rows tr.row.cur > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.rows .r { text-align: right; }
+.rows .c-date { white-space: nowrap; color: var(--ink-2); width: 64px; }
+.rows .desc { font-weight: 500; } .rows .desc small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.rows .amt { font-weight: 600; white-space: nowrap; }
+.rows .c-out { width: 46%; }
+.rows .m-meta { display: none; }
+.rows tr.panel > td { padding: 0 var(--s-4) var(--s-3); }
+.rows tr.done > td { color: var(--muted); }
+@media (max-width: 600px) {
+  .rows thead { display: none; }
+  .rows tr.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .rows tbody tr.row:last-child { border-bottom: 0; }
+  .rows tr.row > td { padding: 0; border: 0; background: none !important; box-shadow: none !important; }
+  .rows .c-date, .rows .c-acct { display: none; }
+  .rows .m-meta { display: block; grid-column: 1 / -1; order: 3; color: var(--muted); font-size: 12px; }
+  .rows .desc { order: 1; } .rows .desc small { display: none; }
+  .rows .amt { order: 2; }
+  .rows .c-out { order: 4; grid-column: 1 / -1; width: auto; padding-top: var(--s-2) !important; }
+  .oc > .oc-label { flex: 1 1 60%; }
+  .oc .acts { flex: 1 1 100%; }
+  .rows .oc { grid-template-columns: minmax(0, 1fr); }
+  .oc .acts .btn { flex: 1; height: 44px; }
+  .rows tr.panel { display: block; } .rows tr.panel > td { display: block; padding: 0 var(--s-3) var(--s-3); }
+  .chips button { min-height: 44px; }
+}
+
+/* =====================================================================
+   A · Sorted list in confidence tiers
+   ===================================================================== */
+.tier { margin-bottom: var(--s-4); }
+.tier-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: var(--s-4) var(--s-4) var(--s-3); }
+.tier-head h2 { font-size: 15px; font-weight: 600; }
+.tier-head .meta { color: var(--muted); font-size: 13px; margin-right: auto; }
+.tier-head .btn { height: 34px; }
+details.done-list > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--s-2); padding: var(--s-4); font-weight: 600; }
+details.done-list > summary::-webkit-details-marker { display: none; }
+details.done-list > summary .icon { width: 16px; height: 16px; color: var(--muted); transition: transform .2s cubic-bezier(.16,1,.3,1); }
+details.done-list[open] > summary .icon { transform: rotate(90deg); }
+details.done-list > summary .cap { font-weight: 400; font-size: 13px; }
+@media (max-width: 600px) {
+  .tier-head { padding: var(--s-3) var(--s-4) var(--s-2); }
+  .tier-head .btn { flex-basis: 100%; height: 44px; }
+}
+
+/* =====================================================================
+   B · One card at a time
+   ===================================================================== */
+.deck { display: grid; grid-template-columns: minmax(0, 620px) minmax(220px, 300px); gap: var(--s-6); align-items: start; }
+.progress { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); color: var(--muted); font-size: 13px; }
+.progress .track { flex: 1; height: 6px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.progress .track i { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s cubic-bezier(.16,1,.3,1); }
+.tcard { padding: var(--s-6); display: grid; gap: var(--s-4); }
+.tcard .top { display: flex; align-items: flex-start; gap: var(--s-3); }
+.tcard .who { flex: 1; min-width: 0; }
+.tcard .who h2 { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.tcard .who .cp { color: var(--ink-2); margin-top: 2px; overflow-wrap: anywhere; }
+.tcard .big { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap; }
+.tcard .facts { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; color: var(--muted); font-size: 13px; }
+.tcard .sugg { border-top: 1px solid var(--line); padding-top: var(--s-4); display: grid; gap: 6px; }
+.tcard .sugg .k { font-size: 12px; font-weight: 500; color: var(--muted); }
+.tcard .sugg .oc-label { font-size: 16px; }
+.tcard .sugg .oc-label .dot { width: 10px; height: 10px; }
+.tcard .sugg .last { font-size: 13px; margin-top: 0; }
+.tcard .acts { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.tcard .acts .btn { height: 44px; padding: 0 var(--s-5); }
+.tcard .acts .skip-btn { margin-left: auto; }
+.upnext { padding: var(--s-4) 0 var(--s-2); }
+.upnext h2 { font-size: 13px; font-weight: 600; padding: 0 var(--s-4) var(--s-2); }
+.upnext ol { list-style: none; margin: 0; padding: 0; }
+.upnext li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px var(--s-4); font-size: 13px; }
+.upnext li .d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upnext li.decided { color: var(--muted); }
+.upnext .more { color: var(--muted); font-size: 12px; padding: 4px var(--s-4) var(--s-2); }
+.prevfb { margin-top: var(--s-3); }
+@media (max-width: 900px) {
+  .deck { grid-template-columns: minmax(0, 1fr); }
+  .deck aside { display: none; }
+  .tcard { padding: var(--s-4); }
+  .tcard .acts { position: sticky; bottom: 72px; background: var(--card); padding-top: var(--s-2); }
+  .tcard .acts .btn.primary { flex: 1 1 100%; }
+  .tcard .acts .btn { flex: 1; }
+  .tcard .acts .skip-btn { margin-left: 0; }
+}
+
+/* =====================================================================
+   C · Grouped by description, master–detail
+   ===================================================================== */
+.md { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.md-list { overflow: hidden; }
+.filter { display: flex; gap: 2px; padding: 3px; margin: var(--s-3); background: var(--ground); border-radius: var(--r-ctl); }
+.filter button { flex: 1; height: 30px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-weight: 500; cursor: pointer; }
+.filter button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.groups { list-style: none; margin: 0; padding: 0 0 var(--s-2); }
+.groups li > button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); padding: 10px var(--s-4); border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.groups li > button:hover { background: var(--raised); }
+.groups li > button[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.groups .g-desc { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.groups .g-desc .n { color: var(--muted); font-weight: 400; }
+.groups .g-amt { font-weight: 600; text-align: right; }
+.groups .g-sub { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.groups .g-sub span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.groups li.decided .g-desc, .groups li.decided .g-amt { color: var(--muted); }
+.groups .g-sub .icon { width: 14px; height: 14px; color: var(--ink-2); }
+.md-detail { padding: var(--s-5); display: grid; gap: var(--s-4); }
+.md-detail .head { display: flex; gap: var(--s-3); align-items: flex-start; }
+.md-detail .head .t { flex: 1; min-width: 0; }
+.md-detail .head h2 { font-size: 18px; font-weight: 600; }
+.md-detail .head .cp { color: var(--muted); font-size: 13px; }
+.md-detail .big { font-size: 22px; font-weight: 600; white-space: nowrap; }
+.md-detail section h3 { font-size: 13px; font-weight: 600; margin-bottom: var(--s-2); }
+.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mini td { padding: 7px 0; border-top: 1px solid var(--line); }
+.mini td.r { text-align: right; font-weight: 600; white-space: nowrap; }
+.mini tr.done td { color: var(--muted); }
+.decide { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: var(--s-4); display: grid; gap: var(--s-3); }
+.decide .acts { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.decide .acts .btn { height: 40px; }
+.hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.hist li { display: flex; align-items: center; gap: 8px; }
+.hist li .cap { margin-left: auto; }
+.back { display: none; }
+@media (max-width: 900px) {
+  .md { grid-template-columns: minmax(0, 1fr); }
+  .md.detail-open .md-list { display: none; }
+  .md:not(.detail-open) .md-detail { display: none; }
+  .back { display: inline-flex; margin: 0 0 var(--s-2) calc(var(--s-2) * -1); }
+  .groups li > button { padding: 12px var(--s-4); }
+  .decide .acts .btn { flex: 1 1 100%; height: 44px; }
+}
+
+/* ---------- Stand-in pages ---------- */
+.standin { padding: var(--s-6) var(--s-5); color: var(--muted); font-size: 13px; text-align: center; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-bottom: var(--s-4); }
+.tile { padding: var(--s-5); } .tile .label { color: var(--muted); font-weight: 500; } .tile .value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; }
+.complete { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin-bottom: var(--s-4); }
+.complete .icon { width: 16px; height: 16px; }
+.fchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent-text); font-weight: 500; font-size: 13px; }
+.fchip button { border: 0; background: none; color: inherit; cursor: pointer; display: grid; place-items: center; padding: 2px; }
+.fchip .icon { width: 14px; height: 14px; }
+@media (max-width: 900px) { .tiles { gap: var(--s-2); } .tile { padding: var(--s-3) 10px; } .tile .value { font-size: 15px; } .tile .label { font-size: 12px; } }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- PROTOTYPE switcher: deliberately NOT the design ---------- */
+.proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; background: #000; color: #fff; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 6px 24px rgb(0 0 0 / .35), 0 0 0 2px #facc15; }
+.proto button { white-space: nowrap; font: inherit; color: #000; background: #facc15; border: 0; border-radius: 999px; height: 26px; min-width: 26px; padding: 0 8px; cursor: pointer; font-weight: 700; }
+.proto button.toggle { background: #333; color: #fff; font-weight: 500; }
+.proto .lbl { font-weight: 700; padding: 0 4px; white-space: nowrap; }
+.proto .state { color: #a3a3a3; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+@media (max-width: 900px) { .proto .state { display: none; } .proto { bottom: 76px; } }
+@media (max-width: 420px) { .proto .lbl small { display: none; } }
+.frame-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 0 90px; background: repeating-linear-gradient(45deg, #e5e7eb 0 10px, #eceef1 10px 20px); }
+.frame-wrap iframe { width: 390px; height: 844px; border: 10px solid #111; border-radius: 44px; background: #fff; box-shadow: 0 20px 60px rgb(0 0 0 / .3); }
+.framed .proto { display: none; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-4.2-7.6"/><path d="m9 11 3 3 9-9"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+</svg>
+
+<div id="app"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<div class="proto" id="proto" role="region" aria-label="Prototype switcher (not part of the design)"></div>
+
+<script>
+// ===================== Synthetic Household (the seeded Category list) =====================
+const CATEGORY_LIST = [
+  ['Food', ['Groceries', 'Restaurants & cafés', 'Fast food & takeaway', 'Other']],
+  ['Home', ['Rent / mortgage', 'Utilities', 'Internet & phone', 'Furniture & household', 'Maintenance & repairs', 'Other']],
+  ['Transport', ['Fuel', 'Parking & tolls', 'Car maintenance', 'Car insurance & registration', 'Public transport & car sharing', 'Other']],
+  ['Health', ['Pharmacy', 'Doctor & dental', 'Health insurance', 'Other']],
+  ['Children', ['Childcare & school', 'Activities', 'Clothes & toys', 'Other']],
+  ['Shopping', ['Clothing & shoes', 'Electronics', 'Gifts', 'Personal care', 'Other']],
+  ['Leisure', ['Travel', 'Hobbies & sport', 'Entertainment & going out', 'Subscriptions & digital services', 'Other']],
+  ['Finance', ['Bank fees', 'Insurance (non-health)', 'Taxes & fines', 'Other']],
+  ['Other', ['Cash withdrawal', 'Payments to people', 'Miscellaneous']],
+  ['Income', ['Salary', 'Benefits & allowances', 'Interest', 'Gifts received', 'Other income']],
+];
+const CATS = CATEGORY_LIST.map(([name, subs], i) => ({ id: i + 1, name, hue: i % 10, subs: subs.map((s, j) => (i + 1) * 100 + j + 1) }));
+const SUBS = {};
+CATS.forEach(c => c.subs.forEach((id, j) => { SUBS[id] = { id, name: CATEGORY_LIST[c.id - 1][1][j], cat: c.name, hue: c.hue }; }));
+const sub = (cat, name) => Object.values(SUBS).find(s => s.cat === cat && s.name === name).id;
+const MOST_USED = [sub('Food', 'Groceries'), sub('Transport', 'Fuel'), sub('Food', 'Restaurants & cafés'), sub('Home', 'Utilities'), sub('Leisure', 'Subscriptions & digital services')];
+const SURE = 0.9;
+
+// The queue after Monday's import (today is Tue 6 Oct 2026). Account pills carry the owner ("Joint" = several owners).
+// `last` is the outcome last used for the same description: the row context the ticket asks for.
+let ROWS;
+function seed() {
+  const T = (id, date, desc, cp, kind, account, amount, extra = {}) => ({ id, date, desc, cp, kind, account, amount, out: null, ...extra });
+  ROWS = [
+    T('r1', '2026-09-22', 'HOFER 2201 LJUBLJANA', 'Hofer trgovina d.o.o.', 'Card payment', 'Joint · Sparkasse', -61.30, { sugg: sub('Food', 'Groceries'), conf: .99, last: { out: sub('Food', 'Groceries'), when: '15 Sep', src: 'by hand', n: 5 } }),
+    T('r2', '2026-09-29', 'HOFER 2201 LJUBLJANA', 'Hofer trgovina d.o.o.', 'Card payment', 'Joint · Sparkasse', -18.45, { sugg: sub('Food', 'Groceries'), conf: .99, last: { out: sub('Food', 'Groceries'), when: '15 Sep', src: 'by hand', n: 5 } }),
+    T('r3', '2026-09-23', 'Lekarna Ljubljana 12', 'Javni zavod Lekarna Ljubljana', 'Card payment', 'Maja · N26', -23.40, { sugg: sub('Health', 'Pharmacy'), conf: .97, last: { out: sub('Health', 'Pharmacy'), when: '3 Aug', src: 'by LLM', n: 2 } }),
+    T('r4', '2026-09-24', 'Bolt.eu', 'Bolt Operations OÜ', 'Card payment', 'Luka · Revolut', -11.02, { sugg: sub('Transport', 'Public transport & car sharing'), conf: .78, last: { out: sub('Transport', 'Public transport & car sharing'), when: '12 Sep', src: 'by hand', n: 1 } }),
+    T('r5', '2026-09-26', 'Bolt.eu', 'Bolt Operations OÜ', 'Card payment', 'Luka · Revolut', -8.40, { sugg: sub('Transport', 'Public transport & car sharing'), conf: .78, last: { out: sub('Transport', 'Public transport & car sharing'), when: '12 Sep', src: 'by hand', n: 1 } }),
+    T('r6', '2026-10-02', 'Bolt.eu', 'Bolt Operations OÜ', 'Card payment', 'Luka · Revolut', -14.90, { sugg: sub('Transport', 'Public transport & car sharing'), conf: .78, last: { out: sub('Transport', 'Public transport & car sharing'), when: '12 Sep', src: 'by hand', n: 1 } }),
+    T('r7', '2026-09-25', 'PAYPAL *STEAMGAMES', 'Valve Corporation via PayPal', 'Card payment', 'Luka · Revolut', -19.99, { sugg: sub('Leisure', 'Subscriptions & digital services'), conf: .86, last: { out: sub('Leisure', 'Hobbies & sport'), when: '14 Aug', src: 'by hand', n: 1 } }),
+    T('r8', '2026-09-27', 'Amazon EU S.a.r.l.', 'Amazon EU S.à r.l., Luxembourg', 'Card payment', 'Luka · Revolut', -31.90, { sugg: sub('Shopping', 'Other'), conf: .51, last: { out: sub('Shopping', 'Electronics'), when: '2 Sep', src: 'by hand', n: 3 } }),
+    T('r9', '2026-09-28', 'Telekom Slovenije', 'Telekom Slovenije d.d. · SI56 0292 …', 'Direct debit', 'Joint · Sparkasse', -39.99, { sugg: sub('Home', 'Internet & phone'), conf: .93, last: { out: sub('Home', 'Internet & phone'), when: '28 Aug', src: 'by LLM', n: 4 } }),
+    T('r10', '2026-09-29', 'SEPA from J. Kranjc', 'Jure Kranjc · SI56 0310 0100 4471 239', 'Incoming payment', 'Joint · Sparkasse', 40.00),
+    T('r11', '2026-09-30', 'To Luka Novak', 'Luka Novak · LT12 3250 0…', 'Outgoing transfer', 'Maja · N26', -50.00, { pairs: [
+      { id: 'pair-1', date: '30 Sep', account: 'Luka · Revolut', desc: 'From Maja Novak', amount: 50 },
+      { id: 'pair-2', date: '1 Oct', account: 'Joint · Sparkasse', desc: 'SEPA Maja Novak', amount: 50 }] }),
+    T('r12', '2026-09-30', 'Petrol Celovška', 'Petrol d.d.', 'Card payment', 'Joint · Sparkasse', -68.20, { sugg: sub('Transport', 'Fuel'), conf: .95, last: { out: sub('Transport', 'Fuel'), when: '10 Sep', src: 'by Rule', n: 6 } }),
+    T('r13', '2026-09-30', 'Zavarovalnica Triglav', 'Zavarovalnica Triglav d.d. · SI56 0510 …', 'Direct debit', 'Joint · Sparkasse', -42.00, { sugg: sub('Finance', 'Insurance (non-health)'), conf: .74, last: { out: sub('Transport', 'Car insurance & registration'), when: '30 Jun', src: 'by hand', n: 1 } }),
+    T('r14', '2026-10-01', 'ATM Bežigrad', 'NLB d.d. ATM 0412', 'Cash withdrawal', 'Maja · N26', -100.00, { sugg: sub('Other', 'Cash withdrawal'), conf: .96, last: { out: sub('Other', 'Cash withdrawal'), when: '1 Sep', src: 'by LLM', n: 3 } }),
+    T('r15', '2026-10-03', 'Kavarna Zvezda', 'Zvezda gostinstvo d.o.o.', 'Card payment', 'Maja · N26', -7.80, { last: { out: sub('Food', 'Restaurants & cafés'), when: '13 Sep', src: 'by hand', n: 2 } }),
+  ];
+}
+seed();
+const SOURCE = { llm: 'by LLM', manual: 'by hand', pairing: 'paired' };
+const fmt = new Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' });
+const signed = v => (v > 0 ? '+' : '') + fmt.format(v);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ic = n => `<svg class="icon" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const day = iso => { const [, m, d] = iso.split('-'); return `${+d} ${MONTHS[m - 1]}`; };
+
+// ===================== State =====================
+const VARIANTS = { A: 'Sorted list, confidence tiers', B: 'One card at a time', C: 'Grouped by description' };
+const PAGES = { review: 'Review queue', transactions: 'Transactions', dashboard: 'Dashboard' };
+const qs = new URLSearchParams(location.search);
+const S = {
+  variant: VARIANTS[qs.get('variant')] ? qs.get('variant') : 'A',
+  page: PAGES[qs.get('page')] ? qs.get('page') : 'review',
+  frame: qs.get('frame') === '1', framed: qs.get('framed') === '1',
+  fail: qs.get('fail') === '1', touch: qs.get('touch') === '1',
+  open: null, catStep: null, fb: {}, busy: null, said: '',
+  cur: null,          // A, C: the keyboard cursor (a row id / group key)
+  skipped: [],        // B: ids pushed to the back of the deck
+  bulk: null,         // the last bulk accept: { ids, prev, label }
+  filterIds: null,    // Transactions: "Accepted just now"
+  cFilter: 'all',     // C: All / Waiting only
+  detailOpen: false,  // C on a phone: the detail view is showing
+  lastSaved: null,    // the id that `u` undoes
+};
+const waiting = () => ROWS.filter(r => !r.done);
+const find = id => ROWS.find(r => r.id === id);
+const isTouch = () => S.touch || matchMedia('(pointer: coarse)').matches;
+const sortKey = r => r.pairs || !r.sugg ? -1 : r.conf; // surest first; no suggestion / ambiguous pairing last
+
+// ===================== The outcome as text (#83) =====================
+function dot(v) {
+  if (v == null) return `<span class="dot hatch" aria-hidden="true"></span>`;
+  if (v === 'transfer' || String(v).startsWith('pair')) return `<span class="dot" style="box-shadow:inset 0 0 0 1.5px var(--muted)" aria-hidden="true"></span>`;
+  return `<span class="dot" style="background:var(--cat-${SUBS[v].hue})" aria-hidden="true"></span>`;
+}
+function plain(v, r) {
+  if (v == null) return 'Awaiting review';
+  if (v === 'transfer') return 'Transfer';
+  if (String(v).startsWith('pair')) { const p = r.pairs.find(p => p.id === v); return `Transfer with ${p.account}`; }
+  return `${SUBS[v].cat} › ${SUBS[v].name}`;
+}
+function rich(v, r) {
+  if (v == null || v === 'transfer' || String(v).startsWith('pair')) return esc(plain(v, r));
+  return `<span class="cat-name">${esc(SUBS[v].cat)}</span> <span class="sep">›</span> ${esc(SUBS[v].name)}`;
+}
+const label = (v, r) => `<span class="oc-label">${dot(v)}<span>${rich(v, r)}</span></span>`;
+const pct = r => `${Math.round(r.conf * 100)} % sure`;
+function lastLine(r) {
+  if (!r.last) return `<div class="last">${ic('clock')}<span>First time this description is seen</span></div>`;
+  const differs = r.sugg && r.last.out !== r.sugg;
+  return `<div class="last${differs ? ' differs' : ''}">${ic('clock')}<span>Last time${differs ? ' <b>(differs)</b>' : ''}:</span>${dot(r.last.out)}<span>${esc(plain(r.last.out))}</span><span>· ${esc(r.last.when)}, ${esc(r.last.src)}${r.last.n > 1 ? ` · ${r.last.n}×` : ''}</span></div>`;
+}
+function feedback(r) {
+  const f = S.fb[r.id]; if (!f) return '';
+  if (f.kind === 'err') return `<div class="fb err">${ic('alert')}<span>Couldn't save ${esc(plain(f.value, r))}. Nothing changed.</span><button type="button" data-retry="${r.id}">Try again</button></div>`;
+  const rule = f.manual ? ` · <a href="#" data-rule="${r.id}">Make a Rule</a>` : '';
+  return `<div class="fb">${ic('ok')}<span>Saved as ${esc(plain(r.out, r))}</span> · <button type="button" data-undo="${r.id}">Undo</button>${rule}</div>`;
+}
+
+// The #83 decided control: text + explicit action; chip panel on a fine pointer, native select on a coarse one.
+function native(r, text, cls, target = r.id) {
+  const o = v => `<option value="${v}">${esc(plain(v, r))}</option>`;
+  let opts = `<option value="" selected disabled hidden>${esc(text)}</option>`;
+  if (r.pairs) opts += `<optgroup label="Transfer: the other side">${r.pairs.map(p => `<option value="${p.id}">${esc(p.date)} · ${esc(p.account)} · ${signed(p.amount)}</option>`).join('')}</optgroup>`;
+  if (r.sugg) opts += `<optgroup label="Suggested">${o(r.sugg)}</optgroup>`;
+  opts += `<optgroup label="Most used">${MOST_USED.map(o).join('')}</optgroup>`;
+  opts += CATS.map(c => `<optgroup label="${esc(c.name)}">${c.subs.map(o).join('')}</optgroup>`).join('');
+  opts += `<optgroup label="Not spending or income">${o('transfer')}</optgroup>`;
+  return `<label class="native ${cls}">${esc(text)} ${ic('down')}<select data-native="${target}" aria-label="${esc(text)}: outcome for ${esc(r.desc)}">${opts}</select></label>`;
+}
+function actionButtons(r, { big = false, target = r.id, acceptLabel = 'Accept' } = {}) {
+  const busy = S.busy === target ? ' busy' : '', open = S.open === target;
+  const opener = (text, cls) => isTouch() ? native(r, text, cls, target)
+    : `<button type="button" class="${cls}" data-open="${target}" aria-expanded="${open}">${text}</button>`;
+  if (r.pairs) return opener('Pick the other side', `btn${big ? ' primary' : ''}${busy}`);
+  if (r.sugg) return `<button type="button" class="btn${big ? ' primary' : ''}${busy}" data-accept="${target}">${acceptLabel}</button>${opener('Something else', big ? 'btn' : 'link-btn')}`;
+  return opener('Choose', `btn${big ? ' primary' : ''}${busy}`);
+}
+function picker(r, target = r.id) {
+  const chip = (v, html) => `<button type="button" data-pick="${v}">${html}</button>`;
+  let body = '';
+  if (r.pairs) body += `<div class="pick-h">The other side of this Transfer</div><div class="pair">${r.pairs.map(p =>
+    `<button type="button" data-pick="${p.id}">${ic('swap')}<span><b>${esc(p.desc)}</b><br><span class="cap">${esc(p.date)} · ${esc(p.account)}</span></span><span class="amt">${signed(p.amount)}</span></button>`).join('')}</div>`;
+  if (S.catStep == null) {
+    body += `<div class="pick-h">Most used</div><div class="chips">${MOST_USED.map(v => chip(v, `${dot(v)}${rich(v)}`)).join('')}</div>
+      <div class="pick-h">Category</div><div class="chips">${CATS.map(c => `<button type="button" data-cat="${c.id}"><span class="dot" style="background:var(--cat-${c.hue})"></span>${esc(c.name)}</button>`).join('')}
+      ${chip('transfer', `${dot('transfer')}Transfer${r.pairs ? ', one-sided' : ''}`)}</div>`;
+  } else {
+    const c = CATS.find(c => c.id === S.catStep);
+    body += `<div class="pick-h"><button type="button" class="link-btn" data-cat="back">‹ All Categories</button><span class="dot" style="background:var(--cat-${c.hue})"></span>${esc(c.name)}</div>
+      <div class="chips">${c.subs.map(v => chip(v, esc(SUBS[v].name))).join('')}</div>`;
+  }
+  return `<div class="pick" role="group" aria-label="Choose an outcome for ${esc(r.desc)}">
+    <div class="pick-h"><span class="grow">Choose an outcome for <b>${esc(r.desc)}</b></span><button type="button" class="link-btn" data-close>Cancel</button></div>${body}</div>`;
+}
+
+// The queue row (Review queue only): the #83 row plus counterparty and "Last time".
+function row(r) {
+  const cur = S.cur === r.id ? ' cur' : '';
+  const out = r.done
+    ? `<div class="oc">${label(r.out, r)}<span class="cap">${SOURCE[r.source]}</span>${feedback(r)}</div>`
+    : `<div class="oc"><span class="oc-main">${r.pairs ? `${label('transfer', r)}<span class="cap">other side unknown</span>` : r.sugg ? `${label(r.sugg, r)}<span class="cap">${pct(r)}</span>` : label(null, r)}</span>
+        <span class="acts">${actionButtons(r)}</span>${lastLine(r)}${feedback(r)}</div>`;
+  return `<tr class="row${r.done ? ' done' : ''}${cur}" id="row-${r.id}" data-row="${r.id}">
+    <td class="c-date">${day(r.date)}</td>
+    <td class="desc">${esc(r.desc)}<small>${esc(r.cp)}</small></td>
+    <td class="c-acct"><span class="pill">${esc(r.account)}</span></td>
+    <td class="c-out">${out}</td>
+    <td class="r amt">${signed(r.amount)}</td>
+    <td class="m-meta">${day(r.date)} · ${esc(r.cp)} · ${esc(r.account)}</td></tr>
+    ${S.open === r.id && !isTouch() ? `<tr class="panel"><td colspan="6">${picker(r)}</td></tr>` : ''}`;
+}
+const table = list => `<table class="rows"><thead><tr><th>Date</th><th>Transaction</th><th>Account</th><th>Outcome</th><th class="r">Amount</th><th class="sr">Details</th></tr></thead>
+  <tbody>${list.map(row).join('')}</tbody></table>`;
+
+function bulkBanner() {
+  const b = S.bulk; if (!b) return '';
+  return `<div class="banner" role="status">${ic('ok')}<span class="grow">Accepted ${b.ids.length} ${b.label}.</span>
+    <button type="button" class="link-btn" data-bulk-undo>Undo</button>
+    <a href="#" class="link-btn" data-see-bulk>See them in Transactions</a></div>`;
+}
+function queueClear(decided) {
+  return `<div class="clear"><span class="tick">${ic('ok')}</span><h2>Queue clear</h2>
+    <p>Every Transaction has an outcome${decided ? `, ${decided} of them decided just now` : ''}. September 2026 is now complete: every Account has a Statement for it and nothing is awaiting review.</p>
+    <div class="row-btns"><a href="#" class="btn primary" data-nav="dashboard">See September on the Dashboard</a><a href="#" class="btn" data-nav="dashboard">October so far</a></div></div>`;
+}
+const keysHint = items => `<div class="keys">${items.map(([k, t]) => `<span><kbd>${k}</kbd> ${t}</span>`).join('')}</div>`;
+
+// ===================== A · Sorted list in confidence tiers =====================
+function variantA() {
+  const w = waiting().sort((a, b) => sortKey(b) - sortKey(a) || a.date.localeCompare(b.date));
+  const sure = w.filter(r => r.sugg && r.conf >= SURE), check = w.filter(r => r.sugg && r.conf < SURE), you = w.filter(r => !r.sugg);
+  const done = ROWS.filter(r => r.done);
+  const tier = (key, title, meta, list, bulk) => !list.length ? '' : `<section class="card tier" aria-labelledby="t-${key}">
+    <div class="tier-head"><h2 id="t-${key}">${title}</h2><span class="meta">${meta}</span>${bulk ? `<button type="button" class="btn" data-bulk="sure">Accept these ${list.length}</button>` : ''}</div>${table(list)}</section>`;
+  const head = `<div class="title-row"><h1>Review queue</h1></div>
+    <p class="page-sub" aria-live="polite">${w.length ? `${w.length} Transactions still need an outcome · from Monday's import` : 'Nothing left to review.'}</p>`;
+  if (!w.length) return head + bulkBanner() + `<section class="card">${queueClear(done.length)}</section>` + doneA(done);
+  return head + bulkBanner()
+    + tier('sure', 'Very likely', `90 % sure or more · ${sure.length}`, sure, sure.length > 1)
+    + tier('check', 'Check these', `under 90 % sure · ${check.length}`, check)
+    + tier('you', 'Needs you', `no suggestion, or a Transfer's other side · ${you.length}`, you)
+    + doneA(done)
+    + keysHint([['j', 'next'], ['k', 'previous'], ['Enter', 'accept'], ['e', 'something else'], ['u', 'undo']]);
+}
+function doneA(done) {
+  if (!done.length) return '';
+  return `<section class="card tier"><details class="done-list"${S.doneOpen ? ' open' : ''}><summary>${ic('right')}Done <span class="cap">${done.length} decided this visit</span></summary>${table(done)}</details></section>`;
+}
+
+// ===================== B · One card at a time =====================
+function deckOrder() {
+  const w = waiting().sort((a, b) => sortKey(b) - sortKey(a) || a.date.localeCompare(b.date));
+  return [...w.filter(r => !S.skipped.includes(r.id)), ...S.skipped.map(find).filter(r => r && !r.done)];
+}
+function variantB() {
+  const deck = deckOrder(), total = ROWS.length, decided = ROWS.filter(r => r.done).length;
+  const head = `<div class="title-row"><h1>Review queue</h1></div>`;
+  const prev = S.lastSaved && S.fb[S.lastSaved] ? `<div class="prevfb">${find(S.lastSaved).desc}: ${feedback(find(S.lastSaved)).replace('class="fb"', 'class="fb" style="display:inline-flex;margin:0"').replace('class="fb err"', 'class="fb err" style="display:inline-flex;margin:0"')}</div>` : '';
+  if (!deck.length) return head + `<section class="card">${queueClear(decided)}</section>` + prev;
+  const r = deck[0];
+  const progress = `<div class="progress"><span>${decided} of ${total} done</span><span class="track" aria-hidden="true"><i style="width:${decided / total * 100}%"></i></span><span>${deck.length} left</span></div>`;
+  const what = r.pairs ? `<span class="k">Transfer: which is the other side?</span>${label('transfer', r)}`
+    : r.sugg ? `<span class="k">Suggested · ${pct(r)}</span>${label(r.sugg, r)}`
+    : `<span class="k">No suggestion</span>${label(null, r)}`;
+  const card = `<section class="card tcard" aria-labelledby="card-h" data-card="${r.id}">
+    <div class="top"><div class="who"><h2 id="card-h" tabindex="-1">${esc(r.desc)}</h2><div class="cp">${esc(r.cp)}</div></div><div class="big amt">${signed(r.amount)}</div></div>
+    <div class="facts"><span class="pill">${esc(r.account)}</span><span>${day(r.date)} 2026</span><span>· ${esc(r.kind)}</span></div>
+    <div class="sugg">${what}${lastLine(r)}</div>
+    ${S.open === r.id && !isTouch() ? picker(r) : ''}
+    <div class="acts">${actionButtons(r, { big: true })}<button type="button" class="btn ghost skip-btn" data-skip="${r.id}">Skip for now</button></div>
+    ${S.fb[r.id]?.kind === 'err' ? feedback(r) : ''}</section>`;
+  const up = deck.slice(1, 7).map(x => `<li>${x.pairs ? dot('transfer') : dot(x.sugg ?? null)}<span class="d">${esc(x.desc)}</span><span class="amt cap">${signed(x.amount)}</span></li>`).join('');
+  const aside = `<aside class="card upnext" aria-label="Up next"><h2>Up next</h2><ol>${up || '<li class="decided"><span></span><span>This is the last one</span></li>'}</ol>
+    ${deck.length > 7 ? `<div class="more">and ${deck.length - 7} more</div>` : ''}</aside>`;
+  return head + progress + `<div class="deck"><div>${card}${prev}${keysHint([['Enter', 'accept'], ['e', 'something else'], ['s', 'skip'], ['u', 'undo last']])}</div>${aside}</div>`;
+}
+
+// ===================== C · Grouped by description, master–detail =====================
+function groups() {
+  const map = new Map();
+  ROWS.forEach(r => { if (!map.has(r.desc)) map.set(r.desc, []); map.get(r.desc).push(r); });
+  return [...map.entries()].map(([desc, rows]) => ({ key: desc, desc, rows, head: rows[0], done: rows.every(r => r.done),
+    latest: rows.map(r => r.date).sort().at(-1), total: rows.reduce((s, r) => s + r.amount, 0) }))
+    .sort((a, b) => b.latest.localeCompare(a.latest));
+}
+function variantC() {
+  const all = groups(), w = all.filter(g => !g.done), d = all.filter(g => g.done);
+  const shown = S.cFilter === 'waiting' ? w : all;
+  if (!shown.find(g => g.key === S.cur)) S.cur = shown[0]?.key ?? null;
+  const g = all.find(x => x.key === S.cur);
+  const head = `<div class="title-row"><h1>Review queue</h1></div>
+    <p class="page-sub">${waiting().length ? `${waiting().length} Transactions in ${w.length} groups still need an outcome` : 'Nothing left to review.'}</p>`;
+  const li = x => { const r = x.head, n = x.rows.length;
+    const sub = x.done ? `${ic('ok')}${dot(r.out)}<span>${esc(plain(r.out, r))}</span>`
+      : r.pairs ? `${dot('transfer')}<span>Transfer · other side unknown</span>`
+      : r.sugg ? `${dot(r.sugg)}<span>${esc(plain(r.sugg))}</span><span>· ${pct(r)}</span>` : `${dot(null)}<span>No suggestion</span>`;
+    return `<li class="${x.done ? 'decided' : ''}"><button type="button" data-group="${esc(x.key)}" aria-current="${x.key === S.cur}">
+      <span class="g-desc">${esc(x.desc)}${n > 1 ? ` <span class="n">×${n}</span>` : ''}</span><span class="g-amt amt">${signed(x.total)}</span>
+      <span class="g-sub">${sub}</span></button></li>`; };
+  const list = `<section class="card md-list" aria-label="Groups">
+    <div class="filter" role="group" aria-label="Show"><button type="button" data-cfilter="all" aria-pressed="${S.cFilter === 'all'}">All ${all.length}</button><button type="button" data-cfilter="waiting" aria-pressed="${S.cFilter === 'waiting'}">Waiting ${w.length}</button></div>
+    <ul class="groups">${shown.map(li).join('') || `<li class="standin">Nothing waiting.</li>`}</ul></section>`;
+ const clearNow = !w.length && !(g && S.fb['g:' + g.key]?.kind === 'ok');
+  const detail = clearNow ? `<section class="card">${queueClear(ROWS.filter(r => r.done).length)}</section>` : g ? detailC(g) : `<section class="card standin">Pick a group.</section>`;
+  return head + bulkBanner() + `<div class="md${S.detailOpen ? ' detail-open' : ''}">${list}${detail}</div>`
+    + keysHint([['j', 'next group'], ['k', 'previous'], ['Enter', 'accept for all'], ['e', 'something else'], ['u', 'undo']]);
+}
+function detailC(g) {
+  const r = g.head, n = g.rows.length, key = 'g:' + g.key;
+  const txs = `<table class="mini">${g.rows.map(x => `<tr class="${x.done ? 'done' : ''}"><td>${day(x.date)}</td><td><span class="pill">${esc(x.account)}</span></td><td class="r amt">${signed(x.amount)}</td></tr>`).join('')}</table>`;
+  const hist = r.last ? `<ul class="hist"><li>${dot(r.last.out)}<span>${rich(r.last.out)}</span><span class="cap">${esc(r.last.when)} · ${esc(r.last.src)}${r.last.n > 1 ? ` · ${r.last.n}×` : ''}</span></li></ul>
+      ${r.sugg && r.last.out !== r.sugg ? `<p class="cap" style="margin:6px 0 0">The suggestion differs from what was used last time.</p>` : ''}` : `<p class="cap" style="margin:0">First time this description is seen.</p>`;
+  const nextG = groups().find(x => !x.done && x.key !== g.key);
+  const what = g.done ? `<div class="oc">${label(r.out, r)}<span class="cap">${SOURCE[r.source]}</span>${feedbackGroup(g)}</div>
+       <div class="acts">${nextG ? `<button type="button" class="btn primary" data-group="${esc(nextG.key)}">Next: ${esc(nextG.desc)} ›</button>` : `<button type="button" class="btn primary" data-nav="dashboard">Queue clear · See September on the Dashboard</button>`}</div>`
+    : `<div class="oc">${r.pairs ? `${label('transfer', r)}<span class="cap">other side unknown</span>` : r.sugg ? `${label(r.sugg, r)}<span class="cap">${pct(r)}</span>` : label(null, r)}</div>
+       ${S.open === key && !isTouch() ? picker(r, key) : ''}
+       <div class="acts">${actionButtons(r, { big: true, target: key, acceptLabel: n > 1 ? `Accept for all ${n}` : 'Accept' })}</div>${feedbackGroup(g)}`;
+  return `<section class="card md-detail" aria-labelledby="d-h">
+    <button type="button" class="link-btn back" data-back>‹ All groups</button>
+    <div class="head"><div class="t"><h2 id="d-h" tabindex="-1">${esc(g.desc)}</h2><div class="cp">${esc(r.cp)} · ${esc(r.kind)}</div></div><div class="big amt">${signed(g.total)}</div></div>
+    <section><h3>${n > 1 ? `${n} Transactions with this description` : 'Transaction'}</h3>${txs}</section>
+    <section><h3>Last time</h3>${hist}</section>
+    <div class="decide">${what}</div></section>`;
+}
+function feedbackGroup(g) {
+  const f = S.fb['g:' + g.key]; if (!f) return '';
+  const r = g.head;
+  if (f.kind === 'err') return `<div class="fb err">${ic('alert')}<span>Couldn't save ${esc(plain(f.value, r))}. Nothing changed.</span><button type="button" data-retry="g:${esc(g.key)}">Try again</button></div>`;
+  const n = g.rows.length;
+  return `<div class="fb">${ic('ok')}<span>Saved ${n > 1 ? `all ${n} ` : ''}as ${esc(plain(r.out, r))}</span> · <button type="button" data-undo="g:${esc(g.key)}">Undo</button> · <a href="#" data-rule="${r.id}">Make a Rule for “${esc(g.desc)}”</a>${n > 1 ? ` · <a href="#" data-see="${g.rows.map(x => x.id).join(',')}">See them in Transactions</a>` : ''}</div>`;
+}
+
+// ===================== Stand-in pages =====================
+function pageTransactions() {
+  const ids = S.filterIds, list = ids ? ROWS.filter(r => ids.includes(r.id)) : ROWS.filter(r => r.done);
+  const rowsHtml = list.map(r => `<tr class="row"><td class="c-date">${day(r.date)}</td><td class="desc">${esc(r.desc)}<small>${esc(r.kind)}</small></td>
+    <td class="c-acct"><span class="pill">${esc(r.account)}</span></td><td class="c-out"><div class="oc">${label(r.out, r)}<span class="cap">${SOURCE[r.source] ?? ''}</span><span class="acts"><button type="button" class="link-btn">Change</button></span></div></td>
+    <td class="r amt">${signed(r.amount)}</td><td class="m-meta">${day(r.date)} · ${esc(r.account)}</td></tr>`).join('');
+  return `<div class="title-row"><h1>Transactions</h1></div>
+    ${ids ? `<p><span class="fchip">Accepted just now · ${ids.length}<button type="button" aria-label="Clear filter" data-clear-filter>${ic('x')}</button></span></p>` : '<p class="page-sub">(stand-in: the decided Review-queue rows)</p>'}
+    <section class="card"><table class="rows"><thead><tr><th>Date</th><th>Transaction</th><th>Account</th><th>Outcome</th><th class="r">Amount</th><th class="sr">Details</th></tr></thead><tbody>${rowsHtml || '<tr><td colspan="6" class="standin">Nothing here yet.</td></tr>'}</tbody></table></section>
+    <p class="cap">The filter is a URL parameter (e.g. <code>?decided_at=…</code> or a list of ids), so the link survives a reload.</p>`;
+}
+function pageDashboard() {
+  return `<div class="title-row"><h1>Dashboard</h1></div>
+    <nav class="tabs" aria-label="Dashboard views"><a href="#" aria-current="page">Spending</a><a href="#">Cash flow</a><a href="#">Category trends</a><a href="#">Per Member</a><a href="#">Money flow</a></nav>
+    <p class="complete">${ic('ok')}September 2026 · Complete: every Account has a Statement and nothing is awaiting review.</p>
+    <div class="tiles"><div class="card tile"><div class="label">Spent</div><div class="value amt">2.611,35 €</div></div><div class="card tile"><div class="label">Money in</div><div class="value amt">4.820,00 €</div></div><div class="card tile"><div class="label">Left over</div><div class="value amt">2.208,65 €</div></div></div>
+    <section class="card standin">Spending view for September 2026 (donut, Category list), as in the #62–#75 prototypes.</section>`;
+}
+
+function shell(content) {
+  const left = waiting().length;
+  const nav = (id, icon, text, badge = '') => `<a class="nav" href="#" data-nav="${id}"${S.page === id ? ' aria-current="page"' : ''}>${ic(icon)}${text}${badge}</a>`;
+  const brand = `<a class="brand" href="#" data-nav="dashboard"><img src="favicon.svg" alt="">Purse<span>graph</span></a>`;
+  return `<div class="shell">
+  <aside class="sidebar" aria-label="Main">${brand}
+    ${nav('dashboard', 'home', 'Dashboard')}${nav('transactions', 'list', 'Transactions')}${nav('review', 'check', 'Review queue', left ? `<span class="badge">${left}</span>` : '')}<a class="nav" href="#">${ic('upload')}Import</a>
+    <div class="manage">${ic('right')}Manage</div>
+    <div class="sidebar-foot"><span class="avatar" aria-hidden="true">M</span><span>Maja<br><small>Admin</small></span></div>
+  </aside>
+  <div class="page"><header class="m-top">${brand}</header>
+    <main id="main" tabindex="-1">${content}<p class="synthetic">Prototype · all figures are synthetic</p></main></div>
+  <nav class="tabbar" aria-label="Main"><a href="#" data-nav="dashboard"${S.page === 'dashboard' ? ' aria-current="page"' : ''}>${ic('home')}Dashboard</a>
+    <a href="#" data-nav="transactions"${S.page === 'transactions' ? ' aria-current="page"' : ''}>${ic('list')}Transactions</a>
+    <a href="#" data-nav="review"${S.page === 'review' ? ' aria-current="page"' : ''}>${ic('check')}Review${left ? `<span class="badge">${left}</span>` : ''}</a>
+    <a href="#">${ic('more')}More</a></nav></div>`;
+}
+
+// ===================== Render =====================
+function url(extra = {}) {
+  const p = new URLSearchParams({ variant: S.variant, page: S.page, ...(S.fail ? { fail: 1 } : {}), ...(S.touch ? { touch: 1 } : {}), ...(S.frame ? { frame: 1 } : {}), ...extra });
+  const t = document.documentElement.dataset.theme; if (t !== 'system') p.set('theme', t);
+  return `?${p}`;
+}
+function render(focus) {
+  document.body.className = S.framed ? 'framed' : '';
+  if (S.frame && !S.framed) {
+    document.getElementById('app').innerHTML = `<div class="frame-wrap"><iframe title="Phone, 390 × 844" src="${url({ framed: 1, frame: 0 })}"></iframe></div>`;
+  } else {
+    const page = S.page === 'review' ? { A: variantA, B: variantB, C: variantC }[S.variant]() : S.page === 'transactions' ? pageTransactions() : pageDashboard();
+    document.getElementById('app').innerHTML = `<a class="skip" href="#main">Skip to content</a>` + shell(page);
+    const left = waiting().length;
+    document.title = S.page === 'review' ? `Review queue${left ? ` (${left})` : ''} · Pursegraph` : `${PAGES[S.page]} · Pursegraph`;
+  }
+  history.replaceState(null, '', url());
+  renderProto();
+  if (focus) { const el = document.querySelector(focus); el?.focus(); el?.scrollIntoView?.({ block: 'nearest' }); }
+}
+function announce(text) {
+  S.said = text; const live = document.getElementById('live');
+  live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); renderProto();
+}
+
+// ===================== Focus targets per variant =====================
+const firstAction = id => `#row-${id} .c-out [data-accept], #row-${id} .c-out [data-open], #row-${id} .c-out select`;
+function nextWaitingA(fromId) {
+  // The next waiting row after `fromId` in reading order (tiers top to bottom), wrapping to the top.
+  const order = ROWS.filter(r => !r.done || r.id === fromId).sort((a, b) => sortKey(b) - sortKey(a) || a.date.localeCompare(b.date)).map(r => r.id);
+  const i = order.indexOf(fromId), after = [...order.slice(i + 1), ...order.slice(0, Math.max(i, 0))];
+  return after.find(id => !find(id).done);
+}
+function focusAfterSave(id) {
+  if (S.variant === 'A') { const n = nextWaitingA(id); S.cur = n ?? null; return n ? firstAction(n) : '.clear .btn'; }
+  if (S.variant === 'B') return deckOrder().length ? '#card-h' : '.clear .btn';
+  return null;
+}
+
+// ===================== Saving (stubbed: 400 ms; fails while "saves fail" is on) =====================
+function commit(target, value, { accept = false } = {}) {
+  const isGroup = String(target).startsWith('g:');
+  const rows = isGroup ? ROWS.filter(r => r.desc === target.slice(2) && !r.done) : [find(target)];
+  const r = rows[0];
+  value = value === 'transfer' || String(value).startsWith('pair') ? value : +value;
+  S.open = null; S.catStep = null; S.busy = target; delete S.fb[target]; render();
+  setTimeout(() => {
+    S.busy = null;
+    if (S.fail) { S.fb[target] = { kind: 'err', value }; render(isGroup ? '.decide .btn' : firstAction(r.id)); announce(`Couldn't save ${plain(value, r)}. Nothing changed.`); return; }
+    const prev = rows.map(x => ({ x, out: x.out, source: x.source, done: x.done }));
+    rows.forEach(x => { x.out = value; x.source = String(value).startsWith('pair') ? 'pairing' : accept ? 'llm' : 'manual'; x.done = true; });
+    S.fb[target] = { kind: 'ok', prev, manual: !accept };
+    S.lastSaved = target; S.bulk = null;
+    if (isGroup) {
+      // C: the group stays where it is, ticked; the cursor moves on to the next waiting group.
+      // C: stay on the decided group so its follow-ups (Make a Rule, See them) are in reach; "Next" moves on.
+      render('.decide .btn.primary');
+    } else render(focusAfterSave(r.id));
+    announce(`Saved ${rows.length > 1 ? `${rows.length} × ` : ''}${r.desc} as ${plain(value, r)}. ${waiting().length} left to review.`);
+  }, 400);
+}
+function undo(target) {
+  const f = S.fb[target]; if (!f?.prev) return;
+  f.prev.forEach(p => Object.assign(p.x, { out: p.out, source: p.source, done: p.done }));
+  delete S.fb[target]; if (S.lastSaved === target) S.lastSaved = null;
+  const r = f.prev[0].x;
+  if (S.variant === 'A') S.cur = r.id;
+  if (S.variant === 'B') S.skipped = S.skipped.filter(id => id !== r.id);
+  if (S.variant === 'C') S.cur = r.desc;
+  render(S.variant === 'A' ? firstAction(r.id) : S.variant === 'B' ? '#card-h' : '#d-h');
+  announce(`Undone. ${r.desc} is back in the queue.`);
+}
+function bulkAccept(ids, labelText) {
+  const rows = ids.map(find);
+  S.bulk = { ids, prev: rows.map(x => ({ x, out: x.out, source: x.source, done: x.done })), label: labelText };
+  rows.forEach(x => { x.out = x.sugg; x.source = 'llm'; x.done = true; });
+  S.fb = {};
+  const n = nextWaitingA(); S.cur = n ?? null;
+  render(n ? firstAction(n) : '.clear .btn');
+  announce(`Accepted ${ids.length} ${labelText}. ${waiting().length} left to review.`);
+}
+
+// ===================== Prototype switcher (not the design) =====================
+function renderProto() {
+  if (S.framed) return;
+  document.getElementById('proto').innerHTML = `<button type="button" data-proto="-1" aria-label="Previous variant">‹</button>
+    <span class="lbl">${S.variant} <small>(${VARIANTS[S.variant]})</small></span>
+    <button type="button" data-proto="1" aria-label="Next variant">›</button>
+    <span class="state" title="The last screen-reader announcement">${S.said ? `said: “${esc(S.said)}”` : 'said: —'}</span>
+    <button class="toggle" type="button" data-proto="frame">${S.frame ? 'phone ✓' : 'phone'}</button>
+    <button class="toggle" type="button" data-proto="touch" title="Pretend the pointer is coarse (a phone), to see the native select">${S.touch ? 'touch ✓' : 'touch'}</button>
+    <button class="toggle" type="button" data-proto="fail" title="Make every save fail">${S.fail ? 'saves fail ✓' : 'saves fail'}</button>
+    <button class="toggle" type="button" data-proto="theme">${document.documentElement.dataset.theme}</button>
+    <button class="toggle" type="button" data-proto="reset">reset</button>`;
+}
+function resetState() { seed(); Object.assign(S, { fb: {}, open: null, catStep: null, said: '', cur: null, skipped: [], bulk: null, filterIds: null, cFilter: 'waiting', detailOpen: false, lastSaved: null }); }
+
+// ===================== Events =====================
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-nav],[data-open],[data-accept],[data-pick],[data-cat],[data-close],[data-undo],[data-retry],[data-bulk],[data-bulk-undo],[data-see-bulk],[data-see],[data-skip],[data-group],[data-cfilter],[data-back],[data-clear-filter],[data-rule],[data-proto],a[href="#"]');
+  if (!t) return;
+  if (t.matches('summary *, summary')) return;
+  e.preventDefault();
+  const d = t.dataset;
+  if (d.nav) { S.page = d.nav; S.open = null; render('#main'); window.scrollTo(0, 0); return; }
+  if (d.open) { const same = S.open === d.open; S.open = same ? null : d.open; S.catStep = null; render(same ? `[data-open="${d.open}"]` : '.pick [data-pick], .pick [data-cat]'); return; }
+  if (d.close !== undefined) { const id = S.open; S.open = null; S.catStep = null; render(id ? `[data-open="${id}"]` : null); return; }
+  if (d.cat) { S.catStep = d.cat === 'back' ? null : +d.cat; render(d.cat === 'back' ? '.pick [data-cat]' : '.pick [data-pick]'); return; }
+  if (d.pick) { commit(S.open, d.pick); return; }
+  if (d.accept) { const r = d.accept.startsWith('g:') ? ROWS.find(x => x.desc === d.accept.slice(2)) : find(d.accept); commit(d.accept, r.sugg, { accept: true }); return; }
+  if (d.undo) { undo(d.undo); return; }
+  if (d.retry) { commit(d.retry, S.fb[d.retry].value); return; }
+  if (d.bulk) { bulkAccept(waiting().filter(r => r.sugg && r.conf >= SURE).map(r => r.id), 'suggestions that were 90 % sure or more'); return; }
+  if (d.bulkUndo !== undefined) { S.bulk.prev.forEach(p => Object.assign(p.x, { out: p.out, source: p.source, done: p.done })); const n = S.bulk.ids.length; S.bulk = null; render('#main'); announce(`Undone. ${n} Transactions are back in the queue.`); return; }
+  if (d.seeBulk !== undefined) { S.filterIds = S.bulk.ids; S.page = 'transactions'; render('#main'); return; }
+  if (d.see) { S.filterIds = d.see.split(','); S.page = 'transactions'; render('#main'); return; }
+  if (d.clearFilter !== undefined) { S.filterIds = null; render('#main'); return; }
+  if (d.skip) { S.skipped = [...S.skipped.filter(id => id !== d.skip), d.skip]; S.open = null; render('#card-h'); announce(`Skipped ${find(d.skip).desc}. It comes back at the end.`); return; }
+  if (d.group) { S.cur = d.group; S.open = null; S.detailOpen = true; render('#d-h'); return; }
+  if (d.cfilter) { S.cFilter = d.cfilter; S.cur = null; S.detailOpen = false; render(); return; }
+  if (d.back !== undefined) { S.detailOpen = false; render(`[data-group="${CSS.escape(S.cur ?? '')}"]`); return; }
+  if (d.rule) { announce('(prototype) Would open the Rule form pre-filled from this Transaction.'); return; }
+  if (d.proto) {
+    const keys = Object.keys(VARIANTS);
+    if (d.proto === 'frame') S.frame = !S.frame;
+    else if (d.proto === 'fail') S.fail = !S.fail;
+    else if (d.proto === 'touch') S.touch = !S.touch;
+    else if (d.proto === 'theme') { const order = ['system', 'light', 'dark'], h = document.documentElement; h.dataset.theme = order[(order.indexOf(h.dataset.theme) + 1) % 3]; }
+    else if (d.proto === 'reset') resetState();
+    else { S.variant = keys[(keys.indexOf(S.variant) + +d.proto + keys.length) % keys.length]; S.open = null; S.cur = null; }
+    render(); return;
+  }
+});
+document.addEventListener('toggle', e => { if (e.target.matches?.('details.done-list')) S.doneOpen = e.target.open; }, true);
+document.addEventListener('change', e => { if (e.target.dataset.native) commit(e.target.dataset.native, e.target.value); });
+
+// Keyboard shortcuts (desktop): never while typing or inside the picker; never with modifiers.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && S.open) { const id = S.open; S.open = null; S.catStep = null; render(`[data-open="${id}"]`); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select, [contenteditable], .pick')) return;
+  const onBody = e.target === document.body || e.target.id === 'main';
+  if (onBody && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { const keys = Object.keys(VARIANTS); S.variant = keys[(keys.indexOf(S.variant) + (e.key === 'ArrowRight' ? 1 : -1) + keys.length) % keys.length]; S.open = null; S.cur = null; render(); return; }
+  if (S.page !== 'review') return;
+  const k = e.key;
+  if (k === 'u' && S.lastSaved) { e.preventDefault(); undo(S.lastSaved); return; }
+  if (S.variant === 'A') {
+    const order = [...document.querySelectorAll('tr.row:not(.done)')].map(tr => tr.dataset.row);
+    if (k === 'j' || k === 'k') { e.preventDefault(); const i = order.indexOf(S.cur); S.cur = order[Math.max(0, Math.min(order.length - 1, i < 0 ? 0 : i + (k === 'j' ? 1 : -1)))]; render(firstAction(S.cur)); return; }
+    const r = find(S.cur) ?? find(order[0]); if (!r) return;
+    if (k === 'e') { e.preventDefault(); S.cur = r.id; S.open = r.id; S.catStep = null; render('.pick [data-pick], .pick [data-cat]'); return; }
+    if (k === 'Enter' && onBody && r.sugg) { e.preventDefault(); commit(r.id, r.sugg, { accept: true }); return; }
+  }
+  if (S.variant === 'B') {
+    const r = deckOrder()[0]; if (!r) return;
+    if (k === 'Enter' && (onBody || e.target.id === 'card-h')) { e.preventDefault(); if (r.sugg) commit(r.id, r.sugg, { accept: true }); else { S.open = r.id; render('.pick [data-pick], .pick [data-cat]'); } return; }
+    if (k === 'e') { e.preventDefault(); S.open = r.id; S.catStep = null; render('.pick [data-pick], .pick [data-cat]'); return; }
+    if (k === 's') { e.preventDefault(); document.querySelector(`[data-skip="${r.id}"]`)?.click(); return; }
+  }
+  if (S.variant === 'C') {
+    const order = [...document.querySelectorAll('[data-group]')].map(b => b.dataset.group);
+    if (k === 'j' || k === 'k') { e.preventDefault(); const i = order.indexOf(S.cur); S.cur = order[Math.max(0, Math.min(order.length - 1, i + (k === 'j' ? 1 : -1)))]; render(`[data-group="${CSS.escape(S.cur)}"]`); return; }
+    const g = groups().find(x => x.key === S.cur); if (!g || g.done) return;
+    if (k === 'e') { e.preventDefault(); S.open = 'g:' + g.key; S.catStep = null; render('.pick [data-pick], .pick [data-cat]'); return; }
+    if (k === 'Enter' && (onBody || e.target.dataset.group) && g.head.sugg) { e.preventDefault(); commit('g:' + g.key, g.head.sugg, { accept: true }); return; }
+  }
+});
+
+if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
+render();
+</script>
+</body>
+</html>
