@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# shoot — screenshot a page with the Playwright-cached headless Chromium.
+#
+#   scripts/shoot URL OUT.png [WIDTHxHEIGHT]   (default 1440x1000)
+#
+# For clicks/typing before the shot, drive the same binary with playwright-core
+# (see docs/agents/prototypes.md).
+set -euo pipefail
+
+url="$1" out="$2" size="${3:-1440x1000}"
+chrome="$(ls -d "$HOME"/.cache/ms-playwright/chromium_headless_shell-*/chrome-*/chrome-headless-shell 2>/dev/null | sort -V | tail -1)"
+[[ -x "$chrome" ]] || { echo "shoot: no headless Chromium under ~/.cache/ms-playwright (run: npx playwright install chromium-headless-shell)" >&2; exit 1; }
+
+timeout 60 "$chrome" --no-sandbox --hide-scrollbars --virtual-time-budget=4000 \
+    --window-size="${size/x/,}" --screenshot="$out" "$url" 2>/dev/null
+[[ -s "$out" ]] && echo "$out"
