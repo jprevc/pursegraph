@@ -448,7 +448,7 @@ The driver's weekly job: give every waiting Transaction an outcome, then read th
   - "✓ Saved all 3 as … · Undo · Make a Rule for "Bolt.eu" · See them in Transactions" ("See them" only for a group of more than one);
   - a primary "Next: *description* ›" that opens the next waiting group.
 
-  The group leaves the list unless Show resolved is on. Undo puts the whole group back. See them in Transactions opens Transactions filtered to those Transactions, with a removable "Decided just now · 3" filter chip, in the URL. Every save, failure and Undo is announced politely ("Saved 3 × Bolt.eu as Transport › Public transport & car sharing. 9 left to review.").
+  The group leaves the list unless Show resolved is on. Undo puts the whole group back. See them in Transactions opens Transactions filtered to those Transactions, in the URL. Its summary line names the filter "Decided just now · 3", and Clear filters removes it (see Transactions page). Every save, failure and Undo is announced politely ("Saved 3 × Bolt.eu as Transport › Public transport & car sharing. 9 left to review.").
 - **No queue-wide bulk accept.** Bulk is per group only, so a 51 %-sure guess never rides along with a 99 %-sure one.
 - **A failed save.** It is the Transaction row's line, inside the decide box, and focus stays on the box.
 - **Queue clear.** When nothing is waiting, the detail becomes a centred end state:
@@ -473,7 +473,7 @@ A Rule is a saved filter over the Household's Transactions. Each of its pages sh
 - **Reorder.** Drag a list item, or press Alt+↑/↓ while it is focused, or use the detail's Move buttons. Every move is announced ("Moved “SPAR” to 6th"). A new Rule goes to the top.
 - **Delete.** Confirms inline under the detail head, on Raised with a Line Strong border: "Delete “SPAR”? Its 13 Transactions keep their outcome; future imports won't use it", with "Keep it" and a primary "Delete Rule". Focus moves to "Delete Rule". Deleting never changes an outcome. Every destructive action in Manage confirms the same way.
 - **The Rule page** (New Rule, Edit Rule, Make a Rule). A title row with Back, then one card.
-  - **Filter bar:** the conditions, laid out like Transactions' filter bar: Description contains (ignores case and accents), Counterparty IBAN, Direction, Account. Every condition set must hold.
+  - **Filter bar:** the conditions, as a wrapping row of 36px controls like the Dashboard's filter bar: Description contains (ignores case and accents), Counterparty IBAN, Direction, Account. Every condition set must hold.
   - **Preview:** below the filter bar, the Transactions the filter matches, live as you type, with columns Date, Transaction, Amount, Now and After saving. They are grouped:
     - "Will change · N";
     - "Set by hand to something else: kept now, but new ones like them would follow this Rule · N";
@@ -641,7 +641,7 @@ Every Transaction, narrowed by facets, read 25 at a time. The page answers "find
   - "26–50 of 192" in Muted;
   - "Older ›".
   The current page takes Indigo Wash and `aria-current="page"`. The ends disable at the first and last page. Changing page keeps the filters and scrolls to the top of the grid.
-- **Deep links.** Transactions reads the Dashboard's own query parameters (`period`, `member`, `account`) plus `q`, `outcome` (`unresolved`, `transfer`, `category-<id>`, `subcategory-<id>`), `source`, `dir`, `min`, `max` and `page`. A link from the Dashboard adds a breadcrumb above the title: "Dashboard › Spending · Food · September 2026". The Dashboard part links back with the same period and filters. The breadcrumb goes once the period, Member or Outcome changes.
+- **Deep links.** Transactions reads the Dashboard's own query parameters (`period`, `member`, `account`) plus `q`, `outcome` (`unresolved`, `transfer`, `category-<id>`, `subcategory-<id>`), `source`, `dir`, `min`, `max` and `page`. A link from the Dashboard adds a breadcrumb above the title: "Dashboard › Spending · Food · September 2026". The Dashboard part links back with the same period and filters. The breadcrumb goes once the period, Member or Outcome changes. The Review queue's "See them in Transactions" arrives filtered to the Transactions it just decided: the summary line names that filter "Decided just now · 3", and Clear filters removes it.
 - **Empty.** "No Transactions match." with a "Clear the filters" text button. With no Transactions at all, the page keeps today's "Import your first Statement".
 - **Phone (≤900px).** The rail leaves the grid.
   - **Sticky bar:** the search field and a "Filter" button with the active-filter count badge, 44px, on the 92% ground tint with a backdrop blur.
