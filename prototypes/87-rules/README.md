@@ -25,4 +25,16 @@ The page is static, inside the #63 shell. Its matching engine mirrors `ledger/ru
   - "Rule k above wins on N of these."
 - **Seeded mistake.** Rule 7 "SPAR" also catches "SPARKASSE account fee", so Rule 8 categorizes 0. Each variant's list shows this differently.
 
-Shots in `shots/` (desktop light, phone dark/light). Verdict: _pending — pick a variant (or parts of each)._
+Shots in `shots/` (desktop light, phone dark/light).
+
+## Findings
+
+**Verdict: C.** A Rule is a filter over the Household's Transactions. Its page shows exactly which Transactions it catches and what happens to each one, so the preview isn't a summary next to the form: it is the page.
+
+- **Now → After per Transaction** answers "what will this do" better than counts. The groups do the explaining: Will change, Set by hand to something else, Already, Keep. The "Set by hand to something else" group (Gostilna Hofer, HOFER REISEN) is where a too-broad Rule shows itself.
+- **Save names its effect:** "Save and change 3", with "Future imports only" beside it. This replaces today's separate "Apply the Rule to existing Transactions?" page.
+- **The list says what each Rule did.** The detail lists what the selected Rule caught, so the seeded SPAR → "SPARKASSE account fee" mistake is visible at a glance, and "6 of its matches go to Rule 7 above" explains a Rule that categorizes nothing.
+- **Reorder:** drag, Alt+↑/↓ on the focused Rule, or the Move up / Move down buttons in the detail head.
+- **Delete** confirms inline and says the outcomes stay. Deleting a Rule keeps its Transactions' outcomes (`Transaction.rule` is `SET_NULL`).
+- **A's** separate preview pane read as a second thing to check, and its checkbox hid the effect. **B's** sentences were pleasant to read but long, and its builder was cramped on a phone. B's Undo-instead-of-confirm also contradicts critique finding 13.
+- **Phone:** the list comes first and a Rule opens with a back button. The save bar must sit above the tab bar.
