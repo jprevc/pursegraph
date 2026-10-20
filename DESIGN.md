@@ -220,6 +220,16 @@ components:
     textColor: "{colors.ink}"
     rounded: "5px"
     height: "22px"
+  category-card:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.card}"
+    padding: "16px 20px 20px"
+  category-card-editing:
+    borderColor: "{colors.accent}"
+  threshold-line:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-text}"
+    width: "2px"
 ---
 
 # Design System: Pursegraph
@@ -519,7 +529,7 @@ An empty page always says why it is empty and what fills it. It never only says 
 The page keeps its title row. Its copy, page by page:
 - **Accounts, before any:** "No Accounts yet" / "There's nothing to add first: importing a Statement creates its Account from the IBAN printed on it. Add one here only for an Account that never gets Statements, such as savings at another bank, so that money moved there counts as a Transfer." Actions: Import Statements, and the ghost button "Add an Account without Statements".
 - **Import's Coverage, before any Account:** "No Accounts yet" / "Each Statement adds its Account the first time, from the IBAN printed on it. A Revolut CSV has no IBAN, so you'll be asked which Account it goes into, or to name a new one. Each Member usually imports their own bank's Statements."
-- **Members, with only the first admin:** the table with its one row, then the block "Invite the rest of the Household" / "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." Action: Invite a Member.
+- **Members, with only the first admin:** the Admins card with its one row, then the block "Invite the rest of the Household" / "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." Action: Invite a Member.
 - **Rules, before any:** "No Rules yet" / "A Rule categorizes matching Transactions at import, or marks them Transfers. The quickest way to make one is "Make a Rule" after you correct a Transaction in the Review queue." Action: Write a Rule.
 - **Review queue, all decided:** "Nothing waiting for review" / "Every imported Transaction has a Subcategory or is a Transfer. Any new ones that need a decision arrive with the next import." Action: See Transactions. It is calm, not a celebration.
 - **Categories** is never empty, because the list is seeded.
@@ -679,6 +689,30 @@ Every Transaction, narrowed by facets, read 25 at a time. The page answers "find
   - **Filter sheet:** the button opens the rail as a bottom sheet, like More: 18px top corners, a grip, up to 90vh, scrolling. It is titled "Filter", with "Clear all" on the right. Its foot is a sticky full-width 44px Indigo button, "Show 142 Transactions", which closes it. Picks apply live underneath.
   - **Pager:** centred, with 40px page buttons; the "26–50 of 192" range is hidden.
 
+### Admin pages
+Categories, LLM suggestions and Members are under Manage, for admins, and only need to work on desktop. Each page reads first: it shows what is set up, and editing is a step you take on purpose. An action that can't run is replaced by a muted 12px reason with a 14px info icon ("You are the only active admin. Make someone else an admin first."), never just greyed out. Deactivate, Make admin, Delete and Ask again confirm inline, as Rules does.
+- **Categories.** The title row, then a muted line: "Every Transaction gets a Subcategory. Each Category ends with a catch-all, which takes the Transactions and Rules of any Subcategory you delete. A Category keeps its colour wherever you move it."
+  - **Cards:** a grid of read-only Category cards (`auto-fill`, at least 320px, 16px gap), in Category order. Each card has a 4px top band in its Category hue. Its head shows the hue dot and name (Title), the kind (Spending or Income, muted 12px 500) and a small ghost "Edit". Below come its Subcategories, 13px Ink 2 rows between hairlines, each with its Transaction count (muted, tabular). The catch-all carries a dashed "catch-all" tag, and the bank-fees Subcategory carries a "bank fees" tag. The last tile is a dashed "New Category" button.
+  - **Editing one Category:** Edit opens that card across two columns, with a 2px Household Indigo ring and the Pop shadow. Every other Edit is disabled until it closes. Its head reads "Editing Food", "Spending · place 1 of 10", with ‹ › buttons to move the Category earlier or later. Its name is a 38px field, and each Subcategory row is a 34px name field, "412 Transactions · 4 Rules", and Move up, Move down and a ghost Delete. The catch-all row has no buttons and is tagged "catch-all · last". Under the rows is "New Subcategory, goes above Other" with Add. The foot holds a ghost "Delete Food", which is disabled with its reason ("Food still has 555 Transactions. Delete its Subcategories first, then recategorize what is left in Other."), Cancel, and the primary "Save changes", which saves the names. Moves, adds and deletes apply at once.
+  - **Delete a Subcategory:** "Delete Food › Groceries? Its 412 Transactions and 4 Rules move to Food › Other. Queued suggestions for it are asked again." with "Keep it" and "Delete and move".
+  - **Delete a Category:** offered only when no Transaction or Rule uses it: "Delete Garden and its catch-all Other? Nothing uses it."
+  - **New Category:** a name and a Spending/Income select, with "It starts with one catch-all, Other (Other income for an income Category)". The new card goes last. Its hue follows its id.
+- **LLM suggestions.** The title row, then a muted line: "What no Rule decides is sent to the LLM on this network, which suggests a Subcategory and how sure it is. A suggestion sure enough categorizes its Transaction by itself; the rest wait in the Review queue with the suggestion first."
+  - **Status strip:** one card in a row. It has a 10px status dot with the state and its caption, then four stats (muted 12px label over a 15px 600 tabular figure): Model, With a suggestion, Waiting to be asked, and By the LLM this month. "Check now" sits at the right. The states never use red or green:
+    - **Working:** a solid Ink 2 dot, "last answer 14:02".
+    - **Can't reach the LLM:** a hollow dot, "failed at 13:40 · retrying", with a muted line under the strip: "The last call to 192.168.1.10:11434 failed at 13:40. It retries every 5 minutes; until then new Transactions wait for review without a suggestion."
+    - **Not set up:** a hollow Line Strong dot, "OLLAMA_URL is empty", with no Check now: "No LLM server is configured (OLLAMA_URL is empty), so the Review queue fills without suggestions. Set it in the server's environment and restart."
+  - **How sure the waiting suggestions are:** a bar chart of the queued suggestions in 5 % bins from 0 to 100 %, with counts above the bars and tens labelled under the axis. A 2px Household Indigo line marks the threshold, labelled "Auto-accept · 85 %" in Indigo Ink (chrome, not data). Bars below the line are Line Strong, and bars past it are Ink 2. The legend reads "Below the line: wait for a Member · Past the line: would categorize by itself". The chart has a text `aria-label` listing each non-empty bin.
+  - **The threshold:** "Auto-accept at", then a range slider and a number field kept in step, both in 5 % steps from 50 to 100 and in "% sure", the queue's unit. Moving the slider moves the line and recolours the bars live. Save stays disabled until the value changes. Then "Keep 85 %" appears, and the save reads "Save 70 %", or "Save, then review 5" when lowering it lets queued suggestions through. A muted line says "Raising it never undoes what the LLM already set. Lowering it offers the queued suggestions past the line."
+  - **After lowering:** an Indigo Wash notice: "5 Transactions in the Review queue are now at least 70 % sure. Accept them now, or leave them in the queue with the suggestion first.", with "Leave in the queue" and the primary "Accept 5".
+  - **Ask again:** a card with "After the model or the prompt changes, clear the queued suggestions so the LLM answers again." and "Ask again about 17 suggestions", which confirms: "Ask the LLM again about the 17 suggestions in the Review queue? They're cleared and come back as the LLM answers. Outcomes already set stay."
+- **Members.** The title row with the primary "Invite a Member", then a muted line: "Everyone in the Household who logs in. Admins also manage Members, Accounts, Categories and the LLM suggestions. There is no email here: invite and reset links are passed on by hand."
+  - **Grouped by role:** three cards, at most 900px wide: "Admins · 1" ("Manage Members, Accounts, Categories and the LLM suggestions, and do everything a Member does."), "Members · 3" ("Import their Statements, work the Review queue and read the Dashboard.") and "Deactivated · 1" ("Can't log in. What they imported and decided stays."). The section a Member is in is their state, and the buttons on their row are the actions, so a state is never also a button.
+  - **A row:** the avatar, then the name (500), with an Indigo Wash "You" tag on the current Member. Under it, a muted line gives the username and the Accounts they own, or "no Accounts of their own". A Member who hasn't used their invite gets a dashed "Hasn't set a password · invited 18 Oct" tag. At the right are 30px buttons: "Make admin" or "Make Member", "Reset link" (or "New invite link"), and a ghost "Deactivate". A deactivated Member has only "Reactivate". The last active admin has no Make Member or Deactivate, and the reason stands under their row.
+  - **Confirms:** "Make Vera Novak an admin? Admins manage Members, Accounts, Categories and the LLM suggestions, and can remove another admin's rights." (Cancel / Make admin). "Deactivate Luka Novak? Luka is logged out at once and can't log in. Their 2 Accounts, Statements and Transactions stay. You can reactivate them later." (Keep active / Deactivate). Make Member and Reactivate apply at once.
+  - **Invite a Member:** a dialog with Name ("As the Dashboard shows it, e.g. in Per Member.") and Username ("What they log in with."), then "You'll get a one-time link to give them. They choose their own password through it. New Members aren't admins." and "Create and get the link".
+  - **The link:** a dialog titled "Invite link for Ana" (or "Password-reset link for Luka"). It says who to give it to and what it does ("…They choose a new password through it, which also unlocks them if they were locked out."). Then the link in a read-only 40px monospace field with a primary "Copy link" (focused, turning to "✓ Copied"), and three facts with Indigo Ink icons: "**Shown only now.** Once you close this you can't see it again; make a new one from Members if it's lost.", "Works once, until **Tuesday 27 October 2026 at 14:05**." and "There is no email here. Pass it on yourself, in a message or in person." Done closes it.
+
 ### Navigation
 The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
 - **Sidebar:** the wordmark and mark at the top. Then four destinations: Dashboard, Transactions, Review queue (with its count badge) and Import. Items are an 18px 1.5px-stroke icon plus a 500 15px label, Ink 2, padded 9px 12px. Hover takes the Hover fill. Active takes Indigo Wash with Indigo Ink and `aria-current="page"`. Dashboard stays active on all five views.
@@ -708,6 +742,7 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, the chart entrance, chevron rotation, the More and Filter sheets' slide up (cubic-bezier(.16,1,.3,1)) and the loading line are the whole motion vocabulary. Swaps themselves are instant.
 - **Do** follow the Swap feedback convention on every HTMX swap: focus by kind of swap, one polite announcement of the new state, and a `<title>` from the partial.
 - **Do** give every empty page its reason and the action that fills it.
+- **Do** replace an action that can't run with its reason, and confirm a destructive one inline, naming what it moves or keeps.
 
 ### Don't:
 - **Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.
