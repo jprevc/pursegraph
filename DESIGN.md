@@ -220,6 +220,16 @@ components:
     textColor: "{colors.ink}"
     rounded: "5px"
     height: "22px"
+  category-card:
+    backgroundColor: "{colors.card}"
+    rounded: "{rounded.card}"
+    padding: "16px 20px 20px"
+  category-card-editing:
+    borderColor: "{colors.accent}"
+  threshold-line:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-text}"
+    width: "2px"
 ---
 
 # Design System: Pursegraph
@@ -412,6 +422,7 @@ Each page-level surface has its own file in `docs/design/`, so parallel tickets 
 - **Swap feedback** (`docs/design/swap-feedback.md`)
 - **Import and the Accounts board** (`docs/design/import.md`), with Import copy
 - **Transactions page** (`docs/design/transactions-page.md`)
+- **Admin pages** (`docs/design/admin.md`): Categories, LLM suggestions and Members
 
 ### Navigation
 The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
@@ -442,6 +453,7 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, the chart entrance, chevron rotation, the More and Filter sheets' slide up (cubic-bezier(.16,1,.3,1)) and the loading line are the whole motion vocabulary. Swaps themselves are instant.
 - **Do** follow the Swap feedback convention on every HTMX swap: focus by kind of swap, one polite announcement of the new state, and a `<title>` from the partial.
 - **Do** give every empty page its reason and the action that fills it.
+- **Do** replace an action that can't run with its reason, and confirm a destructive one inline, naming what it moves or keeps.
 
 ### Don't:
 - **Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.
