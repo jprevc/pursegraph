@@ -31,4 +31,12 @@ Shots in `shots/` (desktop, light and dark).
 
 ## Findings
 
-_Pending: the variant is picked with the user (HITL)._
+**Verdict: C.** The admin pages read first, and editing is a step taken on purpose, one thing at a time. This answers finding 26's wall of controls directly: the Categories page shows no inputs at all until a card is opened.
+
+- **Categories as cards.** Each Category shows its Subcategories and counts in its own hue. Edit opens one card across two columns, and the others lock until it closes, so there is only ever one set of controls on screen.
+- **The histogram makes the threshold concrete.** You see the queued suggestions by % sure and move the line through them, which answers "what would this change?" before you save. This is the same principle as the Rules preview (#87).
+- **Members grouped by role.** The section is the state (Admins, Members, Deactivated), and the row's buttons are the actions. This separates state from action structurally, which was the P3 complaint.
+- **Confirms inline** (DESIGN.md's Manage rule). The New Member form and the link are dialogs, because the link is shown only once.
+- **A's** ⋯ menus hid every action behind a click and still needed modals. **B's** master–detail suited Members but made Categories a two-step hunt across ten Categories.
+
+Recorded in DESIGN.md's "Admin pages" section.
