@@ -835,11 +835,12 @@ function boardRow(a, mode) {
       ? `<button class="seg gap" type="button" style="left:${xp(s.start)}%;width:${xp(s.start + s.days * DAY) - xp(s.start)}%" data-gap="${a.id}:${s.start}:${s.end}" aria-label="${gapText(s)}: import a Statement" title="${gapText(s)}">${xp(s.start + s.days * DAY) - xp(s.start) > 2.2 ? gapLabel(s) : ''}</button>`
       : `<span class="seg covered${s.kind === 'new' ? ' new' : ''}" style="left:${xp(s.start)}%;width:${xp(s.start + s.days * DAY) - xp(s.start)}%" title="${segText(s)}" aria-hidden="true"></span>`).join('')}
       <span class="today" style="left:100%" aria-hidden="true"><span>today</span></span></div>${srList(a)}
-    <div class="track-note">${res && res.length ? res.map(r => `<span class="new-t">New: ${fr(r.start, r.end)} · ${pl(r.c.imported, 'Transaction', 'Transactions')}, ${r.c.waiting + r.c.ambiguous} to review</span>`).join('') : ''}
+    <div class="track-note">${res && res.length ? res.map(r => `<button class="link new-t" type="button" data-toggle="c${a.id}" aria-expanded="${!!S.open['c' + a.id]}">New: ${fr(r.start, r.end)} · ${pl(r.c.imported, 'Transaction', 'Transactions')}, ${r.c.waiting + r.c.ambiguous} to review</button>`).join('') : ''}
       ${gaps(a).map(g => `<span>${gapText(g)}</span>`).join('')}<span>Tracked from ${fd(segs[0].start)}</span></div>`
     : `<p class="no-stmts">Takes no Statements: money moved to its IBAN counts as a Transfer.</p>`;
   let expand = '';
   if (editing) expand = `<div class="expand"><div>${accountForm(a)}</div><div><h4>Delete</h4>${deleteBlock(a)}</div></div>`;
+  else if (S.open['c' + a.id] && res && res.length) expand = `<div class="expand" style="grid-template-columns:1fr">${res.map(r => `<div><h4>${esc(r.file)}</h4>${counts(r)}</div>`).join('')}</div>`;
   else if (open) expand = `<div class="expand" style="grid-template-columns:1fr">${stmtTable(a)}</div>`;
   return `<div class="board-row${open || editing ? ' open' : ''}">${who}<div>${track}</div>${expand}</div>`;
 }

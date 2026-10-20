@@ -58,4 +58,11 @@ The batch contains:
 
 ## Findings
 
-_Pending: the user's pick._
+**Verdict: B, the Accounts board.** Import is the Household's Accounts on one shared time axis, with files dropped onto the page. Accounts (Manage, admins) is the same board, with rows that edit in place.
+
+- **The stripes conflict is settled B's way.** Gaps are outlined slots with text, and the hatch stays reserved for Awaiting review, as DESIGN.md says.
+- **The domain counts stay.** B's first cut showed only "New: 1–30 Sep · 64 Transactions, 20 to review". That caption is now a disclosure that opens the full counts, because the counts are part of the trust ritual the ticket keeps.
+- **Leaving mid-import is out of scope for #86.** The import is one POST, so leaving during "checking" still imports everything, but the per-file outcomes (rejections, the Account choice) are lost.
+- **A's and C's parts that didn't win:** A's per-file report and C's guided steps. C's step 3 also can't be reopened after leaving, which made the lost-response problem most visible.
+
+Shots are in `shots/`: each variant's results, A's and C's Accounts, B idle in dark, and C idle.
