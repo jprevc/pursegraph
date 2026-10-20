@@ -10,4 +10,8 @@ Uses the five default triage labels (`needs-triage`, `needs-info`, `ready-for-ag
 
 ### Domain docs
 
-Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: one root `CONTEXT.md`, plus `docs/adr/` once the first ADR is written. See `docs/agents/domain.md`.
+
+### Prototypes
+
+Serving, handoff and screenshots for `/prototype` tickets. See `docs/agents/prototypes.md`.
