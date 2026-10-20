@@ -41,6 +41,13 @@ It also shows the last screen-reader announcement.
 
 ## Findings
 
-_Leaning to D (C revised). The verdict is still to be confirmed._
+**Verdict: D**, which is C (grouped by description, master–detail) with Show resolved, inline outcome chips and no shortcuts.
+
+- **Grouping by description won.** The queue's repeats (Bolt.eu ×3, HOFER ×2) are decided once, and the detail pane has room for the context the ticket asks for: owner, counterparty, every Transaction in the group, and what was used last time.
+- **A's tiers and B's deck lost.** A's tiers answered "bulk by confidence", but a 51 %-sure guess still sat one click from a mis-accept, and the page grew long. B's one-card flow was calm but slow for a weekly batch, and it hid the rest of the queue.
+- **Bulk is per group.** There is no queue-wide "Accept all". After a group save, the follow-ups are Undo, Make a Rule for the description, and See them in Transactions.
+- **"Something else" as a button after Accept read oddly.** Since the detail pane has room, D keeps the alternatives open as chips under "Or choose another outcome", with "Used last time" first when it differs.
+- **Tabs for All / Waiting were heavier than needed.** A "Show resolved" checkbox, off by default, is enough.
+- **Keyboard shortcuts were dropped.** Tab order and real buttons are enough for this weekly job.
 
 Shots are in `shots/`: desktop shots of each variant at the start, with the picker open, after a save and at "Queue clear"; A after its bulk accept; C's group detail; and each variant on a phone in dark mode.
