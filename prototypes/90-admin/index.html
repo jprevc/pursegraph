@@ -1,0 +1,1100 @@
+<!doctype html>
+<!-- PROTOTYPE (#90 Admin pages): throwaway, lives only on prototype/90-admin-pages. Never merge.
+     Three variants of the admin pages (Categories, LLM suggestions, Members with Invite a Member and the invite /
+     password-reset link), desktop only, switchable via ?variant=A|B|C (or the black bar, or ← / → while nothing is
+     focused). Pages: ?page=categories|llm|members (A also has newmember and link as their own pages).
+       A · Tables, row menu, dialogs     : one expandable table per page; each row's actions sit in a ⋯ menu that
+                                            names why a disabled item can't run; destructive actions ask in a modal.
+       B · Master–detail, inline confirm : a list on the left, the selected Category or Member on the right, with
+                                            each state beside its own action; drag or Alt+↑/↓; confirms inline
+                                            (DESIGN.md's Manage rule from Rules, #87).
+       C · Read first, edit one at a time: Categories as read-only cards, one opened for editing at a time; LLM as a
+                                            "how sure" histogram with the threshold line; Members grouped by role.
+     Invariants mirror ledger/categories.py and members/views.py (catch-all last and undeletable; a Category is
+     deleted only when unused; the last active admin can't be demoted or deactivated). Changes are in memory.
+     Run from the repo root: python3 -m http.server 8090, then open http://localhost:8090/prototypes/90-admin/
+     All figures are synthetic. -->
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pursegraph · Admin pages prototype</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- Tokens (from DESIGN.md / the #62 prototype) ---------- */
+:root {
+  color-scheme: light;
+  --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --faint: #9ca3af;
+  --line: #e5e7eb; --line-strong: #d1d5db;
+  --accent: #4f46e5; --accent-ink: #ffffff; --accent-soft: #eef2ff; --accent-text: #4338ca;
+  --focus: #6366f1;
+  --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+  --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10);
+  --cat-0: #4e79a7; --cat-1: #59a14f; --cat-2: #f28e2b; --cat-3: #b07aa1; --cat-4: #76b7b2;
+  --cat-5: #edc948; --cat-6: #ff9da7; --cat-7: #9c755f; --cat-8: #e15759; --cat-9: #a0cbe8;
+  --awaiting: #9ca3af;
+  --r-card: 14px; --r-ctl: 8px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+}
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] { color-scheme: dark;
+  --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
+  --line: #262b34; --line-strong: #343a46;
+  --accent: #5850ec; --accent-ink: #ffffff; --accent-soft: #1e1b4b; --accent-text: #a5b4fc;
+  --focus: #818cf8;
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / .6), 0 0 0 1px rgb(255 255 255 / .05);
+  --cat-0: #6b9bd1; --cat-1: #6cc05f; --cat-2: #f5a04d; --cat-3: #c697b8; --cat-4: #8fd0ca;
+  --cat-5: #f1d45e; --cat-6: #ffb3bb; --cat-7: #b8917a; --cat-8: #ef7a7b; --cat-9: #b5d6ef;
+  --awaiting: #6b7280;
+} }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font); font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+a { color: var(--accent-text); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.trunc { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 8px; top: -80px; z-index: 100; background: var(--card); padding: 6px 10px; border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); }
+.skip:focus { top: 8px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.brand img { width: 28px; height: 28px; margin-right: 10px; }
+.brand span { color: var(--accent-text); font-weight: 600; }
+.badge { min-width: 22px; padding: 0 7px; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex: none; }
+
+/* ---------- Controls ---------- */
+.btn { text-decoration: none; font: inherit; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 var(--s-3); border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.icon-only { width: 36px; padding: 0; justify-content: center; }
+.btn.ghost { border-color: transparent; background: none; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { color: var(--ink); background: var(--hover); }
+.btn .icon { width: 16px; height: 16px; color: var(--muted); }
+select.btn { appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+input.btn { cursor: text; font-weight: 400; min-width: 0; }
+.period { display: flex; align-items: center; gap: 2px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); height: 36px; box-shadow: 0 1px 2px rgb(16 24 40 / .04); }
+.period .btn { border: 0; box-shadow: none; height: 34px; width: 32px; padding: 0; justify-content: center; background: none; }
+.period .btn[aria-disabled="true"] { opacity: .35; pointer-events: none; }
+.period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
+.period-label small { font-weight: 400; color: var(--muted); }
+.theme { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; gap: 2px; background: var(--ground); border-radius: var(--r-ctl); }
+.theme button { display: grid; place-items: center; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.theme button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.theme .icon { width: 16px; height: 16px; }
+details.pop { position: relative; }
+details.pop > summary { list-style: none; }
+details.pop > summary::-webkit-details-marker { display: none; }
+.pop-panel { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--card); border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); padding: var(--s-2); display: grid; gap: 2px; }
+.pop-panel.right { left: auto; right: 0; }
+.pop-panel.up { top: auto; bottom: calc(100% + 6px); }
+.pop-panel label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; }
+.pop-panel label:hover { background: var(--hover); }
+.pop-panel .pop-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 8px 8px 2px; }
+.pop-panel .item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; color: var(--ink-2); text-decoration: none; font-weight: 500; border: 0; background: none; font: inherit; cursor: pointer; text-align: left; }
+.pop-panel .item:hover { background: var(--hover); color: var(--ink); }
+.pop-panel .item.on { background: var(--accent-soft); color: var(--accent-text); }
+.pop-panel hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+
+/* ---------- Shared page content ---------- */
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-5) var(--s-5) 0; }
+.card-head h2 { font-size: 15px; font-weight: 600; margin-right: auto; }
+.card-head .meta { color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-bottom: var(--s-4); }
+.tile { padding: var(--s-5); }
+.tile .label { color: var(--muted); font-weight: 500; }
+.tile .value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: var(--s-1); }
+.tile .compare { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.grid { display: grid; grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr); gap: var(--s-4); align-items: start; }
+.donut-wrap { position: relative; height: 340px; margin: var(--s-2) var(--s-4) var(--s-5); }
+.donut { position: absolute; inset: 0; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-center .k { color: var(--muted); font-size: 13px; font-weight: 500; }
+.donut-center .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.donut-center .s { color: var(--muted); font-size: 13px; }
+.cats { list-style: none; margin: var(--s-3) 0 0; padding: 0 var(--s-2) var(--s-2); }
+.cat { display: grid; grid-template-columns: minmax(0, 1fr) 140px 52px 104px; align-items: center; gap: var(--s-3); padding: 10px var(--s-3); border-radius: 10px; }
+.cat:hover, .cat.hot { background: var(--hover); }
+.cat .name { font-weight: 500; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bar { height: 6px; border-radius: var(--r-pill); background: var(--ground); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; }
+.cat .share { color: var(--muted); text-align: right; font-size: 13px; }
+.cat .amt { text-align: right; font-weight: 600; }
+.awaiting .dot { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+.awaiting .bar i { background: repeating-linear-gradient(45deg, var(--awaiting) 0 3px, color-mix(in srgb, var(--awaiting) 40%, transparent) 3px 6px) !important; }
+.awaiting .name a { font-weight: 400; font-size: 13px; }
+.cats-total { display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); font-weight: 600; }
+.lens { padding: var(--s-2) var(--s-5) var(--s-5); display: grid; gap: var(--s-3); }
+.lens-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 110px; gap: var(--s-3); align-items: center; }
+.lens-row .bar { height: 10px; }
+.lens-row .amt { text-align: right; font-weight: 600; }
+.stand-in { color: var(--muted); font-size: 13px; padding: 0 var(--s-5) var(--s-5); }
+.tx { width: 100%; border-collapse: collapse; }
+.tx th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-5) var(--s-2); border-bottom: 1px solid var(--line); }
+.tx td { padding: var(--s-3) var(--s-5); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tx tr:last-child td { border-bottom: 0; }
+.tx tbody tr:hover { background: var(--raised); }
+.tx .r { text-align: right; }
+.tx .desc { font-weight: 500; } .tx .desc small { display: block; font-weight: 400; color: var(--muted); }
+.tx .m-meta { display: none; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--raised); color: var(--ink-2); font-size: 12px; font-weight: 500; border: 1px solid var(--line); white-space: nowrap; }
+.empty { padding: var(--s-8) var(--s-5); text-align: center; color: var(--muted); }
+.drop { margin: var(--s-4) var(--s-5) var(--s-5); border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); padding: var(--s-8); text-align: center; color: var(--muted); }
+.stack { display: grid; gap: var(--s-4); }
+.synthetic { margin: var(--s-6) 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.page-sub { color: var(--muted); margin: -12px 0 var(--s-4); }
+/* =====================================================================
+   Variant B · Few destinations (jobs, not modules)
+   ===================================================================== */
+.vB .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.vB .page { min-width: 0; }
+.vB .sidebar { position: sticky; top: 0; height: 100vh; background: var(--card); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: var(--s-5) var(--s-3); gap: 2px; }
+.vB .sidebar > .brand { padding: 2px var(--s-2) var(--s-6); }
+.vB .nav { display: flex; align-items: center; gap: 12px; padding: 9px var(--s-3); border-radius: var(--r-ctl); color: var(--ink-2); text-decoration: none; font-weight: 500; font-size: 15px; }
+.vB .nav:hover { background: var(--hover); color: var(--ink); }
+.vB .nav[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
+.vB .nav .badge { margin-left: auto; }
+.vB .manage { margin-top: var(--s-5); }
+.vB .manage summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-2) var(--s-3); border-radius: var(--r-ctl); }
+.vB .manage summary::-webkit-details-marker { display: none; }
+.vB .manage summary:hover { background: var(--hover); }
+.vB .manage summary .icon { width: 14px; height: 14px; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.vB .manage[open] summary .icon { transform: rotate(90deg); }
+.vB .manage .nav { font-size: 14px; padding: 6px var(--s-3) 6px 34px; }
+.vB .sidebar-foot { margin-top: auto; }
+.vB .account { width: 100%; display: flex; align-items: center; gap: 10px; padding: var(--s-2); border-radius: var(--r-ctl); cursor: pointer; }
+.vB .account:hover { background: var(--hover); }
+.vB .account .who { line-height: 1.25; } .vB .account .who small { color: var(--muted); }
+.vB .account .icon { margin-left: auto; color: var(--faint); width: 16px; height: 16px; }
+.vB .m-top, .vB .tabbar, .vB .sheet, .vB .scrim { display: none; }
+.vB main { padding: var(--s-6) var(--s-8) 110px; max-width: 1360px; }
+.vB .title-row { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.vB .title-row h1 { font-size: 24px; font-weight: 600; margin-right: auto; }
+.vB .tabs { display: flex; gap: var(--s-5); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.vB .tabs a { flex: none; padding: var(--s-2) 0 10px; color: var(--muted); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.vB .tabs a:hover { color: var(--ink); }
+.vB .tabs a[aria-current] { color: var(--accent-text); border-bottom-color: var(--accent); }
+.vB .context { position: sticky; top: 0; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-3) 0; margin-bottom: var(--s-3); background: color-mix(in srgb, var(--ground) 92%, transparent); backdrop-filter: blur(10px); }
+.vB .context .grow { flex: 1; }
+.vB .m-top, .vB .tabbar { display: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- PROTOTYPE switcher: deliberately NOT the design ---------- */
+.proto { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 999px; background: #000; color: #fff; font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 6px 24px rgb(0 0 0 / .35), 0 0 0 2px #facc15; }
+.proto button { white-space: nowrap; font: inherit; color: #000; background: #facc15; border: 0; border-radius: 999px; height: 26px; min-width: 26px; padding: 0 8px; cursor: pointer; font-weight: 700; }
+.proto button.toggle { background: #333; color: #fff; font-weight: 500; }
+.proto .lbl { font-weight: 700; padding: 0 4px; white-space: nowrap; }
+.proto .state { color: #a3a3a3; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+
+/* =====================================================================
+   PROTOTYPE (#90): Admin pages
+   ===================================================================== */
+.page-sub { color: var(--muted); margin: 0 0 var(--s-4); max-width: 76ch; }
+.cap { color: var(--muted); font-size: 12px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn.primary .icon { color: var(--accent-ink); }
+.btn.sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.btn.sm.icon-only { width: 30px; padding: 0; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+.amt, .n { font-variant-numeric: tabular-nums; }
+.tagp { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 0 7px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap; line-height: 18px; }
+.tagp.you { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.tagp.quiet { border-style: dashed; color: var(--muted); }
+.notice { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2) var(--s-3); padding: var(--s-3) var(--s-4); margin-bottom: var(--s-4); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--ink); }
+.notice .icon { color: var(--accent-text); }
+.notice .grow { flex: 1; min-width: 200px; }
+.why { display: flex; gap: 6px; align-items: flex-start; color: var(--muted); font-size: 12px; }
+.why .icon { width: 14px; height: 14px; margin-top: 2px; }
+input.btn { cursor: text; font-weight: 400; }
+.field { display: grid; gap: 6px; }
+.field > span { font-weight: 500; font-size: 13px; }
+.field small { color: var(--muted); font-size: 12px; }
+.field .btn { width: 100%; height: 40px; }
+.field .form-actions .btn { width: auto; }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.confirm-inline { margin: var(--s-2) 0; padding: var(--s-3) var(--s-4); border-radius: var(--r-ctl); background: var(--raised); border: 1px solid var(--line-strong); display: grid; gap: var(--s-2); }
+.confirm-inline p { margin: 0; color: var(--ink-2); }
+.confirm-inline p b { color: var(--ink); }
+.confirm-inline .form-actions { justify-content: flex-end; }
+dialog.dlg { border: 0; border-radius: var(--r-card); padding: var(--s-6); max-width: 480px; width: calc(100vw - 32px); background: var(--card); color: var(--ink); box-shadow: var(--shadow-pop); }
+dialog.dlg::backdrop { background: rgb(0 0 0 / .4); }
+dialog.dlg h2 { font-size: 17px; margin-bottom: var(--s-2); }
+dialog.dlg p { margin: 0 0 var(--s-3); color: var(--ink-2); }
+dialog.dlg .form-actions { justify-content: flex-end; margin-top: var(--s-4); }
+dialog.dlg.wide { max-width: 560px; }
+.toast { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--r-ctl); background: var(--ink); color: var(--card); box-shadow: var(--shadow-pop); font-weight: 500; }
+.toast .icon { width: 16px; height: 16px; }
+.menu { position: relative; display: inline-block; }
+.menu-panel { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 240px; background: var(--card); border-radius: var(--r-ctl); box-shadow: var(--shadow-pop); padding: 6px; display: grid; gap: 1px; text-align: left; }
+.menu-panel button { display: grid; grid-template-columns: 18px 1fr; gap: 2px 10px; align-items: center; padding: 7px 8px; border: 0; background: none; border-radius: 6px; font: inherit; color: var(--ink-2); font-weight: 500; text-align: left; cursor: pointer; }
+.menu-panel button:hover { background: var(--hover); color: var(--ink); }
+.menu-panel button .icon { width: 16px; height: 16px; color: var(--muted); }
+.menu-panel button small { grid-column: 2; font-weight: 400; color: var(--muted); font-size: 12px; }
+.menu-panel button[aria-disabled="true"] { cursor: default; color: var(--faint); }
+.menu-panel button[aria-disabled="true"]:hover { background: none; }
+.menu-panel hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.link-box { display: flex; gap: var(--s-2); }
+.link-box input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; height: 40px; }
+.link-box .btn { height: 40px; }
+.facts { list-style: none; margin: var(--s-3) 0 0; padding: 0; display: grid; gap: 8px; }
+.facts li { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-2); }
+.facts .icon { color: var(--accent-text); width: 18px; height: 18px; margin-top: 1px; }
+.facts b { color: var(--ink); }
+.hue { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+.handle { cursor: grab; color: var(--faint); user-select: none; display: grid; place-items: center; }
+.handle .icon { width: 16px; height: 16px; }
+.dragging { opacity: .4; }
+.av-lg { width: 44px; height: 44px; font-size: 17px; }
+
+/* ---------- A · Tables with a row menu ---------- */
+.at { width: 100%; border-collapse: collapse; }
+.at th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--s-3) var(--s-4) var(--s-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.at th.r, .at td.r { text-align: right; }
+.at td { padding: 10px var(--s-4); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.at tbody tr:last-child td { border-bottom: 0; }
+.at tr.cat-row td { background: var(--raised); }
+.at tr.cat-row .nm { font-weight: 600; }
+.at tr.sub-row td:first-child { padding-left: 52px; color: var(--ink-2); }
+.at tr.add-row td:first-child { padding-left: 52px; }
+.at tr.fresh td { background: var(--accent-soft) !important; }
+.at .nm { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.at .tog { width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: none; border-radius: 6px; color: var(--muted); cursor: pointer; margin-left: -6px; }
+.at .tog:hover { background: var(--hover); }
+.at .tog .icon { width: 16px; height: 16px; transition: transform .2s cubic-bezier(.16,1,.3,1); }
+.at .tog[aria-expanded="true"] .icon { transform: rotate(90deg); }
+.at .act { width: 1%; white-space: nowrap; text-align: right; }
+.at .rn { display: flex; gap: 6px; align-items: center; }
+.at .rn input { height: 32px; width: 260px; }
+.at .add { display: flex; gap: 6px; align-items: center; }
+.at .add input { height: 32px; width: 260px; }
+.at td.muted, .at .muted { color: var(--muted); }
+.at tr.off td { color: var(--muted); }
+.at .who { display: flex; align-items: center; gap: 10px; }
+.at .who b { font-weight: 500; color: var(--ink); }
+.at .accts { display: flex; flex-wrap: wrap; gap: 4px; }
+.status-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.st-ok { background: var(--ink-2); }
+.st-down { background: transparent; box-shadow: inset 0 0 0 2px var(--ink-2); }
+.st-off { background: transparent; box-shadow: inset 0 0 0 2px var(--line-strong); }
+.llm-a { display: grid; gap: var(--s-4); max-width: 880px; }
+.llm-a .card { padding: var(--s-5); }
+.llm-a h2 { font-size: 15px; font-weight: 600; margin-bottom: var(--s-2); }
+.pct { display: inline-flex; align-items: center; gap: 8px; }
+.pct input, .field .pct input.btn { width: 96px; height: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+.pct span { font-weight: 500; }
+.kv { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 8px var(--s-4); margin: var(--s-3) 0 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.link-page { max-width: 640px; }
+.link-page .card { padding: var(--s-6); display: grid; gap: var(--s-4); }
+.form-page { max-width: 520px; }
+.form-page .card { padding: var(--s-6); display: grid; gap: var(--s-4); }
+
+/* ---------- B · Master–detail ---------- */
+.md { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.md .lst { list-style: none; margin: 0; padding: var(--s-2); display: grid; gap: 2px; }
+.md .grp-h { font-size: 12px; font-weight: 500; color: var(--muted); padding: 10px 10px 4px; }
+.md .it { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 8px 10px; border-radius: var(--r-ctl); cursor: pointer; }
+.md .it:hover { background: var(--hover); }
+.md .it[aria-selected="true"] { background: var(--accent-soft); }
+.md .it[aria-selected="true"] .nm { color: var(--accent-text); }
+.md .it .nm { font-weight: 500; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.md .it .c { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.md .it .sub { grid-column: 2 / -1; color: var(--muted); font-size: 12px; }
+.md .it.off .nm { color: var(--muted); }
+.md .new { margin: var(--s-2); }
+.md .new .btn { width: 100%; justify-content: center; }
+.md .detail { padding: var(--s-5); display: grid; gap: var(--s-4); }
+.md .dh { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.md .dh h2 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.md .dh h2 .hue { width: 12px; height: 12px; }
+.md .dh input { height: 36px; width: 280px; font-size: 15px; font-weight: 600; }
+.md .meta { color: var(--muted); margin-top: -8px; }
+.sl { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.sl > li { border-bottom: 1px solid var(--line); }
+.sl .row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: var(--s-3); align-items: center; padding: 8px 4px; }
+.sl .row .nm { font-weight: 500; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sl .row .c { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+.sl .row .tools { display: flex; gap: 2px; }
+.sl .row input { height: 32px; width: 100%; max-width: 320px; }
+.sl > li.fresh { background: var(--accent-soft); }
+.sl > li.ca .row { color: var(--ink-2); }
+.sl > li.add .row { grid-template-columns: 22px minmax(0, 1fr) auto; }
+.dl { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 0; margin: 0; border-top: 1px solid var(--line); }
+.dl > div { display: contents; }
+.dl dt, .dl dd { padding: 12px 0; border-bottom: 1px solid var(--line); margin: 0; }
+.dl dt { color: var(--muted); }
+.dl dd { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.dl dd .grow { flex: 1; }
+.dl dd .confirm-inline { flex-basis: 100%; }
+.llm-b { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s-4); align-items: start; }
+.llm-b .card { padding: var(--s-5); }
+.llm-b h2 { font-size: 15px; font-weight: 600; margin-bottom: var(--s-3); }
+.sentence-set { font-size: 17px; line-height: 2; color: var(--ink-2); }
+.sentence-set b { color: var(--ink); }
+.slider { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: var(--s-3); align-items: center; margin: var(--s-3) 0; }
+.slider input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider output { font-size: 20px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.effect { padding: var(--s-3) var(--s-4); border-radius: var(--r-ctl); background: var(--raised); border: 1px solid var(--line); color: var(--ink-2); }
+.effect b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.sv { display: grid; gap: 0; }
+.sv > div { display: grid; grid-template-columns: 1fr auto; gap: var(--s-3); padding: 10px 0; border-bottom: 1px solid var(--line); }
+.sv > div:last-child { border-bottom: 0; }
+.sv dt { color: var(--muted); } .sv dd { margin: 0; text-align: right; font-weight: 500; }
+
+/* ---------- C · Read first, edit one at a time ---------- */
+.cg { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s-4); align-items: start; }
+.cc { padding: var(--s-4) var(--s-5) var(--s-5); position: relative; overflow: hidden; }
+.cc::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--h); }
+.cc .ch { display: flex; align-items: center; gap: var(--s-2); margin: 4px 0 var(--s-2); }
+.cc .ch h2 { font-size: 15px; font-weight: 600; margin-right: auto; display: flex; align-items: center; gap: 8px; }
+.cc .ch .k { color: var(--muted); font-size: 12px; font-weight: 500; }
+.cc ul.ro { list-style: none; margin: 0; padding: 0; }
+.cc ul.ro li { display: flex; justify-content: space-between; gap: var(--s-3); padding: 5px 0; color: var(--ink-2); font-size: 13px; border-top: 1px solid var(--line); }
+.cc ul.ro li:first-child { border-top: 0; }
+.cc ul.ro li .c { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cc ul.ro li .t { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cc.editing { grid-column: span 2; box-shadow: 0 0 0 2px var(--accent), var(--shadow-pop); }
+.cc .ed { display: grid; gap: 4px; }
+.cc .ed-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 30px 30px 30px; gap: var(--s-2); align-items: center; padding: 4px 0; }
+.cc .ed-row input { height: 34px; width: 100%; }
+.cc .ed-row .c { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cc .ed-row.fresh input { border-color: var(--accent); }
+.cc .ed-name { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2); margin-bottom: var(--s-3); }
+.cc .ed-name input { height: 38px; font-weight: 600; font-size: 15px; }
+.cc .ed-foot { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.cc .ed-foot .grow { flex: 1; }
+.cc-new { border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); min-height: 160px; display: grid; place-items: center; color: var(--muted); background: none; font: inherit; cursor: pointer; }
+.cc-new:hover { background: var(--card); color: var(--ink); }
+.cc-new .icon { width: 22px; height: 22px; display: block; margin: 0 auto 6px; }
+.llm-c { display: grid; gap: var(--s-4); max-width: 980px; }
+.llm-c .card { padding: var(--s-5); }
+.llm-c h2 { font-size: 15px; font-weight: 600; }
+.strip { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2) var(--s-5); padding: var(--s-4) var(--s-5); }
+.strip .grow { flex: 1; }
+.strip .stat { display: grid; }
+.strip .stat .k { color: var(--muted); font-size: 12px; font-weight: 500; }
+.strip .stat .v { font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.hist { position: relative; display: grid; grid-template-columns: repeat(20, 1fr); gap: 4px; align-items: end; height: 180px; margin: var(--s-6) 0 var(--s-2); padding: 0 2px; border-bottom: 1px solid var(--line-strong); }
+.hist .b { position: relative; background: var(--line-strong); border-radius: 4px 4px 0 0; min-height: 2px; }
+.hist .b.over { background: var(--ink-2); }
+.hist .b span { position: absolute; top: -20px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hist .thr { position: absolute; top: -12px; bottom: -6px; width: 2px; background: var(--accent); pointer-events: none; }
+.hist .thr span { position: absolute; top: -12px; left: 6px; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--accent-text); }
+.hx { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; font-size: 11px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: var(--s-4); flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: var(--s-3); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.ctl-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-top: var(--s-4); }
+.ctl-row input[type=range] { flex: 1; min-width: 200px; accent-color: var(--accent); }
+.roles { display: grid; gap: var(--s-4); max-width: 900px; }
+.roles .card-head h2 .n { color: var(--muted); font-weight: 400; }
+.roles .card-head p { margin: 0; flex-basis: 100%; color: var(--muted); font-size: 13px; }
+.roles .card-head { flex-wrap: wrap; padding-bottom: var(--s-2); }
+.rl { list-style: none; margin: 0; padding: 0 var(--s-3) var(--s-3); }
+.rl > li { border-top: 1px solid var(--line); }
+.rl > li:first-child { border-top: 0; }
+.rl .row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: var(--s-3); align-items: center; padding: 10px var(--s-2); }
+.rl .row .nm { display: grid; } .rl .row .nm b { font-weight: 500; display: flex; align-items: center; gap: 8px; } .rl .row .nm small { color: var(--muted); }
+.rl .row .acts { display: flex; gap: var(--s-2); }
+.rl > li.fresh { background: var(--accent-soft); border-radius: var(--r-ctl); }
+.rl > li .confirm-inline { margin: 0 var(--s-2) var(--s-3); }
+.rl .empty-li { color: var(--muted); padding: var(--s-3) var(--s-2); font-size: 13px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-4.2-7.6"/><path d="m9 11 3 3 9-9"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-updown" viewBox="0 0 24 24"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-rule" viewBox="0 0 24 24"><path d="M4 6h10M4 12h7M4 18h10M17 9l3 3-3 3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r=".9"/><circle cx="15" cy="6" r=".9"/><circle cx="9" cy="12" r=".9"/><circle cx="15" cy="12" r=".9"/><circle cx="9" cy="18" r=".9"/><circle cx="15" cy="18" r=".9"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5L20 16M20 20v-4h-4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4 3 7.5 7 9 4-1.5 7-5 7-9V6l-7-3z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5 3.5-5 3.5z"/></symbol>
+</svg>
+
+<div id="app"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<div class="proto" id="proto" role="region" aria-label="Prototype switcher (not part of the design)"></div>
+
+<script>
+// ===================== Data (synthetic) =====================
+// The seeded list from ledger/migrations/0003_seed_default_categories.py; the last Subcategory is the catch-all.
+const CATEGORY_LIST = [
+  ['Food', 'spending', ['Groceries', 'Restaurants & cafés', 'Fast food & takeaway', 'Other']],
+  ['Home', 'spending', ['Rent / mortgage', 'Utilities', 'Internet & phone', 'Furniture & household', 'Maintenance & repairs', 'Other']],
+  ['Transport', 'spending', ['Fuel', 'Parking & tolls', 'Car maintenance', 'Car insurance & registration', 'Public transport & car sharing', 'Other']],
+  ['Health', 'spending', ['Pharmacy', 'Doctor & dental', 'Health insurance', 'Other']],
+  ['Children', 'spending', ['Childcare & school', 'Activities', 'Clothes & toys', 'Other']],
+  ['Shopping', 'spending', ['Clothing & shoes', 'Electronics', 'Gifts', 'Personal care', 'Other']],
+  ['Leisure', 'spending', ['Travel', 'Hobbies & sport', 'Entertainment & going out', 'Subscriptions & digital services', 'Other']],
+  ['Finance', 'spending', ['Bank fees', 'Insurance (non-health)', 'Taxes & fines', 'Other']],
+  ['Other', 'spending', ['Cash withdrawal', 'Payments to people', 'Miscellaneous']],
+  ['Income', 'income', ['Salary', 'Benefits & allowances', 'Interest', 'Gifts received', 'Other income']],
+];
+const TX_COUNTS = { Groceries: 412, 'Restaurants & cafés': 96, 'Fast food & takeaway': 41, Utilities: 38, 'Internet & phone': 24, 'Rent / mortgage': 12, Fuel: 77, Pharmacy: 31, 'Childcare & school': 22, 'Clothing & shoes': 45, Electronics: 9, Gifts: 0, Travel: 18, 'Subscriptions & digital services': 64, 'Bank fees': 58, Salary: 24, Interest: 12, 'Cash withdrawal': 27, 'Payments to people': 19 };
+const RULE_COUNTS = { Groceries: 4, Utilities: 2, 'Internet & phone': 1, Fuel: 2, 'Subscriptions & digital services': 3, Salary: 2, 'Rent / mortgage': 1, 'Restaurants & cafés': 1 };
+let CATS, NEXT_ID;
+const MEMBERS_SEED = [
+  { id: 1, name: 'Maja Novak', username: 'maja', admin: true, active: true, usable: true, accounts: ['Maja · N26', 'Joint · Sparkasse'] },
+  { id: 2, name: 'Luka Novak', username: 'luka', admin: false, active: true, usable: true, accounts: ['Luka · Revolut', 'Joint · Sparkasse'] },
+  { id: 3, name: 'Vera Novak', username: 'vera', admin: false, active: true, usable: true, accounts: [] },
+  { id: 4, name: 'Tina Kos', username: 'tina', admin: false, active: true, usable: false, invited: '18 Oct', accounts: [] },
+  { id: 5, name: 'Rok Novak', username: 'rok', admin: false, active: false, usable: true, accounts: ['Rok · N26 (closed)'] },
+];
+const ME = 1;
+let MEMBERS, LLM;
+function seed() {
+  NEXT_ID = 1000;
+  CATS = CATEGORY_LIST.map(([name, kind, subs], i) => ({
+    id: i + 1, name, kind,
+    subs: subs.map((s, j) => ({
+      id: (i + 1) * 100 + j + 1, name: s, catchAll: j === subs.length - 1, bankFees: s === 'Bank fees',
+      tx: TX_COUNTS[s] ?? (j === subs.length - 1 ? 6 + ((i * 7) % 11) : 3 + ((i * 13 + j * 5) % 17)), rules: RULE_COUNTS[s] ?? 0,
+    })),
+  }));
+  MEMBERS = MEMBERS_SEED.map(m => ({ ...m, accounts: [...m.accounts] }));
+  // The queued suggestions, as the model's own probability; all below the threshold, or they'd be decided.
+  LLM = { thr: 85, sug: [0.84, 0.81, 0.78, 0.74, 0.72, 0.69, 0.66, 0.63, 0.58, 0.55, 0.52, 0.48, 0.44, 0.41, 0.37, 0.31, 0.26], waiting: 5, byLlm: 48, offered: null };
+}
+
+// ===================== Helpers =====================
+const fmtN = new Intl.NumberFormat('sl-SI', { useGrouping: 'always' });
+const n = v => fmtN.format(v);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ic = k => `<svg class="icon" aria-hidden="true"><use href="#i-${k}"/></svg>`;
+const pl = (k, one, many = one + 's') => `${n(k)} ${k === 1 ? one : many}`;
+const hue = c => `var(--cat-${(c.id - 1) % 10})`;
+const dotC = c => `<span class="hue" style="background:${hue(c)}"></span>`;
+const catOf = sid => CATS.find(c => c.subs.some(s => s.id === sid));
+const subOf = sid => catOf(sid)?.subs.find(s => s.id === sid);
+const catById = id => CATS.find(c => c.id === id);
+const catTx = c => c.subs.reduce((a, s) => a + s.tx, 0);
+const catRules = c => c.subs.reduce((a, s) => a + s.rules, 0);
+const catchAll = c => c.subs.find(s => s.catchAll);
+const movable = c => c.subs.filter(s => !s.catchAll);
+const counts = s => `${pl(s.tx, 'Transaction')}${s.rules ? ` · ${pl(s.rules, 'Rule')}` : ''}`;
+const mById = id => MEMBERS.find(m => m.id === id);
+const initial = m => m.name[0];
+const activeAdmins = () => MEMBERS.filter(m => m.active && m.admin);
+const lastAdmin = m => m.active && m.admin && activeAdmins().length === 1;
+const roleText = m => m.admin ? 'Admin' : 'Member';
+const statusText = m => !m.active ? 'Deactivated' : !m.usable ? `Hasn't set a password yet` : 'Active';
+const first = m => m.name.split(' ')[0];
+
+// Why a thing can't be done, or null. The copy is the design.
+function whyNoDeleteCat(c) {
+  const t = catTx(c), r = catRules(c);
+  if (t) return `${c.name} still has ${pl(t, 'Transaction')}. Delete its Subcategories first, then recategorize what is left in ${catchAll(c).name}.`;
+  if (r) return `${pl(r, 'Rule')} still categorize into ${c.name}.`;
+  return null;
+}
+const whyNoDeleteSub = s => s.catchAll ? `A catch-all can't be deleted: it takes the Transactions of a deleted Subcategory.` : null;
+const whyNoDown = (c, s) => s.catchAll ? 'The catch-all is always last.' : movable(c).at(-1) === s ? 'The catch-all stays last.' : null;
+const whyNoUp = (c, s) => s.catchAll ? 'The catch-all is always last.' : movable(c)[0] === s ? null : null;
+const whyNoDemote = m => lastAdmin(m) ? `${m.id === ME ? 'You are' : `${first(m)} is`} the only active admin. Make someone else an admin first.` : null;
+const whyNoDeactivate = m => lastAdmin(m) ? `${m.id === ME ? 'You are' : `${first(m)} is`} the only active admin, so ${m.id === ME ? 'you' : 'they'} can't be deactivated.` : m.id === ME ? null : null;
+const deleteSubText = s => { const c = catOf(s.id), ca = catchAll(c);
+  return `Delete <b>${esc(c.name)} › ${esc(s.name)}</b>? Its ${pl(s.tx, 'Transaction')}${s.rules ? ` and ${pl(s.rules, 'Rule')}` : ''} move to <b>${esc(c.name)} › ${esc(ca.name)}</b>. Queued suggestions for it are asked again.`; };
+const deleteCatText = c => `Delete <b>${esc(c.name)}</b> and its catch-all ${esc(catchAll(c).name)}? Nothing uses it.`;
+const deactivateText = m => `Deactivate <b>${esc(m.name)}</b>? ${m.id === ME ? 'You are logged out at once' : `${first(m)} is logged out at once`} and can't log in. ${m.accounts.length ? `Their ${pl(m.accounts.length, 'Account')}, Statements and Transactions stay.` : 'Nothing they imported or decided is removed.'} You can reactivate them later.`;
+const makeAdminText = m => `Make <b>${esc(m.name)}</b> an admin? Admins manage Members, Accounts, Categories and the LLM suggestions, and can remove another admin's rights.`;
+const resuggestText = () => `Ask the LLM again about the <b>${pl(LLM.sug.length, 'suggestion')}</b> in the Review queue? They're cleared and come back as the LLM answers. Outcomes already set stay.`;
+
+// ===================== Operations (in memory) =====================
+function renameSub(id, name) { const s = subOf(id); if (name.trim() && name !== s.name) { s.name = name.trim(); return `Renamed to ${s.name}.`; } return null; }
+function renameCat(id, name) { const c = catById(id); if (name.trim() && name !== c.name) { c.name = name.trim(); return `Renamed to ${c.name}.`; } return null; }
+function moveSub(id, dir) {
+  const c = catOf(id), list = movable(c), i = list.findIndex(s => s.id === id), j = i + dir;
+  if (j < 0 || j >= list.length) return null;
+  [list[i], list[j]] = [list[j], list[i]]; c.subs = [...list, catchAll(c)];
+  return `Moved ${list[j].name} to ${j + 1} of ${list.length}.`;
+}
+function moveCat(id, dir) {
+  const i = CATS.findIndex(c => c.id === id), j = i + dir;
+  if (j < 0 || j >= CATS.length) return null;
+  [CATS[i], CATS[j]] = [CATS[j], CATS[i]];
+  return `Moved ${CATS[j].name} to ${j + 1} of ${CATS.length}.`;
+}
+function deleteSub(id) {
+  const c = catOf(id), s = subOf(id), ca = catchAll(c);
+  ca.tx += s.tx; ca.rules += s.rules; c.subs = c.subs.filter(x => x.id !== id);
+  return `Deleted ${s.name}. ${pl(s.tx, 'Transaction')}${s.rules ? ` and ${pl(s.rules, 'Rule')}` : ''} moved to ${c.name} › ${ca.name}.`;
+}
+function deleteCat(id) { const c = catById(id); CATS = CATS.filter(x => x.id !== id); return `Deleted ${c.name}.`; }
+function addSub(cid, name) {
+  const c = catById(cid); if (!name.trim()) return null;
+  const s = { id: ++NEXT_ID, name: name.trim(), catchAll: false, bankFees: false, tx: 0, rules: 0 };
+  c.subs = [...movable(c), s, catchAll(c)]; S.fresh = s.id; return `Added ${c.name} › ${s.name}.`;
+}
+function addCat(name, kind) {
+  if (!name.trim()) return null;
+  // A new Category takes the next id, and its hue follows the id, not its place.
+  const c = { id: Math.max(...CATS.map(x => x.id)) + 1, name: name.trim(), kind, subs: [{ id: ++NEXT_ID, name: kind === 'income' ? 'Other income' : 'Other', catchAll: true, bankFees: false, tx: 0, rules: 0 }] };
+  CATS.push(c); S.fresh = c.id; return `Added ${c.name}, with its catch-all ${c.subs[0].name}.`;
+}
+function setAdmin(id, v) { const m = mById(id); m.admin = v; S.fresh = id; return v ? `${m.name} is now an admin.` : `${m.name} is no longer an admin.`; }
+function setActive(id, v) { const m = mById(id); m.active = v; S.fresh = id; return v ? `${m.name} is active again and can log in.` : `${m.name} is deactivated.`; }
+function newMember(name, username) {
+  const m = { id: ++NEXT_ID, name: name.trim() || 'Ana Novak', username: (username.trim() || 'ana').toLowerCase(), admin: false, active: true, usable: false, invited: '20 Oct', accounts: [] };
+  MEMBERS.push(m); S.fresh = m.id; return m;
+}
+const TOKEN = 'cz8h1q-5f2e9c41b7d03a6e8f1c2b4d';
+const linkFor = m => `https://pursegraph.lan/members/set-password/${btoa(String(m.id)).replace(/=+$/, '')}/${TOKEN}/`;
+const EXPIRES = 'Tuesday 27 October 2026 at 14:05';
+function saveThreshold(v) {
+  const was = LLM.thr; LLM.thr = v;
+  const clearing = LLM.sug.filter(p => p * 100 >= v);
+  LLM.offered = v < was && clearing.length ? clearing.length : null;
+  return `Auto-accept is now at ${v} % sure.`;
+}
+function acceptOffered() { const k = LLM.offered; LLM.sug = LLM.sug.filter(p => p * 100 < LLM.thr); LLM.byLlm += k; LLM.offered = null; return `Accepted ${pl(k, 'suggestion')}. They left the Review queue.`; }
+function resuggest() { const k = LLM.sug.length; LLM.waiting += k; LLM.sug = []; LLM.offered = null; return `${pl(k, 'suggestion')} cleared; the LLM will be asked again.`; }
+const wouldClear = v => LLM.sug.filter(p => p * 100 >= v).length;
+const queueCount = () => LLM.sug.length + LLM.waiting;
+
+// ===================== State =====================
+const VARIANTS = { A: 'Tables, row menu, dialogs', B: 'Master–detail, inline confirm', C: 'Read first, edit one at a time' };
+const PAGES = { categories: 'Categories', llm: 'LLM suggestions', members: 'Members', newmember: 'New Member', link: 'Invite link' };
+const STATUSES = ['ok', 'down', 'off'];
+const qs = new URLSearchParams(location.search);
+seed();
+const S = {
+  variant: VARIANTS[qs.get('variant')] ? qs.get('variant') : 'A',
+  page: PAGES[qs.get('page')] ? qs.get('page') : 'categories',
+  llm: STATUSES.includes(qs.get('llm')) ? qs.get('llm') : 'ok',
+  open: new Set([1]), menu: null, renaming: null, confirm: null, dialog: null,
+  selCat: 1, editCat: null, selMember: ME, mpane: 'member',
+  link: null, fresh: null, toast: null, said: '', draftThr: null, newCat: false,
+};
+if (S.page === 'link') S.link = { id: 4, invite: true };
+if (S.page === 'newmember' && S.variant !== 'A') { S.page = 'members'; S.mpane = 'new'; if (S.variant === 'C') S.dialog = { kind: 'new' }; }
+if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+
+// ===================== Shell (from #63, Manage open) =====================
+function shell(content) {
+  const cur = S.page === 'newmember' || S.page === 'link' ? 'members' : S.page;
+  const nav = (id, text) => `<a class="nav" href="#" data-nav="${id}"${cur === id ? ' aria-current="page"' : ''}>${text}</a>`;
+  const brand = `<a class="brand" href="#"><img src="favicon.svg" alt="">Purse<span>graph</span></a>`;
+  const q = queueCount();
+  return `<div class="shell">
+  <aside class="sidebar" aria-label="Main">${brand}
+    <a class="nav" href="#">${ic('home')}Dashboard</a><a class="nav" href="#">${ic('list')}Transactions</a><a class="nav" href="#">${ic('check')}Review queue${q ? `<span class="badge">${q}</span>` : ''}</a><a class="nav" href="#">${ic('upload')}Import</a>
+    <details class="manage" open><summary>${ic('right')}Manage</summary><a class="nav" href="#">Rules</a>${nav('categories', 'Categories')}${nav('llm', 'LLM suggestions')}<a class="nav" href="#">Accounts</a>${nav('members', 'Members')}</details>
+    <div class="sidebar-foot"><div class="account"><span class="avatar" aria-hidden="true">M</span><span class="who">Maja Novak<br><small>${mById(ME).admin ? 'Admin' : 'Member'}</small></span>${ic('updown')}</div></div>
+  </aside>
+  <div class="page"><main id="main" tabindex="-1">${content}<p class="synthetic">Prototype · all figures are synthetic</p></main></div></div>`;
+}
+const titleRow = (h, action = '') => `<div class="title-row"><h1>${h}</h1>${action}</div>`;
+const backRow = (h, to) => `<div class="title-row"><button class="btn ghost" type="button" data-nav="${to}">${ic('left')}Members</button></div><div class="title-row"><h1>${h}</h1></div>`;
+function inlineConfirm(text, yes, yesLabel, no = 'Keep it') {
+  return `<div class="confirm-inline" role="group" aria-label="Confirm"><p>${text}</p><div class="form-actions"><button class="btn sm" type="button" data-act="cancel">${no}</button><button class="btn sm primary" type="button" data-act="${yes}" id="confirm-yes">${yesLabel}</button></div></div>`;
+}
+const why = t => t ? `<span class="why">${ic('info')}<span>${esc(t)}</span></span>` : '';
+
+// ===================== Categories =====================
+const CAT_SUB = `<p class="page-sub">Every Transaction gets a Subcategory. Each Category ends with a catch-all, which takes the Transactions and Rules of any Subcategory you delete. A Category keeps its colour wherever you move it.</p>`;
+function menuItem(act, icon, label, disabledWhy = null) {
+  return `<button type="button" role="menuitem" ${disabledWhy ? 'aria-disabled="true"' : `data-act="${act}"`}>${ic(icon)}<span>${label}</span>${disabledWhy ? `<small>${esc(disabledWhy)}</small>` : ''}</button>`;
+}
+function rowMenu(key, items) {
+  const open = S.menu === key;
+  return `<div class="menu"><button class="btn sm icon-only ghost" type="button" data-menu="${key}" aria-haspopup="menu" aria-expanded="${open}" aria-label="Actions">${ic('more')}</button>${open ? `<div class="menu-panel" role="menu">${items}</div>` : ''}</div>`;
+}
+function categoriesA() {
+  const rows = CATS.map((c, ci) => {
+    const open = S.open.has(c.id), key = `c:${c.id}`;
+    const nameCell = S.renaming === key
+      ? `<form class="rn" data-form="rename-cat" data-id="${c.id}">${dotC(c)}<input class="btn" name="name" value="${esc(c.name)}" aria-label="Category name" id="rn-input"><button class="btn sm primary">Save</button><button class="btn sm ghost" type="button" data-act="cancel">Cancel</button></form>`
+      : `<span class="nm"><button class="tog" type="button" data-toggle="${c.id}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} ${esc(c.name)}'s Subcategories">${ic('right')}</button>${dotC(c)}<span class="nm-t">${esc(c.name)}</span><span class="cap">${c.kind === 'income' ? 'Income' : 'Spending'} · ${pl(c.subs.length, 'Subcategory', 'Subcategories')}</span></span>`;
+    const menu = rowMenu(key, menuItem(`rename:${key}`, 'edit', 'Rename')
+      + menuItem(`cat-up:${c.id}`, 'up', 'Move up', ci === 0 ? 'Already first' : null)
+      + menuItem(`cat-down:${c.id}`, 'down', 'Move down', ci === CATS.length - 1 ? 'Already last' : null) + '<hr>'
+      + menuItem(`ask-del-cat:${c.id}`, 'trash', 'Delete', whyNoDeleteCat(c)));
+    let out = `<tr class="cat-row${S.fresh === c.id ? ' fresh' : ''}"><td>${nameCell}</td><td class="r n">${n(catTx(c))}</td><td class="r n">${n(catRules(c))}</td><td class="act">${menu}</td></tr>`;
+    if (open) {
+      out += c.subs.map(s => {
+        const k = `s:${s.id}`, list = movable(c);
+        const nm = S.renaming === k
+          ? `<form class="rn" data-form="rename-sub" data-id="${s.id}"><input class="btn" name="name" value="${esc(s.name)}" aria-label="Subcategory name" id="rn-input"><button class="btn sm primary">Save</button><button class="btn sm ghost" type="button" data-act="cancel">Cancel</button></form>`
+          : `<span class="nm">${esc(s.name)}${s.catchAll ? ` <span class="tagp quiet">catch-all</span>` : ''}${s.bankFees ? ` <span class="tagp">bank fees at import</span>` : ''}</span>`;
+        const m = rowMenu(k, menuItem(`rename:${k}`, 'edit', 'Rename')
+          + menuItem(`sub-up:${s.id}`, 'up', 'Move up', s.catchAll ? 'The catch-all is always last.' : list[0] === s ? 'Already first' : null)
+          + menuItem(`sub-down:${s.id}`, 'down', 'Move down', whyNoDown(c, s)) + '<hr>'
+          + menuItem(`ask-del-sub:${s.id}`, 'trash', 'Delete', whyNoDeleteSub(s)) + (!s.catchAll ? '' : ''));
+        return `<tr class="sub-row${S.fresh === s.id ? ' fresh' : ''}"><td>${nm}</td><td class="r n">${n(s.tx)}</td><td class="r n">${s.rules ? n(s.rules) : '<span class="muted">—</span>'}</td><td class="act">${m}</td></tr>`;
+      }).join('') + `<tr class="add-row"><td colspan="4"><form class="add" data-form="add-sub" data-id="${c.id}"><input class="btn" name="name" placeholder="New Subcategory in ${esc(c.name)}" aria-label="New Subcategory in ${esc(c.name)}"><button class="btn sm">${ic('plus')}Add</button><span class="cap">It goes just above ${esc(catchAll(c).name)}.</span></form></td></tr>`;
+    }
+    return out;
+  }).join('');
+  const allOpen = S.open.size === CATS.length;
+  return titleRow('Categories', `<button class="btn primary" type="button" data-act="dlg-new-cat">${ic('plus')}New Category</button>`) + CAT_SUB
+    + `<section class="card"><div class="card-head" style="padding-bottom:12px"><h2>${pl(CATS.length, 'Category', 'Categories')} · ${pl(CATS.reduce((a, c) => a + c.subs.length, 0), 'Subcategory', 'Subcategories')}</h2><button class="btn sm ghost" type="button" data-act="${allOpen ? 'collapse-all' : 'expand-all'}">${allOpen ? 'Collapse all' : 'Expand all'}</button></div>
+      <table class="at"><thead><tr><th>Name</th><th class="r">Transactions</th><th class="r">Rules</th><th class="act"><span class="sr">Actions</span></th></tr></thead><tbody>${rows}</tbody></table></section>`;
+}
+
+function categoriesB() {
+  if (!catById(S.selCat)) S.selCat = CATS[0].id;
+  const c = catById(S.selCat), ci = CATS.indexOf(c);
+  const list = `<ul class="lst" role="listbox" aria-label="Categories (Alt+↑/↓ moves the selected one)">${CATS.map(x => `<li class="it" role="option" tabindex="${x.id === c.id ? 0 : -1}" id="opt-${x.id}" data-sel="${x.id}" draggable="true" data-dragcat="${x.id}" aria-selected="${x.id === c.id}">
+      <span class="handle" aria-hidden="true">${ic('grip')}</span><span class="nm">${dotC(x)}<span class="trunc">${esc(x.name)}</span></span><span class="c">${n(catTx(x))}</span>
+      <span class="sub">${x.kind === 'income' ? 'Income' : 'Spending'} · ${pl(x.subs.length, 'Subcategory', 'Subcategories')}</span></li>`).join('')}</ul>
+    <div class="new">${S.newCat ? newCatForm() : `<button class="btn" type="button" data-act="new-cat">${ic('plus')}New Category</button>`}</div>`;
+  const delWhy = whyNoDeleteCat(c);
+  const head = S.renaming === `c:${c.id}`
+    ? `<form class="dh" data-form="rename-cat" data-id="${c.id}">${dotC(c)}<input class="btn" name="name" value="${esc(c.name)}" aria-label="Category name" id="rn-input"><button class="btn primary">Save</button><button class="btn ghost" type="button" data-act="cancel">Cancel</button></form>`
+    : `<div class="dh"><h2>${dotC(c)}${esc(c.name)}</h2>
+      <button class="btn icon-only" type="button" data-act="cat-up:${c.id}" aria-label="Move up"${ci === 0 ? ' disabled' : ''}>${ic('up')}</button>
+      <button class="btn icon-only" type="button" data-act="cat-down:${c.id}" aria-label="Move down"${ci === CATS.length - 1 ? ' disabled' : ''}>${ic('down')}</button>
+      <button class="btn" type="button" data-act="rename:c:${c.id}">${ic('edit')}Rename</button>
+      <button class="btn ghost" type="button" data-act="ask-del-cat:${c.id}"${delWhy ? ' aria-disabled="true" disabled' : ''}>${ic('trash')}Delete</button></div>`;
+  const conf = S.confirm?.kind === 'cat' && S.confirm.id === c.id ? inlineConfirm(deleteCatText(c), `del-cat:${c.id}`, 'Delete Category') : '';
+  const subs = c.subs.map(s => {
+    const k = `s:${s.id}`;
+    const body = S.renaming === k
+      ? `<form class="row" data-form="rename-sub" data-id="${s.id}"><span></span><input class="btn" name="name" value="${esc(s.name)}" aria-label="Subcategory name" id="rn-input"><span></span><button class="btn sm primary">Save</button><button class="btn sm ghost" type="button" data-act="cancel">Cancel</button></form>`
+      : `<div class="row"${s.catchAll ? '' : ` draggable="true" data-dragsub="${s.id}" tabindex="0" id="sub-${s.id}" aria-label="${esc(s.name)}, Alt+↑/↓ to move"`}>
+        <span class="handle" aria-hidden="true">${s.catchAll ? ic('lock') : ic('grip')}</span>
+        <span class="nm">${esc(s.name)}${s.catchAll ? ' <span class="tagp quiet">catch-all · always last</span>' : ''}${s.bankFees ? ' <span class="tagp">bank fees at import</span>' : ''}</span>
+        <span class="c">${counts(s)}</span>
+        <span class="tools"><button class="btn sm icon-only ghost" type="button" data-act="rename:${k}" aria-label="Rename ${esc(s.name)}">${ic('edit')}</button>${s.catchAll ? '<span style="width:30px"></span>' : `<button class="btn sm icon-only ghost" type="button" data-act="ask-del-sub:${s.id}" aria-label="Delete ${esc(s.name)}">${ic('trash')}</button>`}</span><span></span></div>`;
+    const cf = S.confirm?.kind === 'sub' && S.confirm.id === s.id ? `<div style="padding:0 4px 8px">${inlineConfirm(deleteSubText(s), `del-sub:${s.id}`, 'Delete and move')}</div>` : '';
+    return `<li class="${s.catchAll ? 'ca' : ''}${S.fresh === s.id ? ' fresh' : ''}">${body}${cf}${s.catchAll ? `<div style="padding:0 4px 8px 38px">${why(`Takes the Transactions and Rules of a deleted Subcategory, so it can't be deleted or moved.`)}</div>` : ''}</li>`;
+  }).join('');
+  const add = `<li class="add"><form class="row" data-form="add-sub" data-id="${c.id}"><span class="handle">${ic('plus')}</span><input class="btn" name="name" placeholder="New Subcategory" aria-label="New Subcategory in ${esc(c.name)}" style="height:32px"><button class="btn sm">Add</button></form></li>`;
+  const detail = `<section class="card detail" aria-label="${esc(c.name)}">${head}
+    <div class="meta">${c.kind === 'income' ? 'Income' : 'Spending'} · ${pl(catTx(c), 'Transaction')} · ${pl(catRules(c), 'Rule')} categorize into it</div>
+    ${delWhy && S.renaming !== `c:${c.id}` ? why(`Delete: ${delWhy}`) : ''}${conf}
+    <ul class="sl">${subs}${add}</ul><p class="cap" style="margin:0">Drag a Subcategory, or focus it and press Alt+↑/↓.</p></section>`;
+  return titleRow('Categories') + CAT_SUB + `<div class="md"><section class="card">${list}</section>${detail}</div>`;
+}
+function newCatForm(extra = '') {
+  return `<form class="field" data-form="add-cat" style="gap:8px;${extra}"><input class="btn" name="name" placeholder="Category name" aria-label="New Category name" id="nc-name" style="width:100%">
+    <select class="btn" name="kind" aria-label="Kind" style="width:100%"><option value="spending">Spending</option><option value="income">Income</option></select>
+    <span class="cap">It starts with one catch-all, Other (Other income for an income Category).</span>
+    <div class="form-actions"><button class="btn sm ghost" type="button" data-act="cancel">Cancel</button><button class="btn sm primary">Add Category</button></div></form>`;
+}
+
+function categoriesC() {
+  const cards = CATS.map((c, ci) => {
+    if (S.editCat !== c.id) {
+      return `<section class="card cc${S.fresh === c.id ? ' fresh' : ''}" style="--h:${hue(c)}" aria-label="${esc(c.name)}"><div class="ch"><h2>${dotC(c)}${esc(c.name)}</h2><span class="k">${c.kind === 'income' ? 'Income' : 'Spending'}</span><button class="btn sm ghost" type="button" data-act="edit-cat:${c.id}"${S.editCat ? ' disabled' : ''}>${ic('edit')}Edit</button></div>
+        <ul class="ro">${c.subs.map(s => `<li><span class="t">${esc(s.name)}${s.catchAll ? ' <span class="tagp quiet">catch-all</span>' : ''}${s.bankFees ? ' <span class="tagp">bank fees</span>' : ''}</span><span class="c">${n(s.tx)}</span></li>`).join('')}</ul></section>`;
+    }
+    const list = movable(c), delWhy = whyNoDeleteCat(c);
+    const rows = c.subs.map(s => {
+      const i = list.indexOf(s);
+      const r = `<div class="ed-row${S.fresh === s.id ? ' fresh' : ''}"><input class="btn" data-ren-sub="${s.id}" value="${esc(s.name)}" aria-label="Subcategory name">
+        <span class="c">${counts(s)}</span>${s.catchAll ? '<span class="tagp quiet">catch-all · last</span>' : '<span></span>'}
+        ${s.catchAll ? '<span></span><span></span><span></span>' : `<button class="btn sm icon-only" type="button" data-act="sub-up:${s.id}" aria-label="Move ${esc(s.name)} up"${i === 0 ? ' disabled' : ''}>${ic('up')}</button>
+        <button class="btn sm icon-only" type="button" data-act="sub-down:${s.id}" aria-label="Move ${esc(s.name)} down"${i === list.length - 1 ? ' disabled' : ''}>${ic('down')}</button>
+        <button class="btn sm icon-only ghost" type="button" data-act="ask-del-sub:${s.id}" aria-label="Delete ${esc(s.name)}">${ic('trash')}</button>`}</div>`;
+      const cf = S.confirm?.kind === 'sub' && S.confirm.id === s.id ? inlineConfirm(deleteSubText(s), `del-sub:${s.id}`, 'Delete and move') : '';
+      return r + cf;
+    }).join('');
+    const cf = S.confirm?.kind === 'cat' && S.confirm.id === c.id ? inlineConfirm(deleteCatText(c), `del-cat:${c.id}`, 'Delete Category') : '';
+    return `<section class="card cc editing" style="--h:${hue(c)}" aria-label="Editing ${esc(c.name)}"><div class="ch"><h2>${dotC(c)}Editing ${esc(c.name)}</h2><span class="k">${c.kind === 'income' ? 'Income' : 'Spending'} · place ${ci + 1} of ${CATS.length}</span>
+        <button class="btn sm icon-only" type="button" data-act="cat-up:${c.id}" aria-label="Move ${esc(c.name)} earlier"${ci === 0 ? ' disabled' : ''}>${ic('left')}</button><button class="btn sm icon-only" type="button" data-act="cat-down:${c.id}" aria-label="Move ${esc(c.name)} later"${ci === CATS.length - 1 ? ' disabled' : ''}>${ic('right')}</button></div>
+      <div class="ed-name"><input class="btn" data-ren-cat="${c.id}" value="${esc(c.name)}" aria-label="Category name"></div>
+      <div class="ed">${rows}</div>
+      <form class="add" data-form="add-sub" data-id="${c.id}" style="display:flex;gap:8px;margin-top:8px"><input class="btn" name="name" placeholder="New Subcategory, goes above ${esc(catchAll(c).name)}" aria-label="New Subcategory in ${esc(c.name)}" style="flex:1;height:34px"><button class="btn sm">${ic('plus')}Add</button></form>
+      ${cf}
+      <div class="ed-foot"><button class="btn sm ghost" type="button" data-act="ask-del-cat:${c.id}"${delWhy ? ' disabled' : ''}>${ic('trash')}Delete ${esc(c.name)}</button><span class="grow">${delWhy ? why(delWhy) : ''}</span><button class="btn ghost" type="button" data-act="edit-cancel">Cancel</button><button class="btn primary" type="button" data-act="edit-done:${c.id}">Save changes</button></div></section>`;
+  }).join('');
+  const nc = S.newCat ? `<section class="card cc" style="--h:var(--line-strong)"><div class="ch"><h2>New Category</h2></div>${newCatForm()}</section>`
+    : `<button class="cc-new" type="button" data-act="new-cat"${S.editCat ? ' disabled' : ''}><span>${ic('plus')}New Category</span></button>`;
+  return titleRow('Categories') + CAT_SUB.replace('</p>', ' Numbers are Transactions.</p>') + `<div class="cg">${cards}${nc}</div>`;
+}
+
+// ===================== LLM suggestions =====================
+const STATUS = {
+  ok: { dot: 'st-ok', title: 'Working', line: 'qwen3-vl:8b on 192.168.1.10:11434 · last answer at 14:02', icon: 'ok' },
+  down: { dot: 'st-down', title: `Can't reach the LLM`, line: 'The last call to 192.168.1.10:11434 failed at 13:40. It retries every 5 minutes; until then new Transactions wait for review without a suggestion.', icon: 'alert' },
+  off: { dot: 'st-off', title: 'Not set up', line: `No LLM server is configured (OLLAMA_URL is empty), so the Review queue fills without suggestions. Set it in the server's environment and restart.`, icon: 'info' },
+};
+function offeredNotice() {
+  if (!LLM.offered) return '';
+  return `<div class="notice" role="status">${ic('info')}<span class="grow"><b>${pl(LLM.offered, 'Transaction')}</b> in the Review queue ${LLM.offered === 1 ? 'is' : 'are'} now at least ${LLM.thr} % sure. Accept ${LLM.offered === 1 ? 'it' : 'them'} now, or leave ${LLM.offered === 1 ? 'it' : 'them'} in the queue with the suggestion first.</span><button class="btn sm" type="button" data-act="leave-offered">Leave in the queue</button><button class="btn sm primary" type="button" data-act="accept-offered">Accept ${LLM.offered}</button></div>`;
+}
+const LLM_SUB = `<p class="page-sub">What no Rule decides is sent to the LLM on this network, which suggests a Subcategory and how sure it is. A suggestion sure enough categorizes its Transaction by itself; the rest wait in the Review queue with the suggestion first.</p>`;
+function llmA() {
+  const st = STATUS[S.llm], v = S.draftThr ?? LLM.thr;
+  const resug = S.dialog?.kind === 'resuggest';
+  return titleRow('LLM suggestions') + LLM_SUB + offeredNotice() + `<div class="llm-a">
+    <section class="card" aria-label="Status"><h2>Status</h2>
+      <div class="status-line"><span class="status-dot ${st.dot}" aria-hidden="true"></span><b>${st.title}</b></div>
+      <p class="cap" style="font-size:13px;margin:6px 0 0">${esc(st.line)}</p>
+      <dl class="kv"><dt>Model</dt><dd>qwen3-vl:8b</dd><dt>Server</dt><dd>${S.llm === 'off' ? '—' : '192.168.1.10:11434'}</dd>
+        <dt>In the Review queue</dt><dd><span class="n">${n(queueCount())}</span>: <span class="n">${n(LLM.sug.length)}</span> with a suggestion, <span class="n">${n(LLM.waiting)}</span> waiting to be asked</dd>
+        <dt>Categorized by the LLM</dt><dd><span class="n">${n(LLM.byLlm)}</span> this month</dd></dl></section>
+    <section class="card" aria-label="Auto-accept"><h2>Auto-accept</h2>
+      <form data-form="thr" class="field" style="gap:10px">
+        <label for="thr-in" style="font-weight:500">Categorize by itself when the LLM is at least</label>
+        <span class="pct"><input class="btn" id="thr-in" name="thr" type="number" min="50" max="100" step="1" value="${v}" inputmode="numeric"><span>% sure</span></span>
+        <small class="cap">The same “% sure” the Review queue shows. Raising it never undoes what the LLM already set; lowering it offers the queued suggestions that now pass.</small>
+        <div class="form-actions"><button class="btn primary">Save</button></div></form></section>
+    <section class="card" aria-label="Ask again"><h2>Ask again</h2>
+      <p class="cap" style="font-size:13px;margin:0 0 12px">After the model or the prompt changes: clears the suggestions in the Review queue, so the LLM is asked about them again.</p>
+      <button class="btn" type="button" data-act="ask-resuggest"${LLM.sug.length ? '' : ' disabled'}>${ic('refresh')}Ask again about ${pl(LLM.sug.length, 'suggestion')}…</button></section></div>`
+    + (resug ? `<dialog class="dlg" id="dlg"><h2>Ask the LLM again?</h2><p>${resuggestText()}</p><div class="form-actions"><button class="btn" type="button" data-act="cancel">Cancel</button><button class="btn primary" type="button" data-act="resuggest" id="confirm-yes">Clear and ask again</button></div></dialog>` : '');
+}
+function llmB() {
+  const st = STATUS[S.llm], v = S.draftThr ?? LLM.thr, clr = wouldClear(v), changed = v !== LLM.thr;
+  const eff = v < LLM.thr ? (clr ? `At <b>${v} %</b>, <b>${pl(clr, 'suggestion')}</b> now in the Review queue would pass. You'll be asked whether to accept ${clr === 1 ? 'it' : 'them'}.` : `At <b>${v} %</b>, none of the ${pl(LLM.sug.length, 'suggestion')} in the Review queue would pass yet.`)
+    : v > LLM.thr ? `At <b>${v} %</b>, fewer future suggestions decide by themselves. What the LLM already set stays.` : `<b>${n(LLM.byLlm)}</b> Transactions were categorized this way this month. The ${pl(LLM.sug.length, 'suggestion')} waiting in the queue are all under ${v} %.`;
+  return titleRow('LLM suggestions') + LLM_SUB + offeredNotice() + `<div class="llm-b">
+    <section class="card"><h2>Auto-accept</h2>
+      <form data-form="thr"><p class="sentence-set" style="margin:0">A suggestion that is at least <b id="thr-word">${v} % sure</b> categorizes its Transaction by itself.</p>
+      <div class="slider"><input type="range" id="thr-in" name="thr" min="50" max="100" step="1" value="${v}" aria-label="Auto-accept at % sure" aria-valuetext="${v} % sure"><output for="thr-in" id="thr-out">${v} %</output></div>
+      <div class="effect" id="thr-eff">${eff}</div>
+      <div class="form-actions" style="margin-top:16px">${changed ? `<button class="btn ghost" type="button" data-act="thr-reset">Keep ${LLM.thr} %</button>` : ''}<button class="btn primary"${changed ? '' : ' disabled'}>Save ${v} %</button></div></form>
+      <hr style="border:0;border-top:1px solid var(--line);margin:24px 0 20px">
+      <h2>Ask again</h2><p class="cap" style="font-size:13px;margin:0 0 12px">After the model or the prompt changes, clear the queued suggestions so the LLM answers again.</p>
+      ${S.confirm?.kind === 'resuggest' ? inlineConfirm(resuggestText(), 'resuggest', 'Clear and ask again') : `<button class="btn" type="button" data-act="ask-resuggest"${LLM.sug.length ? '' : ' disabled'}>${ic('refresh')}Ask again about ${pl(LLM.sug.length, 'suggestion')}</button>`}
+    </section>
+    <aside class="card" aria-label="Status"><h2>Status</h2><div class="status-line"><span class="status-dot ${st.dot}" aria-hidden="true"></span><b>${st.title}</b></div><p class="cap" style="font-size:13px;margin:6px 0 12px">${esc(st.line)}</p>
+      <dl class="sv"><div><dt>Model</dt><dd>qwen3-vl:8b</dd></div><div><dt>Server</dt><dd>${S.llm === 'off' ? '—' : '192.168.1.10'}</dd></div><div><dt>Suggested, in the queue</dt><dd class="n">${n(LLM.sug.length)}</dd></div><div><dt>Waiting to be asked</dt><dd class="n">${n(LLM.waiting)}</dd></div><div><dt>By the LLM this month</dt><dd class="n">${n(LLM.byLlm)}</dd></div></dl></aside></div>`;
+}
+function llmC() {
+  const st = STATUS[S.llm], v = S.draftThr ?? LLM.thr, changed = v !== LLM.thr;
+  // 5 % bins and a 5 % step, so a bin is wholly on one side of the line.
+  const bins = Array.from({ length: 20 }, (_, i) => LLM.sug.filter(p => Math.min(19, Math.floor(p * 20 + 1e-9)) === i).length);
+  const max = Math.max(3, ...bins), clr = wouldClear(v);
+  const bars = bins.map((k, i) => `<div class="b${i * 5 >= v ? ' over' : ''}" style="height:${(k / max) * 100}%" title="${i * 5}–${i * 5 + 5} %: ${k}"><span>${k || ''}</span></div>`).join('');
+  return titleRow('LLM suggestions') + LLM_SUB + offeredNotice() + `<div class="llm-c">
+    <section class="card strip" aria-label="Status"><span class="status-dot ${st.dot}" aria-hidden="true"></span><span class="stat"><span class="v">${st.title}</span><span class="k">${S.llm === 'ok' ? 'last answer 14:02' : S.llm === 'down' ? 'failed at 13:40 · retrying' : 'OLLAMA_URL is empty'}</span></span>
+      <span class="stat"><span class="k">Model</span><span class="v">qwen3-vl:8b</span></span><span class="stat"><span class="k">With a suggestion</span><span class="v">${n(LLM.sug.length)}</span></span><span class="stat"><span class="k">Waiting to be asked</span><span class="v">${n(LLM.waiting)}</span></span><span class="stat"><span class="k">By the LLM this month</span><span class="v">${n(LLM.byLlm)}</span></span>
+      <span class="grow"></span>${S.llm !== 'off' ? `<button class="btn sm" type="button" data-act="check-now">${ic('refresh')}Check now</button>` : ''}</section>
+    ${S.llm !== 'ok' ? `<p class="cap" style="font-size:13px;margin:-4px 4px 0">${esc(st.line)}</p>` : ''}
+    <section class="card"><div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h2 style="margin-right:auto">How sure the waiting suggestions are</h2><span class="cap">${pl(LLM.sug.length, 'suggestion')} in the Review queue, by % sure</span></div>
+      <div class="hist" role="img" aria-label="${bins.map((k, i) => k ? `${i * 5} to ${i * 5 + 5} %: ${k}` : '').filter(Boolean).join(', ')}">${bars}<div class="thr" style="left:calc(${(v / 100) * 100}% - 1px)"><span>Auto-accept · ${v} %</span></div></div>
+      <div class="hx">${Array.from({ length: 10 }, (_, i) => `<span style="text-align:left">${i * 10} %</span>`).join('')}</div>
+      <div class="legend"><span><i style="background:var(--line-strong)"></i>Below the line: wait for a Member</span><span><i style="background:var(--ink-2)"></i>Past the line: would categorize by itself</span></div>
+      <form data-form="thr" class="ctl-row"><label for="thr-in" style="font-weight:500">Auto-accept at</label><input type="range" id="thr-in" name="thr" min="50" max="100" step="5" value="${v}" aria-valuetext="${v} % sure"><span class="pct"><input class="btn" id="thr-num" type="number" min="50" max="100" step="5" value="${v}" aria-label="% sure"><span>% sure</span></span>
+        ${changed ? `<button class="btn ghost" type="button" data-act="thr-reset">Keep ${LLM.thr} %</button>` : ''}<button class="btn primary"${changed ? '' : ' disabled'}>${changed && v < LLM.thr && clr ? `Save, then review ${clr}` : `Save ${v} %`}</button></form>
+      <p class="cap" style="margin:8px 0 0">Raising it never undoes what the LLM already set. Lowering it offers the queued suggestions past the line.</p></section>
+    <section class="card"><h2 style="margin-bottom:8px">Ask again</h2><p class="cap" style="font-size:13px;margin:0 0 12px">After the model or the prompt changes, clear the queued suggestions so the LLM answers again.</p>
+      ${S.confirm?.kind === 'resuggest' ? inlineConfirm(resuggestText(), 'resuggest', 'Clear and ask again') : `<button class="btn" type="button" data-act="ask-resuggest"${LLM.sug.length ? '' : ' disabled'}>${ic('refresh')}Ask again about ${pl(LLM.sug.length, 'suggestion')}</button>`}</section></div>`;
+}
+
+// ===================== Members =====================
+const MEM_SUB = `<p class="page-sub">Everyone in the Household who logs in. Admins also manage Members, Accounts, Categories and the LLM suggestions. There is no email here: invite and reset links are passed on by hand.</p>`;
+const youTag = m => m.id === ME ? ' <span class="tagp you">You</span>' : '';
+const acctPills = m => m.accounts.length ? m.accounts.map(a => `<span class="pill">${esc(a)}</span>`).join(' ') : '<span class="muted">No Accounts of their own</span>';
+function membersA() {
+  const rows = MEMBERS.map(m => {
+    const items = (m.admin ? menuItem(`demote:${m.id}`, 'user', 'Remove admin', whyNoDemote(m)) : menuItem(`ask-admin:${m.id}`, 'shield', 'Make admin', m.active ? null : 'Reactivate them first'))
+      + (m.active ? menuItem(`reset:${m.id}`, 'key', m.usable ? 'Password-reset link' : 'New invite link') : '') + '<hr>'
+      + (m.active ? menuItem(`ask-deact:${m.id}`, 'pause', 'Deactivate', whyNoDeactivate(m)) : menuItem(`react:${m.id}`, 'play', 'Reactivate'));
+    return `<tr class="${m.active ? '' : 'off'}${S.fresh === m.id ? ' fresh' : ''}"><td><span class="who"><span class="avatar" aria-hidden="true">${initial(m)}</span><b>${esc(m.name)}</b>${youTag(m)}</span></td><td>${esc(m.username)}</td>
+      <td>${roleText(m)}</td><td>${statusText(m)}${!m.usable && m.active ? `<br><span class="cap">Invited ${m.invited}</span>` : ''}</td><td><span class="accts">${acctPills(m)}</span></td><td class="act">${rowMenu(`m:${m.id}`, items)}</td></tr>`;
+  }).join('');
+  const c = S.dialog;
+  let dlg = '';
+  if (c?.kind === 'deact') dlg = `<dialog class="dlg" id="dlg"><h2>Deactivate ${esc(mById(c.id).name)}?</h2><p>${deactivateText(mById(c.id))}</p><div class="form-actions"><button class="btn" type="button" data-act="cancel">Keep active</button><button class="btn primary" type="button" data-act="deact:${c.id}" id="confirm-yes">Deactivate</button></div></dialog>`;
+  if (c?.kind === 'admin') dlg = `<dialog class="dlg" id="dlg"><h2>Make ${esc(mById(c.id).name)} an admin?</h2><p>${makeAdminText(mById(c.id))}</p><div class="form-actions"><button class="btn" type="button" data-act="cancel">Cancel</button><button class="btn primary" type="button" data-act="admin:${c.id}" id="confirm-yes">Make admin</button></div></dialog>`;
+  return titleRow('Members', `<button class="btn primary" type="button" data-nav="newmember">${ic('plus')}Invite a Member</button>`) + MEM_SUB
+    + `<section class="card"><table class="at"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Owns</th><th class="act"><span class="sr">Actions</span></th></tr></thead><tbody>${rows}</tbody></table></section>` + dlg;
+}
+function newMemberForm(compact = false) {
+  return `<form class="field" data-form="new-member" style="gap:14px">
+    <label class="field"><span>Name</span><input class="btn" name="name" id="nm-name" autocomplete="off" placeholder="Ana Novak"><small>As the Dashboard shows it, e.g. in Per Member.</small></label>
+    <label class="field"><span>Username</span><input class="btn" name="username" autocomplete="off" placeholder="ana"><small>What they log in with.</small></label>
+    <p class="cap" style="margin:0;font-size:13px">You'll get a one-time link to give them. They choose their own password through it. New Members aren't admins.</p>
+    <div class="form-actions">${compact ? '<button class="btn ghost" type="button" data-act="cancel">Cancel</button>' : ''}<button class="btn primary">Create and get the link</button></div></form>`;
+}
+function linkBody(m, invite) {
+  return `<p style="margin:0">${invite ? `Give this link to <b>${esc(m.name)}</b>. They choose their own password through it, then log in as <b>${esc(m.username)}</b>.` : `Give this link to <b>${esc(m.name)}</b>. They choose a new password through it${m.usable ? ', which also unlocks them if they were locked out' : ''}.`}</p>
+    <div class="link-box"><input class="btn" readonly value="${esc(linkFor(m))}" id="link-in" aria-label="${invite ? 'Invite' : 'Password-reset'} link" onfocus="this.select()"><button class="btn primary" type="button" data-act="copy" id="copy-btn">${ic('copy')}Copy link</button></div>
+    <ul class="facts"><li>${ic('eye')}<span><b>Shown only now.</b> Once you ${S.variant === 'C' ? 'close this' : 'leave this page'} you can't see it again; make a new one from Members if it's lost.</span></li>
+      <li>${ic('clock')}<span>Works once, until <b>${EXPIRES}</b>.</span></li>
+      <li>${ic('send')}<span>There is no email here. Pass it on yourself, in a message or in person.</span></li></ul>`;
+}
+function newMemberPageA() { return backRow('Invite a Member', 'members') + `<div class="form-page"><section class="card">${newMemberForm()}</section></div>`; }
+function linkPageA() {
+  const m = mById(S.link.id), inv = S.link.invite;
+  return backRow(inv ? 'Invite link' : 'Password-reset link', 'members') + `<div class="link-page"><section class="card">${linkBody(m, inv)}<div class="form-actions"><button class="btn" type="button" data-nav="members">Done</button></div></section></div>`;
+}
+function membersB() {
+  const list = `<ul class="lst" role="listbox" aria-label="Members">${MEMBERS.map(m => `<li class="it${m.active ? '' : ' off'}" role="option" tabindex="${m.id === S.selMember && S.mpane === 'member' ? 0 : -1}" data-msel="${m.id}" id="mopt-${m.id}" aria-selected="${S.mpane === 'member' && m.id === S.selMember}" style="grid-template-columns:30px minmax(0,1fr) auto">
+      <span class="avatar" aria-hidden="true">${initial(m)}</span><span class="nm"><span class="trunc">${esc(m.name)}</span>${youTag(m)}</span><span></span><span class="sub">${roleText(m)} · ${statusText(m)}</span></li>`).join('')}</ul>
+    <div class="new"><button class="btn" type="button" data-act="pane-new">${ic('plus')}Invite a Member</button></div>`;
+  let detail;
+  if (S.mpane === 'new') detail = `<section class="card detail"><div class="dh"><h2>Invite a Member</h2></div>${newMemberForm(true)}</section>`;
+  else if (S.mpane === 'link') { const m = mById(S.link.id); detail = `<section class="card detail"><div class="dh"><h2>${S.link.invite ? 'Invite link' : 'Password-reset link'} for ${esc(first(m))}</h2></div>${linkBody(m, S.link.invite)}<div class="form-actions"><button class="btn" type="button" data-act="pane-done">Done</button></div></section>`; }
+  else {
+    const m = mById(S.selMember), cf = k => S.confirm?.kind === k && S.confirm.id === m.id;
+    const roleAct = m.admin ? (whyNoDemote(m) ? `<span class="grow"></span>${why(whyNoDemote(m))}` : `<span class="grow"></span><button class="btn sm" type="button" data-act="demote:${m.id}">Remove admin</button>`)
+      : m.active ? `<span class="grow"></span><button class="btn sm" type="button" data-act="ask-admin:${m.id}">Make admin</button>` : '';
+    const stAct = !m.active ? `<span class="grow"></span><button class="btn sm" type="button" data-act="react:${m.id}">Reactivate</button>`
+      : whyNoDeactivate(m) ? `<span class="grow"></span>${why(whyNoDeactivate(m))}` : `<span class="grow"></span><button class="btn sm" type="button" data-act="ask-deact:${m.id}">Deactivate</button>`;
+    detail = `<section class="card detail" aria-label="${esc(m.name)}"><div class="dh"><span class="avatar av-lg" aria-hidden="true">${initial(m)}</span><h2>${esc(m.name)}${youTag(m)}</h2></div>
+      <dl class="dl"><div><dt>Username</dt><dd>${esc(m.username)}</dd></div>
+        <div><dt>Role</dt><dd><span>${roleText(m)}</span><span class="cap">${m.admin ? 'Manages Members, Accounts, Categories and the LLM suggestions' : 'Imports, reviews and reads the Dashboard'}</span>${roleAct}${cf('admin') ? inlineConfirm(makeAdminText(m), `admin:${m.id}`, 'Make admin', 'Cancel') : ''}</dd></div>
+        <div><dt>Status</dt><dd><span>${statusText(m)}</span>${!m.usable && m.active ? `<span class="cap">invited ${m.invited}</span>` : ''}${stAct}${cf('deact') ? inlineConfirm(deactivateText(m), `deact:${m.id}`, 'Deactivate', 'Keep active') : ''}</dd></div>
+        <div><dt>Password</dt><dd>${m.active ? `<span class="cap">${m.usable ? 'Forgotten, or locked out?' : 'The invite link is lost or expired?'}</span><span class="grow"></span><button class="btn sm" type="button" data-act="reset:${m.id}">${ic('key')}${m.usable ? 'Password-reset link' : 'New invite link'}</button>` : '<span class="cap">Reactivate first</span>'}</dd></div>
+        <div><dt>Owns</dt><dd>${acctPills(m)}</dd></div></dl></section>`;
+  }
+  return titleRow('Members') + MEM_SUB + `<div class="md"><section class="card">${list}</section>${detail}</div>`;
+}
+function membersC() {
+  const row = m => {
+    const cf = k => S.confirm?.kind === k && S.confirm.id === m.id;
+    let acts = '';
+    if (!m.active) acts = `<button class="btn sm" type="button" data-act="react:${m.id}">Reactivate</button>`;
+    else {
+      acts = (m.admin ? (whyNoDemote(m) ? '' : `<button class="btn sm" type="button" data-act="demote:${m.id}">${ic('down')}Make Member</button>`) : `<button class="btn sm" type="button" data-act="ask-admin:${m.id}">${ic('up')}Make admin</button>`)
+        + `<button class="btn sm" type="button" data-act="reset:${m.id}">${ic('key')}${m.usable ? 'Reset link' : 'New invite link'}</button>`
+        + (whyNoDeactivate(m) ? '' : `<button class="btn sm ghost" type="button" data-act="ask-deact:${m.id}">Deactivate</button>`);
+    }
+    const sub = [esc(m.username), m.accounts.length ? m.accounts.map(esc).join(', ') : 'no Accounts of their own'].join(' · ');
+    return `<li class="${S.fresh === m.id ? 'fresh' : ''}"><div class="row"><span class="avatar" aria-hidden="true">${initial(m)}</span><span class="nm"><b>${esc(m.name)}${youTag(m)}</b><small>${sub}</small></span>
+      <span>${m.active && !m.usable ? `<span class="tagp quiet">Hasn't set a password · invited ${m.invited}</span>` : ''}</span><span class="acts">${acts}</span></div>
+      ${lastAdmin(m) ? `<div style="padding:0 8px 10px 50px">${why(whyNoDemote(m))}</div>` : ''}
+      ${cf('admin') ? inlineConfirm(makeAdminText(m), `admin:${m.id}`, 'Make admin', 'Cancel') : ''}${cf('deact') ? inlineConfirm(deactivateText(m), `deact:${m.id}`, 'Deactivate', 'Keep active') : ''}</li>`;
+  };
+  const grp = (title, desc, ms, empty) => `<section class="card"><div class="card-head"><h2>${title} <span class="n">· ${ms.length}</span></h2><p>${desc}</p></div><ul class="rl">${ms.length ? ms.map(row).join('') : `<li class="empty-li">${empty}</li>`}</ul></section>`;
+  const admins = MEMBERS.filter(m => m.active && m.admin), mem = MEMBERS.filter(m => m.active && !m.admin), off = MEMBERS.filter(m => !m.active);
+  const d = S.dialog;
+  let dlg = '';
+  if (d?.kind === 'new') dlg = `<dialog class="dlg" id="dlg"><h2>Invite a Member</h2>${newMemberForm(true)}</dialog>`;
+  if (d?.kind === 'link') { const m = mById(S.link.id); dlg = `<dialog class="dlg wide" id="dlg"><h2>${S.link.invite ? 'Invite link' : 'Password-reset link'} for ${esc(first(m))}</h2><div style="display:grid;gap:16px">${linkBody(m, S.link.invite)}</div><div class="form-actions"><button class="btn" type="button" data-act="cancel">Done</button></div></dialog>`; }
+  return titleRow('Members', `<button class="btn primary" type="button" data-act="dlg-new">${ic('plus')}Invite a Member</button>`) + MEM_SUB + `<div class="roles">
+    ${grp('Admins', 'Manage Members, Accounts, Categories and the LLM suggestions, and do everything a Member does.', admins, 'No active admin.')}
+    ${grp('Members', 'Import their Statements, work the Review queue and read the Dashboard.', mem, 'Nobody else yet.')}
+    ${grp('Deactivated', `Can't log in. What they imported and decided stays.`, off, 'Nobody is deactivated.')}</div>` + dlg;
+}
+
+// ===================== Render =====================
+function newCatDialog() {
+  return `<dialog class="dlg" id="dlg"><h2>New Category</h2>${newCatForm()}</dialog>`;
+}
+function content() {
+  const v = S.variant;
+  if (S.page === 'categories') return (v === 'A' ? categoriesA() : v === 'B' ? categoriesB() : categoriesC()) + (S.dialog?.kind === 'new-cat' ? newCatDialog() : '') + delDialogA();
+  if (S.page === 'llm') return v === 'A' ? llmA() : v === 'B' ? llmB() : llmC();
+  if (S.page === 'newmember') return newMemberPageA();
+  if (S.page === 'link') return linkPageA();
+  return v === 'A' ? membersA() : v === 'B' ? membersB() : membersC();
+}
+function delDialogA() {
+  const d = S.dialog; if (!d) return '';
+  if (d.kind === 'del-sub') { const s = subOf(d.id); return `<dialog class="dlg" id="dlg"><h2>Delete ${esc(s.name)}?</h2><p>${deleteSubText(s)}</p><div class="form-actions"><button class="btn" type="button" data-act="cancel">Keep it</button><button class="btn primary" type="button" data-act="del-sub:${s.id}" id="confirm-yes">Delete and move</button></div></dialog>`; }
+  if (d.kind === 'del-cat') { const c = catById(d.id); return `<dialog class="dlg" id="dlg"><h2>Delete ${esc(c.name)}?</h2><p>${deleteCatText(c)}</p><div class="form-actions"><button class="btn" type="button" data-act="cancel">Keep it</button><button class="btn primary" type="button" data-act="del-cat:${c.id}" id="confirm-yes">Delete Category</button></div></dialog>`; }
+  return '';
+}
+function url() {
+  const p = new URLSearchParams({ variant: S.variant, page: S.page });
+  if (S.llm !== 'ok') p.set('llm', S.llm);
+  const t = document.documentElement.dataset.theme; if (t !== 'system') p.set('theme', t);
+  return `?${p}`;
+}
+function render(focus) {
+  document.body.className = 'vB';
+  if (S.variant !== 'A' && (S.page === 'newmember' || S.page === 'link')) S.page = 'members';
+  document.getElementById('app').innerHTML = `<a class="skip" href="#main">Skip to content</a>` + shell(content()) + (S.toast ? `<div class="toast" role="status">${ic('ok')}${esc(S.toast)}</div>` : '');
+  document.title = `${PAGES[S.page]} · Pursegraph`;
+  history.replaceState(null, '', url());
+  renderProto();
+  const dlg = document.getElementById('dlg');
+  if (dlg) { dlg.showModal(); dlg.addEventListener('cancel', () => { S.dialog = null; setTimeout(() => render(), 0); }); (dlg.querySelector('#confirm-yes, input') || dlg).focus(); }
+  if (!dlg && S.confirm) document.getElementById('confirm-yes')?.focus();
+  if (focus) { const el = document.querySelector(focus); if (el) { el.focus(); if (el.select && el.id === 'rn-input') el.select(); } }
+}
+function announce(text) { if (!text) return; S.said = text; const live = document.getElementById('live'); live.textContent = ''; setTimeout(() => { live.textContent = text; }, 30); renderProto(); }
+function toast(text) { if (!text) return; S.toast = text; announce(text); clearTimeout(S.toastT); S.toastT = setTimeout(() => { S.toast = null; S.fresh = null; document.querySelector('.toast')?.remove(); document.querySelectorAll('.fresh').forEach(e => e.classList.remove('fresh')); }, 5000); }
+
+// ===================== Prototype switcher (not the design) =====================
+function renderProto() {
+  const order = ['categories', 'llm', 'members'];
+  const cur = order.includes(S.page) ? S.page : 'members';
+  document.getElementById('proto').innerHTML = `<button type="button" data-proto="-1" aria-label="Previous variant">‹</button>
+    <span class="lbl">${S.variant} <small>(${VARIANTS[S.variant]})</small></span>
+    <button type="button" data-proto="1" aria-label="Next variant">›</button>
+    ${order.map(p => `<button class="toggle" type="button" data-proto="go:${p}"${p === cur ? ' style="background:#facc15;color:#000"' : ''}>${PAGES[p]}</button>`).join('')}
+    ${S.page === 'llm' ? `<button class="toggle" type="button" data-proto="llm">LLM: ${S.llm}</button>` : ''}
+    <span class="state" title="Last announcement">${S.said ? `said: “${esc(S.said)}”` : 'said: —'}</span>
+    <button class="toggle" type="button" data-proto="theme">${document.documentElement.dataset.theme}</button>
+    <button class="toggle" type="button" data-proto="reset">reset</button>`;
+}
+
+// ===================== Events =====================
+function closeAll() { S.menu = null; S.renaming = null; S.confirm = null; S.dialog = null; S.newCat = false; }
+function act(a) {
+  const [k, ...rest] = a.split(':'), arg = rest.join(':'), id = +arg;
+  const v = S.variant;
+  switch (k) {
+    case 'cancel': closeAll(); if (S.variant === 'B' && S.page === 'members' && S.mpane === 'new') S.mpane = 'member'; render(); return;
+    case 'rename': closeAll(); S.renaming = arg; render('#rn-input'); return;
+    case 'cat-up': case 'cat-down': { S.menu = null; const t = moveCat(id, k === 'cat-up' ? -1 : 1); announce(t); render(v === 'B' ? `[data-act="${k}:${id}"]` : null); return; }
+    case 'sub-up': case 'sub-down': { S.menu = null; const t = moveSub(id, k === 'sub-up' ? -1 : 1); S.fresh = id; announce(t); render(`[data-act="${k}:${id}"]`); return; }
+    case 'ask-del-sub': closeAll(); if (v === 'A') S.dialog = { kind: 'del-sub', id }; else S.confirm = { kind: 'sub', id }; render(); return;
+    case 'ask-del-cat': closeAll(); if (v === 'A') S.dialog = { kind: 'del-cat', id }; else S.confirm = { kind: 'cat', id }; render(); return;
+    case 'del-sub': { closeAll(); toast(deleteSub(id)); render(); return; }
+    case 'del-cat': { closeAll(); S.editCat = null; toast(deleteCat(id)); render(); return; }
+    case 'expand-all': CATS.forEach(c => S.open.add(c.id)); render(); return;
+    case 'collapse-all': S.open.clear(); render(); return;
+    case 'dlg-new-cat': closeAll(); S.dialog = { kind: 'new-cat' }; render('#nc-name'); return;
+    case 'new-cat': closeAll(); S.newCat = true; render('#nc-name'); return;
+    case 'edit-cat': closeAll(); S.editCat = id; render(`[data-ren-cat="${id}"]`); return;
+    case 'edit-cancel': closeAll(); S.editCat = null; render(); return;
+    case 'edit-done': {
+      const msgs = [];
+      document.querySelectorAll('[data-ren-sub]').forEach(i => { const t = renameSub(+i.dataset.renSub, i.value); if (t) msgs.push(t); });
+      const ci = document.querySelector('[data-ren-cat]'); if (ci) { const t = renameCat(+ci.dataset.renCat, ci.value); if (t) msgs.push(t); }
+      closeAll(); S.editCat = null; S.fresh = id; toast(msgs.length ? `Saved ${catById(id).name}: ${pl(msgs.length, 'name')} changed.` : `Saved ${catById(id).name}.`); render(); return;
+    }
+    case 'ask-resuggest': closeAll(); if (v === 'A') S.dialog = { kind: 'resuggest' }; else S.confirm = { kind: 'resuggest' }; render(); return;
+    case 'resuggest': closeAll(); toast(resuggest()); render(); return;
+    case 'accept-offered': toast(acceptOffered()); render(); return;
+    case 'leave-offered': LLM.offered = null; announce('Left in the Review queue, with the suggestion first.'); render(); return;
+    case 'thr-reset': S.draftThr = null; render('#thr-in'); return;
+    case 'check-now': toast(S.llm === 'ok' ? 'The LLM answered in 1,2 s.' : `Still can't reach 192.168.1.10:11434.`); render(); return;
+    case 'ask-admin': closeAll(); if (v === 'A') S.dialog = { kind: 'admin', id }; else S.confirm = { kind: 'admin', id }; render(); return;
+    case 'ask-deact': closeAll(); if (v === 'A') S.dialog = { kind: 'deact', id }; else S.confirm = { kind: 'deact', id }; render(); return;
+    case 'admin': closeAll(); toast(setAdmin(id, true)); render(); return;
+    case 'demote': closeAll(); toast(setAdmin(id, false)); render(); return;
+    case 'deact': closeAll(); toast(setActive(id, false)); render(); return;
+    case 'react': closeAll(); toast(setActive(id, true)); render(); return;
+    case 'reset': { closeAll(); const m = mById(id); S.link = { id, invite: !m.usable };
+      if (v === 'A') S.page = 'link'; else if (v === 'B') S.mpane = 'link'; else S.dialog = { kind: 'link' };
+      render('#copy-btn'); return; }
+    case 'pane-new': closeAll(); S.mpane = 'new'; render('#nm-name'); return;
+    case 'pane-done': S.mpane = 'member'; render(); return;
+    case 'dlg-new': closeAll(); S.dialog = { kind: 'new' }; render('#nm-name'); return;
+    case 'copy': {
+      const inp = document.getElementById('link-in'); inp.select();
+      (navigator.clipboard?.writeText(inp.value) ?? Promise.reject()).catch(() => document.execCommand('copy'));
+      const b = document.getElementById('copy-btn'); b.innerHTML = `${ic('ok')}Copied`; announce('Link copied.'); return;
+    }
+  }
+}
+document.addEventListener('click', e => {
+  const p = e.target.closest('[data-proto]');
+  if (p) {
+    const d = p.dataset.proto, keys = Object.keys(VARIANTS);
+    if (d === '1' || d === '-1') { S.variant = keys[(keys.indexOf(S.variant) + +d + keys.length) % keys.length]; closeAll(); S.editCat = null; S.mpane = 'member'; if (S.page === 'newmember' || S.page === 'link') S.page = 'members'; }
+    else if (d.startsWith('go:')) { S.page = d.slice(3); closeAll(); S.mpane = 'member'; }
+    else if (d === 'llm') S.llm = STATUSES[(STATUSES.indexOf(S.llm) + 1) % STATUSES.length];
+    else if (d === 'theme') { const order = ['system', 'light', 'dark'], h = document.documentElement; h.dataset.theme = order[(order.indexOf(h.dataset.theme) + 1) % 3]; }
+    else if (d === 'reset') { seed(); closeAll(); S.editCat = null; S.mpane = 'member'; S.selMember = ME; S.selCat = 1; S.draftThr = null; S.said = ''; }
+    render(); return;
+  }
+  const nv = e.target.closest('[data-nav]');
+  if (nv) { e.preventDefault(); const to = nv.dataset.nav; closeAll(); S.page = to === 'newmember' && S.variant !== 'A' ? 'members' : to; if (to === 'newmember' && S.variant === 'B') S.mpane = 'new'; if (to === 'newmember' && S.variant === 'C') S.dialog = { kind: 'new' }; render(); return; }
+  const mn = e.target.closest('[data-menu]');
+  if (mn) { const k = mn.dataset.menu; S.menu = S.menu === k ? null : k; render(S.menu ? '.menu-panel [data-act]' : `[data-menu="${k}"]`); return; }
+  const tg = e.target.closest('[data-toggle]');
+  if (tg) { const id = +tg.dataset.toggle; S.open.has(id) ? S.open.delete(id) : S.open.add(id); render(`[data-toggle="${id}"]`); return; }
+  const a = e.target.closest('[data-act]');
+  if (a && !a.disabled) { e.preventDefault(); act(a.dataset.act); return; }
+  const sel = e.target.closest('[data-sel]');
+  if (sel) { closeAll(); S.selCat = +sel.dataset.sel; render(`#opt-${S.selCat}`); return; }
+  const ms = e.target.closest('[data-msel]');
+  if (ms) { closeAll(); S.selMember = +ms.dataset.msel; S.mpane = 'member'; render(`#mopt-${S.selMember}`); return; }
+  if (S.menu && !e.target.closest('.menu')) { S.menu = null; render(); }
+});
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, fd = new FormData(f), id = +f.dataset.id;
+  switch (f.dataset.form) {
+    case 'rename-cat': { const t = renameCat(id, fd.get('name')); closeAll(); S.fresh = id; toast(t); render(); return; }
+    case 'rename-sub': { const t = renameSub(id, fd.get('name')); closeAll(); S.fresh = id; toast(t); render(); return; }
+    case 'add-sub': { const t = addSub(id, fd.get('name') || ''); if (t) { S.open.add(id); toast(t); } render(`form[data-form="add-sub"][data-id="${id}"] input`); return; }
+    case 'add-cat': { const t = addCat(fd.get('name') || '', fd.get('kind')); closeAll(); if (t) { toast(t); S.selCat = CATS.at(-1).id; S.open.add(CATS.at(-1).id); } render(); return; }
+    case 'thr': { const v = Math.max(50, Math.min(100, Math.round(+(fd.get('thr') ?? S.draftThr ?? LLM.thr)))); S.draftThr = null; toast(saveThreshold(v)); render(); return; }
+    case 'new-member': { const m = newMember(fd.get('name') || '', fd.get('username') || ''); closeAll(); S.link = { id: m.id, invite: true };
+      if (S.variant === 'A') S.page = 'link'; else if (S.variant === 'B') { S.mpane = 'link'; S.selMember = m.id; } else S.dialog = { kind: 'link' };
+      announce(`Created ${m.name}. Here is their invite link.`); render('#copy-btn'); return; }
+  }
+});
+// The slider repaints only its own figures while it moves; the page re-renders when it is let go.
+document.addEventListener('input', e => {
+  if (e.target.id !== 'thr-in' && e.target.id !== 'thr-num') return;
+  const v = Math.max(50, Math.min(100, +e.target.value || 50)); S.draftThr = v;
+  const set = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  set('thr-out', `${v} %`); set('thr-word', `${v} % sure`);
+  const other = document.getElementById(e.target.id === 'thr-in' ? 'thr-num' : 'thr-in'); if (other && S.variant === 'C') other.value = v;
+  const thr = document.querySelector('.hist .thr'); if (thr) { thr.style.left = `calc(${v}% - 1px)`; thr.querySelector('span').textContent = `Auto-accept · ${v} %`; document.querySelectorAll('.hist .b').forEach((b, i) => b.classList.toggle('over', i * 5 >= v)); }
+  S.said = `${v} % sure: ${wouldClear(v)} queued would pass`; renderProto();
+});
+document.addEventListener('change', e => { if ((e.target.id === 'thr-in' || e.target.id === 'thr-num') && S.variant !== 'A') render(`#${e.target.id}`); });
+// B: drag and Alt+↑/↓ reorder, the same as Rules (#87).
+let dragged = null;
+document.addEventListener('dragstart', e => { const r = e.target.closest?.('[data-dragcat],[data-dragsub]'); if (!r) return; dragged = r; r.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+document.addEventListener('dragover', e => { if (!dragged) return; const t = e.target.closest?.(dragged.dataset.dragcat ? '[data-dragcat]' : '[data-dragsub]'); if (t && t !== dragged) e.preventDefault(); });
+document.addEventListener('drop', e => {
+  if (!dragged) return; e.preventDefault();
+  if (dragged.dataset.dragcat) { const t = e.target.closest('[data-dragcat]'); if (!t) return; const from = CATS.findIndex(c => c.id === +dragged.dataset.dragcat), to = CATS.findIndex(c => c.id === +t.dataset.dragcat); const [c] = CATS.splice(from, 1); CATS.splice(to, 0, c); announce(`Moved ${c.name} to ${to + 1} of ${CATS.length}.`); }
+  else { const t = e.target.closest('[data-dragsub]'); if (!t) return; const c = catOf(+dragged.dataset.dragsub), list = movable(c); const from = list.findIndex(s => s.id === +dragged.dataset.dragsub), to = list.findIndex(s => s.id === +t.dataset.dragsub); const [s] = list.splice(from, 1); list.splice(to, 0, s); c.subs = [...list, catchAll(c)]; announce(`Moved ${s.name} to ${to + 1} of ${list.length}.`); }
+  dragged = null; render();
+});
+document.addEventListener('dragend', () => { dragged?.classList.remove('dragging'); dragged = null; });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && (S.menu || S.confirm || S.renaming || S.newCat)) { const k = S.menu; closeAll(); render(k ? `[data-menu="${k}"]` : null); return; }
+  const opt = e.target.closest?.('.lst [data-sel]');
+  if (opt && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault(); const id = +opt.dataset.sel, i = CATS.findIndex(c => c.id === id), dir = e.key === 'ArrowUp' ? -1 : 1;
+    if (e.altKey) { announce(moveCat(id, dir)); render(`#opt-${id}`); }
+    else if (CATS[i + dir]) { S.selCat = CATS[i + dir].id; render(`#opt-${S.selCat}`); }
+    return;
+  }
+  const mo = e.target.closest?.('.lst [data-msel]');
+  if (mo && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); const i = MEMBERS.findIndex(m => m.id === +mo.dataset.msel), nx = MEMBERS[i + (e.key === 'ArrowUp' ? -1 : 1)]; if (nx) { S.selMember = nx.id; S.mpane = 'member'; render(`#mopt-${nx.id}`); } return; }
+  const so = e.target.closest?.('[data-dragsub]');
+  if (so && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); const id = +so.dataset.dragsub; announce(moveSub(id, e.key === 'ArrowUp' ? -1 : 1)); render(`#sub-${id}`); return; }
+  if (e.target !== document.body && e.target.id !== 'main') return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); document.querySelector(`[data-proto="${e.key === 'ArrowLeft' ? -1 : 1}"]`)?.click(); }
+});
+render();
+</script>
+</body>
+</html>
