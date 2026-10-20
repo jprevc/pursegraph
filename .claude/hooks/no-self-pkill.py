@@ -12,6 +12,8 @@ import re
 import sys
 
 command = json.load(sys.stdin).get("tool_input", {}).get("command", "")
+# Heredoc bodies are data (PR bodies, scripts written to files), not commands.
+command = re.sub(r"<<-?\s*['\"]?(\w+)['\"]?.*?\n.*?^\s*\1\s*$", "", command, flags=re.S | re.M)
 
 for segment in re.findall(r"\b(?:pkill|pgrep)\b[^;&|\n]*", command):
     if re.search(r"\s(-[a-zA-Z0-9]*f|--full)\b", segment) and "[" not in segment:
