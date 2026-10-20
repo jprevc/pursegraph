@@ -379,7 +379,7 @@ A missing Statement must never read as less spending. The Dashboard reads Covera
 - **In progress:** the running month, with no Gap up to today. Incomplete by time, not by a Gap.
 - **Not tracked:** before the first Coverage day of every included Account. There are no numbers, not zeros.
 
-The running month with a Gap is Partial. A longer period takes the first of Partial, Partly tracked, In progress, Not tracked, Complete that any of its months is. A period that is wholly Not tracked shows the empty state ("No Statements cover this period yet") instead of a view.
+The running month with a Gap is Partial. A longer period takes the first of Partial, Partly tracked, In progress, Not tracked, Complete that any of its months is. A period that is wholly Not tracked shows the Not tracked card (see Empty states) instead of a view.
 
 **Header line.** One line between the view bar and the stat tiles: Ink 2 13px with a muted 16px info icon, no fill, border or alert colour (the No Verdict Rule). It has up to three parts, joined by "·":
 1. **Gaps,** leading with the consequence: "Incomplete: no Statements yet from Luka's N26 for 1–31 Jul". Each Account name links to Import. Past two Accounts the rest collapse into "and 2 more", which expands in place.
@@ -428,6 +428,58 @@ One row is shared by the Review queue, Transactions and the drill-down. Its colu
   - date, kind and Account in a muted caption;
   - the outcome, with its actions under it at 44px (Accept stretches; Change and Something else stay text buttons).
 
+### Login and locked out
+The pages outside the shell. They honour the saved theme but have no theme switch.
+- **Layout:** two columns, 5fr and 6fr. The left panel is Indigo Wash, padded 32px. It holds the mark and wordmark at the top, then the claim, "The whole Household's money in one private picture." (28px, 600, −0.02em, at most 18ch). Under the claim are three facts, each a 1.5px icon in Indigo Ink beside Ink 2 text: "Runs on your own network. Statements never leave the house.", "Each Member imports their own bank Statements." and "Every Transaction is categorized, and the rest wait for a Member to decide." The right column centres a 360px form on the ground. On a phone (≤900px) the panel becomes a band above the form, with the wordmark and the claim at 20px, and the facts are dropped.
+- **Form:** the title is "Welcome back" (Headline), over the muted line "Log in with the username your admin gave you.". Then the Username and Password fields: 40px, with a 13px 500 label above each. A full-width "Log in" button follows, and then the muted 13px line "Forgot your password? There is no email here: ask an admin of the Household for a reset link."
+- **Errors are linked to their fields.** Each message sits under its field in Ink 13px 500, with a 16px alert icon. The field gets `aria-invalid="true"` and `aria-describedby` pointing at the message, and a 2px Ink border, never red.
+  - **An empty field:** "Enter your username." or "Enter your password.", under that field. Focus moves to the first invalid field.
+  - **A wrong pair:** "That username and password don't match.", under the password. Both fields point at it, and focus moves to the password. From the 3rd wrong try on, it adds "N more tries before *username* is locked for an hour on this device." (django-axes counts per username and IP, so it says this even for a username that doesn't exist, and gives nothing away).
+- **Locked out** (the 5th wrong try): the form column is replaced, with `role="alert"`. It is titled "Too many wrong passwords", with the muted line "for *username* on this device". "You can try again in" is followed by the minutes left as a Display figure ("58 min") and a muted "at 15:42". Then comes "Or, right away:", followed by two numbered steps: "Ask an admin for a password-reset link." and "Open it and choose a new password. That also unlocks *username*." A full-width "Log in as someone else" button returns to an empty form. The page doesn't count down live.
+
+### Empty states and first run
+An empty page always says why it is empty and what fills it. It never only says that there is nothing.
+
+**First run** (the Household has no Statement yet):
+- **Get started page:** the Dashboard is replaced by "Get started", titled "Set up the Household", with the muted line "Four steps to the first Dashboard. This page becomes the Dashboard after the first import." A 6px Household Indigo progress pill shows "N of 4 done". Then an ordered list of step cards, at most 760px wide. Each has a 32px numbered circle, a Title, a sentence in Ink 2, a muted 12px "who" caption, and its action at the right.
+  1. "Pursegraph is installed and you are its first admin": always done. Its circle shows a check on Indigo Wash, and its title is Muted 500.
+  2. "Import a Statement": "Upload a bank Statement: a Sparkasse or N26 PDF, or a Revolut PDF or CSV. Its Account is created from the IBAN on it, so there's nothing to set up first." Who: "Any Member · usually their own bank". Action: Import.
+  3. "Invite the other Members": "Each gets a one-time link to choose their password, then imports their own Statements." Who: "Admins". Action: Invite, which opens Members. Done once a second active Member exists. A Member who isn't an admin doesn't see this step.
+  4. "Sort the Review queue": "What no Rule or LLM suggestion could categorize waits for a Member to decide. Available after the first import." Not available yet: no card fill or shadow, a dashed Line Strong border, and muted text.
+- **The shell in setup mode.** The sidebar offers only what works yet: Get started, Import, and under Manage, Categories, Accounts and Members (for admins). A muted 13px note under Manage says "Transactions, the Review queue and Rules appear after the first import." The phone tab bar has three items: Get started, Import and More. The first import ends setup mode for everyone, and the full shell and the Dashboard return.
+
+**The empty block.** One centred card, the same on every page:
+- a 48px Indigo Wash circle with a 22px Indigo Ink icon;
+- a 17px 600 heading;
+- a muted sentence, at most 52ch;
+- the action buttons, centred.
+
+The page keeps its title row. Its copy, page by page:
+- **Accounts, before any:** "No Accounts yet" / "There's nothing to add first: importing a Statement creates its Account from the IBAN printed on it. Add one here only for an Account that never gets Statements, such as savings at another bank, so that money moved there counts as a Transfer." Actions: Import Statements, and the ghost button "Add an Account without Statements".
+- **Import's Coverage, before any Account:** "No Accounts yet" / "Each Statement adds its Account the first time, from the IBAN printed on it. A Revolut CSV has no IBAN, so you'll be asked which Account it goes into, or to name a new one. Each Member usually imports their own bank's Statements."
+- **Members, with only the first admin:** the table with its one row, then the block "Invite the rest of the Household" / "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." Action: Invite a Member.
+- **Rules, before any:** "No Rules yet" / "A Rule categorizes matching Transactions at import, or marks them Transfers. The quickest way to make one is "Make a Rule" after you correct a Transaction in the Review queue." Action: Write a Rule.
+- **Review queue, all decided:** "Nothing waiting for review" / "Every imported Transaction has a Subcategory or is a Transfer. Any new ones that need a decision arrive with the next import." Action: See Transactions. It is calm, not a celebration.
+- **Categories** is never empty, because the list is seeded.
+
+**A Member's first steps.** A Member who owns no Account alone, and so has no Bucket, sees a card above the stat tiles titled "Your first steps, *name*", with a ghost "Hide" button that is remembered per browser. It has two numbered rows:
+1. "Import your own Statements": "Sparkasse, N26 or Revolut. Each adds its Account, and you get your own bucket in Per Member." Action: Import.
+2. "Help with the Review queue": "N Transactions wait for a Member to decide." Action: Open. This row is shown only while the queue isn't empty.
+
+**Not tracked** (a period wholly before the first Coverage day of every included Account; see Period completeness). The view is replaced by one card:
+- **Title:** "No Statements cover February 2026 yet".
+- **Sentence:** "Luka's Revolut is tracked from 1 Mar 2026. Before that there are no numbers, not zeros." With several Accounts it names them all: "… are tracked from …", with the earliest date.
+- **Coverage timeline:** one row per included Account (name in 13px 500) and one column per month, from the Household's first Coverage month to the running month. A tracked stretch is a 14px Muted pill. An untracked month is a 2px Line Strong dash. The shown period's column takes Indigo Wash, with its month label in Indigo Ink 600. Under it, a muted legend reads "has Statements · no Statements yet · Showing the Accounts this filter includes." No Category hue, because Coverage isn't data.
+- **Actions:** "Go to March 2026", the first tracked period; "Show all Members", only when a filter narrows the Accounts; and the ghost "Import an earlier Statement".
+
+### Loading
+An HTMX swap (a view tab, the period, a filter or the drill-down) keeps the old content on screen while the new one loads.
+- **Immediately:** the swapped region gets `aria-busy="true"`.
+- **After 300 ms:** if the swap is still running, the old content dims to 45% opacity and stops taking pointer events. A 2px Household Indigo line slides along the top of the region (1.1 s, eased, looping). The region clips it sideways, so the page never scrolls sideways. A swap that finishes within 300 ms shows neither, so fast swaps on the LAN don't flicker.
+- **Labels change at once.** The period label, the active tab and the filter show the new choice straight away, so it is clear what is loading.
+- **With nothing to dim** (a drill-down opening for the first time), the card opens with its title and the line over an empty body.
+- **Reduced motion:** the line is static, full width, at 50% opacity.
+- There are no skeletons or spinners.
 ### Import and the Accounts board
 Import is the Household's Accounts on one shared time axis, with Statements dropped onto the page. Results land on the row of the Account they went into. Accounts (under Manage, admins only) is the same board. Both pages are desktop only.
 
@@ -501,7 +553,10 @@ Each rejection says the cause first, then the next step, then the evidence behin
 | Account takes no Statements | Maja's savings takes no Statements | Choose another Account, or ask an admin to change its bank | none |
 
 - **The mismatched figure** in a disclosure is marked by 700 weight and a 2px Ink underline, not by colour.
-- **Choose the Account:** "A Revolut Statement, 1 Jan – 14 Oct 2026. Its IBAN LT59 … isn't on any Account yet. Pick the Account it belongs to, or create one. The IBAN is added to it, so next time the Statement goes there by itself." Then the Accounts of that bank as bordered radio rows, "A new Revolut Account" (Name, Owners), and "Import into this Account".
+- **Choose the Account:** the first sentence depends on whether the Statement carries an IBAN.
+  - **A PDF with an unknown IBAN:** "An N26 Statement, 1–30 Sep 2026. Its IBAN DE89 … isn't on any Account yet. Pick the Account it belongs to, or create one. The IBAN is added to it, so next time the Statement goes there by itself."
+  - **A Revolut CSV, which has no IBAN:** "A Revolut CSV export, 1 Jan – 14 Oct 2026. It carries no IBAN, so pick the Account it belongs to, or create one."
+  - Then the Accounts of that bank as bordered radio rows, "A new Revolut Account" (Name, Owners), and "Import into this Account".
 - **Domain counts:** "64 Transactions imported" and "No Duplicates" or "22 Duplicates skipped: already imported from an earlier Statement". Also, where they apply: "4 card payments still pending or declined, left out" (never "non-completed rows"), "3 Transfers recognised: 2 paired, 1 one-sided", "1 categorized Transaction is now a Transfer", "1 Transfer has several possible other sides, so it waits in the Review queue", "41 categorized by Rules" and "20 wait for suggestions and review · Review queue". Zero counts read "No …" in Muted.
 
 ### Navigation
@@ -528,13 +583,16 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** set CSS `color-scheme` per theme, so native controls and scrollbars match, and ship `media`-scoped `<meta name="theme-color">` tags for the ground colour, rewritten by JS when the choice is Light or Dark.
 - **Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.
 - **Do** commit an outcome only on a deliberate choice (Accept, a chip, a confirmed OS pick), always name it "Category › Subcategory", and offer Undo after every save.
-- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and the More sheet's slide up (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
+- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation, the More sheet's slide up (cubic-bezier(.16,1,.3,1)) and the loading line are the whole motion vocabulary.
+- **Do** give every empty page its reason and the action that fills it.
 
 ### Don't:
 - **Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.
 - **Don't** use the indigo accent as a data colour, a chart series or a Category hue.
 - **Don't** give Awaiting review a Category hue, or show it without its hatch.
 - **Don't** draw a month without Coverage as 0, or compare a figure with an incomplete month without saying so.
+- **Don't** offer a page before it can have content (setup mode), or show example figures as if they were the Household's.
+- **Don't** blank a region while it loads, or show a loading state for a swap that finishes within 300 ms.
 - **Don't** stripe or hatch a Coverage Gap. The hatch is Awaiting review's; a Gap is an outlined slot with its dates in text.
 - **Don't** write an import rejection for the developer. Lead with the cause and the next step, and keep the reconciliation behind a disclosure.
 - **Don't** colour spending, Net or comparisons red or green to mean good or bad.
