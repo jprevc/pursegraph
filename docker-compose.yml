@@ -45,7 +45,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Nightly pg_dump, keeping 14 daily and 6 monthly dumps; see "Backups" in the README.
+  # Nightly pg_dump, keeping 14 daily and 6 monthly dumps; see "Backups" in docs/operations.md.
   backup:
     image: postgres:17
     restart: unless-stopped

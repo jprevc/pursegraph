@@ -15,7 +15,7 @@ Run date 2026-10-16. Impeccable 4.6.0. Worktree read-only (live-server's `.impec
 
 ## 3. Browser overlay (detect.js injected via Playwright)
 
-Flow: `live-server --background` (port 8400) -> fresh Playwright context per width, logged in as `maja` -> mutation preflight (set `document.title` and append a `<script>`: both passed) -> scroll to top -> `add_script_tag(http://localhost:8400/detect.js)` -> wait 3 s -> collect console -> `live-server stop --keep-inject`. No injection errors. **There is no human-visible [Human] tab**: the run was headless Playwright, so the user never saw the overlay. Overlay screenshots are in `/tmp/claude-1000/-home-jprevc-git-pursegraph/abbd5f6f-74a0-435e-89ff-0b84efbbcba0/scratchpad/assess-b/*-overlay2.png`. Raw data: `/tmp/claude-1000/-home-jprevc-git-pursegraph/abbd5f6f-74a0-435e-89ff-0b84efbbcba0/scratchpad/assess-b/results2.json`.
+Flow: `live-server --background` (port 8400) -> fresh Playwright context per width, logged in as `maja` -> mutation preflight (set `document.title` and append a `<script>`: both passed) -> scroll to top -> `add_script_tag(http://localhost:8400/detect.js)` -> wait 3 s -> collect console -> `live-server stop --keep-inject`. No injection errors. **There is no human-visible [Human] tab**: the run was headless Playwright, so the user never saw the overlay. The overlay screenshots and raw data were kept outside the repository.
 
 Counts were identical at 1440 and 390, except for one extra phone finding on Rules.
 
