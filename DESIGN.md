@@ -19,6 +19,7 @@ colors:
   line: "#e5e7eb"
   line-strong: "#d1d5db"
   awaiting: "#9ca3af"
+  coverage: "#64748b"
   cat-0: "#4e79a7"
   cat-1: "#59a14f"
   cat-2: "#f28e2b"
@@ -44,6 +45,7 @@ colors:
   line-dark: "#262b34"
   line-strong-dark: "#343a46"
   awaiting-dark: "#6b7280"
+  coverage-dark: "#8b95a7"
   cat-0-dark: "#6b9bd1"
   cat-1-dark: "#6cc05f"
   cat-2-dark: "#f5a04d"
@@ -199,6 +201,25 @@ components:
     backgroundColor: "{colors.accent-soft}"
     textColor: "{colors.accent-text}"
     borderColor: "{colors.accent}"
+  drop-strip:
+    backgroundColor: "{colors.card}"
+    borderColor: "{colors.line-strong}"
+    rounded: "{rounded.card}"
+    padding: "12px 16px"
+  coverage-covered:
+    backgroundColor: "{colors.coverage}"
+    rounded: "5px"
+    height: "22px"
+  coverage-new:
+    backgroundColor: "{colors.accent}"
+    rounded: "5px"
+    height: "22px"
+  coverage-gap:
+    backgroundColor: "{colors.card}"
+    borderColor: "{colors.ink-2}"
+    textColor: "{colors.ink}"
+    rounded: "5px"
+    height: "22px"
 ---
 
 # Design System: Pursegraph
@@ -242,13 +263,14 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 - **Muted** (muted / muted-dark): labels, meta text, comparisons, table headers and control icons.
 - **Faint** (faint / faint-dark): disclosure chevrons only.
 - **Line / Line Strong**: hairline dividers (line), and control borders, label lines and dimmed donut segments (line-strong).
+- **Coverage Slate** (coverage / coverage-dark): the stretches of the Accounts board that Statements cover. It is a neutral, never a Category hue.
 
 ### Category palette
 - **cat-0 … cat-9** (and their `-dark` counterparts): ten Tableau-10-derived hues. A Category's hue is `cat-((id − 1) mod 10)`, so it is fixed by its Category id, never by its rank or the view it appears in. It colours the donut segment, the row dot, the share bar and the drill-down dot.
 - **Awaiting Grey** (awaiting / awaiting-dark): the neutral fill for Transactions in the Review queue. It is always paired with a 45° hatch.
 
 ### Named Rules
-**The One Indigo Rule.** Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category.
+**The One Indigo Rule.** Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category. On the Accounts board, the stretch the import just added is Indigo as a state ("this import", like the active nav item), not as a series.
 
 **The Fixed Hue Rule.** A Category wears the same hue in every view, chart and theme step (lifted in dark, never re-assigned). Hues are keyed by Category id, never by sort order.
 
@@ -281,7 +303,7 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 
 The desktop layout is a two-column shell: a sticky, full-height white sidebar (232px, with a right hairline), then the page. The main column is padded 24px top and 32px sides, up to 1360px wide.
 
-**Page header.** Every page opens with a title row: the page title (Headline) on the left and the page's one primary action, if any, on the right ("New Rule", "Accept 5 suggestions"). The Dashboard's title is "Dashboard", not the view's name. Under it, the five views are an in-page row of underline tabs (Spending, Cash flow, Category trends, Per Member, Money flow) over a Line hairline: they are lenses on the same period, not separate destinations. Under the tabs, a sticky filter bar holds the period stepper (‹ period ›, with "so far, to 16 Oct" muted) and the period unit select on the left, and the Member and Account filters pushed to the right, all 36px high. The bar sticks to the top on scroll on a 92% ground tint with a backdrop blur, so the period stays in view beside the figures. Transactions has its own layout instead: a search field, a summary line and a facet rail (see Transactions page). Other pages have the title row only. Below the Dashboard's filter bar, three equal stat tiles (16px gap). They carry the headline figures for the chosen period. There is no global "this month" figure anywhere in the shell. Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
+**Page header.** Every page opens with a title row: the page title (Headline) on the left and the page's one primary action, if any, on the right ("New Rule"). The Dashboard's title is "Dashboard", not the view's name. Under it, the five views are an in-page row of underline tabs (Spending, Cash flow, Category trends, Per Member, Money flow) over a Line hairline: they are lenses on the same period, not separate destinations. Under the tabs, a sticky filter bar holds the period stepper (‹ period ›, with "so far, to 16 Oct" muted) and the period unit select on the left, and the Member and Account filters pushed to the right, all 36px high. The bar sticks to the top on scroll on a 92% ground tint with a backdrop blur, so the period stays in view beside the figures. Transactions has its own layout instead: a search field, a summary line and a facet rail (see Transactions page). Other pages have the title row only. Below the Dashboard's filter bar, three equal stat tiles (16px gap). They carry the headline figures for the chosen period. There is no global "this month" figure anywhere in the shell. Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
 
 **Phone (≤900px).** The sidebar is replaced by a fixed 64px bottom tab bar with four items: Dashboard, Transactions, Review (with its count badge) and More. Each is a 22px icon over an 11px label, muted, and Indigo Ink when active. The bar is a 94% card tint with a backdrop blur and a top hairline, and it pads for the safe area. More opens a bottom sheet (18px top corners, a grip, the Pop shadow) over a 35% black scrim, closing on the scrim or Escape. It holds Import, the Manage links, the theme switch, and the Member's name and role with Log out. Import sits under More because Import needs only work on desktop. A plain 52px row above the content carries the mark and wordmark (it does not stick). The main column pads 16px and leaves room for the tab bar. The view tabs scroll sideways. In the sticky filter bar, the period stepper takes a full row, and the Month, Member and Account controls share the next row (their icons hidden, labels truncating with an ellipsis). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Transaction rows stack as cards (see Transaction row). On Transactions, the facet rail moves into a sheet behind a Filter button (see Transactions page).
 
@@ -357,7 +379,7 @@ A missing Statement must never read as less spending. The Dashboard reads Covera
 - **In progress:** the running month, with no Gap up to today. Incomplete by time, not by a Gap.
 - **Not tracked:** before the first Coverage day of every included Account. There are no numbers, not zeros.
 
-The running month with a Gap is Partial. A longer period takes the first of Partial, Partly tracked, In progress, Not tracked, Complete that any of its months is. A period that is wholly Not tracked shows the empty state ("No Statements cover this period yet") instead of a view.
+The running month with a Gap is Partial. A longer period takes the first of Partial, Partly tracked, In progress, Not tracked, Complete that any of its months is. A period that is wholly Not tracked shows the Not tracked card (see Empty states) instead of a view.
 
 **Header line.** One line between the view bar and the stat tiles: Ink 2 13px with a muted 16px info icon, no fill, border or alert colour (the No Verdict Rule). It has up to three parts, joined by "·":
 1. **Gaps,** leading with the consequence: "Incomplete: no Statements yet from Luka's N26 for 1–31 Jul". Each Account name links to Import. Past two Accounts the rest collapse into "and 2 more", which expands in place.
@@ -380,31 +402,224 @@ The bands' text labels are the non-colour cue. The hatch stays reserved for Awai
 A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. When the period isn't Complete, the title carries the same qualifier as the tables: "Food · July 2026 (partial)", "(partly tracked)" or "(so far)". A table of Transaction rows follows (see Transaction row). A muted footnote explains that changing an outcome moves the amount between Categories. The card's foot links to the whole list: "All 37 in Transactions ›", which opens Transactions filtered to that Category, period, Member and Account.
 
 ### Transaction row
-One row is shared by the Review queue, Transactions and the drill-down. Its columns are Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome, and Amount (right-aligned, 600, tabular). Rows have hairline dividers and a Raised hover. Every Member can change an outcome on every surface, always through an explicit action.
+One row is shared by Transactions and the drill-down. The Review queue decides outcomes in its own detail pane (see Review queue), with the same outcome text, chips and save feedback. The row's columns are Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome, and Amount (right-aligned, 600, tabular). Rows have hairline dividers and a Raised hover. Every Member can change an outcome on every surface, always through an explicit action.
 - **The outcome is text, not a control.** It reads as the Category's hue dot, then "Category › Subcategory", with the Category in Muted, the › in Faint and the Subcategory in Ink at 500. It always names its Category, so the eight "Other" catch-alls never read alike. A Transfer gets a hollow Muted ring, and Awaiting review gets the hatched dot. A muted source caption follows ("by Rule", "by LLM", "by hand", "by IBAN", "paired").
 - **Actions on reading surfaces.** Transactions and the drill-down show a "Change" text button in Indigo Ink.
-- **Actions in the Review queue.** They depend on the row:
-  - with a suggestion: the suggested outcome as text, "86 % sure" in Muted, an Accept button (32px) and a "Something else" text button;
-  - without one: "Awaiting review" and a Choose button;
-  - an ambiguous Transfer: "Transfer", "other side unknown" and "Pick the other side".
 - **Action layout.** The actions keep a fixed place at the end of the cell. A long outcome ("Leisure › Subscriptions & digital services") wraps its own label and never pushes the actions onto a new line.
-- **Picking with a fine pointer: the chip panel.** Change, Choose, Something else and Pick the other side open a panel in a full-width row under the Transaction, on the Raised fill.
+- **Picking with a fine pointer: the chip panel.** Change opens a panel in a full-width row under the Transaction, on the Raised fill.
   - **Title row:** "Choose an outcome for *description*", with a Cancel text button.
-  - **Ambiguous Transfer:** the candidate other sides come first, as bordered cards (description, date · Account, amount).
   - **Chips:** "Most used" chips (the Household's five most-used outcomes, each "Category › Subcategory"), then one chip per Category (hue dot and name), then Transfer. A Category chip swaps the chips for its Subcategories, with "‹ All Categories" to go back.
   - **Chip style:** 36px pills with the card fill and a Line Strong border. The current outcome's chip takes Indigo Wash with an Indigo border.
   - **Focus:** only one panel is open at a time. Opening it moves focus to the first chip; Escape or Cancel closes it and returns focus to the button that opened it.
-- **Picking with a coarse pointer: the native select.** Under `(pointer: coarse)`, the same buttons are a transparent native `<select>` laid over the button, so a tap opens the OS picker. The select is 16px, so iOS doesn't zoom.
-  - **Options:** each reads "Category › Subcategory", in optgroups: the other side of a Transfer, Suggested, Most used, each Category, then Transfer.
+- **Picking with a coarse pointer: the native select.** Under `(pointer: coarse)`, Change is a transparent native `<select>` laid over the button, so a tap opens the OS picker. The select is 16px, so iOS doesn't zoom.
+  - **Options:** each reads "Category › Subcategory", in optgroups: Most used, each Category, then Transfer.
   - **Gate:** the pointer, not the width. A narrow desktop window still has a keyboard, so it keeps the panel.
-- **What commits.** Only a deliberate choice: Accept, a tap on a Subcategory, Most used or Transfer chip, a pairing card, or a confirmed pick in the OS picker (a touch picker fires `change` only on confirm). Arrow keys never save. Without JS, each row is a form with a select and a Save button.
-- **After a save.** The row swaps in place, and a muted line appears under the outcome: "✓ Saved as Category › Subcategory · Undo". After a save by hand in the Review queue it adds "· Make a Rule". The line goes after 10 s. Undo restores the previous outcome and its source.
+- **What commits.** Only a deliberate choice: Accept (in the Review queue), a tap on a Subcategory, Most used or Transfer chip, a pairing card, or a confirmed pick in the OS picker (a touch picker fires `change` only on confirm). Arrow keys never save. Without JS, each row is a form with a select and a Save button.
+- **After a save.** The row swaps in place, and a muted line appears under the outcome: "✓ Saved as Category › Subcategory · Undo". The line goes after 10 s. Undo restores the previous outcome and its source.
 - **A failed save.** The row stays as it was and says so in Ink with an alert icon: "Couldn't save *outcome*. Nothing changed. Try again". It uses no red.
-- **Focus after a save.** In the Review queue, focus moves to the next Transaction still waiting. Elsewhere, it returns to the row's Change. Every save, failure and Undo is announced politely.
+- **Focus after a save.** Focus returns to the row's Change. Every save, failure and Undo is announced politely.
 - **Phone (≤600px).** Each row is a stacked card:
   - description and amount on the first line;
   - date, kind and Account in a muted caption;
-  - the outcome, with its actions under it at 44px (Accept stretches; Change and Something else stay text buttons).
+  - the outcome, with Change under it at 44px.
+
+### Review queue
+The driver's weekly job: give every waiting Transaction an outcome, then read the month they just completed. The queue is a master–detail pair of cards. A list of groups sits on the left (about 380px), and the chosen group's detail is on the right.
+- **Groups.** Transactions in the queue with an identical description form one group ("Bolt.eu ×3"), across Accounts, and are decided together. A Transaction with a unique description is a group of one. Groups are ordered newest first, by their latest date.
+- **Title row.** It reads "Review queue" and, under it, a muted line: "12 Transactions in 9 groups still need an outcome". This line, the sidebar badge and the page `<title>` ("Review queue (12)") stay live after every save.
+- **The list.** It is headed by a muted "N waiting" and a "Show resolved (n)" checkbox, which is off by default. Each group is a full-width button with hairline dividers:
+  - the description (500), with a muted "×3" for a group;
+  - the group's total, right-aligned (600, tabular);
+  - a 12px muted caption with the hue dot and "Category › Subcategory · 78 % sure", or "No suggestion", or "Transfer · other side unknown".
+
+  The open group takes Indigo Wash with a 3px Indigo inset at its left edge and `aria-current="true"`. With Show resolved on, decided groups stay in place, muted, with a check and their outcome in the caption.
+- **The detail.** It shows the context the decision needs:
+  - **Head:** the description (600, 18px), the counterparty and kind (muted), and the group total (600, 22px).
+  - **Transactions:** one line per Transaction in the group, with date, Account pill (which carries the owner, or Joint) and amount.
+  - **Last time:** the outcome given to the most recent Transaction with this description outside the queue, with its date, source and how often it was used. When the suggestion disagrees, a muted line says "The suggestion differs from what was used last time." A new description says "First time this description is seen."
+- **Deciding.** A bordered box on the card fill, with no "Something else" button. A different outcome is always one tap away:
+  - **With a suggestion:** "Suggested · 78 % sure" (muted, 12px), the outcome as text, and one primary Accept ("Accept for all 3" for a group). A hairline follows, then "Or choose another outcome" (600, 13px) over the chips, already open.
+  - **The chips:** "Used last time" comes first, but only when it differs from the suggestion. Then come Most used (leaving out the suggested outcome), each Category (which leads to its Subcategories, as in the chip panel), and Transfer. They use the Transaction row's chip style, at 44px on a phone.
+  - **Without a suggestion:** "Choose an outcome" ("… for all 3" for a group) over the same chips.
+  - **An ambiguous Transfer:** "Which is the other side of this Transfer?" over the candidate cards (description, date · Account, amount), then "Or something else" and the chips, ending with "Transfer, one-sided".
+  - **On touch:** the chips stay; the native select isn't used here, because the detail has room and the chips show the hue dots.
+- **After a save.** The group is saved as a whole. The detail stays on it so the follow-ups are in reach:
+  - the outcome and its source;
+  - "✓ Saved all 3 as … · Undo · Make a Rule for "Bolt.eu" · See them in Transactions" ("See them" only for a group of more than one);
+  - a primary "Next: *description* ›" that opens the next waiting group.
+
+  The group leaves the list unless Show resolved is on. Undo puts the whole group back. See them in Transactions opens Transactions filtered to those Transactions, with a removable "Decided just now · 3" filter chip, in the URL. Every save, failure and Undo is announced politely ("Saved 3 × Bolt.eu as Transport › Public transport & car sharing. 9 left to review.").
+- **No queue-wide bulk accept.** Bulk is per group only, so a 51 %-sure guess never rides along with a 99 %-sure one.
+- **A failed save.** It is the Transaction row's line, inside the decide box, and focus stays on the box.
+- **Queue clear.** When nothing is waiting, the detail becomes a centred end state:
+  - a 48px Indigo Wash circle with a check;
+  - "Queue clear" (600, 20px);
+  - a muted sentence: "Every Transaction has an outcome, 15 of them decided just now. September 2026 is now complete." It names the most recent month this review made Complete; if none, the sentence ends after "just now".
+  - a primary "See September on the Dashboard", and "October so far" for the month in progress.
+
+  The last group's Next becomes "Queue clear · See September on the Dashboard". An empty queue on arrival shows the same state, without "decided just now".
+- **Keyboard.** No shortcuts. The groups and chips are real buttons in a sensible tab order. Opening a group moves focus to its heading, and Next moves it to the next group's heading.
+- **Phone (≤900px).** The list and the detail are two views. A group opens full width with a "‹ All groups" text button at the top. The Accept button and the chips are 44px, and Accept stretches to full width.
+
+### Rules
+A Rule is a saved filter over the Household's Transactions. Each of its pages shows which Transactions it catches and what it does to them, so a Rule is never saved blind.
+- **Rules page.** It has the title row with "New Rule" as its primary action, a muted line ("The first Rule a Transaction matches at import decides it"), then two cards: the list (300px) and the selected Rule's detail.
+  - **List items:** each item shows the Rule's place (Faint, tabular), its name, the count of Transactions it categorized (Muted, tabular), and its outcome as Transaction-row text below. A Rule's name is its description text in quotes ("“HOFER”"), else its IBAN in groups of four.
+  - **List as a listbox:** the selected item takes Indigo Wash. ↑/↓ move the selection, and Enter opens the Rule.
+- **Detail.** The head is "7. “SPAR” → Food › Groceries", with Move up and Move down icon buttons, Edit, and a ghost Delete.
+  - **Conditions:** pills ("contains **SPAR**", "IBAN **SI56 …**", "money **out**", "on **Maja · N26**").
+  - **Effect line:** "Categorized 13 Transactions." When earlier Rules take some of its matches, it adds "6 of its matches go to Rule 7 (“SPAR”) above", which is how a Rule that categorizes nothing explains itself.
+  - **Matches table:** Date, Transaction (the matched text in a soft highlight), Amount, and Outcome now with its source. It is grouped under Raised header rows: "Categorized by this Rule · N", then "Also matches, decided otherwise · N".
+- **Reorder.** Drag a list item, or press Alt+↑/↓ while it is focused, or use the detail's Move buttons. Every move is announced ("Moved “SPAR” to 6th"). A new Rule goes to the top.
+- **Delete.** Confirms inline under the detail head, on Raised with a Line Strong border: "Delete “SPAR”? Its 13 Transactions keep their outcome; future imports won't use it", with "Keep it" and a primary "Delete Rule". Focus moves to "Delete Rule". Deleting never changes an outcome. Every destructive action in Manage confirms the same way.
+- **The Rule page** (New Rule, Edit Rule, Make a Rule). A title row with Back, then one card.
+  - **Filter bar:** the conditions, laid out like Transactions' filter bar: Description contains (ignores case and accents), Counterparty IBAN, Direction, Account. Every condition set must hold.
+  - **Preview:** below the filter bar, the Transactions the filter matches, live as you type, with columns Date, Transaction, Amount, Now and After saving. They are grouped:
+    - "Will change · N";
+    - "Set by hand to something else: kept now, but new ones like them would follow this Rule · N";
+    - "Already *outcome* · N";
+    - "Keep their outcome · N".
+
+    The second group is how a Rule that is too broad shows itself. Outcomes set by hand, by IBAN, by pairing or by the parser are never overwritten; only those awaiting review, by LLM or by another Rule change.
+  - **Warnings:** muted info lines above the table, with no alert colour: "Takes 2 over from Rule 7 (“SPAR”)" and "At import, Rule 3 above wins on 4 of these".
+  - **Save bar:** sticky at the card's foot, holding "Categorize as" with the outcome select ("Category › Subcategory" options), Cancel, "Future imports only" and the primary "Save and change N" ("Save Rule" when nothing would change). This replaces the separate "Apply the Rule to existing Transactions?" page. After saving, the Rules page opens with the Rule selected, and a status line says what changed.
+- **Make a Rule** (from "Saved as … · Undo · Make a Rule" in the Review queue). It opens the Rule page pre-filled from the Transaction, with the outcome it was just given.
+  - **Pre-filled condition:** its counterparty IBAN if it has one. Otherwise the merchant word from the description: store numbers and towns are dropped, and after a payment processor ("PAYPAL *STEAMGAMES") the word after "*" is used. "HOFER 2201 LJUBLJANA" pre-fills "HOFER", never the whole string.
+  - **Word chips:** under the field, the description's words, Indigo Wash when used. Tapping one widens or narrows the match, and it stays one contiguous run of words.
+  - **No pre-filled direction:** a Refund must still match.
+  - **The source Transaction:** pinned first in its group, tinted Indigo Wash, with "the one you just saved".
+- **Phone (≤900px).** The list shows first, and a Rule's detail opens with a back button. On the Rule page, the filter fields stack, each preview row is a stacked card, and the save bar sits above the tab bar with 44px buttons.
+
+### Login and locked out
+The pages outside the shell. They honour the saved theme but have no theme switch.
+- **Layout:** two columns, 5fr and 6fr. The left panel is Indigo Wash, padded 32px. It holds the mark and wordmark at the top, then the claim, "The whole Household's money in one private picture." (28px, 600, −0.02em, at most 18ch). Under the claim are three facts, each a 1.5px icon in Indigo Ink beside Ink 2 text: "Runs on your own network. Statements never leave the house.", "Each Member imports their own bank Statements." and "Every Transaction is categorized, and the rest wait for a Member to decide." The right column centres a 360px form on the ground. On a phone (≤900px) the panel becomes a band above the form, with the wordmark and the claim at 20px, and the facts are dropped.
+- **Form:** the title is "Welcome back" (Headline), over the muted line "Log in with the username your admin gave you.". Then the Username and Password fields: 40px, with a 13px 500 label above each. A full-width "Log in" button follows, and then the muted 13px line "Forgot your password? There is no email here: ask an admin of the Household for a reset link."
+- **Errors are linked to their fields.** Each message sits under its field in Ink 13px 500, with a 16px alert icon. The field gets `aria-invalid="true"` and `aria-describedby` pointing at the message, and a 2px Ink border, never red.
+  - **An empty field:** "Enter your username." or "Enter your password.", under that field. Focus moves to the first invalid field.
+  - **A wrong pair:** "That username and password don't match.", under the password. Both fields point at it, and focus moves to the password. From the 3rd wrong try on, it adds "N more tries before *username* is locked for an hour on this device." (django-axes counts per username and IP, so it says this even for a username that doesn't exist, and gives nothing away).
+- **Locked out** (the 5th wrong try): the form column is replaced, with `role="alert"`. It is titled "Too many wrong passwords", with the muted line "for *username* on this device". "You can try again in" is followed by the minutes left as a Display figure ("58 min") and a muted "at 15:42". Then comes "Or, right away:", followed by two numbered steps: "Ask an admin for a password-reset link." and "Open it and choose a new password. That also unlocks *username*." A full-width "Log in as someone else" button returns to an empty form. The page doesn't count down live.
+
+### Empty states and first run
+An empty page always says why it is empty and what fills it. It never only says that there is nothing.
+
+**First run** (the Household has no Statement yet):
+- **Get started page:** the Dashboard is replaced by "Get started", titled "Set up the Household", with the muted line "Four steps to the first Dashboard. This page becomes the Dashboard after the first import." A 6px Household Indigo progress pill shows "N of 4 done". Then an ordered list of step cards, at most 760px wide. Each has a 32px numbered circle, a Title, a sentence in Ink 2, a muted 12px "who" caption, and its action at the right.
+  1. "Pursegraph is installed and you are its first admin": always done. Its circle shows a check on Indigo Wash, and its title is Muted 500.
+  2. "Import a Statement": "Upload a bank Statement: a Sparkasse or N26 PDF, or a Revolut PDF or CSV. Its Account is created from the IBAN on it, so there's nothing to set up first." Who: "Any Member · usually their own bank". Action: Import.
+  3. "Invite the other Members": "Each gets a one-time link to choose their password, then imports their own Statements." Who: "Admins". Action: Invite, which opens Members. Done once a second active Member exists. A Member who isn't an admin doesn't see this step.
+  4. "Sort the Review queue": "What no Rule or LLM suggestion could categorize waits for a Member to decide. Available after the first import." Not available yet: no card fill or shadow, a dashed Line Strong border, and muted text.
+- **The shell in setup mode.** The sidebar offers only what works yet: Get started, Import, and under Manage, Categories, Accounts and Members (for admins). A muted 13px note under Manage says "Transactions, the Review queue and Rules appear after the first import." The phone tab bar has three items: Get started, Import and More. The first import ends setup mode for everyone, and the full shell and the Dashboard return.
+
+**The empty block.** One centred card, the same on every page:
+- a 48px Indigo Wash circle with a 22px Indigo Ink icon;
+- a 17px 600 heading;
+- a muted sentence, at most 52ch;
+- the action buttons, centred.
+
+The page keeps its title row. Its copy, page by page:
+- **Accounts, before any:** "No Accounts yet" / "There's nothing to add first: importing a Statement creates its Account from the IBAN printed on it. Add one here only for an Account that never gets Statements, such as savings at another bank, so that money moved there counts as a Transfer." Actions: Import Statements, and the ghost button "Add an Account without Statements".
+- **Import's Coverage, before any Account:** "No Accounts yet" / "Each Statement adds its Account the first time, from the IBAN printed on it. A Revolut CSV has no IBAN, so you'll be asked which Account it goes into, or to name a new one. Each Member usually imports their own bank's Statements."
+- **Members, with only the first admin:** the table with its one row, then the block "Invite the rest of the Household" / "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." Action: Invite a Member.
+- **Rules, before any:** "No Rules yet" / "A Rule categorizes matching Transactions at import, or marks them Transfers. The quickest way to make one is "Make a Rule" after you correct a Transaction in the Review queue." Action: Write a Rule.
+- **Review queue, all decided:** "Nothing waiting for review" / "Every imported Transaction has a Subcategory or is a Transfer. Any new ones that need a decision arrive with the next import." Action: See Transactions. It is calm, not a celebration.
+- **Categories** is never empty, because the list is seeded.
+
+**A Member's first steps.** A Member who owns no Account alone, and so has no Bucket, sees a card above the stat tiles titled "Your first steps, *name*", with a ghost "Hide" button that is remembered per browser. It has two numbered rows:
+1. "Import your own Statements": "Sparkasse, N26 or Revolut. Each adds its Account, and you get your own bucket in Per Member." Action: Import.
+2. "Help with the Review queue": "N Transactions wait for a Member to decide." Action: Open. This row is shown only while the queue isn't empty.
+
+**Not tracked** (a period wholly before the first Coverage day of every included Account; see Period completeness). The view is replaced by one card:
+- **Title:** "No Statements cover February 2026 yet".
+- **Sentence:** "Luka's Revolut is tracked from 1 Mar 2026. Before that there are no numbers, not zeros." With several Accounts it names them all: "… are tracked from …", with the earliest date.
+- **Coverage timeline:** one row per included Account (name in 13px 500) and one column per month, from the Household's first Coverage month to the running month. A tracked stretch is a 14px Muted pill. An untracked month is a 2px Line Strong dash. The shown period's column takes Indigo Wash, with its month label in Indigo Ink 600. Under it, a muted legend reads "has Statements · no Statements yet · Showing the Accounts this filter includes." No Category hue, because Coverage isn't data.
+- **Actions:** "Go to March 2026", the first tracked period; "Show all Members", only when a filter narrows the Accounts; and the ghost "Import an earlier Statement".
+
+### Loading
+An HTMX swap (a view tab, the period, a filter or the drill-down) keeps the old content on screen while the new one loads.
+- **Immediately:** the swapped region gets `aria-busy="true"`.
+- **After 300 ms:** if the swap is still running, the old content dims to 45% opacity and stops taking pointer events. A 2px Household Indigo line slides along the top of the region (1.1 s, eased, looping). The region clips it sideways, so the page never scrolls sideways. A swap that finishes within 300 ms shows neither, so fast swaps on the LAN don't flicker.
+- **Labels change at once.** The period label, the active tab and the filter show the new choice straight away, so it is clear what is loading.
+- **With nothing to dim** (a drill-down opening for the first time), the card opens with its title and the line over an empty body.
+- **Reduced motion:** the line is static, full width, at 50% opacity.
+- There are no skeletons or spinners.
+### Import and the Accounts board
+Import is the Household's Accounts on one shared time axis, with Statements dropped onto the page. Results land on the row of the Account they went into. Accounts (under Manage, admins only) is the same board. Both pages are desktop only.
+
+**Choosing files.**
+- **Header:** the title row reads "Import", with "Choose files" (an upload icon plus text) as its primary action.
+- **Drop strip:** a slim card under the header with a 1.5px dashed Line Strong border. It holds an upload icon, "Drop Statements anywhere on this page." in Ink 600, and the supported formats in Muted ("PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports. Several at once.").
+- **Drop target:** the whole page.
+- **Without JS:** the input stays a real `<input type="file" multiple>` in a form with `method` and `action`, so it posts as today.
+- **Staging:** once files are chosen, the strip lists one row per file: a file icon, the name, the size, "Ready" and a ghost × to remove it. Below the list: "Each file lands on its Account's row below.", Cancel, and the primary "Import N files".
+
+**Progress.** The import stays one POST, as today. The view checks every file and then imports them oldest first across the batch, so there is no per-file progress.
+- **Upload:** a 6px Household Indigo bar (`role="progressbar"`, `aria-valuenow`) labelled "Uploading 7 files", with the percentage at the right.
+- **Checking:** then an indeterminate bar, "Checking and importing 7 Statements · oldest first, so each one's Duplicates are found". Each staged row shows a 14px spinner.
+- **Announcements:** the start, the end of the upload and the result are announced politely.
+
+**Result banner.** A card holds a check icon and the headline, "173 Transactions imported from 3 files" (Ink 600). The headline is focused (`tabindex="-1"`) and announced. Under it, a muted line reads "44 wait for review · 1 file needs an Account · 2 files weren't imported · 1 was already imported". A primary "Review now →" at the right opens the Review queue.
+
+**Needs you.** A card titled "Needs you · 3 files" lists, for each file that needs the Member:
+- a 170px left column with its status and file name;
+- on the right, either the Choose-the-Account form or the rejection (see Import copy).
+
+**Status words.** Imported, Needs an Account, Not imported and Already imported, each a 16px icon plus a 600 13px word in Ink. The icon (check, question, alert, equals) carries the difference, never a red, green or Category hue (the No Verdict Rule).
+
+**Already imported** is not a failure. It gets one muted line under the tray: "sparkasse_2026-08.pdf went into Maja's Sparkasse on 3 Sep 2026; nothing changed."
+
+**Board.** One card. The header row holds "Account" above a 250px column. To its right is the axis, from the Household's first Coverage day to today: years as 600 Ink 2 labels at January, quarter months in Muted 12px, and quarter hairlines through every track.
+
+Each row has two parts:
+- **Who:** the Account name (600), "bank · owners" in Muted 13px (Member names, never usernames), and two links: "20 Statements" (a disclosure) and, for admins, "Edit".
+- **Track:** 30px high.
+  - **Covered stretches** are 22px Coverage Slate bars with a 5px radius.
+  - **The stretch this import added** is Household Indigo.
+  - **Gaps are outlined slots:** a card fill, a 1.5px Ink 2 border, and an 11px 600 label naming the month ("Jul") or the length ("49 d") when it fits. Each slot is a button, `aria-label` "Gap 1–31 Jul 2026: import a Statement".
+  - **Today:** a 1.5px Ink rule at the right end marks it.
+
+Under the track, a 13px caption line names the result and the Gaps in text:
+- the result: "New: 1–30 Sep 2026 · 64 Transactions, 20 to review", in Indigo Ink. It is a disclosure that opens the full domain counts (see Import copy) under the row.
+- every Gap in Muted: "Gap 1–31 Jul 2026", or "Gap 1 Sep – 19 Oct 2026, since the last Statement";
+- "Tracked from 1 Jan 2025".
+
+A visually hidden ordered list reads the whole timeline ("Covered 1 Jan 2025 – 31 Aug 2026", "Gap …"). Gaps include the stretch since the last Statement (CONTEXT.md). Completeness uses neither the hatch nor the dash, so the text is the non-colour cue. An Account that takes no Statements reads "Takes no Statements: money moved to its IBAN counts as a Transfer." in place of a track.
+
+**Gap action.** Activating a Gap shows a notice above the drop strip and focuses "Choose files": "For Luka's N26: a Statement covering 1–31 Jul 2026. Download it from N26 and drop it here." It can't preselect the Account, because the Statement's IBAN decides it.
+
+**Statements.** "20 Statements" expands a table under the row, on Raised, newest first, with columns Period, Format, Transactions, Imported (date and Member name), and Delete. Delete appears for admins and for the Member who imported the Statement. It confirms with its consequences, as today:
+- how many Transactions appear on no other Statement and are deleted with it;
+- that the Coverage shrinks, so the period becomes a Gap;
+- how many outcomes set by hand are lost.
+
+**Accounts page.**
+- **Header:** the same board without the drop strip, titled "Accounts", with "New Account" as the primary action and a muted line, "Each Account with its Coverage, as on Import."
+- **Edit** expands the row in place. The form sits on the left: Name, Bank (with the hint that "Other" is for an Account whose Statements aren't imported), Owners as Member-name checkboxes ("Several owners make it a joint Account, shown in the Joint bucket."), and IBANs.
+- **Delete or why it's missing** sits on the right:
+  - with Statements: "Can't be deleted while it has 20 Statements. Delete them first."
+  - without: "Delete Account", which confirms how many Rules only for this Account go with it.
+- **Save** collapses the row and shows "✓ Saved" beside the Account name (`role="status"`, announced).
+- **Members who aren't admins** see Import's board without Edit.
+
+### Import copy
+Each rejection says the cause first, then the next step, then the evidence behind a disclosure. The heading is the cause. "Nothing from this file was imported" is said once. "Keep the file" appears only where a fix to the reader could help, never for a wrong file.
+
+| Cause | Heading | Then | Disclosure |
+|---|---|---|---|
+| Rows don't match the printed totals, or the balances don't add up | A payment seems to be missing | "The Statement lists 31 payments out, totalling 2.652,45 €. Pursegraph read 30 of them…: 20,00 € short." Keep the file: the N26 reader needs a fix. Until then, Luka's N26 has a Gap for 1–31 Jul 2026. | Show the reconciliation: Opening balance, All rows read, added up, So the closing balance should be, The Statement prints; then Printed on the Statement / Read by Pursegraph totals; then the rows read |
+| Parser couldn't read it | Not a Statement Pursegraph can read | Download the Statement from your bank's website or app; scans and photos can't be read. If it is a downloaded Statement, keep it: the reader may need a fix. | What the reader found |
+| Not PDF or CSV | Not a PDF or CSV file | Download the Statement as a PDF (or a CSV from Revolut) | none |
+| Opening balance ≠ the Account's | Doesn't follow on from what's imported | A Statement in between may be missing, or a balance was misread | Show the balances |
+| Rows inside the Coverage differ | Disagrees with what's already imported | The bank may have re-booked or reverted a payment since the earlier export | Show the days that differ |
+| Bank ≠ the chosen Account's | Wrong bank for that Account | Import it again and choose an N26 Account, or a new one | none |
+| IBAN on another Account | This Statement belongs to Joint Revolut | Import it again without choosing an Account: it goes there by its IBAN | none |
+| Account takes no Statements | Maja's savings takes no Statements | Choose another Account, or ask an admin to change its bank | none |
+
+- **The mismatched figure** in a disclosure is marked by 700 weight and a 2px Ink underline, not by colour.
+- **Choose the Account:** the first sentence depends on whether the Statement carries an IBAN.
+  - **A PDF with an unknown IBAN:** "An N26 Statement, 1–30 Sep 2026. Its IBAN DE89 … isn't on any Account yet. Pick the Account it belongs to, or create one. The IBAN is added to it, so next time the Statement goes there by itself."
+  - **A Revolut CSV, which has no IBAN:** "A Revolut CSV export, 1 Jan – 14 Oct 2026. It carries no IBAN, so pick the Account it belongs to, or create one."
+  - Then the Accounts of that bank as bordered radio rows, "A new Revolut Account" (Name, Owners), and "Import into this Account".
+- **Domain counts:** "64 Transactions imported" and "No Duplicates" or "22 Duplicates skipped: already imported from an earlier Statement". Also, where they apply: "4 card payments still pending or declined, left out" (never "non-completed rows"), "3 Transfers recognised: 2 paired, 1 one-sided", "1 categorized Transaction is now a Transfer", "1 Transfer has several possible other sides, so it waits in the Review queue", "41 categorized by Rules" and "20 wait for suggestions and review · Review queue". Zero counts read "No …" in Muted.
 
 ### Transactions page
 Every Transaction, narrowed by facets, read 25 at a time. The page answers "find that one" and "show me all of these", and the Dashboard links into it.
@@ -458,13 +673,19 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.
 - **Do** show each facet option's count with the other facets held, so a Member sees where a pick leads before making it.
 - **Do** commit an outcome only on a deliberate choice (Accept, a chip, a confirmed OS pick), always name it "Category › Subcategory", and offer Undo after every save.
-- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and the More sheet's slide up (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary.
+- **Do** show a Rule's effect before it is saved: the Transactions it matches, Now → After, and the count on its Save button.
+- **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation, the More sheet's slide up (cubic-bezier(.16,1,.3,1)) and the loading line are the whole motion vocabulary.
+- **Do** give every empty page its reason and the action that fills it.
 
 ### Don't:
 - **Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.
 - **Don't** use the indigo accent as a data colour, a chart series or a Category hue.
 - **Don't** give Awaiting review a Category hue, or show it without its hatch.
 - **Don't** draw a month without Coverage as 0, or compare a figure with an incomplete month without saying so.
+- **Don't** offer a page before it can have content (setup mode), or show example figures as if they were the Household's.
+- **Don't** blank a region while it loads, or show a loading state for a swap that finishes within 300 ms.
+- **Don't** stripe or hatch a Coverage Gap. The hatch is Awaiting review's; a Gap is an outlined slot with its dates in text.
+- **Don't** write an import rejection for the developer. Lead with the cause and the next step, and keep the reconciliation behind a disclosure.
 - **Don't** colour spending, Net or comparisons red or green to mean good or bad.
 - **Don't** add uppercase tracked labels, kickers or eyebrows above titles. Labels are sentence case.
 - **Don't** use hard offset shadows or borders around cards. Lift is soft and ambient.
