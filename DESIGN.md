@@ -281,7 +281,7 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 
 The desktop layout is a two-column shell: a sticky, full-height white sidebar (232px, with a right hairline), then the page. The main column is padded 24px top and 32px sides, up to 1360px wide.
 
-**Page header.** Every page opens with a title row: the page title (Headline) on the left and the page's one primary action, if any, on the right ("New Rule", "Accept 5 suggestions"). The Dashboard's title is "Dashboard", not the view's name. Under it, the five views are an in-page row of underline tabs (Spending, Cash flow, Category trends, Per Member, Money flow) over a Line hairline: they are lenses on the same period, not separate destinations. Under the tabs, a sticky filter bar holds the period stepper (‹ period ›, with "so far, to 16 Oct" muted) and the period unit select on the left, and the Member and Account filters pushed to the right, all 36px high. The bar sticks to the top on scroll on a 92% ground tint with a backdrop blur, so the period stays in view beside the figures. Transactions uses the same sticky bar for its own filters (search, Account, outcome). Other pages have the title row only. Below the Dashboard's filter bar, three equal stat tiles (16px gap). They carry the headline figures for the chosen period. There is no global "this month" figure anywhere in the shell. Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
+**Page header.** Every page opens with a title row: the page title (Headline) on the left and the page's one primary action, if any, on the right ("New Rule"). The Dashboard's title is "Dashboard", not the view's name. Under it, the five views are an in-page row of underline tabs (Spending, Cash flow, Category trends, Per Member, Money flow) over a Line hairline: they are lenses on the same period, not separate destinations. Under the tabs, a sticky filter bar holds the period stepper (‹ period ›, with "so far, to 16 Oct" muted) and the period unit select on the left, and the Member and Account filters pushed to the right, all 36px high. The bar sticks to the top on scroll on a 92% ground tint with a backdrop blur, so the period stays in view beside the figures. Transactions uses the same sticky bar for its own filters (search, Account, outcome). Other pages have the title row only. Below the Dashboard's filter bar, three equal stat tiles (16px gap). They carry the headline figures for the chosen period. There is no global "this month" figure anywhere in the shell. Then a two-card grid, with the donut card at 5fr (min 340px) and the ranked Category list at 7fr. The drill-down card opens full width beneath. Spacing follows a 4px base (4, 8, 12, 16, 20, 24, 32). Cards pad 20px, and the gap between cards is 16px.
 
 **Phone (≤900px).** The sidebar is replaced by a fixed 64px bottom tab bar with four items: Dashboard, Transactions, Review (with its count badge) and More. Each is a 22px icon over an 11px label, muted, and Indigo Ink when active. The bar is a 94% card tint with a backdrop blur and a top hairline, and it pads for the safe area. More opens a bottom sheet (18px top corners, a grip, the Pop shadow) over a 35% black scrim, closing on the scrim or Escape. It holds Import, the Manage links, the theme switch, and the Member's name and role with Log out. Import sits under More because Import needs only work on desktop. A plain 52px row above the content carries the mark and wordmark (it does not stick). The main column pads 16px and leaves room for the tab bar. The view tabs scroll sideways. In the sticky filter bar, the period stepper takes a full row, and the Month, Member and Account controls share the next row (their icons hidden, labels truncating with an ellipsis). Tiles keep three columns at 8px gaps and drop their comparison line. The grid stacks. The Category list drops its share bar. Transaction rows stack as cards (see Transaction row).
 
@@ -380,31 +380,64 @@ The bands' text labels are the non-colour cue. The hatch stays reserved for Awai
 A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. When the period isn't Complete, the title carries the same qualifier as the tables: "Food · July 2026 (partial)", "(partly tracked)" or "(so far)". A table of Transaction rows follows (see Transaction row). A muted footnote explains that changing an outcome moves the amount between Categories.
 
 ### Transaction row
-One row is shared by the Review queue, Transactions and the drill-down. Its columns are Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome, and Amount (right-aligned, 600, tabular). Rows have hairline dividers and a Raised hover. Every Member can change an outcome on every surface, always through an explicit action.
+One row is shared by Transactions and the drill-down. The Review queue decides outcomes in its own detail pane (see Review queue), with the same outcome text, chips and save feedback. The row's columns are Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome, and Amount (right-aligned, 600, tabular). Rows have hairline dividers and a Raised hover. Every Member can change an outcome on every surface, always through an explicit action.
 - **The outcome is text, not a control.** It reads as the Category's hue dot, then "Category › Subcategory", with the Category in Muted, the › in Faint and the Subcategory in Ink at 500. It always names its Category, so the eight "Other" catch-alls never read alike. A Transfer gets a hollow Muted ring, and Awaiting review gets the hatched dot. A muted source caption follows ("by Rule", "by LLM", "by hand", "by IBAN", "paired").
 - **Actions on reading surfaces.** Transactions and the drill-down show a "Change" text button in Indigo Ink.
-- **Actions in the Review queue.** They depend on the row:
-  - with a suggestion: the suggested outcome as text, "86 % sure" in Muted, an Accept button (32px) and a "Something else" text button;
-  - without one: "Awaiting review" and a Choose button;
-  - an ambiguous Transfer: "Transfer", "other side unknown" and "Pick the other side".
 - **Action layout.** The actions keep a fixed place at the end of the cell. A long outcome ("Leisure › Subscriptions & digital services") wraps its own label and never pushes the actions onto a new line.
-- **Picking with a fine pointer: the chip panel.** Change, Choose, Something else and Pick the other side open a panel in a full-width row under the Transaction, on the Raised fill.
+- **Picking with a fine pointer: the chip panel.** Change opens a panel in a full-width row under the Transaction, on the Raised fill.
   - **Title row:** "Choose an outcome for *description*", with a Cancel text button.
-  - **Ambiguous Transfer:** the candidate other sides come first, as bordered cards (description, date · Account, amount).
   - **Chips:** "Most used" chips (the Household's five most-used outcomes, each "Category › Subcategory"), then one chip per Category (hue dot and name), then Transfer. A Category chip swaps the chips for its Subcategories, with "‹ All Categories" to go back.
   - **Chip style:** 36px pills with the card fill and a Line Strong border. The current outcome's chip takes Indigo Wash with an Indigo border.
   - **Focus:** only one panel is open at a time. Opening it moves focus to the first chip; Escape or Cancel closes it and returns focus to the button that opened it.
-- **Picking with a coarse pointer: the native select.** Under `(pointer: coarse)`, the same buttons are a transparent native `<select>` laid over the button, so a tap opens the OS picker. The select is 16px, so iOS doesn't zoom.
-  - **Options:** each reads "Category › Subcategory", in optgroups: the other side of a Transfer, Suggested, Most used, each Category, then Transfer.
+- **Picking with a coarse pointer: the native select.** Under `(pointer: coarse)`, Change is a transparent native `<select>` laid over the button, so a tap opens the OS picker. The select is 16px, so iOS doesn't zoom.
+  - **Options:** each reads "Category › Subcategory", in optgroups: Most used, each Category, then Transfer.
   - **Gate:** the pointer, not the width. A narrow desktop window still has a keyboard, so it keeps the panel.
-- **What commits.** Only a deliberate choice: Accept, a tap on a Subcategory, Most used or Transfer chip, a pairing card, or a confirmed pick in the OS picker (a touch picker fires `change` only on confirm). Arrow keys never save. Without JS, each row is a form with a select and a Save button.
-- **After a save.** The row swaps in place, and a muted line appears under the outcome: "✓ Saved as Category › Subcategory · Undo". After a save by hand in the Review queue it adds "· Make a Rule". The line goes after 10 s. Undo restores the previous outcome and its source.
+- **What commits.** Only a deliberate choice: Accept (in the Review queue), a tap on a Subcategory, Most used or Transfer chip, a pairing card, or a confirmed pick in the OS picker (a touch picker fires `change` only on confirm). Arrow keys never save. Without JS, each row is a form with a select and a Save button.
+- **After a save.** The row swaps in place, and a muted line appears under the outcome: "✓ Saved as Category › Subcategory · Undo". The line goes after 10 s. Undo restores the previous outcome and its source.
 - **A failed save.** The row stays as it was and says so in Ink with an alert icon: "Couldn't save *outcome*. Nothing changed. Try again". It uses no red.
-- **Focus after a save.** In the Review queue, focus moves to the next Transaction still waiting. Elsewhere, it returns to the row's Change. Every save, failure and Undo is announced politely.
+- **Focus after a save.** Focus returns to the row's Change. Every save, failure and Undo is announced politely.
 - **Phone (≤600px).** Each row is a stacked card:
   - description and amount on the first line;
   - date, kind and Account in a muted caption;
-  - the outcome, with its actions under it at 44px (Accept stretches; Change and Something else stay text buttons).
+  - the outcome, with Change under it at 44px.
+
+### Review queue
+The driver's weekly job: give every waiting Transaction an outcome, then read the month they just completed. The queue is a master–detail pair of cards. A list of groups sits on the left (about 380px), and the chosen group's detail is on the right.
+- **Groups.** Transactions in the queue with an identical description form one group ("Bolt.eu ×3"), across Accounts, and are decided together. A Transaction with a unique description is a group of one. Groups are ordered newest first, by their latest date.
+- **Title row.** It reads "Review queue" and, under it, a muted line: "12 Transactions in 9 groups still need an outcome". This line, the sidebar badge and the page `<title>` ("Review queue (12)") stay live after every save.
+- **The list.** It is headed by a muted "N waiting" and a "Show resolved (n)" checkbox, which is off by default. Each group is a full-width button with hairline dividers:
+  - the description (500), with a muted "×3" for a group;
+  - the group's total, right-aligned (600, tabular);
+  - a 12px muted caption with the hue dot and "Category › Subcategory · 78 % sure", or "No suggestion", or "Transfer · other side unknown".
+
+  The open group takes Indigo Wash with a 3px Indigo inset at its left edge and `aria-current="true"`. With Show resolved on, decided groups stay in place, muted, with a check and their outcome in the caption.
+- **The detail.** It shows the context the decision needs:
+  - **Head:** the description (600, 18px), the counterparty and kind (muted), and the group total (600, 22px).
+  - **Transactions:** one line per Transaction in the group, with date, Account pill (which carries the owner, or Joint) and amount.
+  - **Last time:** the outcome given to the most recent Transaction with this description outside the queue, with its date, source and how often it was used. When the suggestion disagrees, a muted line says "The suggestion differs from what was used last time." A new description says "First time this description is seen."
+- **Deciding.** A bordered box on the card fill, with no "Something else" button. A different outcome is always one tap away:
+  - **With a suggestion:** "Suggested · 78 % sure" (muted, 12px), the outcome as text, and one primary Accept ("Accept for all 3" for a group). A hairline follows, then "Or choose another outcome" (600, 13px) over the chips, already open.
+  - **The chips:** "Used last time" comes first, but only when it differs from the suggestion. Then come Most used (leaving out the suggested outcome), each Category (which leads to its Subcategories, as in the chip panel), and Transfer. They use the Transaction row's chip style, at 44px on a phone.
+  - **Without a suggestion:** "Choose an outcome" ("… for all 3" for a group) over the same chips.
+  - **An ambiguous Transfer:** "Which is the other side of this Transfer?" over the candidate cards (description, date · Account, amount), then "Or something else" and the chips, ending with "Transfer, one-sided".
+  - **On touch:** the chips stay; the native select isn't used here, because the detail has room and the chips show the hue dots.
+- **After a save.** The group is saved as a whole. The detail stays on it so the follow-ups are in reach:
+  - the outcome and its source;
+  - "✓ Saved all 3 as … · Undo · Make a Rule for "Bolt.eu" · See them in Transactions" ("See them" only for a group of more than one);
+  - a primary "Next: *description* ›" that opens the next waiting group.
+
+  The group leaves the list unless Show resolved is on. Undo puts the whole group back. See them in Transactions opens Transactions filtered to those Transactions, with a removable "Decided just now · 3" filter chip, in the URL. Every save, failure and Undo is announced politely ("Saved 3 × Bolt.eu as Transport › Public transport & car sharing. 9 left to review.").
+- **No queue-wide bulk accept.** Bulk is per group only, so a 51 %-sure guess never rides along with a 99 %-sure one.
+- **A failed save.** It is the Transaction row's line, inside the decide box, and focus stays on the box.
+- **Queue clear.** When nothing is waiting, the detail becomes a centred end state:
+  - a 48px Indigo Wash circle with a check;
+  - "Queue clear" (600, 20px);
+  - a muted sentence: "Every Transaction has an outcome, 15 of them decided just now. September 2026 is now complete." It names the most recent month this review made Complete; if none, the sentence ends after "just now".
+  - a primary "See September on the Dashboard", and "October so far" for the month in progress.
+
+  The last group's Next becomes "Queue clear · See September on the Dashboard". An empty queue on arrival shows the same state, without "decided just now".
+- **Keyboard.** No shortcuts. The groups and chips are real buttons in a sensible tab order. Opening a group moves focus to its heading, and Next moves it to the next group's heading.
+- **Phone (≤900px).** The list and the detail are two views. A group opens full width with a "‹ All groups" text button at the top. The Accept button and the chips are 44px, and Accept stretches to full width.
 
 ### Navigation
 The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
