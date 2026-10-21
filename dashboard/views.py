@@ -150,6 +150,9 @@ def show(request, view: str):
     }
     if not wants_the_fragment_alone(request):
         response = render(request, "dashboard/dashboard.html", context)
+    elif request.headers.get("HX-Target") == "numbers":
+        # The numbers refetched after an outcome changed in the drill-down, whose save speaks for itself.
+        response = render(request, view_template, context)
     else:
         # Swapped in by a tab, the period or a filter, which keep their focus: the new state is announced.
         response = announce(

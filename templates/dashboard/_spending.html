@@ -17,7 +17,7 @@
       {% for row in data.rows %}
       <li class="cat{% if row.key == 'awaiting' %} awaiting{% endif %}" data-key="{{ row.key }}" style="--hue: var(--{{ row.key|hue }})">
         <div class="cat-row">
-          <span class="chev"{% if not row.children %} hidden{% endif %}>{% icon "right" %}</span>
+          <span class="chev{% if not row.children %} none{% endif %}" aria-hidden="true">{% icon "right" %}</span>
           <span class="name"><i class="dot" aria-hidden="true"></i><button type="button" class="cat-open" aria-expanded="false" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button>{% if row.key == "awaiting" and review_queue_count %}<a class="review-link" href="{% url 'review_queue' %}{{ carried_page_query }}">{% blocktranslate with n=review_queue_count %}Review {{ n }}{% endblocktranslate %}</a>{% endif %}</span>
           <span class="bar" aria-hidden="true"><i style="--w: {{ row.amount|ratio:chart.largest|stringformat:'.4f' }}"></i></span>
           <span class="share fig">{{ row.amount|ratio:data.total|share }}</span>

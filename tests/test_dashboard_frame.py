@@ -170,3 +170,13 @@ def test_a_tables_marks_open_their_drill_down_with_real_buttons(logged_in_client
         r'<button type="button" class="mark-open" aria-controls="drill" hx-get="[^"]+" hx-target="#drill">',
         page,
     )
+
+
+def test_the_numbers_refetched_after_an_outcome_changed_announce_nothing(
+    logged_in_client, household
+):
+    response = logged_in_client.get(
+        "/spending/", {"period": "2026-09"}, headers={**SWAP, "HX-Target": "numbers"}
+    )
+
+    assert announced(response) is None
