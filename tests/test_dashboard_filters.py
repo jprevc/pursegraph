@@ -19,7 +19,7 @@ def today(monkeypatch):
 
 
 def spent(page):
-    return {b["name"]: b["value"] for b in view_chart(page, "spending")["bars"]}
+    return {b["name"]: b["value"] for b in view_chart(page, "spending")["segments"]}
 
 
 def test_a_member_filter_narrows_spending_to_that_members_own_accounts(logged_in_client, household):
@@ -328,7 +328,7 @@ def test_per_member_keeps_the_member_filter_for_other_views(logged_in_client, ho
 
     assert "ignores the Member filter" in page
     assert '<input type="hidden" name="member" value="joint">' in page
-    assert nav_links(page)["Cashflow"] == "/cashflow/?period=2026-09&member=joint"
+    assert nav_links(page)["Cash flow"] == "/cashflow/?period=2026-09&member=joint"
 
 
 def page_links(page):
@@ -365,4 +365,4 @@ def test_the_period_and_filters_survive_a_visit_to_another_page(logged_in_client
     assert page_links(page)["Dashboard"] == f"/?period=2026-Q3&member=joint&account={joint}"
     # And the Dashboard's tabs carry them on to every view.
     page = logged_in_client.get(page_links(page)["Dashboard"]).content.decode()
-    assert nav_links(page)["Cashflow"] == f"/cashflow/?period=2026-Q3&member=joint&account={joint}"
+    assert nav_links(page)["Cash flow"] == f"/cashflow/?period=2026-Q3&member=joint&account={joint}"

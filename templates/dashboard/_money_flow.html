@@ -4,13 +4,13 @@
 <table class="view-table">
   <tbody>
   {% for row in data.rows %}
-  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-    <td>{{ row.label }}</td>
+  <tr class="mark">
+    <td><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button></td>
     <td class="num">{{ row.amount|money }}</td>
   </tr>
   {% for child in row.children %}
-  <tr class="subcategory" tabindex="0" hx-get="{{ chart.drill }}{{ child.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-    <td>{{ child.label }}</td>
+  <tr class="subcategory">
+    <td><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ child.key }}" hx-target="#drill">{{ child.label }}</button></td>
     <td class="num">{{ child.amount|money }}</td>
   </tr>
   {% endfor %}

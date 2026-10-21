@@ -144,7 +144,10 @@ def household(member, django_user_model):
 def view_table(page):
     """A dashboard view's table: each clickable row as [label, *amounts], in the order shown."""
     return [
-        [html.unescape(cell) for cell in re.findall(r"<td[^>]*>([^<]*)</td>", row)]
+        [
+            html.unescape(cell)
+            for cell in re.findall(r"<td[^>]*>(?:<button[^>]*>)?([^<]*)(?:</button>)?</td>", row)
+        ]
         for row in re.findall(r'<tr class="mark"[^>]*>(.*?)</tr>', page, re.S)
     ]
 

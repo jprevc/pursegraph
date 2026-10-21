@@ -254,8 +254,8 @@ def test_the_dashboard_offers_every_view_swapped_via_htmx(logged_in_client, hous
     page = logged_in_client.get("/cashflow/").content.decode()
 
     assert view_tabs(page) == {
-        "Spending by Category": ("/spending/", False),
-        "Cashflow": ("/cashflow/", True),
+        "Spending": ("/spending/", False),
+        "Cash flow": ("/cashflow/", True),
         "Category trends": ("/trends/", False),
         "Per Member": ("/per-member/", False),
         "Money flow": ("/money-flow/", False),
@@ -264,7 +264,7 @@ def test_the_dashboard_offers_every_view_swapped_via_htmx(logged_in_client, hous
 
 
 def test_the_landing_page_is_spending(logged_in_client, household):
-    assert view_tabs(logged_in_client.get("/").content.decode())["Spending by Category"][1]
+    assert view_tabs(logged_in_client.get("/").content.decode())["Spending"][1]
 
 
 @pytest.mark.parametrize("url", ["/cashflow/", "/trends/", "/per-member/", "/money-flow/"])
@@ -277,7 +277,7 @@ def test_every_view_is_swapped_in_alone_via_htmx(logged_in_client, household, ur
     swapped = logged_in_client.get(url, headers={"HX-Request": "true"}).content.decode()
 
     assert '<div class="shell">' not in swapped
-    assert 'class="view-bar"' in swapped
+    assert 'class="context"' in swapped
 
 
 @pytest.mark.parametrize("url", ["/cashflow/", "/import/"])

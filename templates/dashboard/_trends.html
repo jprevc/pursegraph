@@ -7,8 +7,8 @@
   <thead><tr><th>{% translate "Category" %}</th>{% for month in chart.months %}<th class="num">{{ month }}</th>{% endfor %}<th class="num">{% translate "Total" %}</th></tr></thead>
   <tbody>
   {% for row in data.rows %}
-  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-    <td>{{ row.label }}</td>
+  <tr class="mark">
+    <td><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button></td>
     {% for amount in row.amounts %}<td class="num">{{ amount|money }}</td>{% endfor %}
     <td class="num">{{ row.total|money }}</td>
   </tr>

@@ -1,24 +1,43 @@
 {% extends "dashboard/_view.html" %}
-{% load figures i18n %}
-{% block table %}
-<table class="view-table">
-  <thead><tr><th>{% translate "Category" %}</th><th class="num">{% translate "Spent" %}</th></tr></thead>
-  <tbody>
-  {% for row in data.rows %}
-  <tr class="category" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-    <td>{{ row.label }}</td>
-    <td class="num">{{ row.amount|money }}</td>
-  </tr>
-  {% for child in row.children %}
-  <tr class="subcategory">
-    <td>{{ child.label }}</td>
-    <td class="num">{{ child.amount|money }}</td>
-  </tr>
-  {% endfor %}
-  {% endfor %}
-  </tbody>
-  <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|money }}</th></tr></tfoot>
-</table>
+{% load figures hues i18n icons %}
+{% block view %}
+{# The donut beside the ranked Category list; a Category opens its Transactions in #drill (static/dashboard.js keeps the two in step). #}
+<div class="spending">
+  <section class="panel donut-card" aria-labelledby="share-heading">
+    <div class="card-head"><h2 id="share-heading">{% translate "Share by Category" %}</h2></div>
+    <div class="donut-wrap">
+      <div class="chart donut" data-chart="spending" data-source="{{ source }}" role="img" aria-label="{% translate 'Donut chart of spending by Category; the list beside it has every figure.' %}"></div>
+      {# What the donut's centre shows: the period's total, or the Category hovered. #}
+      <p class="donut-centre" aria-hidden="true"><span class="k">{% translate "Spent" %}</span><span class="v fig" data-centre-value>{{ data.total|money }}</span><span class="s" data-centre-name>{% blocktranslate count n=chart.categories %}{{ n }} Category{% plural %}{{ n }} Categories{% endblocktranslate %}</span></p>
+    </div>
+  </section>
+  <section class="panel cats-card" aria-labelledby="categories-heading">
+    <div class="card-head"><h2 id="categories-heading">{% translate "Categories" %}</h2><span class="meta">{% translate "Select one to see its Transactions" %}</span></div>
+    <ul class="cats">
+      {% for row in data.rows %}
+      <li class="cat{% if row.key == 'awaiting' %} awaiting{% endif %}" data-key="{{ row.key }}" style="--hue: var(--{{ row.key|hue }})">
+        <div class="cat-row">
+          <span class="chev"{% if not row.children %} hidden{% endif %}>{% icon "right" %}</span>
+          <span class="name"><i class="dot" aria-hidden="true"></i><button type="button" class="cat-open" aria-expanded="false" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button>{% if row.key == "awaiting" and review_queue_count %}<a class="review-link" href="{% url 'review_queue' %}{{ carried_page_query }}">{% blocktranslate with n=review_queue_count %}Review {{ n }}{% endblocktranslate %}</a>{% endif %}</span>
+          <span class="bar" aria-hidden="true"><i style="--w: {{ row.amount|ratio:chart.largest|stringformat:'.4f' }}"></i></span>
+          <span class="share fig">{{ row.amount|ratio:data.total|share }}</span>
+          <span class="amt fig">{{ row.amount|money }}</span>
+        </div>
+        {% if row.children %}
+        <ul class="subs" hidden>
+          {% for child in row.children %}
+          <li class="sub">
+            <span>{{ child.label }}</span>
+            <span class="amt fig">{{ child.amount|money }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="cats-total"><span>{% translate "Total" %}</span><span class="fig">{{ data.total|money }}</span></p>
+  </section>
+</div>
 {% endblock %}
-{% block hint %}{% translate "Click a bar or a Category to see its Transactions." %}{% endblock %}
 {% block empty %}{% translate "No spending in this period." %}{% endblock %}

@@ -21,7 +21,7 @@ def test_cashflow_sets_money_in_against_money_out_leaving_transfers_out(
 ):
     page = logged_in_client.get("/cashflow/", {"period": "2026-09"}).content.decode()
 
-    assert "Cashflow" in page
+    assert "Cash flow" in page
     assert view_table(page) == [["Sep 2026", f"3.550,00{EUR}", f"262,30{EUR}", f"+3.287,70{EUR}"]]
 
 

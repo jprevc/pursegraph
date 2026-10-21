@@ -1,13 +1,21 @@
-{% load i18n %}{# The Transactions behind a chart mark, editable inline like on the Transactions page. #}
-{% if transactions %}
-<div class="scroll">
-<table>
-  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
-  <tbody>
-  {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
-  </tbody>
-</table>
-</div>
-{% else %}
-<p class="muted">{% translate "No Transactions here." %}</p>
-{% endif %}
+{% load hues i18n icons %}{# The Transactions behind a chart mark, editable inline like on the Transactions page: a full-width card titled by the mark and the period, which static/dashboard.js keeps the open Category in step with. #}
+<section class="panel drill-card" data-mark="{{ mark }}"{% if hue %} style="--hue: var(--{{ hue|hue }})"{% endif %} aria-labelledby="drill-heading">
+  <div class="card-head">
+    {% if hue %}<i class="dot{% if hue == 'awaiting' %} awaiting{% endif %}" aria-hidden="true"></i>{% endif %}
+    <h2 id="drill-heading">{{ title }}</h2>
+    <button type="button" class="ghost icon-button" data-close aria-label="{% translate 'Close' %}">{% icon "x" %}</button>
+  </div>
+  {% if transactions %}
+  <div class="scroll">
+  <table>
+    <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
+    <tbody>
+    {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">{% translate "No Transactions here." %}</p>
+  {% endif %}
+  <p class="muted foot">{% translate "Changing an outcome moves the amount between Categories at once." %}</p>
+</section>

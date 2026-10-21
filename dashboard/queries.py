@@ -228,8 +228,17 @@ def spending_by_category(period: Period, filters: Filters) -> ViewData:
     rows.sort(key=lambda r: r.amount, reverse=True)
     if None in by_subcategory:
         rows.append(Row(_("Awaiting review"), by_subcategory[None], AWAITING_REVIEW))
-    bars = [{"name": r.label, "value": float(r.amount), "key": r.key} for r in rows]
-    return ViewData(rows, sum((r.amount for r in rows), Decimal(0)), {"bars": bars})
+    # A donut can't draw what nets to a Refund.
+    segments = [
+        {"name": r.label, "value": float(r.amount), "key": r.key} for r in rows if r.amount > 0
+    ]
+    chart = {
+        "segments": segments,
+        # The share bars are scaled to the largest amount.
+        "largest": float(max((r.amount for r in rows), default=Decimal(0))),
+        "categories": sum(1 for r in rows if r.key != AWAITING_REVIEW),
+    }
+    return ViewData(rows, sum((r.amount for r in rows), Decimal(0)), chart)
 
 
 def spending_transactions(period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
@@ -580,9 +589,67 @@ DRILL_DOWNS = {
 }
 
 
+@dataclass(frozen=True)
+class Tile:
+    """One of the stat tiles over every view: a headline figure of the Period, and the same figure for the Period
+    before, `previous`, which it is compared with. `signed` figures show their sign, as Net does."""
+
+    label: str
+    amount: Decimal
+    previous: Decimal
+    signed: bool = False
+
+    @property
+    def change(self) -> Decimal:
+        """How far the figure moved since the Period before, whichever way: see `direction`."""
+        return abs(self.amount - self.previous)
+
+    @property
+    def direction(self) -> str:
+        """ "more", "less" or "same" than the Period before."""
+        if self.amount == self.previous:
+            return "same"
+        return "more" if self.amount > self.previous else "less"
+
+
+def _headline(period: Period, filters: Filters) -> tuple[Decimal, Decimal, Decimal]:
+    """Money out, money in and their net, the net counting what Transfers moved to or from other Members under a
+    Member filter, as Cash flow does."""
+    totals = _transactions(period, filters).aggregate(
+        money_in=Sum("amount", filter=MONEY_IN), money_out=-Sum("amount", filter=MONEY_OUT)
+    )
+    money_in, money_out = totals["money_in"] or Decimal(0), totals["money_out"] or Decimal(0)
+    others = _to_other_members(period, filters).aggregate(total=Sum("amount"))["total"] or Decimal(
+        0
+    )
+    return money_out, money_in, money_in - money_out + others
+
+
+def tiles(view: str, period: Period, filters: Filters) -> list[Tile]:
+    """Spent, Money in and Net for the Period, each against the Period before, under the filters the view itself
+    heeds: Per Member ignores the Member filter."""
+    if view == "per_member":
+        filters = replace(filters, member=None)
+    now, before = _headline(period, filters), _headline(period.previous, filters)
+    labels = [_("Spent"), _("Money in"), _("Net")]
+    return [
+        Tile(label, amount, previous, signed=label == labels[2])
+        for label, amount, previous in zip(labels, now, before, strict=True)
+    ]
+
+
 def view_data(view: str, period: Period, filters: Filters) -> ViewData:
     return VIEWS[view](period, filters)
 
 
 def drill_down(view: str, period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
     return DRILL_DOWNS[view](period, filters, key)
+
+
+def mark_label(view: str, period: Period, filters: Filters, key: str) -> str | None:
+    """What the view's table calls the mark `key` names, as the drill-down's title; None for a key it doesn't list."""
+    for row in view_data(view, period, filters).rows:
+        for mark in [row, *getattr(row, "children", [])]:
+            if mark.key == key:
+                return mark.label
+    return None
