@@ -305,9 +305,11 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 - **Wordmark** (700, 17px, −0.02em): "Purse" in ink and "graph" at 600 in Indigo Ink, set beside the mark (16px in the phone brand row).
 
 ### Named Rules
-**The Tabular Figures Rule.** Every amount, share, count and date figure uses `font-variant-numeric: tabular-nums`.
+**The Tabular Figures Rule.** Every amount, share, count and date figure uses `font-variant-numeric: tabular-nums`. It applies to figures, not prose, because Inter's tabular set also widens the hyphen ("catch - all"): an element gets it through `.num`, `.fig` or `dd`.
 
 **The Locale Figure Rule.** Amounts format with `Intl.NumberFormat('sl-SI', { style: 'currency', currency: 'EUR', useGrouping: 'always' })`, giving "1.234,56 €". Shares are whole percent with a space ("26 %"). Net carries an explicit sign.
+
+**The Date Forms Rule.** Dates are English, day-first and without leading zeros, in four forms: a day ("1 Feb 2026"), a range that drops the repeated month and year ("1–30 Sep 2026", "28 Sep – 3 Oct 2026"), a month ("September 2026"), and the short month ("Sep 2026", or "Sep" in a table column) for chart axes and table columns only. They go through Django's localisation, so Slovenian can follow.
 
 ## Layout
 

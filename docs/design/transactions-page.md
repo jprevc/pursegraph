@@ -25,5 +25,5 @@ Every Transaction, narrowed by facets, read 25 at a time. The page answers "find
 - **Empty.** "No Transactions match." with a "Clear the filters" text button. With no Transactions at all, the page keeps today's "Import your first Statement".
 - **Phone (≤900px).** The rail leaves the grid.
   - **Sticky bar:** the search field and a "Filter" button with the active-filter count badge, 44px, on the 92% ground tint with a backdrop blur.
-  - **Filter sheet:** the button opens the rail as a bottom sheet, like More: 18px top corners, a grip, up to 90vh, scrolling. It is titled "Filter", with "Clear all" on the right. Its foot is a sticky full-width 44px Indigo button, "Show 142 Transactions", which closes it. Picks apply live underneath.
+  - **Filter sheet:** the button opens the rail as a bottom sheet, like More: 18px top corners, a grip, up to 90vh, scrolling. It is titled "Filter", with "Clear all" on the right. Its foot is a sticky full-width 44px primary button, "Show 142 Transactions", which closes it. Picks apply live underneath.
   - **Pager:** centred, with 40px page buttons; the "26–50 of 192" range is hidden.
