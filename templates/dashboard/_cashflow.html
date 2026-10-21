@@ -6,8 +6,8 @@
   <thead><tr><th>{% translate "Month" %}</th><th class="num">{% translate "In" %}</th><th class="num">{% translate "Out" %}</th>{% if chart.others %}<th class="num">{% translate "To/from other Members" %}</th>{% endif %}<th class="num">{% translate "Net" %}</th></tr></thead>
   <tbody>
   {% for row in data.rows %}
-  <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
-    <td>{{ row.label }}</td>
+  <tr class="mark">
+    <td><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button></td>
     <td class="num">{{ row.money_in|money }}</td>
     <td class="num">{{ row.money_out|money }}</td>
     {% if chart.others %}<td class="num">{{ row.others|money_signed }}</td>{% endif %}

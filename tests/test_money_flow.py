@@ -30,7 +30,13 @@ def flow_table(page):
     """Each group of the table, Money in and Money out, with its lines, then the balance line."""
     rows = re.findall(r'<tr class="(mark|subcategory|balance)"[^>]*>(.*?)</tr>', page, re.S)
     return [
-        (kind, *[html.unescape(c) for c in re.findall(r"<td[^>]*>([^<]*)</td>", cells)])
+        (
+            kind,
+            *[
+                html.unescape(c)
+                for c in re.findall(r"<td[^>]*>(?:<button[^>]*>)?([^<]*)(?:</button>)?</td>", cells)
+            ],
+        )
         for kind, cells in rows
     ]
 

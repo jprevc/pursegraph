@@ -1,3 +1,4 @@
+import html
 import json
 import re
 from datetime import date
@@ -58,13 +59,22 @@ def household(member):
         )
 
 
-def spending_table(page):
-    """The table beside the chart, as {Category: amount}, in the order shown."""
-    return dict(
-        re.findall(
-            r'<tr class="category"[^>]*>\s*<td>([^<]*)</td>\s*<td class="num">([^<]*)</td>', page
+def category_list(page):
+    """The Category list beside the donut, as (Category, share, amount) in the order shown."""
+    return [
+        (html.unescape(name), share, amount)
+        for name, share, amount in re.findall(
+            r'<li class="cat[^"]*"[^>]*>.*?<button[^>]*>([^<]*)</button>.*?'
+            r'<span class="share fig">([^<]*)</span>\s*<span class="amt fig">([^<]*)</span>',
+            page,
+            re.S,
         )
-    )
+    ]
+
+
+def spending_table(page):
+    """The Category list beside the donut, as {Category: amount}, in the order shown."""
+    return {name: amount for name, _share, amount in category_list(page)}
 
 
 def chart_data(page):
@@ -85,7 +95,7 @@ def test_dashboard_lands_on_spending_by_category_for_the_last_complete_month(
 ):
     page = logged_in_client.get("/").content.decode()
 
-    assert "Spending by Category" in page
+    assert '<a href="/spending/" aria-current="page"' in page
     assert "September 2026" in page
     assert "so far" not in page
     assert list(spending_table(page)) == ["Food", "Shopping", "Awaiting review"]
@@ -105,11 +115,50 @@ def test_spending_nets_refunds_and_leaves_out_transfers_and_income(logged_in_cli
     assert "Total" in page and f"202,80{EUR}" in page
 
 
+def test_each_category_shows_its_share_of_the_spending(logged_in_client, household):
+    page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
+
+    assert [share for _name, share, _amount in category_list(page)] == [
+        "59\u00a0%",
+        "35\u00a0%",
+        "6\u00a0%",
+    ]
+
+
+def test_a_category_wears_its_hue_and_awaiting_review_its_hatch(logged_in_client, household):
+    food = subcategory("Food", "Groceries").category
+    page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
+
+    hues = re.findall(
+        r'<li class="(cat[^"]*)" data-key="([^"]*)" style="--hue: var\(--([^)]*)\)"', page
+    )
+    assert hues[0] == ("cat", str(food.pk), f"cat-{(food.pk - 1) % 10}")
+    assert hues[-1] == ("cat awaiting", "awaiting", "awaiting")
+
+
+def test_a_category_opens_its_drill_down_with_a_real_button(logged_in_client, household):
+    food = subcategory("Food", "Groceries").category
+    page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
+
+    assert re.search(
+        r'<button type="button" class="cat-open" aria-expanded="false" aria-controls="drill" '
+        rf'hx-get="/spending/transactions/\?period=2026-09&amp;category={food.pk}" hx-target="#drill">Food</button>',
+        page,
+    )
+
+
+def test_the_awaiting_review_row_links_to_the_review_queue(logged_in_client, household):
+    page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
+
+    link = re.search(r'<a class="review-link" href="([^"]*)">([^<]*)</a>', page)
+    assert link and link.groups() == ("/review/?dashboard=period%3D2026-09", "Review 2")
+
+
 def test_the_chart_shows_the_same_numbers_as_the_table(logged_in_client, household):
     page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
 
     data = chart_data(page)
-    assert [(bar["name"], bar["value"]) for bar in data["bars"]] == [
+    assert [(s["name"], s["value"]) for s in data["segments"]] == [
         ("Food", 120.5),
         ("Shopping", 70.0),
         ("Awaiting review", 12.3),
@@ -120,7 +169,7 @@ def test_subcategories_are_listed_under_their_category(logged_in_client, househo
     page = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
 
     subcategories = re.findall(
-        r'<tr class="subcategory"[^>]*>\s*<td>([^<]*)</td>\s*<td class="num">([^<]*)</td>', page
+        r'<li class="sub">\s*<span>([^<]*)</span>\s*<span class="amt fig">([^<]*)</span>', page
     )
     assert subcategories == [
         ("Groceries", f"80,00{EUR}"),
@@ -254,7 +303,7 @@ def test_the_chart_marks_carry_their_drill_down_address(logged_in_client, househ
 
     data = chart_data(page)
     assert data["drill"] == "/spending/transactions/?period=2026-09&category="
-    assert [bar["key"] for bar in data["bars"]] == [
+    assert [s["key"] for s in data["segments"]] == [
         str(food.pk),
         str(subcategory("Shopping", "Other").category.pk),
         "awaiting",

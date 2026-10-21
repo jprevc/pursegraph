@@ -36,7 +36,8 @@ def test_each_members_spending_is_split_by_category(logged_in_client, household)
     page = logged_in_client.get("/per-member/", {"period": "2026-09"}).content.decode()
 
     categories = re.findall(
-        r'<tr class="subcategory"[^>]*>\s*<td>([^<]*)</td>\s*<td class="num">([^<]*)</td>', page
+        r'<tr class="subcategory"[^>]*>\s*<td><button[^>]*>([^<]*)</button></td>\s*<td class="num">([^<]*)</td>',
+        page,
     )
     assert categories == [
         ("Food", f"80,00{EUR}"),

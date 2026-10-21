@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from django.utils import timezone
+from django.utils import formats, timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 
@@ -185,6 +185,15 @@ class Period:
         if self.unit == "year":
             return str(self.start.year)
         return figures.date_range(self.start, self.end)
+
+    @property
+    def compared_label(self) -> str:
+        """How a comparison names this Period, the one before another of its unit: a month by its name alone, unless
+        the year changed in between ("523,55 € less than September", "… than December 2025")."""
+        following = self.step(1)
+        if self.unit == "month" and following.start.year == self.start.year:
+            return formats.date_format(self.start, "F")
+        return self.label
 
     @property
     def so_far(self) -> date | None:

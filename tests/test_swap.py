@@ -75,14 +75,14 @@ def test_a_dashboard_view_is_titled_by_the_view_then_the_period(
 ):
     page = logged_in_client.get("/cashflow/", {"period": "2026-09"}, headers=headers)
 
-    assert page_title(page.content.decode()) == "Cashflow · September 2026 · Pursegraph"
+    assert page_title(page.content.decode()) == "Cash flow · September 2026 · Pursegraph"
 
 
 @pytest.mark.django_db
 def test_a_dashboard_view_swapped_in_names_its_new_period(logged_in_client, household):
     page = logged_in_client.get("/spending/", {"period": "2026-08"}, headers=SWAP)
 
-    assert page_title(page.content.decode()) == "Spending by Category · August 2026 · Pursegraph"
+    assert page_title(page.content.decode()) == "Spending · August 2026 · Pursegraph"
 
 
 @pytest.mark.django_db

@@ -8,12 +8,15 @@ from django.urls import reverse
 from django.utils.cache import patch_vary_headers
 from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 
 from ledger.models import Statement, Transaction
 from ledger.views import categories_with_subcategories, wants_the_fragment_alone
+from pursegraph.htmx import announce
 
 from . import queries
 from .periods import Period
+from .templatetags.hues import hue
 
 if TYPE_CHECKING:
     from django_stubs_ext import StrOrPromise
@@ -35,8 +38,8 @@ class View:
 VIEWS = {
     v.name: v
     for v in [
-        View("spending", "spending", _("Spending by Category"), "category"),
-        View("cashflow", "cashflow", _("Cashflow")),
+        View("spending", "spending", _("Spending"), "category"),
+        View("cashflow", "cashflow", _("Cash flow")),
         View("trends", "trends", _("Category trends"), default_period=Period.last_12_months),
         View("per_member", "per-member", _("Per Member")),
         View("money_flow", "money-flow", _("Money flow")),
@@ -51,7 +54,7 @@ def _view(name: str) -> View:
 
 
 def dashboard(request):
-    """The landing page: Spending by Category."""
+    """The landing page: Spending."""
     return show(request, "spending")
 
 
@@ -88,6 +91,27 @@ def carried_params(params) -> list[tuple[str, str]]:
     )
 
 
+def _announcement(v: View, period: Period, filters: queries.Filters, members, accounts) -> str:
+    """What a view swapped in announces: the view, its period and whose Accounts it shows, without figures
+    ("Spending, September 2026, Ana's Accounts")."""
+    parts = [str(v.label), period.label]
+    # Per Member compares every Member, so it ignores the Member filter.
+    if filters.member and v.name != "per_member":
+        label = dict(members)[filters.member]
+        parts.append(
+            str(_("Joint Accounts"))
+            if filters.member == queries.JOINT
+            else _("%(member)s's Accounts") % {"member": label}
+        )
+    if len(filters.accounts) == 1:
+        parts += [a.name for a in accounts if a.pk in filters.accounts]
+    elif filters.accounts:
+        count = len(filters.accounts)
+        parts.append(ngettext("%(count)d Account", "%(count)d Accounts", count) % {"count": count})
+    # A list of the parts, as a translation may join them otherwise.
+    return str(_(", ")).join(parts)
+
+
 def show(request, view: str):
     """A dashboard view, or where to start on an empty installation."""
     v = _view(view)
@@ -115,37 +139,63 @@ def show(request, view: str):
         "accounts": accounts,
         **carried_queries(_carried(period, period_chosen, filters)),
         "data": data,
+        "tiles": queries.tiles(v.name, period, filters),
         # A mark's drill-down address is `drill` plus its key.
         "chart": {
             **data.chart,
             "drill": f"{reverse(v.name + '_transactions')}?period={period.token}{filter_query}"
             f"&{v.mark_param}=",
         },
+        "views": VIEWS.values(),
         "view_template": view_template,
         # Swapped in alone, the view also brings the sidebar's links, so that they carry its period and filters.
         "swap_nav": wants_the_fragment_alone(request),
     }
-    template = view_template if wants_the_fragment_alone(request) else "dashboard/dashboard.html"
-    response = render(request, template, context)
+    if not wants_the_fragment_alone(request):
+        response = render(request, "dashboard/dashboard.html", context)
+    elif request.headers.get("HX-Target") == "numbers":
+        # The numbers refetched after an outcome changed in the drill-down, whose save speaks for itself.
+        response = render(request, view_template, context)
+    else:
+        # Swapped in by a tab, the period or a filter, which keep their focus: the new state is announced.
+        response = announce(
+            render(request, view_template, context),
+            _announcement(v, period, filters, members, accounts),
+        )
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response
 
 
 def transactions(request, view: str):
-    """The drill-down: the Transactions behind one chart mark, as rows with inline outcome editing."""
+    """The drill-down: the Transactions behind one chart mark, as rows with inline outcome editing, in a card titled
+    by the mark and the period."""
     v = _view(view)
     period = Period.from_query(request.GET, v.default_period)
     filters = queries.Filters.from_query(request.GET)
-    rows = queries.drill_down(
-        v.name, period, filters, request.GET.get(v.mark_param, "")
-    ).select_related("account")
-    return render(
+    key = request.GET.get(v.mark_param, "")
+    rows = queries.drill_down(v.name, period, filters, key).select_related("account")
+    label = queries.mark_label(v.name, period, filters, key) or _("Transactions")
+    response = render(
         request,
         "dashboard/_drill_down.html",
         {
             "transactions": rows,
             "categories": categories_with_subcategories(),
+            "mark": key,
+            # A Category's hue token, where the view's marks are Categories.
+            "hue": hue(key) if v.name == "spending" else "",
+            "title": _("%(mark)s · %(period)s") % {"mark": label, "period": period.label},
             # Without HTMX, saving an outcome goes back to the view rather than to this fragment.
             "next": f"{reverse(v.name)}?period={period.token}{_filter_query(filters)}",
         },
+    )
+    count = len(rows)
+    return announce(
+        response,
+        ngettext(
+            "%(mark)s, %(period)s, %(count)d Transaction",
+            "%(mark)s, %(period)s, %(count)d Transactions",
+            count,
+        )
+        % {"mark": label, "period": period.label, "count": count},
     )

@@ -247,7 +247,7 @@ main { min-width: 0; width: 100%; max-width: 85rem; padding: var(--s-6) var(--s-
 .empty { display: grid; place-items: center; gap: var(--s-3); padding: 6rem var(--s-4); text-align: center; color: var(--ink-2); }
 
 /* The Dashboard's view tabs, underlined. */
-.tabs { display: flex; gap: var(--s-5); margin-bottom: var(--s-5); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tabs { display: flex; gap: var(--s-5); margin-bottom: 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
 .tabs a { flex: none; margin-bottom: -1px; padding: var(--s-2) 0 .625rem; border-bottom: 2px solid transparent; color: var(--muted); font-weight: 500; text-decoration: none; }
 .tabs a:hover { color: var(--ink); }
 .tabs a[aria-current] { border-bottom-color: var(--accent); color: var(--accent-text); }
@@ -260,7 +260,7 @@ main { min-width: 0; width: 100%; max-width: 85rem; padding: var(--s-6) var(--s-
   .m-top .brand { font-size: 1rem; }
   main { padding: 0 var(--s-4) calc(4rem + var(--s-8) + env(safe-area-inset-bottom)); }
   h1, h2 { font-size: 1.25rem; }
-  .tabs { gap: var(--s-4); margin: 0 calc(var(--s-4) * -1) var(--s-4); padding: 0 var(--s-4); }
+  .tabs { gap: var(--s-4); margin: 0 calc(var(--s-4) * -1); padding: 0 var(--s-4); }
 
   .tabbar {
     position: fixed; inset: auto 0 0; z-index: 25; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -349,18 +349,107 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .rules .actions form { display: flex; gap: var(--s-1); }
 .bulk-accept { margin-bottom: var(--s-3); }
 
-/* Dashboard */
-.view-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin-bottom: var(--s-5); }
-.view-bar h1 { margin: 0 auto 0 0; }
+/* ---------- Dashboard ---------- */
+/* The page head, the view tabs, then the filter bar, which sticks to the top on scroll so the period stays beside
+   the figures. */
+.page-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.page-head h1 { margin: 0 auto 0 0; }
+.context {
+  position: sticky; top: 0; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2);
+  margin-bottom: var(--s-3); padding: var(--s-3) 0;
+  background: color-mix(in srgb, var(--ground) 92%, transparent); backdrop-filter: blur(10px);
+}
 .period { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .period form { display: flex; align-items: center; gap: .375rem; }
 .stepper { display: inline-flex; align-items: center; height: var(--control); background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl); }
 .stepper .step { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
 .stepper a.step:hover { background: var(--hover); }
+.stepper a.step:focus-visible { outline-offset: -2px; }
 .stepper .step .icon { color: var(--muted); }
 .stepper .step.off { opacity: .35; }
 .period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
 .period-label .muted { font-weight: 400; }
+.filter-bar { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+.filter-bar .accounts { position: relative; }
+.filter-bar .accounts summary {
+  display: flex; align-items: center; gap: .375rem; height: var(--control); margin: 0; padding: 0 var(--s-8) 0 var(--s-3);
+  color: var(--ink); font-weight: 500; list-style: none; white-space: nowrap;
+  background: var(--card) var(--chevron) no-repeat right .625rem center / 1rem;
+  border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl);
+}
+.filter-bar .accounts summary .icon { color: var(--muted); }
+.filter-bar .accounts summary span { overflow: hidden; text-overflow: ellipsis; }
+.filter-bar .accounts summary::-webkit-details-marker { display: none; }
+.filter-bar .accounts summary:hover { background-color: var(--hover); }
+.filter-bar .account-list {
+  position: absolute; right: 0; z-index: 10; margin-top: var(--s-1); padding: var(--s-3); min-width: 13.75rem;
+  display: flex; flex-direction: column; gap: var(--s-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-row); box-shadow: var(--shadow-pop);
+}
+.filter-bar .account-list label { display: flex; align-items: center; gap: var(--s-2); white-space: nowrap; font-size: var(--text-body); font-weight: 400; }
+.filter-note { margin: calc(var(--s-1) * -1) 0 var(--s-3); font-size: var(--text-sm); text-align: right; }
+
+/* Stat tiles: three equal cards with the period's headline figures, never coloured by sign. */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); margin-bottom: var(--s-4); }
+.tile p { margin: 0; }
+.tile-label { color: var(--muted); font-weight: 500; }
+.tile-figure { margin-top: var(--s-1); font-size: var(--text-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; }
+.compare { margin-top: 2px; color: var(--muted); font-size: var(--text-sm); }
+
+/* A card's head: a 15px title with optional muted meta at the right. */
+.card-head { display: flex; align-items: center; gap: var(--s-3); }
+.card-head h2 { margin: 0 auto 0 0; font-size: var(--text-title); letter-spacing: -0.01em; line-height: 1.5; }
+.card-head .meta { color: var(--muted); font-size: var(--text-sm); }
+.donut-card, .cats-card, .drill-card { padding: 0; }
+.donut-card .card-head, .cats-card .card-head, .drill-card .card-head { padding: var(--s-5) var(--s-5) 0; }
+/* A Category's hue, `--hue` (the Fixed Hue Rule), on its dot; Awaiting review's is hatched (the Neutral Wait Rule). */
+.dot { flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--hue); }
+.dot.awaiting, .awaiting .dot { background: repeating-linear-gradient(45deg, var(--awaiting) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting); }
+
+/* Spending: the donut at 5fr beside the ranked Category list at 7fr. */
+.spending { display: grid; grid-template-columns: minmax(21.25rem, 5fr) minmax(0, 7fr); gap: var(--s-4); align-items: start; }
+.donut-wrap { position: relative; height: 21.25rem; margin: var(--s-2) var(--s-4) var(--s-5); }
+.donut { position: absolute; inset: 0; }
+.donut-centre { position: absolute; inset: 0; display: grid; place-content: center; margin: 0; text-align: center; pointer-events: none; }
+.donut-centre span { display: block; }
+.donut-centre .k, .donut-centre .s { color: var(--muted); font-size: var(--text-sm); }
+.donut-centre .k { font-weight: 500; }
+.donut-centre .v { font-size: var(--text-headline); font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; }
+.donut-centre .s { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The Category list: each row is one button, stretched over the row, so the whole row opens the Category. */
+.cats { list-style: none; margin: var(--s-3) 0 0; padding: 0 var(--s-2) var(--s-2); }
+.cat-row, .sub { display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) 8.75rem 3.25rem 6.5rem; align-items: center; gap: var(--s-3); }
+.cat-row { position: relative; padding: .625rem var(--s-3); border-radius: var(--r-row); cursor: pointer; }
+.cat-row:hover, .cat.hot .cat-row { background: var(--hover); }
+.cat.open .cat-row { background: var(--accent-soft); }
+.cat-row:has(.cat-open:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.chev { display: grid; color: var(--faint); }
+.chev.none { visibility: hidden; }
+.chev .icon { transition: transform .2s cubic-bezier(.16, 1, .3, 1); }
+.cat.open .chev .icon { transform: rotate(90deg); }
+.name { display: flex; align-items: center; gap: .625rem; min-width: 0; }
+button.cat-open {
+  display: block; min-width: 0; height: auto; padding: 0; border: 0; background: none; box-shadow: none;
+  color: var(--ink); font: 500 var(--text-body)/1.5 var(--font); text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+button.cat-open:hover { background: none; }
+button.cat-open:focus-visible { outline: none; }
+button.cat-open::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.review-link { position: relative; z-index: 1; flex: none; margin-left: var(--s-1); font-size: var(--text-sm); }
+.bar { height: 6px; border-radius: var(--r-pill); background: var(--ground); overflow: hidden; }
+.bar i { display: block; width: calc(var(--w) * 100%); height: 100%; border-radius: inherit; background: var(--hue); }
+.awaiting .bar i { background: repeating-linear-gradient(45deg, var(--awaiting) 0 3px, color-mix(in srgb, var(--awaiting) 40%, transparent) 3px 6px); }
+.cat .share { color: var(--muted); font-size: var(--text-sm); text-align: right; }
+.cat .amt { font-weight: 600; text-align: right; white-space: nowrap; }
+.subs { list-style: none; margin: 0; padding: 0 0 var(--s-1); }
+.sub { padding: .375rem var(--s-3); color: var(--ink-2); font-size: var(--text-sm); }
+.sub > :first-child { grid-column: 2; padding-left: 1.125rem; }
+.sub .amt { grid-column: 5; font-weight: 400; }
+.cats-total { display: flex; justify-content: space-between; gap: var(--s-3); margin: 0; padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); font-weight: 600; }
+
+/* The other views keep their chart beside a table until their slice rebuilds them. */
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 21.25rem; gap: var(--s-4); align-items: start; }
 .split .chart { height: 26.25rem; }
 .split.wide { grid-template-columns: minmax(0, 1fr) 26.25rem; }
@@ -371,37 +460,81 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
 .stack .chart { height: 26.25rem; }
 .view-table td { padding: var(--s-2) var(--s-3); }
-.view-table tr.category, .view-table tr.mark, .view-table tr.subcategory[hx-get] { cursor: pointer; }
-.view-table tr.category:hover, .view-table tr.category:focus-visible,
-.view-table tr.mark:hover, .view-table tr.mark:focus-visible,
-.view-table tr.subcategory[hx-get]:hover, .view-table tr.subcategory[hx-get]:focus-visible { background: var(--hover); }
+.view-table tr.mark, .view-table tr.subcategory:has(.mark-open) { position: relative; cursor: pointer; }
+.view-table tr.mark:hover, .view-table tr.mark:has(.mark-open:focus-visible),
+.view-table tr.subcategory:has(.mark-open):hover, .view-table tr.subcategory:has(.mark-open:focus-visible) { background: var(--hover); }
+.view-table tr:has(.mark-open:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* The mark's button is its label, stretched over the row. */
+button.mark-open {
+  height: auto; padding: 0; border: 0; background: none; box-shadow: none;
+  color: inherit; font: inherit; text-align: left; white-space: inherit;
+}
+button.mark-open:hover { background: none; }
+button.mark-open:focus-visible { outline: none; }
+button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .view-table tr.subcategory td { color: var(--ink-2); font-size: var(--text-sm); font-weight: 400; }
 .view-table tr.subcategory td:first-child { padding-left: var(--s-6); }
 .view-table tr.balance td { font-weight: 600; border-bottom: 0; border-top: 1px solid var(--line); }
 .hint { font-size: var(--text-sm); margin-top: var(--s-3); }
-#drill:not(:empty) { margin-top: var(--s-4); background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow-card); padding: var(--s-2) var(--s-3); }
-.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.filter-bar .accounts { position: relative; }
-.filter-bar .accounts summary {
-  display: flex; align-items: center; height: var(--control); margin: 0; padding: 0 var(--s-8) 0 var(--s-3);
-  color: var(--ink); font-weight: 500; list-style: none;
-  background: var(--card) var(--chevron) no-repeat right .625rem center / 1rem;
-  border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl);
-}
-.filter-bar .accounts summary::-webkit-details-marker { display: none; }
-.filter-bar .accounts summary:hover { background-color: var(--hover); }
-.filter-bar .account-list {
-  position: absolute; right: 0; z-index: 10; margin-top: var(--s-1); padding: var(--s-3); min-width: 13.75rem;
-  display: flex; flex-direction: column; gap: var(--s-2);
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-row); box-shadow: var(--shadow-pop);
-}
-.filter-bar .account-list label { display: flex; align-items: center; gap: var(--s-2); white-space: nowrap; font-size: var(--text-body); font-weight: 400; }
-.filter-note { flex-basis: 100%; margin: 0; font-size: var(--text-sm); text-align: right; }
+
+/* The drill-down: a full-width card under the view, titled by its mark and period. */
+.drill-card { margin-top: var(--s-4); }
+/* Scrolled into view below the sticky filter bar, not under it. */
+#drill { scroll-margin-top: 4.5rem; }
+.drill-card .card-head .dot { margin-right: calc(var(--s-1) * -1); }
+.drill-card .scroll { margin-top: var(--s-3); }
+.drill-card th:first-child, .drill-card td:first-child { padding-left: var(--s-5); }
+.drill-card th:last-child, .drill-card td:last-child { padding-right: var(--s-5); }
+.drill-card tbody tr:hover { background: var(--raised); }
+.drill-card > p.muted { margin: 0; padding: var(--s-3) var(--s-5) 0; }
+.drill-card > p.foot { padding: var(--s-3) var(--s-5) var(--s-5); font-size: var(--text-sm); }
 
 @media (max-width: 900px) {
-  .split, .split.wide { grid-template-columns: minmax(0, 1fr); }
+  /* The stepper takes a full row; the unit, Member and Account controls share the next. */
+  .context { margin: 0 calc(var(--s-4) * -1) var(--s-3); padding: var(--s-2) var(--s-4); }
+  .period, .filter-bar { display: contents; }
+  .stepper { flex-basis: 100%; justify-content: space-between; }
+  .period form.unit, .filter-bar select, .filter-bar .accounts { flex: 1 1 0; min-width: 0; }
+  .period form.unit select { width: 100%; }
+  .period form.range { flex-basis: 100%; flex-wrap: wrap; }
+  .filter-bar .accounts summary .icon { display: none; }
+  .filter-bar .accounts summary { padding-left: var(--s-3); }
+  .filter-note { text-align: left; }
+
+  .tiles { gap: var(--s-2); }
+  .tile { padding: var(--s-3) .625rem; }
+  .tile-label { font-size: var(--text-label); }
+  .tile-figure { font-size: var(--text-title); letter-spacing: -0.01em; white-space: nowrap; }
+  .compare { display: none; }
+
+  .spending, .split, .split.wide { grid-template-columns: minmax(0, 1fr); }
   .split .chart { height: 20rem; }
-  .view-bar h1 { flex-basis: 100%; }
+  .donut-wrap { height: 16.25rem; }
+  .donut-centre .v { font-size: var(--text-wordmark); }
+  .donut-centre .k, .donut-centre .s { font-size: var(--text-label); }
+  .cat-row, .sub { grid-template-columns: 1rem minmax(0, 1fr) 2.75rem 5.75rem; gap: var(--s-2); }
+  .cat-row, .sub { padding-left: var(--s-2); padding-right: var(--s-2); }
+  .cat .bar, .review-link { display: none; }
+  .sub .amt { grid-column: 4; }
+
+  /* The drill-down's rows stack as cards: the description and amount, then the date and Account, then the
+     outcome. (Transaction row rebuilds the row itself.) */
+  #drill { scroll-margin-top: 7.5rem; }
+  .drill-card .scroll { overflow: visible; }
+  .drill-card thead { display: none; }
+  .drill-card tr {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "desc desc amount" "date account account" "outcome outcome outcome";
+    gap: 2px var(--s-2); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line);
+  }
+  .drill-card tbody tr:last-child { border-bottom: 0; }
+  .drill-card td, .drill-card td:first-child, .drill-card td:last-child { padding: 0; border: 0; }
+  .drill-card td:nth-child(1) { grid-area: date; }
+  .drill-card td:nth-child(2) { grid-area: account; }
+  .drill-card td:nth-child(1), .drill-card td:nth-child(2) { color: var(--muted); font-size: var(--text-sm); }
+  .drill-card td:nth-child(3) { grid-area: desc; font-weight: 500; }
+  .drill-card td:nth-child(4) { grid-area: amount; }
+  .drill-card td:nth-child(5) { grid-area: outcome; margin-top: var(--s-2); }
+  .drill-card .outcome select { flex: 1 1 12rem; max-width: none; }
 }
 
 /* ---------- Swaps ---------- */
