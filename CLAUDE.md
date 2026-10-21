@@ -16,6 +16,10 @@ Single-context: one root `CONTEXT.md`, plus `docs/adr/` once the first ADR is wr
 
 Serving, handoff and screenshots for `/prototype` tickets. See `docs/agents/prototypes.md`.
 
+### Design docs
+
+Before reading `DESIGN.md`, `docs/design/`, `static/pursegraph.css` or a prototype, read `docs/agents/design-docs.md`.
+
 ### Checks
 
 `scripts/check` runs every check (ruff, format, mypy, imports without dev dependencies, pytest); `--fast` skips pytest. The pre-commit hook and CI run it.
