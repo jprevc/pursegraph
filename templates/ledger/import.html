@@ -51,7 +51,7 @@
     <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th class="num">{% translate "Balance" %}</th></tr></thead>
     <tbody>
     {% for row in d.rows %}
-      <tr><td>{{ row.date|day }}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
+      <tr><td class="fig">{{ row.date|day }}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -62,10 +62,10 @@
     <tbody>
     {% for day in rejection.mismatch %}
       {% for row in day.missing %}
-      <tr><td>{{ day.day|day }}</td><td>{% translate "Already imported, missing from this file" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
+      <tr><td class="fig">{{ day.day|day }}</td><td>{% translate "Already imported, missing from this file" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
       {% endfor %}
       {% for row in day.unexpected %}
-      <tr><td>{{ day.day|day }}</td><td>{% translate "In this file, not imported before" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
+      <tr><td class="fig">{{ day.day|day }}</td><td>{% translate "In this file, not imported before" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
       {% endfor %}
     {% endfor %}
     </tbody>
@@ -88,7 +88,7 @@
   {{ pending.form.content }}{{ pending.form.filename }}
   {{ pending.account_form.as_div }}
   <div class="actions">
-    <button type="submit">{% translate "Import" %}</button>
+    <button type="submit" class="primary">{% translate "Import" %}</button>
     <a href="{% url 'import' %}">{% translate "Cancel" %}</a>
   </div>
 </form>
@@ -99,7 +99,7 @@
   {{ form.file.errors }}
   {{ form.non_field_errors }}
   <div>{{ form.file.label_tag }}{{ form.file }}</div>
-  <button type="submit">{% translate "Import" %}</button>
+  <button type="submit" class="primary">{% translate "Import" %}</button>
 </form>
 {% endfor %}
 
@@ -132,10 +132,10 @@
     <tbody>
     {% for statement in account.statements.all %}
       <tr>
-        <td>{{ statement.period_start|date_range:statement.period_end }}</td>
+        <td class="fig">{{ statement.period_start|date_range:statement.period_end }}</td>
         <td>{{ statement.get_format_display }}</td>
         <td class="num">{{ statement.transaction_count }}</td>
-        <td>{{ statement.imported_at|day }}, {{ statement.imported_by.get_username }}</td>
+        <td class="fig">{{ statement.imported_at|day }}, {{ statement.imported_by.get_username }}</td>
         <td>{% if user.is_admin or statement.imported_by_id == user.pk %}<a class="danger" href="{% url 'delete_statement' statement.pk %}">{% translate "Delete" %}</a>{% endif %}</td>
       </tr>
     {% endfor %}

@@ -9,7 +9,7 @@
   <p class="muted">{% translate "Only Transactions awaiting review or categorized by the LLM or a Rule change; outcomes set by hand, by IBAN, by pairing or by the parser stay." %}</p>
   {% if not rule.subcategory %}<p class="muted">{% translate "Pairing the Transfers may also convert a counterpart categorized by the LLM or a Rule into a Transfer." %}</p>{% endif %}
   <div class="actions">
-    <button type="submit">{% translate "Apply" %}</button>
+    <button type="submit" class="primary">{% translate "Apply" %}</button>
     <a href="{% url 'rules' %}">{% translate "Not now" %}</a>
   </div>
 </form>

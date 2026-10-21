@@ -15,7 +15,7 @@
     <label for="{{ form.password.id_for_label }}">{% translate "Password" %}</label>
     {{ form.password }}
     <input type="hidden" name="next" value="{{ next }}">
-    <button type="submit">{% translate "Log in" %}</button>
+    <button type="submit" class="primary">{% translate "Log in" %}</button>
   </form>
 </main>
 {% endblock %}

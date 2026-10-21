@@ -275,7 +275,10 @@ def cashflow(period: Period, filters: Filters) -> ViewData:
         sum((r.others or Decimal(0) for r in rows), Decimal(0)) if filters.member else None,
     )
     labels = {"in": _("Money in"), "out": _("Money out"), "net": _("Net")}
+    income = Category.objects.filter(kind=Category.Kind.INCOME).first()
     chart: dict[str, Any] = {
+        # Money in wears the Income Category's hue (DESIGN.md, Cashflow).
+        "in_key": str(income.pk) if income else None,
         "months": [r.label for r in rows],
         "keys": [r.key for r in rows],
         "in": [float(r.money_in) for r in rows],

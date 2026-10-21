@@ -202,7 +202,7 @@ def test_identical_rows_on_one_statement_are_both_imported_and_both_matched_late
 
 def statement_row(page, period):
     """The Import page's table row for the Statement covering `period`."""
-    start = page.index(f"<td>{period}</td>")
+    start = page.index(f'<td class="fig">{period}</td>')
     return page[start : page.index("</tr>", start)]
 
 

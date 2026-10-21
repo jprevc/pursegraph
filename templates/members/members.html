@@ -4,7 +4,8 @@
 {% block main %}
 <h2>{% translate "Members" %}</h2>
 {% for message in messages %}<p class="panel notice {{ message.tags }}">{{ message }}</p>{% endfor %}
-<p><a class="button" href="{% url 'new_member' %}">{% translate "New Member" %}</a></p>
+<p><a class="button primary" href="{% url 'new_member' %}">{% translate "New Member" %}</a></p>
+<div class="scroll">
 <table>
   <thead><tr><th>{% translate "Name" %}</th><th>{% translate "Username" %}</th><th>{% translate "Status" %}</th><th>{% translate "Admin" %}</th><th></th></tr></thead>
   <tbody>
@@ -44,4 +45,5 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}

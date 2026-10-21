@@ -14,8 +14,8 @@ colors:
   hover: "#f3f4f6"
   ink: "#111827"
   ink-2: "#374151"
-  muted: "#6b7280"
-  faint: "#9ca3af"
+  muted: "#656c79"
+  faint: "#838a97"
   line: "#e5e7eb"
   line-strong: "#d1d5db"
   awaiting: "#9ca3af"
@@ -270,8 +270,8 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 - **Hover** (hover / hover-dark): the hover ground for nav items, buttons and Category rows.
 - **Ink** (ink / ink-dark): headings, figures and primary text.
 - **Ink 2** (ink-2 / ink-2-dark): nav labels, Subcategory rows, donut labels and secondary body text.
-- **Muted** (muted / muted-dark): labels, meta text, comparisons, table headers and control icons.
-- **Faint** (faint / faint-dark): disclosure chevrons only.
+- **Muted** (muted / muted-dark): labels, meta text, comparisons, table headers and control icons. In light it is a shade darker than Tailwind's gray-500 so that it clears 4.5:1 on Hover and Indigo Wash too.
+- **Faint** (faint / faint-dark): disclosure chevrons only. It clears 3:1 (a non-text graphic) on the card, Hover and Indigo Wash.
 - **Line / Line Strong**: hairline dividers (line), and control borders, label lines and dimmed donut segments (line-strong).
 - **Coverage Slate** (coverage / coverage-dark): the stretches of the Accounts board that Statements cover. It is a neutral, never a Category hue.
 
@@ -340,6 +340,7 @@ Quiet, bordered and solid. They are never filled with indigo.
 - **Shape:** gently rounded (8px), 36px high (32px inside table rows), 12px horizontal padding. Icon-only buttons are 36px squares.
 - **Default:** a card fill, a Line Strong border, Ink text at 500, a muted 16px icon and the control shadow.
 - **Hover / Focus:** the Hover fill. Focus is a 2px Focus Indigo outline at a 2px offset.
+- **Primary:** the one main action of a form or page (Log in, Save, Import, New Rule) is solid Ink with card-coloured text, Ink 2 on Hover. Still never indigo.
 - **Ghost:** transparent and borderless, muted text, turning to Ink on Hover (close, log out, menu).
 - **Select:** the button style with a 16px muted chevron drawn at the right, and `appearance: none`.
 

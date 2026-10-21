@@ -19,7 +19,7 @@
 <form class="panel stack-form" method="post">{% csrf_token %}
   {{ form.as_div }}
   <p class="muted">{% translate "Outcomes the LLM already set stay when you raise it." %}</p>
-  <div class="actions"><button type="submit">{% translate "Save" %}</button></div>
+  <div class="actions"><button type="submit" class="primary">{% translate "Save" %}</button></div>
 </form>
 
 <form class="panel stack-form" method="post" action="{% url 'resuggest_queue' %}">{% csrf_token %}

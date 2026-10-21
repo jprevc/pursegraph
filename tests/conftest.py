@@ -162,6 +162,6 @@ def drill_rows(client, url, params):
     return [
         html.unescape(d)
         for d in re.findall(
-            r'<tr id="transaction-\d+">\s*<td>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
+            r'<tr id="transaction-\d+">\s*<td[^>]*>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
         )
     ]

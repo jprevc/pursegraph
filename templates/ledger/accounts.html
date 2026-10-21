@@ -5,7 +5,7 @@
 <h2>{% translate "Accounts" %}</h2>
 {% for message in messages %}<p class="panel notice {{ message.tags }}">{{ message }}</p>{% endfor %}
 <p class="muted">{% translate "An Account with bank “Other” has no Statements: it is known only by its IBANs, so that money moved to it is recognised as a Transfer." %}</p>
-<p><a class="button" href="{% url 'new_account' %}">{% translate "New Account" %}</a> <a href="{% url 'import' %}">{% translate "Back to Import" %}</a></p>
+<p><a class="button primary" href="{% url 'new_account' %}">{% translate "New Account" %}</a> <a href="{% url 'import' %}">{% translate "Back to Import" %}</a></p>
 {% if accounts %}
 <div class="scroll">
 <table>

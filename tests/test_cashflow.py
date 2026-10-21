@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from ledger.models import Subcategory, Transaction
+from ledger.models import Category, Subcategory, Transaction
 
 from .conftest import EUR, drill_rows, view_chart, view_table
 
@@ -49,6 +49,12 @@ def test_the_chart_shows_the_same_numbers_as_the_table(logged_in_client, househo
     assert chart["net"] == [0, 501, 3287.7]
     assert chart["keys"] == ["2026-07", "2026-08", "2026-09"]
     assert chart["drill"] == "/cashflow/transactions/?period=2026-Q3&key="
+
+
+def test_money_in_wears_the_income_categorys_hue(logged_in_client, household):
+    page = logged_in_client.get("/cashflow/", {"period": "2026-Q3"}).content.decode()
+
+    assert view_chart(page, "cashflow")["in_key"] == str(Category.objects.get(name="Income").pk)
 
 
 def test_drill_down_into_a_months_money_in_money_out_or_both(logged_in_client, household):

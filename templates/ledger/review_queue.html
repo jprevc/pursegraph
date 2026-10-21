@@ -10,7 +10,7 @@
 <form class="bulk-accept" method="post" action="{% url 'accept_suggestions' %}">
   {% csrf_token %}
   {% for t in suggested %}<input type="hidden" name="accept" value="{{ t.pk }}:{{ t.pending_suggestion_id }}">{% endfor %}
-  <button type="submit">{% blocktranslate count n=suggested|length %}Accept {{ n }} suggestion{% plural %}Accept all {{ n }} suggestions{% endblocktranslate %}</button>
+  <button type="submit" class="primary">{% blocktranslate count n=suggested|length %}Accept {{ n }} suggestion{% plural %}Accept all {{ n }} suggestions{% endblocktranslate %}</button>
 </form>
 {% endif %}
 <div class="scroll">

@@ -76,7 +76,7 @@ def chart_data(page):
 def drill_rows(client, params):
     page = client.get("/spending/transactions/", params).content.decode()
     return re.findall(
-        r'<tr id="transaction-\d+">\s*<td>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
+        r'<tr id="transaction-\d+">\s*<td[^>]*>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
     )
 
 

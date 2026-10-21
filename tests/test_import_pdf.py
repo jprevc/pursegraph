@@ -135,7 +135,7 @@ def test_two_identical_rows_on_one_statement_are_both_imported(logged_in_client,
     upload(logged_in_client)
 
     page = logged_in_client.get("/transactions/").content.decode()
-    fee = f'<td>15 Sep 2026</td><td>Ana&#x27;s Sparkasse</td><td>Banka Sparkasse, d. d.</td><td class="num">−0,40{EUR}</td>'
+    fee = f'<td class="fig">15 Sep 2026</td><td>Ana&#x27;s Sparkasse</td><td>Banka Sparkasse, d. d.</td><td class="num">−0,40{EUR}</td>'
     assert page.count(fee) == 2
     assert "Pozitivne obresti" in page
 
@@ -210,7 +210,7 @@ def test_an_n26_statement_imports_into_the_account_of_its_iban(logged_in_client,
     assert "7 Transactions imported" in page
     page = logged_in_client.get("/transactions/").content.decode()
     assert (
-        f'<td>10 Sep 2026</td><td>Ana&#x27;s N26</td><td>Ana Novak</td><td class="num">−1.000,00{EUR}</td>'
+        f'<td class="fig">10 Sep 2026</td><td>Ana&#x27;s N26</td><td>Ana Novak</td><td class="num">−1.000,00{EUR}</td>'
         in page
     )
     assert "EasyPark SI" in page
