@@ -32,14 +32,17 @@
   const pageHeading = () => document.querySelector('main h1');
   const toTop = () => window.scrollTo({ top: 0, behavior: 'instant' });
   // The control used, found again in content swapped in without its id: the same kind, named the same.
+  // Named as the request starts, as a busy button's label changes meanwhile; nameless controls have no twin.
   const nameOf = el => el.getAttribute('name') || el.getAttribute('aria-label') || el.textContent.trim();
-  const twin = (old, region) => [...region.querySelectorAll(old.tagName)].find(el => nameOf(el) === nameOf(old));
+  const twin = ({ tag, name }, region) => name && [...region.querySelectorAll(tag)].find(el => nameOf(el) === name);
 
   // Each request's swap, from its start to its settle.
   const swaps = new WeakMap();
   const regionOf = detail => detail.target || detail.elt;
   const isPage = region => region.matches('main');
   const opener = new WeakMap();
+  // The request a region is busy with, so that an older request finishing late doesn't end the newer one's busy.
+  const busyWith = new WeakMap();
 
   const settle = (s, region) => {
     if (isPage(region)) {
@@ -55,50 +58,57 @@
       }
     } else if (s.focused !== document.body && document.activeElement === document.body) {
       // The control used went with the old content (HTMX keeps it when the new content has it by id).
-      focus(twin(s.focused, region) || heading(region) || pageHeading());
+      focus(twin(s.used, region) || heading(region) || pageHeading());
     }
     if (s.elt.closest('[data-scroll-top]')) region.scrollIntoView({ block: 'start', behavior: 'instant' });
   };
 
-  // Busy: aria-busy at once; after 300 ms the dim and the line, or for an action its button's busy label.
+  // Busy: aria-busy at once; after 300 ms the dim and the line. An action instead disables the control that sent it,
+  // so it can't be sent twice, and a button among them reads its busy label.
   const start = e => {
     const { elt, xhr } = e.detail;
     const region = regionOf(e.detail);
     const action = elt.closest('[data-action]');
-    const submitter = e.detail.requestConfig?.triggeringEvent?.submitter;
-    const button = action && (submitter || (elt.matches('button') ? elt : null));
-    const s = { elt, xhr, region, action, button, focused: document.activeElement };
+    const trigger = e.detail.requestConfig?.triggeringEvent;
+    const control = action && (trigger?.submitter || [trigger?.target, elt].find(el => el?.matches?.('button, select, input')));
+    const focused = document.activeElement;
+    const s = { elt, xhr, region, action, control, focused, used: { tag: focused.tagName, name: nameOf(focused) } };
     swaps.set(xhr, s);
-    if (button) {
-      s.label = button.textContent;
-      button.disabled = true;
-      button.setAttribute('aria-busy', 'true');
-      s.timer = setTimeout(() => { button.textContent = button.dataset.busyLabel || strings.saving; }, BUSY_AFTER);
-    } else if (action) {
+    if (action) {
       action.setAttribute('aria-busy', 'true');
+      if (!control) return;
+      control.disabled = true;
+      control.setAttribute('aria-busy', 'true');
+      if (control.matches('button')) {
+        s.label = control.textContent;
+        s.timer = setTimeout(() => { control.textContent = control.dataset.busyLabel || strings.saving; }, BUSY_AFTER);
+      }
     } else {
       region.setAttribute('aria-busy', 'true');
-      region.busy = xhr;
-      s.timer = setTimeout(() => { if (region.busy === xhr) region.classList.add('busy'); }, BUSY_AFTER);
+      busyWith.set(region, xhr);
+      s.timer = setTimeout(() => { if (busyWith.get(region) === xhr) region.classList.add('busy'); }, BUSY_AFTER);
     }
   };
 
   const stop = s => {
     clearTimeout(s.timer);
     s.action?.removeAttribute('aria-busy');
-    if (s.button?.isConnected) {
-      s.button.disabled = false;
-      s.button.removeAttribute('aria-busy');
-      s.button.textContent = s.label;
+    if (s.control?.isConnected) {
+      s.control.disabled = false;
+      s.control.removeAttribute('aria-busy');
+      if (s.label !== undefined) s.control.textContent = s.label;
+      // Disabling it took its focus; a failed action leaves it where it was, so it gets it back.
+      if (s.control === s.focused && document.activeElement === document.body) focus(s.control);
     }
-    if (s.region.busy === s.xhr) {
+    if (busyWith.get(s.region) === s.xhr) {
       s.region.removeAttribute('aria-busy');
       s.region.classList.remove('busy');
-      delete s.region.busy;
+      busyWith.delete(s.region);
     }
   };
 
-  // A failed swap keeps what is shown, and the controls go back to it; a lost session goes to log in.
+  // A failed swap keeps what is shown, and the controls go back to it. A lost session goes to log in: the server's 401
+  // carries HX-Redirect, which HTMX follows itself, so this catches a 403 (a CSRF token gone with the session).
   const fail = e => {
     const s = swaps.get(e.detail.xhr);
     if (!s) return;

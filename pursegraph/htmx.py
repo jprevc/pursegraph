@@ -11,7 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 
 def announce(response: HttpResponse, message: str) -> HttpResponse:
-    """Has the shell read `message` out through its polite live region once the swap settles: the new state in the
+    """Has the shell read `message` out through its polite live region, just after the swap: the new state in the
     page's own words, without figures. Keeps any other `HX-Trigger` events the response already sets."""
     triggers = _triggers(response.get("HX-Trigger", ""))
     triggers["announce"] = message
