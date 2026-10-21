@@ -250,8 +250,8 @@ def wants_the_fragment_alone(request) -> bool:
 
 def transactions(request):
     """Every Transaction, filtered and paged. The sidebar swaps it into the main area via HTMX."""
-    categories = categories_with_subcategories()
-    form = TransactionFilterForm(request.GET, categories=categories)
+    picker = outcomes.picker()
+    form = TransactionFilterForm(request.GET, categories=picker["categories"])
     rows = form.filter(
         Transaction.objects.select_related("account", "subcategory__category").order_by(
             "-date", "-id"
@@ -268,8 +268,7 @@ def transactions(request):
             "form": form,
             "page": page,
             "query": query.urlencode(),
-            "categories": categories,
-            "most_used": outcomes.most_used_outcomes(),
+            **picker,
             "any_transactions": page.paginator.count or Transaction.objects.exists(),
             "page_title": _("Transactions"),
             # Swapped in alone, it also brings the sidebar, so that only Transactions is highlighted and the

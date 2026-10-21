@@ -59,7 +59,7 @@ to, and `saved` adds the line that says so, with Undo. {% endcomment %}
       <p class="oc-saved" data-saved>
         {% icon "check" %}<span>{% blocktranslate with outcome=t.outcome_label %}Saved as {{ outcome }}{% endblocktranslate %}</span>
         <span aria-hidden="true">·</span>
-        <button type="button" class="link" data-action hx-post="{% url 'undo_outcome' t.pk %}" hx-target="closest tr" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
+        <button type="button" class="link" data-action data-undo data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}" hx-post="{% url 'undo_outcome' t.pk %}" hx-target="closest tr" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
         {% if t.source == "manual" and not t.counterpart_id %}<span aria-hidden="true">·</span>
         <a href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
       </p>

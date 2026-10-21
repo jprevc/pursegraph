@@ -101,10 +101,11 @@
         open.panel.querySelector(`[data-step=""] [data-category="${open.category}"]`)?.focus();
       }
     } else {
-      // Focus goes back to Change first, so that the swap convention finds it again in the row swapped in.
+      // Focus goes back to Change first, so that the swap convention finds it again in the row swapped in. The
+      // current outcome again changes nothing, so it doesn't save (which would make it "by hand").
       const { row } = open;
       close();
-      save(row, chip.dataset.pick);
+      if (chip.dataset.pick !== row.dataset.outcome) save(row, chip.dataset.pick);
     }
   });
 
@@ -117,9 +118,21 @@
   }, true);
 
   // ---- The native select, with a coarse pointer ----
+  // Only a pick in the picker a tap opened saves: a keyboard on a touch device still fires `change` on arrow keys.
+  const tapped = new WeakSet();
+  document.addEventListener('pointerdown', e => {
+    const select = e.target.closest?.('.oc-form select');
+    if (select) tapped.add(select);
+  });
+  document.addEventListener('keydown', e => {
+    const select = e.target.closest?.('.oc-form select');
+    if (select) tapped.delete(select);
+  });
   document.addEventListener('change', e => {
     const select = e.target.closest('.oc-form select');
-    if (select && coarse.matches && select.value) select.form.requestSubmit();
+    if (!select || !coarse.matches || !tapped.has(select)) return;
+    if (select.value && select.value !== rowOf(select).dataset.outcome) select.form.requestSubmit();
+    else select.form.reset();
   });
 
   // ---- After a save: the saved line, Undo and a failure ----
@@ -135,9 +148,7 @@
       }, SAVED_FOR);
     }
     // Undo takes its line with it; focus goes back to the row's Change.
-    if (/^\/transactions\/\d+\/undo\/$/.test(e.detail.requestConfig?.path || '')) {
-      changeOf(document.getElementById(e.detail.target?.id))?.focus();
-    }
+    if (e.detail.requestConfig?.elt?.matches?.('[data-undo]')) changeOf(document.getElementById(e.detail.target?.id))?.focus();
   });
 
   // The outcome a form is sending, to name it if the save fails.
@@ -147,31 +158,44 @@
     const select = form.elements.outcome;
     form.dataset.tried = select.value;
     form.dataset.triedLabel = select.selectedOptions[0]?.textContent || '';
-    rowOf(form).querySelector('.oc-failed')?.remove();
+    // Try again takes its line with it, so focus goes back to Change first.
+    const row = rowOf(form);
+    const line = row.querySelector('.oc-failed');
+    if (line?.contains(document.activeElement)) changeOf(row).focus();
+    line?.remove();
   });
 
+  // A failed save, or a failed Undo, which has nothing to try again: the row keeps what it shows.
   const fail = e => {
     const form = e.detail.elt.closest?.('.oc-form');
+    const undo = e.detail.elt.closest?.('[data-undo]');
     const status = e.detail.xhr?.status;
     // A lost session goes to log in (swap.js).
-    if (!form || status === 401 || status === 403) return;
-    const row = rowOf(form);
-    const { tried, triedLabel, failed, retry } = form.dataset;
-    const message = failed.replace('%(outcome)s', triedLabel);
+    if ((!form && !undo) || status === 401 || status === 403) return;
+    const row = rowOf(form || undo);
     const line = document.createElement('p');
     line.className = 'oc-failed';
     line.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>';
     const words = document.createElement('span');
-    words.textContent = message;
-    const again = document.createElement('button');
-    again.type = 'button';
-    again.className = 'link';
-    again.textContent = retry;
-    again.addEventListener('click', () => save(row, tried));
-    line.append(words, again);
-    row.querySelector('[data-saved]')?.remove();
+    line.append(words);
+    if (form) {
+      const { tried, triedLabel, failed, retry } = form.dataset;
+      words.textContent = failed.replace('%(outcome)s', triedLabel);
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'link';
+      again.textContent = retry;
+      again.addEventListener('click', () => save(row, tried));
+      line.append(again);
+    } else {
+      words.textContent = undo.dataset.failed;
+    }
+    const saved = row.querySelector('[data-saved]');
+    // Undo, disabled while busy (swap.js), has already lost its focus.
+    if (document.activeElement === document.body || saved?.contains(document.activeElement)) changeOf(row).focus();
+    saved?.remove();
     row.querySelector('.oc').append(line);
-    document.dispatchEvent(new CustomEvent('announce', { detail: { value: message } }));
+    document.dispatchEvent(new CustomEvent('announce', { detail: { value: words.textContent } }));
   };
   document.addEventListener('htmx:responseError', fail);
   document.addEventListener('htmx:sendError', fail);

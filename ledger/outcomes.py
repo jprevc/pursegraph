@@ -54,21 +54,19 @@ class UndoRefused(Exception):
 
 
 def restore(states: list[dict]) -> None:
-    """Puts back the outcomes `snapshot` kept, pairings included: all of them, or none."""
-    if any(
-        (s["subcategory"] and not Subcategory.objects.filter(pk=s["subcategory"]).exists())
-        or (s["counterpart"] and not Transaction.objects.filter(pk=s["counterpart"]).exists())
-        for s in states
-    ):
-        raise UndoRefused
-    rules = set(
-        Rule.objects.filter(pk__in=[s["rule"] for s in states if s["rule"]]).values_list(
-            "pk", flat=True
-        )
-    )
+    """Puts back the outcomes `snapshot` kept, pairings and the Rules that set them included: all of them, or none.
+    Refused once a Subcategory, Rule or other side they name is gone."""
     pks = [s["pk"] for s in states]
     try:
         with db_transaction.atomic():
+            for model, field in (
+                (Subcategory, "subcategory"),
+                (Rule, "rule"),
+                (Transaction, "counterpart"),
+            ):
+                named = {s[field] for s in states if s[field]}
+                if model.objects.select_for_update().filter(pk__in=named).count() != len(named):
+                    raise UndoRefused
             # Unlinked first, so that each pairing can be put back whichever side comes first.
             Transaction.objects.filter(pk__in=pks).update(counterpart=None)
             for s in states:
@@ -76,7 +74,7 @@ def restore(states: list[dict]) -> None:
                     subcategory_id=s["subcategory"],
                     is_transfer=s["is_transfer"],
                     source=s["source"],
-                    rule_id=s["rule"] if s["rule"] in rules else None,
+                    rule_id=s["rule"],
                     counterpart_id=s["counterpart"],
                     ambiguous_pairing=s["ambiguous_pairing"],
                 )

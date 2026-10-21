@@ -115,3 +115,14 @@ def test_undo_is_refused_once_used_or_without_a_save(logged_in_client):
     assert undo(logged_in_client, "Corner Shop").status_code == 400
     page = logged_in_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Corner Shop") == "Awaiting review"
+
+
+def test_undo_is_refused_once_the_rule_that_had_set_it_is_deleted(logged_in_client, household):
+    groceries = Subcategory.objects.get(category__name="Food", name="Groceries")
+    rule = Rule.objects.create(description_contains="Mercator", subcategory=groceries)
+    Transaction.objects.filter(description="Mercator").update(source=Source.RULE, rule=rule)
+    save(logged_in_client, "Mercator", "transfer")
+    rule.delete()
+
+    assert undo(logged_in_client, "Mercator").status_code == 400
+    assert Transaction.objects.get(description="Mercator").is_transfer
