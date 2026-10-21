@@ -1,5 +1,5 @@
-{% load i18n %}{# The sidebar's links to the dashboard views. #}
-<nav id="views">
+{% load i18n %}{# The Dashboard's tabs to its views: lenses on the same period, swapped into #view via HTMX. #}
+<nav class="tabs" aria-label="{% translate 'Dashboard views' %}">
 {% include "dashboard/_nav.html" with name="spending" label=_("Spending by Category") %}
 {% include "dashboard/_nav.html" with name="cashflow" label=_("Cashflow") %}
 {% include "dashboard/_nav.html" with name="trends" label=_("Category trends") %}

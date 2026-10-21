@@ -1,6 +1,6 @@
 // Mounts the dashboard's ECharts charts: on page load, and whenever HTMX swaps a view in.
 // Each chart reads its data from the JSON script named by `data-source`; clicking a mark loads its Transactions into #drill.
-// Colours come from the CSS tokens, so a chart is rebuilt when the theme or the system scheme changes.
+// Colours come from the CSS tokens, so a chart is rebuilt on `themechange` (static/theme.js).
 (() => {
   const AWAITING = 'awaiting';
   const { money, moneyWhole, moneySigned } = window.Figures;
@@ -141,8 +141,8 @@
     const chart = echarts.getInstanceByDom(el);
     if (chart) build(chart, el);
   });
+  // Also sent when the system scheme changes under System.
   document.addEventListener('themechange', retheme);
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
 
   // An outcome changed in the drill-down moves money between the bars: refetch the numbers, keeping the drill-down open.
   document.addEventListener('htmx:afterRequest', e => {

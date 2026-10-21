@@ -1,33 +1,49 @@
-{% load figures i18n %}{# The sidebar. Its links carry the dashboard's period and filters; a view or Transactions swapped in by HTMX swaps it too (`swap_nav`), so that they carry the view's and only its own link is highlighted. #}
-<div id="sidebar"{% if swap_nav %} hx-swap-oob="true"{% endif %}>
-{% with nav=request.resolver_match.url_name %}
-  <h1>Pursegraph</h1>
-  {% include "dashboard/_views_nav.html" %}
-  {% url 'transactions' as transactions_url %}<a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true">{% translate "Transactions" %}</a>
-  <div class="sep"></div>
-  <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}{{ carried_page_query }}">{% translate "Import" %}</a>
-  <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}{{ carried_page_query }}">{% translate "Review queue" %} <span id="review-queue-count" class="fig">({{ review_queue_count }})</span></a>
-  {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
-  <a class="nav {% if nav == 'rules' or nav == 'new_rule' or nav == 'edit_rule' or nav == 'apply_rule' %}on{% endif %}" href="{% url 'rules' %}{{ carried_page_query }}">{% translate "Rules" %}</a>
-  <div class="figures">
-    <p class="muted">{{ this_month.label }}</p>
-    <dl class="this-month">
-      <dt>{% translate "In" %}</dt><dd class="num">{{ this_month.money_in|money }}</dd>
-      <dt>{% translate "Spent" %}</dt><dd class="num">{{ this_month.money_out|money }}</dd>
-      <dt>{% translate "Net" %}</dt><dd class="num">{{ this_month.net|money_signed }}</dd>
-    </dl>
+{% load i18n icons static %}{# The navigation: the desktop sidebar, and on a phone the top row, the tab bar and the More sheet. Its links carry the dashboard's period and filters; a view or Transactions swapped in by HTMX swaps it too (`swap_nav`), so that they carry the view's and only its own item is current. #}
+<div id="nav"{% if swap_nav %} hx-swap-oob="true"{% endif %}>
+{% url 'dashboard' as dashboard_url %}{% url 'transactions' as transactions_url %}{% url 'review_queue' as review_url %}{% url 'import' as import_url %}
+{% if user.is_admin %}{% translate "Admin" as role %}{% else %}{% translate "Member" as role %}{% endif %}
+<aside class="sidebar">
+  <a class="brand" href="{{ dashboard_url }}{{ carried_query }}"><img src="{% static 'mark.svg' %}" alt="" width="28" height="28">Purse<span>graph</span></a>
+  <nav aria-label="{% translate 'Main' %}">
+    <a class="nav" href="{{ dashboard_url }}{{ carried_query }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Dashboard" %}</a>
+    <a class="nav" href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true"{% if nav == 'transactions' %} aria-current="page"{% endif %}>{% icon "list" %}{% translate "Transactions" %}</a>
+    <a class="nav" href="{{ review_url }}{{ carried_page_query }}"{% if nav == 'review_queue' %} aria-current="page"{% endif %}>{% icon "check" %}{% translate "Review queue" %}{% include "_review_count.html" %}</a>
+    {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
+    {% include "_nav_item.html" with href=import_url item="import" icon="upload" label=_("Import") %}
+    <details class="manage"{% if manage_open %} open{% endif %}>
+      <summary>{% icon "right" %}{% translate "Manage" %}</summary>
+      {% include "_manage_links.html" %}
+    </details>
+  </nav>
+  <div class="sidebar-foot">
+    <button class="account" type="button" popovertarget="account">
+      <span class="avatar" aria-hidden="true">{{ user.get_username|first|upper }}</span>
+      <span class="who">{{ user.get_username }}<small>{{ role }}</small></span>
+      {% icon "updown" %}
+    </button>
+    <div id="account" class="account-pop" popover>
+      {% include "_theme_switch.html" with name="theme" %}
+      <hr>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="item">{% icon "logout" %}{% translate "Log out" %}</button></form>
+    </div>
   </div>
-  {% if user.is_admin %}
-  <div class="sep"></div>
-  <a class="nav {% if nav == 'categories' %}on{% endif %}" href="{% url 'categories' %}{{ carried_page_query }}">{% translate "Categories" %}</a>
-  <a class="nav {% if nav == 'suggestion_settings' %}on{% endif %}" href="{% url 'suggestion_settings' %}{{ carried_page_query }}">{% translate "LLM suggestions" %}</a>
-  <a class="nav {% if nav == 'accounts' or nav == 'new_account' or nav == 'edit_account' or nav == 'delete_account' %}on{% endif %}" href="{% url 'accounts' %}{{ carried_page_query }}">{% translate "Accounts" %}</a>
-  <a class="nav {% if nav == 'members' %}on{% endif %}" href="{% url 'members' %}{{ carried_page_query }}">{% translate "Members" %}</a>
-  {% endif %}
-  <form class="logout" method="post" action="{% url 'logout' %}">
-    {% csrf_token %}
-    <span class="muted">{{ user.get_username }}</span>
-    <button type="submit" class="ghost">{% translate "Log out" %}</button>
-  </form>
-{% endwith %}
+</aside>
+<header class="m-top">
+  <a class="brand" href="{{ dashboard_url }}{{ carried_query }}"><img src="{% static 'mark.svg' %}" alt="" width="26" height="26">Purse<span>graph</span></a>
+</header>
+<nav class="tabbar" aria-label="{% translate 'Main' %}">
+  <a href="{{ dashboard_url }}{{ carried_query }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Dashboard" %}</a>
+  <a href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true"{% if nav == 'transactions' %} aria-current="page"{% endif %}>{% icon "list" %}{% translate "Transactions" %}</a>
+  <a href="{{ review_url }}{{ carried_page_query }}"{% if nav == 'review_queue' %} aria-current="page"{% endif %}>{% icon "check" %}{% translate "Review" %}{% include "_review_count.html" %}</a>
+  <button type="button" popovertarget="more"{% if manage_open or nav == 'import' %} aria-current="true"{% endif %}>{% icon "more" %}{% translate "More" %}</button>
+</nav>
+<div id="more" class="sheet" popover role="dialog" aria-label="{% translate 'More' %}">
+  <div class="grip" aria-hidden="true"></div>
+  {% include "_nav_item.html" with href=import_url item="import" icon="upload" label=_("Import") %}
+  <p class="sheet-h">{% translate "Manage" %}</p>
+  {% include "_manage_links.html" %}
+  {% include "_theme_switch.html" with name="theme-sheet" %}
+  <p class="sheet-h">{{ user.get_username }} · {{ role }}</p>
+  <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="nav">{% icon "logout" %}{% translate "Log out" %}</button></form>
+</div>
 </div>

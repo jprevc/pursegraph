@@ -1,0 +1,2 @@
+{% load icons %}{# A navigation item: `href`, `item` (current when it is `nav`), `icon` and `label`. #}
+<a class="nav" href="{{ href }}{{ carried_page_query }}"{% if nav == item %} aria-current="page"{% endif %}>{% icon icon %}{{ label }}</a>

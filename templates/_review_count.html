@@ -1,0 +1,2 @@
+{% load i18n %}{# The Review queue's count badge, hidden when the queue is empty. `oob` swaps it into every badge on the page. #}
+<span class="badge review-count"{% if oob %} hx-swap-oob="outerHTML:.review-count"{% endif %}{% if not review_queue_count %} hidden{% endif %}>{{ review_queue_count }}<span class="sr"> {% translate "to review" %}</span></span>

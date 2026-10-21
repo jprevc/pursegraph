@@ -1,0 +1,9 @@
+{% load i18n icons %}{# The theme switch: a radio group named `name`, hidden until static/theme.js checks the saved choice. #}
+<fieldset class="theme-switch" hidden>
+  <legend>{% translate "Theme" %}</legend>
+  <span class="track">
+    <label><input type="radio" name="{{ name }}" value="light" class="sr">{% icon "sun" %}{% translate "Light" %}</label>
+    <label><input type="radio" name="{{ name }}" value="system" class="sr">{% icon "monitor" %}{% translate "System" %}</label>
+    <label><input type="radio" name="{{ name }}" value="dark" class="sr">{% icon "moon" %}{% translate "Dark" %}</label>
+  </span>
+</fieldset>

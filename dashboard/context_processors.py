@@ -1,12 +1,6 @@
 from django.http import QueryDict
-from django.utils.functional import SimpleLazyObject
 
-from . import queries, views
-
-
-def this_month(request):
-    # Lazy, so it is only queried when a template shows it.
-    return {"this_month": SimpleLazyObject(queries.this_month)}
+from . import views
 
 
 def carried(request):
