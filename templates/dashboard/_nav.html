@@ -1,2 +1,2 @@
-{# A sidebar link to a dashboard view. Needs `name` and `label`; on the dashboard it swaps #view via HTMX, keeping the period chosen and the filters. #}
-{% url name as href %}<a class="nav{% if nav == name or nav == 'dashboard' and name == 'spending' %} on{% endif %}" href="{{ href }}{{ carried_query }}"{% if view %} hx-get="{{ href }}{{ carried_query }}" hx-target="#view" hx-push-url="true"{% endif %}>{{ label }}</a>
+{# A tab to a dashboard view. Needs `name` and `label`; it swaps #view via HTMX, keeping the period chosen and the filters. #}
+{% url name as href %}<a href="{{ href }}{{ carried_query }}"{% if view == name %} aria-current="page"{% endif %} hx-get="{{ href }}{{ carried_query }}" hx-target="#view" hx-push-url="true">{{ label }}</a>

@@ -56,7 +56,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "ledger.context_processors.review_queue",
-                "dashboard.context_processors.this_month",
+                "pursegraph.context_processors.navigation",
                 "dashboard.context_processors.carried",
             ],
         },

@@ -41,4 +41,4 @@
   </td>
 </tr>
 {% endwith %}
-{% if refresh_review_queue_count %}<span id="review-queue-count" class="fig" hx-swap-oob="true">({{ review_queue_count }})</span>{% endif %}
+{% if refresh_review_queue_count %}{% include "_review_count.html" with oob=True %}{% endif %}

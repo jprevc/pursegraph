@@ -564,20 +564,6 @@ def money_flow_transactions(period: Period, filters: Filters, key: str) -> Query
     return income.none()
 
 
-def this_month() -> Flow:
-    """The sidebar's figures: money in against money out in the month so far."""
-    now = periods.today()
-    sums = _transactions(Period.month(now.year, now.month), Filters()).aggregate(
-        money_in=Sum("amount", filter=MONEY_IN), money_out=-Sum("amount", filter=MONEY_OUT)
-    )
-    return Flow(
-        _("This month"),
-        None,
-        sums["money_in"] or Decimal(0),
-        sums["money_out"] or Decimal(0),
-    )
-
-
 VIEWS = {
     "spending": spending_by_category,
     "cashflow": cashflow,

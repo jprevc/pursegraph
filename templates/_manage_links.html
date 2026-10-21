@@ -1,0 +1,8 @@
+{% load i18n %}{# The Manage group's links: Rules for every Member, the rest for admins. #}
+{% url 'rules' as href %}{% include "_nav_item.html" with item="rules" icon="wand" label=_("Rules") %}
+{% if user.is_admin %}
+{% url 'categories' as href %}{% include "_nav_item.html" with item="categories" icon="tag" label=_("Categories") %}
+{% url 'suggestion_settings' as href %}{% include "_nav_item.html" with item="suggestion_settings" icon="spark" label=_("LLM suggestions") %}
+{% url 'accounts' as href %}{% include "_nav_item.html" with item="accounts" icon="bank" label=_("Accounts") %}
+{% url 'members' as href %}{% include "_nav_item.html" with item="members" icon="people" label=_("Members") %}
+{% endif %}

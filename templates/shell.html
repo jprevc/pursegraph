@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% block body %}
+<a class="skip" href="#main">{% translate "Skip to content" %}</a>
 <div class="shell">
-  <aside>
-    {% include "_sidebar.html" %}
-  </aside>
-  <main>{% block main %}{% endblock %}</main>
+  {% include "_sidebar.html" %}
+  <main id="main" tabindex="-1">{% block main %}{% endblock %}</main>
 </div>
 {% endblock %}

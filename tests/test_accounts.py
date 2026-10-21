@@ -58,8 +58,11 @@ def test_the_import_page_links_admins_to_the_accounts_page(admin_client, logged_
 
 
 def accounts_link(page):
-    """The sidebar's admin link to the Accounts page, or None."""
-    return re.search(r'<a class="nav ?(on)?" href="/accounts/">Accounts</a>', page)
+    """The sidebar's admin link to the Accounts page, or None; its first group says whether it is current."""
+    return re.search(
+        r'<a class="nav" href="/accounts/"( aria-current="page")?><svg[^>]*>.*?</svg>Accounts</a>',
+        page,
+    )
 
 
 def test_admins_find_accounts_among_the_sidebar_admin_links(admin_client, logged_in_client):
