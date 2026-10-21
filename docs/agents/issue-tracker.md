@@ -27,7 +27,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Create a GitHub issue. When the work follows a design, name what it relies on: the `docs/design/<surface>.md` file, the DESIGN.md headings and, for a decided prototype, its `docs/design` file rather than the prototype page. The implementer then reads only those.
 
 ## When a skill says "fetch the relevant ticket"
 
