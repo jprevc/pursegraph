@@ -130,3 +130,9 @@ def test_a_category_netting_to_a_refund_keeps_the_sankey_balanced(logged_in_clie
     into = sum(link["value"] for link in links if link["target"] == "household")
     out_of = sum(link["value"] for link in links if link["source"] == "household")
     assert into == pytest.approx(out_of)
+
+
+def test_income_nodes_wear_the_income_categorys_hue(logged_in_client, household):
+    page = logged_in_client.get("/money-flow/", {"period": "2026-09"}).content.decode()
+
+    assert view_chart(page, "money_flow")["in_key"] == str(Category.objects.get(name="Income").pk)

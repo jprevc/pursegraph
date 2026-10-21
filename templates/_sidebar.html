@@ -6,7 +6,7 @@
   {% url 'transactions' as transactions_url %}<a class="nav {% if nav == 'transactions' %}on{% endif %}" href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true">{% translate "Transactions" %}</a>
   <div class="sep"></div>
   <a class="nav {% if nav == 'import' %}on{% endif %}" href="{% url 'import' %}{{ carried_page_query }}">{% translate "Import" %}</a>
-  <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}{{ carried_page_query }}">{% translate "Review queue" %} <span id="review-queue-count">({{ review_queue_count }})</span></a>
+  <a class="nav {% if nav == 'review_queue' %}on{% endif %}" href="{% url 'review_queue' %}{{ carried_page_query }}">{% translate "Review queue" %} <span id="review-queue-count" class="fig">({{ review_queue_count }})</span></a>
   {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
   <a class="nav {% if nav == 'rules' or nav == 'new_rule' or nav == 'edit_rule' or nav == 'apply_rule' %}on{% endif %}" href="{% url 'rules' %}{{ carried_page_query }}">{% translate "Rules" %}</a>
   <div class="figures">
@@ -27,7 +27,7 @@
   <form class="logout" method="post" action="{% url 'logout' %}">
     {% csrf_token %}
     <span class="muted">{{ user.get_username }}</span>
-    <button type="submit">{% translate "Log out" %}</button>
+    <button type="submit" class="ghost">{% translate "Log out" %}</button>
   </form>
 {% endwith %}
 </div>

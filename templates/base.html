@@ -1,6 +1,6 @@
 {% load i18n static %}<!doctype html>
 {% get_current_language as LANGUAGE_CODE %}
-{# The theme starts as the system's; the theme switch (shell and theme) will apply a saved choice before first paint. #}
+{# The theme follows the system until the theme switch (#106) applies a saved choice before first paint. #}
 <html lang="{{ LANGUAGE_CODE }}" data-theme="system">
 <head>
 <meta charset="utf-8">

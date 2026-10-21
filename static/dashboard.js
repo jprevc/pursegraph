@@ -3,7 +3,7 @@
 // Colours come from the CSS tokens, so a chart is rebuilt when the theme or the system scheme changes.
 (() => {
   const AWAITING = 'awaiting';
-  const { money, moneyWhole } = window.Figures;
+  const { money, moneyWhole, moneySigned } = window.Figures;
   const token = name => getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
 
   // The options' building blocks in the current theme's colours.
@@ -14,7 +14,7 @@
     return {
       INK, INK2, MUTED, LINE, LINE_STRONG, CARD: token('card'), colour,
       TEXT: { fontFamily: token('font'), color: INK2 },
-      tooltip: { backgroundColor: token('card'), borderColor: LINE, textStyle: { color: INK } },
+      tooltip: { backgroundColor: token('card'), borderColor: LINE, borderRadius: 10, extraCssText: `box-shadow: ${token('shadow-pop')}`, textStyle: { color: INK } },
       valueAxis: { type: 'value', axisLabel: { color: MUTED, formatter: v => moneyWhole(v) }, splitLine: { lineStyle: { color: LINE } } },
       categoryAxis: (data, extra = {}) => ({ type: 'category', data, axisLine: { lineStyle: { color: LINE_STRONG } }, axisTick: { show: false }, axisLabel: { color: MUTED }, ...extra }),
       legend: { top: 0, left: 0, type: 'scroll', textStyle: { color: INK2 }, icon: 'circle', itemWidth: 8, itemHeight: 8, inactiveColor: LINE_STRONG },
@@ -38,7 +38,7 @@
       }],
     }),
 
-    cashflow: (data, { TEXT, tooltip, legend, valueAxis, categoryAxis, INK, INK2, MUTED, colour }) => {
+    cashflow: (data, { TEXT, tooltip, legend, valueAxis, categoryAxis, INK, INK2, MUTED, CARD, colour }) => {
       const IN = data.in_key ? colour(data.in_key) : INK2, OUT = MUTED, NET = INK, OTHERS = INK2;
       const marks = (values, side) => values.map((value, i) => ({ value, key: side ? `${data.keys[i]}:${side}` : data.keys[i] }));
       return {
@@ -49,9 +49,9 @@
         series: [
           { name: data.labels.in, type: 'bar', cursor: 'pointer', data: marks(data.in, 'in'), itemStyle: { color: IN, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 22, barGap: '10%' },
           { name: data.labels.out, type: 'bar', cursor: 'pointer', data: marks(data.out, 'out'), itemStyle: { color: OUT, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 22 },
-          { name: data.labels.net, type: 'line', cursor: 'pointer', data: marks(data.net), symbolSize: 7, lineStyle: { width: 2, color: NET }, itemStyle: { color: NET, borderWidth: 1.5 } },
+          { name: data.labels.net, type: 'line', cursor: 'pointer', data: marks(data.net), symbol: 'circle', symbolSize: 7, lineStyle: { width: 2, color: NET }, itemStyle: { color: NET, borderColor: CARD, borderWidth: 1.5 }, tooltip: { valueFormatter: moneySigned } },
           // Under a Member filter: what Transfers moved to (below zero) or from other Members.
-          ...(data.others ? [{ name: data.labels.others, type: 'line', cursor: 'pointer', data: marks(data.others, 'others'), symbolSize: 8, lineStyle: { width: 2, type: 'dashed', color: OTHERS }, itemStyle: { color: OTHERS } }] : []),
+          ...(data.others ? [{ name: data.labels.others, type: 'line', cursor: 'pointer', data: marks(data.others, 'others'), symbol: 'circle', symbolSize: 7, lineStyle: { width: 2, type: 'dashed', color: OTHERS }, itemStyle: { color: OTHERS, borderColor: CARD, borderWidth: 1.5 }, tooltip: { valueFormatter: moneySigned } }] : []),
         ],
       };
     },
@@ -98,7 +98,7 @@
           label: { color: INK2, fontWeight: 500, formatter: p => `${p.data.label}  ${moneyWhole(p.value)}` },
           data: data.nodes.map(n => ({
             ...n, cursor: n.key ? 'pointer' : 'default',
-            itemStyle: { color: ['saved', 'from_savings', 'others'].includes(n.name) ? MUTED : n.name === 'household' ? INK2 : colour(n.key.replace(/^in:/, '')) },
+            itemStyle: { color: ['saved', 'from_savings', 'others'].includes(n.name) ? MUTED : n.name === 'household' ? INK2 : n.key.startsWith('in:') ? colour(data.in_key) : colour(n.key) },
           })),
           links: data.links,
         }],
@@ -108,17 +108,21 @@
 
   const observers = new WeakMap();
 
+  const dataOf = el => JSON.parse(document.getElementById(el.dataset.source).textContent);
+  // ECharts has no live theme switch, and a narrow chart lays out differently: rebuild the options from the tokens.
+  const build = (chart, el) => chart.setOption(options[el.dataset.chart](dataOf(el), theme()), { notMerge: true });
+
   const mount = el => {
     // A page restored from history has the element but not its chart.
     if (echarts.getInstanceByDom(el)) return;
-    const data = JSON.parse(document.getElementById(el.dataset.source).textContent);
+    const data = dataOf(el);
     const chart = echarts.init(el, null, { renderer: 'svg' });
-    chart.setOption(options[el.dataset.chart](data, theme()));
+    build(chart, el);
     // Every mark that names Transactions carries its key: a bar, a point, a segment or a Sankey node.
     chart.on('click', p => {
       if (p.data?.key) htmx.ajax('GET', data.drill + encodeURIComponent(p.data.key), '#drill');
     });
-    const observer = new ResizeObserver(() => chart.resize());
+    const observer = new ResizeObserver(() => { chart.resize(); build(chart, el); });
     observer.observe(el);
     observers.set(el, observer);
   };
@@ -133,10 +137,9 @@
   // A view swapped in brings the sidebar's view links along, marking its own as current.
   document.addEventListener('htmx:afterSettle', e => charts(e.detail.elt).forEach(mount));
   document.addEventListener('htmx:historyRestore', () => charts(document).forEach(mount));
-  // ECharts has no live theme switch: rebuild each chart's options from the tokens.
   const retheme = () => charts(document).forEach(el => {
     const chart = echarts.getInstanceByDom(el);
-    if (chart) chart.setOption(options[el.dataset.chart](JSON.parse(document.getElementById(el.dataset.source).textContent), theme()), { notMerge: true });
+    if (chart) build(chart, el);
   });
   document.addEventListener('themechange', retheme);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);

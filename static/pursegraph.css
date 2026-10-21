@@ -86,7 +86,9 @@ a:hover { text-decoration-thickness: 2px; }
 .muted { color: var(--muted); }
 .num { text-align: right; }
 /* The Tabular Figures Rule: every amount, share, count and date. Not on prose, where tnum widens the hyphen. */
-.num, .fig, dd, .period-label, .coverage-legend, input, select { font-variant-numeric: tabular-nums; }
+.num, .fig, dd, .period-label, .coverage-legend, .notice li, input, select { font-variant-numeric: tabular-nums; }
+/* ECharts sets each label's font inline, which resets the numerals. */
+.chart text { font-variant-numeric: tabular-nums !important; }
 .fig { white-space: nowrap; }
 .icon { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.1875rem; }
 
@@ -97,7 +99,7 @@ a:hover { text-decoration-thickness: 2px; }
 /* ---------- Buttons ---------- */
 /* Quiet, bordered and solid; never filled with indigo. Primary is the one solid Ink action of its form. */
 button, .button, input[type="file"]::file-selector-button {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: .375rem;
   height: var(--control); padding: 0 var(--s-3);
   font: 500 var(--text-body)/1 var(--font); color: var(--ink); text-decoration: none; white-space: nowrap;
   background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl);
@@ -127,7 +129,7 @@ input:not([type="checkbox"], [type="radio"], [type="file"]), select { height: va
 textarea { padding: var(--s-2) var(--s-3); min-height: 6rem; }
 select {
   appearance: none; padding-right: var(--s-8); text-overflow: ellipsis;
-  background: var(--card) var(--chevron) no-repeat right 10px center / 1rem;
+  background: var(--card) var(--chevron) no-repeat right .625rem center / 1rem;
 }
 select:disabled, input:disabled { opacity: .6; }
 input::placeholder, textarea::placeholder { color: var(--muted); }
@@ -164,13 +166,12 @@ aside {
   background: var(--card); border-right: 1px solid var(--line);
 }
 aside h1 { font-size: var(--text-wordmark); font-weight: 700; letter-spacing: -0.02em; padding: 0 var(--s-2) var(--s-4); }
-aside a.nav { display: block; padding: 7px var(--s-2); border-radius: var(--r-ctl); color: var(--ink-2); font-weight: 500; text-decoration: none; }
+aside a.nav { display: block; padding: .4375rem var(--s-2); border-radius: var(--r-ctl); color: var(--ink-2); font-weight: 500; text-decoration: none; }
 aside a.nav:hover { background: var(--hover); color: var(--ink); }
 aside a.nav.on { background: var(--accent-soft); color: var(--accent-text); }
 aside .sep { margin: var(--s-3) var(--s-2); border-top: 1px solid var(--line); }
 aside .logout { margin-top: auto; padding: var(--s-4) var(--s-2) 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); font-size: var(--text-sm); }
-aside .logout button { background: none; border-color: transparent; box-shadow: none; color: var(--muted); height: 2rem; padding: 0 var(--s-2); }
-aside .logout button:hover { background: var(--hover); color: var(--ink); }
+aside .logout button { height: 2rem; padding: 0 var(--s-2); }
 aside .suggestions-status { margin: 0 var(--s-2); font-size: var(--text-label); }
 aside .figures { margin: var(--s-3) var(--s-2) 0; font-size: var(--text-sm); }
 aside .figures p { margin: 0 0 var(--s-1); }
@@ -216,7 +217,7 @@ main { min-width: 0; width: 100%; max-width: 85rem; padding: var(--s-6) var(--s-
 .stack-form select[multiple] { height: auto; padding: var(--s-1); background-image: none; }
 form.inline { display: inline; }
 .totals { margin: var(--s-3) 0; width: auto; }
-.iban { margin: 0 0 6px; font-size: var(--text-sm); }
+.iban { margin: 0 0 .375rem; font-size: var(--text-sm); }
 .mismatch { margin-top: var(--s-3); }
 .account { margin-bottom: var(--s-6); }
 /* Coverage: slate where Statements cover, an outlined slot for a Gap (never hatched: the hatch is Awaiting review's). */
@@ -225,7 +226,7 @@ form.inline { display: inline; }
 .coverage .covered { background: var(--coverage); }
 .coverage .gap { background: var(--card); border: 1.5px solid var(--ink-2); }
 .coverage-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-1) var(--s-4); margin: 0 0 var(--s-2); font-size: var(--text-sm); }
-details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin-bottom: 6px; }
+details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin-bottom: .375rem; }
 .outcome { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .outcome select { max-width: 16.25rem; height: 2rem; font-size: var(--text-sm); }
 .outcome button { height: 2rem; }
@@ -236,13 +237,13 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .category-edit { margin-bottom: var(--s-3); }
 .category-edit h3 { margin-top: 0; }
 .edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.edit-row form { display: flex; align-items: center; gap: 6px; }
-.subcategories { list-style: none; margin: var(--s-3) 0 0; padding: 0 0 0 var(--s-4); display: flex; flex-direction: column; gap: 6px; }
+.edit-row form { display: flex; align-items: center; gap: .375rem; }
+.subcategories { list-style: none; margin: var(--s-3) 0 0; padding: 0 0 0 var(--s-4); display: flex; flex-direction: column; gap: .375rem; }
 .rules tr[draggable] { cursor: grab; }
 .rules tr.dragging { opacity: .4; }
 .rules .handle { color: var(--faint); user-select: none; }
 .rules .actions, td.actions { white-space: nowrap; }
-.rules .actions { display: flex; align-items: center; gap: 6px; }
+.rules .actions { display: flex; align-items: center; gap: .375rem; }
 .rules .actions form { display: flex; gap: var(--s-1); }
 .bulk-accept { margin-bottom: var(--s-3); }
 
@@ -250,7 +251,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .view-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin-bottom: var(--s-5); }
 .view-bar h2 { margin: 0 auto 0 0; }
 .period { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.period form { display: flex; align-items: center; gap: 6px; }
+.period form { display: flex; align-items: center; gap: .375rem; }
 .stepper { display: inline-flex; align-items: center; height: var(--control); background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl); }
 .stepper .step { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
 .stepper a.step:hover { background: var(--hover); }
@@ -283,7 +284,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .filter-bar .accounts summary {
   display: flex; align-items: center; height: var(--control); margin: 0; padding: 0 var(--s-8) 0 var(--s-3);
   color: var(--ink); font-weight: 500; list-style: none;
-  background: var(--card) var(--chevron) no-repeat right 10px center / 1rem;
+  background: var(--card) var(--chevron) no-repeat right .625rem center / 1rem;
   border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl);
 }
 .filter-bar .accounts summary::-webkit-details-marker { display: none; }
