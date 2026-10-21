@@ -196,6 +196,12 @@ def _month_label(month: Period) -> str:
     return formats.date_format(month.start, "M Y")
 
 
+def _income_key() -> str | None:
+    """The key of the Income Category, whose hue money in wears on every chart (DESIGN.md, Charts)."""
+    income = Category.objects.filter(kind=Category.Kind.INCOME).first()
+    return str(income.pk) if income else None
+
+
 def spending_by_category(period: Period, filters: Filters) -> ViewData:
     """Spending per Category, biggest first, each with its Subcategories, then the Awaiting review bucket."""
     spent = _spending(period, filters).values("subcategory").annotate(total=-Sum("amount"))
@@ -276,6 +282,7 @@ def cashflow(period: Period, filters: Filters) -> ViewData:
     )
     labels = {"in": _("Money in"), "out": _("Money out"), "net": _("Net")}
     chart: dict[str, Any] = {
+        "in_key": _income_key(),
         "months": [r.label for r in rows],
         "keys": [r.key for r in rows],
         "in": [float(r.money_in) for r in rows],
@@ -526,7 +533,11 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
         for source, target, amount in flows
     ]
     linked = {link["source"] for link in links} | {link["target"] for link in links}
-    chart = {"nodes": [n for n in nodes if n["name"] in linked], "links": links}
+    chart = {
+        "nodes": [n for n in nodes if n["name"] in linked],
+        "links": links,
+        "in_key": _income_key(),
+    }
     return ViewData(rows, balance, chart)
 
 

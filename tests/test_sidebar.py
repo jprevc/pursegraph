@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from .conftest import review_queue_count
+from .conftest import EUR, review_queue_count
 
 pytestmark = pytest.mark.django_db
 
@@ -24,14 +24,18 @@ def test_the_sidebar_shows_this_months_in_spent_and_net(logged_in_client, househ
     page = logged_in_client.get("/transactions/").content.decode()
 
     assert "This month" in page
-    assert this_month(page) == {"In": "3550.00", "Spent": "262.30", "Net": "3287.70"}
+    assert this_month(page) == {
+        "In": f"3.550,00{EUR}",
+        "Spent": f"262,30{EUR}",
+        "Net": f"+3.287,70{EUR}",
+    }
     assert review_queue_count(page) == 2
 
 
 def test_this_months_figures_are_zero_on_an_empty_installation(logged_in_client):
     page = logged_in_client.get("/").content.decode()
 
-    assert this_month(page) == {"In": "0.00", "Spent": "0.00", "Net": "0.00"}
+    assert this_month(page) == {"In": f"0,00{EUR}", "Spent": f"0,00{EUR}", "Net": f"0,00{EUR}"}
 
 
 def test_the_sidebar_offers_every_view_swapped_via_htmx(logged_in_client, household):

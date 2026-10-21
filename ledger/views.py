@@ -11,13 +11,13 @@ from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
-from django.utils.formats import date_format
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.decorators.http import require_http_methods, require_POST
 
 from members.permissions import admin_required
+from pursegraph import figures
 
 from . import categories as category_edits
 from . import rules as rule_edits
@@ -222,11 +222,10 @@ def delete_statement(request, pk):
         statement.delete_with_transactions()
         messages.success(
             request,
-            _("Deleted the %(account)s Statement %(start)s – %(end)s.")
+            _("Deleted the %(account)s Statement %(period)s.")
             % {
                 "account": statement.account.name,
-                "start": date_format(statement.period_start, "j M Y"),
-                "end": date_format(statement.period_end, "j M Y"),
+                "period": figures.date_range(statement.period_start, statement.period_end),
             },
         )
         return redirect("import")

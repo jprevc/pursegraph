@@ -1,5 +1,5 @@
 {% extends "dashboard/_view.html" %}
-{% load i18n %}
+{% load figures i18n %}
 {% block title %}{% translate "Spending by Category" %}{% endblock %}
 {% block table %}
 <table class="view-table">
@@ -8,17 +8,17 @@
   {% for row in data.rows %}
   <tr class="category" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
     <td>{{ row.label }}</td>
-    <td class="num">{{ row.amount|floatformat:2 }}</td>
+    <td class="num">{{ row.amount|money }}</td>
   </tr>
   {% for child in row.children %}
   <tr class="subcategory">
     <td>{{ child.label }}</td>
-    <td class="num">{{ child.amount|floatformat:2 }}</td>
+    <td class="num">{{ child.amount|money }}</td>
   </tr>
   {% endfor %}
   {% endfor %}
   </tbody>
-  <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|floatformat:2 }}</th></tr></tfoot>
+  <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|money }}</th></tr></tfoot>
 </table>
 {% endblock %}
 {% block hint %}{% translate "Click a bar or a Category to see its Transactions." %}{% endblock %}

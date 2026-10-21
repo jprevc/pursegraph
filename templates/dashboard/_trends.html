@@ -1,5 +1,5 @@
 {% extends "dashboard/_view.html" %}
-{% load i18n %}
+{% load figures i18n %}
 {% block title %}{% translate "Category trends" %}{% endblock %}
 {% block layout %}stack{% endblock %}
 {% block table %}
@@ -10,8 +10,8 @@
   {% for row in data.rows %}
   <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
     <td>{{ row.label }}</td>
-    {% for amount in row.amounts %}<td class="num">{{ amount|floatformat:2 }}</td>{% endfor %}
-    <td class="num">{{ row.total|floatformat:2 }}</td>
+    {% for amount in row.amounts %}<td class="num">{{ amount|money }}</td>{% endfor %}
+    <td class="num">{{ row.total|money }}</td>
   </tr>
   {% endfor %}
   </tbody>

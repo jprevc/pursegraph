@@ -5,7 +5,7 @@ import pytest
 
 from ledger.models import Category
 
-from .conftest import drill_rows, view_chart, view_table
+from .conftest import EUR, drill_rows, view_chart, view_table
 
 pytestmark = pytest.mark.django_db
 
@@ -25,7 +25,11 @@ def test_per_member_puts_joint_accounts_in_their_own_bucket(logged_in_client, ho
     page = logged_in_client.get("/per-member/", {"period": "2026-09"}).content.decode()
 
     assert "Per Member" in page
-    assert view_table(page) == [["ana", "162.30"], ["marko", "40.00"], ["Joint", "60.00"]]
+    assert view_table(page) == [
+        ["ana", f"162,30{EUR}"],
+        ["marko", f"40,00{EUR}"],
+        ["Joint", f"60,00{EUR}"],
+    ]
 
 
 def test_each_members_spending_is_split_by_category(logged_in_client, household):
@@ -35,11 +39,11 @@ def test_each_members_spending_is_split_by_category(logged_in_client, household)
         r'<tr class="subcategory"[^>]*>\s*<td>([^<]*)</td>\s*<td class="num">([^<]*)</td>', page
     )
     assert categories == [
-        ("Food", "80.00"),
-        ("Shopping", "70.00"),
-        ("Awaiting review", "12.30"),
-        ("Food", "40.00"),
-        ("Food", "60.00"),
+        ("Food", f"80,00{EUR}"),
+        ("Shopping", f"70,00{EUR}"),
+        ("Awaiting review", f"12,30{EUR}"),
+        ("Food", f"40,00{EUR}"),
+        ("Food", f"60,00{EUR}"),
     ]
 
 

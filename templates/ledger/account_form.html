@@ -7,7 +7,7 @@
 <form class="panel stack-form" method="post">{% csrf_token %}
   {{ form.as_div }}
   <div class="actions">
-    <button type="submit">{% translate "Save Account" %}</button>
+    <button type="submit" class="primary">{% translate "Save Account" %}</button>
     <a href="{% url 'accounts' %}">{% translate "Cancel" %}</a>
   </div>
 </form>

@@ -21,8 +21,9 @@ from pathlib import PurePath
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
-from django.utils.formats import date_format
 from django.utils.translation import gettext as _
+
+from pursegraph import figures
 
 from .coverage import ONE_DAY, DateRange, gaps
 from .models import (
@@ -393,7 +394,11 @@ def _require_balance(day: date, balance: Decimal, expected: Decimal):
                 "The Statement's balance going into %(date)s is %(balance)s, but the Account's was %(expected)s, "
                 "so it was not imported."
             )
-            % {"date": date_format(day), "balance": balance, "expected": expected}
+            % {
+                "date": figures.day(day),
+                "balance": figures.money(balance),
+                "expected": figures.money(expected),
+            }
         )
 
 

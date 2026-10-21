@@ -1,5 +1,5 @@
 {% extends "shell.html" %}
-{% load i18n %}
+{% load i18n icons %}
 {% block title %}{% translate "Categories" %}{% endblock %}
 {% block main %}
 <h2>{% translate "Categories" %}</h2>
@@ -15,8 +15,8 @@
       <button type="submit">{% translate "Rename" %}</button>
     </form>
     <form method="post" action="{% url 'move_category' category.pk %}">{% csrf_token %}
-      <button type="submit" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>↑</button>
-      <button type="submit" name="direction" value="down" aria-label="{% translate 'Move down' %}"{% if forloop.last %} disabled{% endif %}>↓</button>
+      <button type="submit" class="icon-button" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>{% icon "up" %}</button>
+      <button type="submit" class="icon-button" name="direction" value="down" aria-label="{% translate 'Move down' %}"{% if forloop.last %} disabled{% endif %}>{% icon "down" %}</button>
     </form>
     <form method="post" action="{% url 'delete_category' category.pk %}">{% csrf_token %}
       <button type="submit" class="danger">{% translate "Delete" %}</button>
@@ -34,8 +34,8 @@
       <span class="muted">{% translate "catch-all" %}</span>
       {% else %}
       <form method="post" action="{% url 'move_subcategory' s.pk %}">{% csrf_token %}
-        <button type="submit" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>↑</button>
-        <button type="submit" name="direction" value="down" aria-label="{% translate 'Move down' %}">↓</button>
+        <button type="submit" class="icon-button" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if forloop.first %} disabled{% endif %}>{% icon "up" %}</button>
+        <button type="submit" class="icon-button" name="direction" value="down" aria-label="{% translate 'Move down' %}">{% icon "down" %}</button>
       </form>
       <form method="post" action="{% url 'delete_subcategory' s.pk %}">{% csrf_token %}
         <button type="submit" class="danger">{% translate "Delete" %}</button>

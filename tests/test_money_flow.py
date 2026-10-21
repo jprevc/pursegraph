@@ -6,7 +6,7 @@ import pytest
 
 from ledger.models import Category, Subcategory, Transaction
 
-from .conftest import drill_rows, view_chart
+from .conftest import EUR, drill_rows, view_chart
 
 pytestmark = pytest.mark.django_db
 
@@ -40,15 +40,15 @@ def test_money_flow_runs_from_income_to_categories(logged_in_client, household):
 
     assert "Money flow" in page
     assert flow_table(page) == [
-        ("mark", "Money in", "3550.00"),
-        ("subcategory", "Salary", "3500.00"),
-        ("subcategory", "Interest", "5.00"),
-        ("subcategory", "Income awaiting review", "45.00"),
-        ("mark", "Money out", "262.30"),
-        ("subcategory", "Food", "180.00"),
-        ("subcategory", "Shopping", "70.00"),
-        ("subcategory", "Awaiting review", "12.30"),
-        ("balance", "Saved", "3287.70"),
+        ("mark", "Money in", f"3.550,00{EUR}"),
+        ("subcategory", "Salary", f"3.500,00{EUR}"),
+        ("subcategory", "Interest", f"5,00{EUR}"),
+        ("subcategory", "Income awaiting review", f"45,00{EUR}"),
+        ("mark", "Money out", f"262,30{EUR}"),
+        ("subcategory", "Food", f"180,00{EUR}"),
+        ("subcategory", "Shopping", f"70,00{EUR}"),
+        ("subcategory", "Awaiting review", f"12,30{EUR}"),
+        ("balance", "Saved", f"3.287,70{EUR}"),
     ]
 
 
@@ -86,7 +86,7 @@ def test_the_sankey_has_uniquely_named_nodes_and_balanced_links(logged_in_client
 def test_spending_more_than_came_in_draws_from_savings(logged_in_client, household):
     page = logged_in_client.get("/money-flow/", {"period": "2026-10"}).content.decode()
 
-    assert flow_table(page)[-1] == ("balance", "From savings", "777.00")
+    assert flow_table(page)[-1] == ("balance", "From savings", f"777,00{EUR}")
     chart = view_chart(page, "money_flow")
     assert ("from_savings", "household", 777) in [
         (link["source"], link["target"], link["value"]) for link in chart["links"]
@@ -130,3 +130,9 @@ def test_a_category_netting_to_a_refund_keeps_the_sankey_balanced(logged_in_clie
     into = sum(link["value"] for link in links if link["target"] == "household")
     out_of = sum(link["value"] for link in links if link["source"] == "household")
     assert into == pytest.approx(out_of)
+
+
+def test_income_nodes_wear_the_income_categorys_hue(logged_in_client, household):
+    page = logged_in_client.get("/money-flow/", {"period": "2026-09"}).content.decode()
+
+    assert view_chart(page, "money_flow")["in_key"] == str(Category.objects.get(name="Income").pk)

@@ -6,6 +6,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from tests.conftest import assert_nothing_stored, make_account
 
+from .conftest import EUR
+
 pytestmark = pytest.mark.django_db
 
 FIXTURE = (Path(__file__).parent / "fixtures" / "sparkasse.txt").read_text()
@@ -59,7 +61,7 @@ def test_creating_the_account_for_an_unknown_iban_imports_the_statement(logged_i
 
     summary = response.content.decode()
     assert "Imported into Ana&#x27;s Sparkasse" in summary
-    assert "1 Sep 2026 – 30 Sep 2026" in summary
+    assert "1–30 Sep 2026" in summary
     assert "12 Transactions imported" in summary
     page = logged_in_client.get("/import/").content.decode()
     assert "Sparkasse SI · ana" in page  # the importing Member owns the new Account
@@ -133,7 +135,7 @@ def test_two_identical_rows_on_one_statement_are_both_imported(logged_in_client,
     upload(logged_in_client)
 
     page = logged_in_client.get("/transactions/").content.decode()
-    fee = '<td>2026-09-15</td><td>Ana&#x27;s Sparkasse</td><td>Banka Sparkasse, d. d.</td><td class="num">-0.40</td>'
+    fee = f'<td class="fig">15 Sep 2026</td><td>Ana&#x27;s Sparkasse</td><td>Banka Sparkasse, d. d.</td><td class="num">−0,40{EUR}</td>'
     assert page.count(fee) == 2
     assert "Pozitivne obresti" in page
 
@@ -148,8 +150,10 @@ def test_rows_that_dont_match_the_printed_totals_are_rejected_with_a_diagnosis(
 
     assert "rows don&#x27;t match its printed totals" in page
     assert "keep this file" in page
-    assert '<tr><th>Printed</th><td class="num">1250.02</td><td class="num">3</td>' in page
-    assert '<tr><th>Parsed rows</th><td class="num">1250.02</td><td class="num">2</td>' in page
+    assert f'<tr><th>Printed</th><td class="num">1.250,02{EUR}</td><td class="num">3</td>' in page
+    assert (
+        f'<tr><th>Parsed rows</th><td class="num">1.250,02{EUR}</td><td class="num">2</td>' in page
+    )
     assert "Pozitivne obresti" in page  # the parsed rows
     assert_nothing_stored(logged_in_client, statement_files)
 
@@ -160,7 +164,7 @@ def test_statement_whose_balances_dont_add_up_is_rejected(logged_in_client, stat
     page = upload(logged_in_client, text).content.decode()
 
     assert "balances don&#x27;t add up" in page
-    assert "4320.90" in page
+    assert f"4.320,90{EUR}" in page
     assert_nothing_stored(logged_in_client, statement_files)
 
 
@@ -202,11 +206,11 @@ def test_an_n26_statement_imports_into_the_account_of_its_iban(logged_in_client,
 
     page = response.content.decode()
     assert "Imported into Ana&#x27;s N26" in page
-    assert "1 Sep 2026 – 30 Sep 2026" in page
+    assert "1–30 Sep 2026" in page
     assert "7 Transactions imported" in page
     page = logged_in_client.get("/transactions/").content.decode()
     assert (
-        '<td>2026-09-10</td><td>Ana&#x27;s N26</td><td>Ana Novak</td><td class="num">-1000.00</td>'
+        f'<td class="fig">10 Sep 2026</td><td>Ana&#x27;s N26</td><td>Ana Novak</td><td class="num">−1.000,00{EUR}</td>'
         in page
     )
     assert "EasyPark SI" in page
@@ -231,5 +235,5 @@ def test_n26_rows_that_dont_match_the_printed_totals_are_rejected(
 
     assert "rows don&#x27;t match its printed totals" in page
     # N26 prints no row counts.
-    assert '<tr><th>Printed</th><td class="num">1251.00</td><td class="num">—</td>' in page
+    assert f'<tr><th>Printed</th><td class="num">1.251,00{EUR}</td><td class="num">—</td>' in page
     assert_nothing_stored(logged_in_client, statement_files)

@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "members",
     "dashboard",
     "ledger",
+    "pursegraph",
 ]
 
 MIDDLEWARE = [
@@ -111,6 +112,7 @@ AXES_LOCKOUT_TEMPLATE = "registration/locked_out.html"
 LANGUAGE_CODE = "en"
 LANGUAGES = [("en", _("English"))]
 LOCALE_PATHS = [BASE_DIR / "locale"]
+FORMAT_MODULE_PATH = ["pursegraph.formats"]
 USE_I18N = True
 TIME_ZONE = "Europe/Ljubljana"
 USE_TZ = True

@@ -21,7 +21,7 @@
 {% if page.has_other_pages %}
 <nav class="pages">
   {% if page.has_previous %}<a href="?{% if query %}{{ query }}&{% endif %}page={{ page.previous_page_number }}">{% translate "Newer" %}</a>{% endif %}
-  <span class="muted">{% blocktranslate with n=page.number total=page.paginator.num_pages %}Page {{ n }} of {{ total }}{% endblocktranslate %}</span>
+  <span class="muted fig">{% blocktranslate with n=page.number total=page.paginator.num_pages %}Page {{ n }} of {{ total }}{% endblocktranslate %}</span>
   {% if page.has_next %}<a href="?{% if query %}{{ query }}&{% endif %}page={{ page.next_page_number }}">{% translate "Older" %}</a>{% endif %}
 </nav>
 {% endif %}
@@ -31,7 +31,7 @@
 {% else %}
 <div class="empty">
   <p>{% translate "No Transactions yet." %}</p>
-  <a class="button" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
+  <a class="button primary" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
 </div>
 {% endif %}
 {% if swap_nav %}{% include "_sidebar.html" %}{% endif %}

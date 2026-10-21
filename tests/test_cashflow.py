@@ -2,9 +2,9 @@ from datetime import date
 
 import pytest
 
-from ledger.models import Subcategory, Transaction
+from ledger.models import Category, Subcategory, Transaction
 
-from .conftest import drill_rows, view_chart, view_table
+from .conftest import EUR, drill_rows, view_chart, view_table
 
 pytestmark = pytest.mark.django_db
 
@@ -22,7 +22,7 @@ def test_cashflow_sets_money_in_against_money_out_leaving_transfers_out(
     page = logged_in_client.get("/cashflow/", {"period": "2026-09"}).content.decode()
 
     assert "Cashflow" in page
-    assert view_table(page) == [["Sep 2026", "3550.00", "262.30", "3287.70"]]
+    assert view_table(page) == [["Sep 2026", f"3.550,00{EUR}", f"262,30{EUR}", f"+3.287,70{EUR}"]]
 
 
 def test_a_longer_period_shows_every_month_so_far(logged_in_client, household):
@@ -33,10 +33,10 @@ def test_a_longer_period_shows_every_month_so_far(logged_in_client, household):
         "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026",
         "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026",
     ]  # fmt: skip
-    assert table[6] == ["Jul 2026", "0.00", "0.00", "0.00"]
-    assert table[7] == ["Aug 2026", "1500.00", "999.00", "501.00"]
-    assert table[9] == ["Oct 2026", "0.00", "777.00", "-777.00"]
-    assert "5050.00" in page  # money in over the year
+    assert table[6] == ["Jul 2026", f"0,00{EUR}", f"0,00{EUR}", f"0,00{EUR}"]
+    assert table[7] == ["Aug 2026", f"1.500,00{EUR}", f"999,00{EUR}", f"+501,00{EUR}"]
+    assert table[9] == ["Oct 2026", f"0,00{EUR}", f"777,00{EUR}", f"−777,00{EUR}"]
+    assert f"5.050,00{EUR}" in page  # money in over the year
 
 
 def test_the_chart_shows_the_same_numbers_as_the_table(logged_in_client, household):
@@ -49,6 +49,12 @@ def test_the_chart_shows_the_same_numbers_as_the_table(logged_in_client, househo
     assert chart["net"] == [0, 501, 3287.7]
     assert chart["keys"] == ["2026-07", "2026-08", "2026-09"]
     assert chart["drill"] == "/cashflow/transactions/?period=2026-Q3&key="
+
+
+def test_money_in_wears_the_income_categorys_hue(logged_in_client, household):
+    page = logged_in_client.get("/cashflow/", {"period": "2026-Q3"}).content.decode()
+
+    assert view_chart(page, "cashflow")["in_key"] == str(Category.objects.get(name="Income").pk)
 
 
 def test_drill_down_into_a_months_money_in_money_out_or_both(logged_in_client, household):
@@ -78,6 +84,6 @@ def test_a_transaction_dated_ahead_of_today_still_counts(logged_in_client, house
     page = logged_in_client.get("/cashflow/", {"period": "2026-Q4"}).content.decode()
 
     assert view_table(page) == [
-        ["Oct 2026", "0.00", "777.00", "-777.00"],
-        ["Nov 2026", "0.00", "10.00", "-10.00"],
+        ["Oct 2026", f"0,00{EUR}", f"777,00{EUR}", f"−777,00{EUR}"],
+        ["Nov 2026", f"0,00{EUR}", f"10,00{EUR}", f"−10,00{EUR}"],
     ]

@@ -1,5 +1,5 @@
 {% extends "shell.html" %}
-{% load i18n %}
+{% load figures i18n %}
 {% block title %}{% translate "Import" %}{% endblock %}
 {% block main %}
 <h2>{% translate "Import" %}</h2>
@@ -9,7 +9,7 @@
 {% if summary %}
 <section class="panel notice">
   <h3>{% blocktranslate with account=summary.account.name %}Imported into {{ account }}{% endblocktranslate %}</h3>
-  <p><span class="muted">{{ result.filename }} ·</span> {{ summary.period_start|date:"j M Y" }} – {{ summary.period_end|date:"j M Y" }}</p>
+  <p><span class="muted">{{ result.filename }} ·</span> {{ summary.period_start|date_range:summary.period_end }}</p>
   <ul>
     <li>{% blocktranslate count n=summary.imported_count %}{{ n }} Transaction imported{% plural %}{{ n }} Transactions imported{% endblocktranslate %}</li>
     <li>{% blocktranslate count n=summary.duplicate_count %}{{ n }} Duplicate skipped{% plural %}{{ n }} Duplicates skipped{% endblocktranslate %}</li>
@@ -21,7 +21,7 @@
     <li>{% blocktranslate count n=summary.awaiting_count %}{{ n }} Transaction waiting for suggestions or review{% plural %}{{ n }} Transactions waiting for suggestions or review{% endblocktranslate %}</li>
   </ul>
   {% for gap in summary.gaps %}
-  <p class="warning">{% blocktranslate with start=gap.start|date:"j M Y" end=gap.end|date:"j M Y" %}No Statement covers {{ start }} – {{ end }} yet.{% endblocktranslate %}</p>
+  <p class="warning">{% blocktranslate with period=gap.start|date_range:gap.end %}No Statement covers {{ period }} yet.{% endblocktranslate %}</p>
   {% endfor %}
 </section>
 {% endif %}
@@ -34,16 +34,16 @@
   {% if rejection.keep_file %}<p>{% translate "Please keep this file: it is needed to fix the parser." %}</p>{% endif %}
   {% with d=rejection.diagnosis %}{% if d %}
   <dl class="diagnosis">
-    <dt>{% translate "Opening balance" %}</dt><dd class="num">{{ d.opening_balance }}</dd>
-    <dt>{% translate "Σ rows" %}</dt><dd class="num">{{ d.rows_total }}</dd>
-    <dt>{% translate "Closing balance" %}</dt><dd class="num">{{ d.closing_balance }}</dd>
+    <dt>{% translate "Opening balance" %}</dt><dd class="num">{{ d.opening_balance|money }}</dd>
+    <dt>{% translate "Σ rows" %}</dt><dd class="num">{{ d.rows_total|money }}</dd>
+    <dt>{% translate "Closing balance" %}</dt><dd class="num">{{ d.closing_balance|money }}</dd>
   </dl>
   {% if d.printed_totals %}
   <table class="totals">
     <thead><tr><th></th><th class="num">{% translate "Money in" %}</th><th class="num">{% translate "Rows in" %}</th><th class="num">{% translate "Money out" %}</th><th class="num">{% translate "Rows out" %}</th></tr></thead>
     <tbody>
-    {% with t=d.printed_totals %}<tr><th>{% translate "Printed" %}</th><td class="num">{{ t.money_in }}</td><td class="num">{{ t.count_in|default_if_none:"—" }}</td><td class="num">{{ t.money_out }}</td><td class="num">{{ t.count_out|default_if_none:"—" }}</td></tr>{% endwith %}
-    {% with t=d.parsed_totals %}<tr><th>{% translate "Parsed rows" %}</th><td class="num">{{ t.money_in }}</td><td class="num">{{ t.count_in }}</td><td class="num">{{ t.money_out }}</td><td class="num">{{ t.count_out }}</td></tr>{% endwith %}
+    {% with t=d.printed_totals %}<tr><th>{% translate "Printed" %}</th><td class="num">{{ t.money_in|money }}</td><td class="num">{{ t.count_in|default_if_none:"—" }}</td><td class="num">{{ t.money_out|money }}</td><td class="num">{{ t.count_out|default_if_none:"—" }}</td></tr>{% endwith %}
+    {% with t=d.parsed_totals %}<tr><th>{% translate "Parsed rows" %}</th><td class="num">{{ t.money_in|money }}</td><td class="num">{{ t.count_in }}</td><td class="num">{{ t.money_out|money }}</td><td class="num">{{ t.count_out }}</td></tr>{% endwith %}
     </tbody>
   </table>
   {% endif %}
@@ -51,7 +51,7 @@
     <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th class="num">{% translate "Balance" %}</th></tr></thead>
     <tbody>
     {% for row in d.rows %}
-      <tr><td>{{ row.date|date:"Y-m-d" }}</td><td>{{ row.description }}</td><td class="num">{{ row.amount }}</td><td class="num">{{ row.running_balance|default_if_none:"" }}</td></tr>
+      <tr><td class="fig">{{ row.date|day }}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -62,10 +62,10 @@
     <tbody>
     {% for day in rejection.mismatch %}
       {% for row in day.missing %}
-      <tr><td>{{ day.day|date:"Y-m-d" }}</td><td>{% translate "Already imported, missing from this file" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount }}</td><td class="num">{{ row.running_balance|default_if_none:"" }}</td></tr>
+      <tr><td class="fig">{{ day.day|day }}</td><td>{% translate "Already imported, missing from this file" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
       {% endfor %}
       {% for row in day.unexpected %}
-      <tr><td>{{ day.day|date:"Y-m-d" }}</td><td>{% translate "In this file, not imported before" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount }}</td><td class="num">{{ row.running_balance|default_if_none:"" }}</td></tr>
+      <tr><td class="fig">{{ day.day|day }}</td><td>{% translate "In this file, not imported before" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>
       {% endfor %}
     {% endfor %}
     </tbody>
@@ -80,7 +80,7 @@
   {% csrf_token %}
   <h3>{% translate "Choose the Account" %}</h3>
   {% with s=pending.statement %}
-  <p>{% blocktranslate with file=pending.form.filename.value bank=pending.bank start=s.period_start|date:"j M Y" end=s.period_end|date:"j M Y" %}{{ file }}: a {{ bank }} Statement, {{ start }} – {{ end }}{% endblocktranslate %}</p>
+  <p>{% blocktranslate with file=pending.form.filename.value bank=pending.bank period=s.period_start|date_range:s.period_end %}{{ file }}: a {{ bank }} Statement, {{ period }}{% endblocktranslate %}</p>
   {% if s.iban %}
   <p>{% blocktranslate with iban=s.iban %}Its IBAN {{ iban }} isn't on any Account yet. Pick the Account it belongs to, or create one; the IBAN is added to it.{% endblocktranslate %}</p>
   {% endif %}
@@ -88,7 +88,7 @@
   {{ pending.form.content }}{{ pending.form.filename }}
   {{ pending.account_form.as_div }}
   <div class="actions">
-    <button type="submit">{% translate "Import" %}</button>
+    <button type="submit" class="primary">{% translate "Import" %}</button>
     <a href="{% url 'import' %}">{% translate "Cancel" %}</a>
   </div>
 </form>
@@ -99,7 +99,7 @@
   {{ form.file.errors }}
   {{ form.non_field_errors }}
   <div>{{ form.file.label_tag }}{{ form.file }}</div>
-  <button type="submit">{% translate "Import" %}</button>
+  <button type="submit" class="primary">{% translate "Import" %}</button>
 </form>
 {% endfor %}
 
@@ -112,18 +112,18 @@
   {% with segments=account.coverage_timeline %}{% if segments %}
   <div class="coverage" role="list">
     {% for segment in segments %}
-    {% with start=segment.range.start|date:"j M Y" end=segment.range.end|date:"j M Y" %}
+    {% with period=segment.range.start|date_range:segment.range.end %}
     <span role="listitem" class="{% if segment.is_gap %}gap{% else %}covered{% endif %}" style="flex-grow: {{ segment.range.days }}"
-      title="{% if segment.is_gap %}{% blocktranslate %}Gap {{ start }} – {{ end }}{% endblocktranslate %}{% else %}{% blocktranslate %}Covered {{ start }} – {{ end }}{% endblocktranslate %}{% endif %}"></span>
+      title="{% if segment.is_gap %}{% blocktranslate %}Gap {{ period }}{% endblocktranslate %}{% else %}{% blocktranslate %}Covered {{ period }}{% endblocktranslate %}{% endif %}"></span>
     {% endwith %}
     {% endfor %}
   </div>
   <p class="coverage-legend muted">
-    <span>{{ segments.0.range.start|date:"j M Y" }}</span>
+    <span>{{ segments.0.range.start|day }}</span>
     {% for segment in segments %}{% if segment.is_gap %}
-    <span class="error">{% blocktranslate with start=segment.range.start|date:"j M Y" end=segment.range.end|date:"j M Y" %}Gap {{ start }} – {{ end }}{% endblocktranslate %}</span>
+    <span class="error">{% blocktranslate with period=segment.range.start|date_range:segment.range.end %}Gap {{ period }}{% endblocktranslate %}</span>
     {% endif %}{% endfor %}
-    {% with last=segments|last %}<span>{% blocktranslate with date=last.range.end|date:"j M Y" %}Last Statement ends {{ date }}{% endblocktranslate %}</span>{% endwith %}
+    {% with last=segments|last %}<span>{% blocktranslate with date=last.range.end|day %}Last Statement ends {{ date }}{% endblocktranslate %}</span>{% endwith %}
   </p>
   <details>
     <summary>{% blocktranslate count n=account.statements.all|length %}{{ n }} Statement{% plural %}{{ n }} Statements{% endblocktranslate %}</summary>
@@ -132,10 +132,10 @@
     <tbody>
     {% for statement in account.statements.all %}
       <tr>
-        <td>{{ statement.period_start|date:"j M Y" }} – {{ statement.period_end|date:"j M Y" }}</td>
+        <td class="fig">{{ statement.period_start|date_range:statement.period_end }}</td>
         <td>{{ statement.get_format_display }}</td>
         <td class="num">{{ statement.transaction_count }}</td>
-        <td>{{ statement.imported_at|date:"j M Y" }}, {{ statement.imported_by.get_username }}</td>
+        <td class="fig">{{ statement.imported_at|day }}, {{ statement.imported_by.get_username }}</td>
         <td>{% if user.is_admin or statement.imported_by_id == user.pk %}<a class="danger" href="{% url 'delete_statement' statement.pk %}">{% translate "Delete" %}</a>{% endif %}</td>
       </tr>
     {% endfor %}

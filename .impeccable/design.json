@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-16T15:02:21+00:00",
+  "generatedAt": "2026-10-21T08:38:18+00:00",
   "title": "Design System: Pursegraph",
   "extensions": {
     "colorMeta": {
@@ -187,31 +187,31 @@
       "muted": {
         "role": "neutral",
         "displayName": "Muted",
-        "canonical": "oklch(55.1% 0.023 264.4)",
+        "canonical": "oklch(53.0% 0.022 262.9)",
         "tonalRamp": [
           "#070b15",
-          "#1f2531",
-          "#3c424f",
-          "#5b616f",
-          "#7b8291",
-          "#9ea5b4",
-          "#c2c9d9",
-          "#e7efff"
+          "#1f2530",
+          "#3c424e",
+          "#5b616e",
+          "#7b8390",
+          "#9ea5b3",
+          "#c2c9d8",
+          "#e7effe"
         ]
       },
       "faint": {
         "role": "neutral",
         "displayName": "Faint",
-        "canonical": "oklch(71.4% 0.019 261.3)",
+        "canonical": "oklch(63.2% 0.021 263.0)",
         "tonalRamp": [
-          "#070b13",
-          "#20252f",
-          "#3c424c",
-          "#5b626c",
-          "#7c838e",
-          "#9ea5b1",
-          "#c2cad6",
-          "#e7effc"
+          "#070b14",
+          "#202530",
+          "#3c424e",
+          "#5b616e",
+          "#7c838f",
+          "#9ea5b3",
+          "#c2c9d7",
+          "#e7effd"
         ]
       },
       "line": {
@@ -257,6 +257,21 @@
           "#9ea5b1",
           "#c2cad6",
           "#e7effc"
+        ]
+      },
+      "coverage": {
+        "role": "neutral",
+        "displayName": "Coverage Slate",
+        "canonical": "oklch(55.4% 0.041 257.4)",
+        "tonalRamp": [
+          "#020b1c",
+          "#182639",
+          "#344358",
+          "#536279",
+          "#73849b",
+          "#95a6bf",
+          "#b9cbe4",
+          "#e5efff"
         ]
       },
       "cat-0": {
@@ -634,6 +649,21 @@
           "#e7efff"
         ]
       },
+      "coverage-dark": {
+        "role": "neutral",
+        "displayName": "Coverage Slate (dark)",
+        "canonical": "oklch(66.8% 0.029 262.3)",
+        "tonalRamp": [
+          "#050b17",
+          "#1d2533",
+          "#3a4252",
+          "#586272",
+          "#798394",
+          "#9ba6b8",
+          "#bfcadd",
+          "#e6efff"
+        ]
+      },
       "cat-0-dark": {
         "role": "data",
         "displayName": "Category hue 0 (dark)",
@@ -819,7 +849,7 @@
       {
         "name": "card",
         "value": "0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)",
-        "purpose": "Every card; the pressed theme-switch segment."
+        "purpose": "Every card (.panel, the drill-down) and the pressed theme-switch segment. Cards carry no border in light."
       },
       {
         "name": "card-dark",
@@ -829,7 +859,7 @@
       {
         "name": "pop",
         "value": "0 4px 8px -2px rgb(16 24 40 / .08), 0 12px 24px -4px rgb(16 24 40 / .10)",
-        "purpose": "Overlays: the phone sidebar drawer."
+        "purpose": "Overlays: the phone More sheet, the account popover and the Account filter list."
       },
       {
         "name": "pop-dark",
@@ -839,12 +869,17 @@
       {
         "name": "control",
         "value": "0 1px 2px rgb(16 24 40 / .04)",
-        "purpose": "Buttons, selects and the period stepper."
+        "purpose": "Buttons, form fields, selects, the Account filter and the period stepper. Ghost and text buttons drop it."
+      },
+      {
+        "name": "control-dark",
+        "value": "0 1px 2px rgb(0 0 0 / .3)",
+        "purpose": "Controls in dark."
       },
       {
         "name": "focus-ring",
         "value": "outline: 2px solid var(--focus); outline-offset: 2px",
-        "purpose": "Every focusable element; 6px radius on the ring."
+        "purpose": "Every focusable element, set once on :focus-visible."
       }
     ],
     "motion": [
@@ -860,7 +895,7 @@
       },
       {
         "name": "reduced-motion",
-        "value": "@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }",
+        "value": "@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }",
         "purpose": "No movement, state kept: charts render final, chevron flips, sheets appear (at most a 120ms opacity fade), loading line static at 50%, the loading dim still applies. Scrolling is always instant."
       }
     ],
@@ -935,25 +970,65 @@
       "name": "Button",
       "kind": "button",
       "refersTo": "button",
-      "description": "The default quiet, bordered control: filters, period unit, Account picker. Never filled with indigo.",
-      "html": "<button class=\"ds-btn\" type=\"button\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\"><path d=\"M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18\"/></svg>All Accounts<svg class=\"ds-icon\" viewBox=\"0 0 24 24\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
-      "css": ".ds-btn { font: 500 14px/1.5 Inter, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong, #d1d5db); background: var(--card, #ffffff); color: var(--ink, #111827); cursor: pointer; box-shadow: 0 1px 2px rgb(16 24 40 / .04); white-space: nowrap; } .ds-btn:hover { background: var(--hover, #f3f4f6); } .ds-btn:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-icon { width: 16px; height: 16px; fill: none; stroke: var(--muted, #6b7280); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+      "description": "The default quiet, bordered control: filters, period unit, Account picker, Cancel. Never filled with indigo.",
+      "html": "<button class=\"ds-btn\" type=\"button\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18\"/></svg>All Accounts<svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 12px; font: 500 14px/1 Inter, system-ui, sans-serif; white-space: nowrap; border-radius: 8px; cursor: pointer; color: var(--ink, #111827); background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); box-shadow: var(--shadow-ctl, 0 1px 2px rgb(16 24 40 / .04)); } .ds-btn:hover { background: var(--hover, #f3f4f6); } .ds-btn:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-btn .ds-icon { color: var(--muted, #656c79); } .ds-btn:disabled { opacity: .35; cursor: default; background: var(--card, #ffffff); } .ds-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The one main action of a form or page (Log in, Save, Import, New Rule): solid Ink with card-coloured text, Ink 2 on hover. Still never indigo.",
+      "html": "<button class=\"ds-btn-primary\" type=\"submit\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4\"/></svg>Import</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 12px; font: 500 14px/1 Inter, system-ui, sans-serif; white-space: nowrap; border-radius: 8px; cursor: pointer; color: var(--card, #ffffff); background: var(--ink, #111827); border: 1px solid var(--ink, #111827); box-shadow: var(--shadow-ctl, 0 1px 2px rgb(16 24 40 / .04)); } .ds-btn-primary:hover { background: var(--ink-2, #374151); border-color: var(--ink-2, #374151); } .ds-btn-primary:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-btn-primary .ds-icon { color: inherit; } .ds-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
     },
     {
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Borderless icon or text action: close, log out, menu.",
-      "html": "<button class=\"ds-btn-ghost\" type=\"button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\"><path d=\"M6 6l12 12M18 6 6 18\"/></svg></button>",
-      "css": ".ds-btn-ghost { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: none; color: var(--muted, #6b7280); cursor: pointer; } .ds-btn-ghost svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; } .ds-btn-ghost:hover { background: var(--hover, #f3f4f6); color: var(--ink, #111827); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; }"
+      "description": "Transparent and borderless, muted text turning to Ink on hover: close, log out, menu.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3\"/></svg>Log out</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 12px; font: 500 14px/1 Inter, system-ui, sans-serif; white-space: nowrap; border-radius: 8px; cursor: pointer; color: var(--muted, #656c79); background: none; border: 1px solid transparent; box-shadow: none; } .ds-btn-ghost:hover { background: var(--hover, #f3f4f6); color: var(--ink, #111827); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "A 36px square bordered button carrying one 16px muted icon and an aria-label (move up / down); disabled at 35% opacity.",
+      "html": "<span class=\"ds-icon-pair\"><button class=\"ds-btn-icon\" type=\"button\" aria-label=\"Move up\" disabled><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m18 15-6-6-6 6\"/></svg></button><button class=\"ds-btn-icon\" type=\"button\" aria-label=\"Move down\"><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button></span>",
+      "css": ".ds-icon-pair { display: inline-flex; gap: 6px; } .ds-btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border-radius: 8px; color: var(--muted, #656c79); background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); box-shadow: var(--shadow-ctl, 0 1px 2px rgb(16 24 40 / .04)); cursor: pointer; } .ds-btn-icon:hover { background: var(--hover, #f3f4f6); } .ds-btn-icon:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-btn-icon:disabled { opacity: .35; cursor: default; background: var(--card, #ffffff); } .ds-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Form Fields",
+      "kind": "input",
+      "refersTo": null,
+      "description": "36px fields and selects in the button's skin: card fill, Line Strong border, 8px radius, control shadow; 13px 500 labels and muted help text. Select draws a muted chevron; an invalid field takes a 2px Ink border, never red.",
+      "html": "<div class=\"ds-fields\"><label class=\"ds-field\"><span>Name</span><input class=\"ds-input\" value=\"Joint Revolut\"><small>As it appears on the Statement.</small></label><label class=\"ds-field\"><span>Owner</span><select class=\"ds-input ds-select\"><option>Household</option><option>Luka</option></select></label><label class=\"ds-field\"><span>IBAN</span><input class=\"ds-input\" aria-invalid=\"true\" value=\"SI56 0000\"><small class=\"ds-err\">Enter a full IBAN.</small></label></div>",
+      "css": ".ds-fields { display: flex; flex-direction: column; gap: 12px; width: 320px; font: 400 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-field { display: flex; flex-direction: column; gap: 4px; } .ds-field > span { font-size: 13px; font-weight: 500; } .ds-field small { color: var(--muted, #656c79); font-size: 13px; } .ds-field small.ds-err { color: var(--ink, #111827); font-weight: 500; } .ds-input { height: 36px; padding: 0 12px; font: inherit; color: var(--ink, #111827); background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); border-radius: 8px; box-shadow: var(--shadow-ctl, 0 1px 2px rgb(16 24 40 / .04)); font-variant-numeric: tabular-nums; } .ds-input::placeholder { color: var(--muted, #656c79); } .ds-input:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-select { appearance: none; padding-right: 32px; background: var(--card, #ffffff) var(--chevron, url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23656c79' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E\")) no-repeat right 10px center / 16px; } .ds-input[aria-invalid=\"true\"] { border: 2px solid var(--ink, #111827); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The panel: card fill, 14px radius, the soft Card shadow and 20px padding; borderless in light (the Soft Lift Rule). Hairlines divide content inside it.",
+      "html": "<section class=\"ds-panel\"><h3>Joint Revolut</h3><p class=\"ds-muted\">SI56 6100 0001 2345 678</p><p>Statements cover 1 Jan to 30 Sep 2026.</p></section>",
+      "css": ".ds-panel { width: 360px; padding: 20px; background: var(--card, #ffffff); border-radius: 14px; box-shadow: var(--shadow-card, 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)); font: 400 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-panel h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; } .ds-panel p { margin: 0 0 12px; } .ds-panel p:last-child { margin-bottom: 0; } .ds-muted { color: var(--muted, #656c79); font-size: 13px; }"
+    },
+    {
+      "name": "Table",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Hairline rows in a card: muted 12px 500 headers, 12px cell padding, right-aligned tabular amounts at 600, a 600 Ink total row above a top hairline.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Category</th><th class=\"num\">Share</th><th class=\"num\">Amount</th></tr></thead><tbody><tr><td>Food</td><td class=\"num\">26 %</td><td class=\"num\">612,40 €</td></tr><tr><td>Transport</td><td class=\"num\">10 %</td><td class=\"num\">238,75 €</td></tr></tbody><tfoot><tr><th>Total</th><td class=\"num\"></td><td class=\"num\">2.380,55 €</td></tr></tfoot></table>",
+      "css": ".ds-table { width: 420px; border-collapse: collapse; font: 400 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); background: var(--card, #ffffff); } .ds-table th, .ds-table td { text-align: left; padding: 12px; border-bottom: 1px solid var(--line, #e5e7eb); } .ds-table thead th { font-size: 12px; font-weight: 500; color: var(--muted, #656c79); } .ds-table tbody tr:last-child td { border-bottom: 0; } .ds-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; } .ds-table td.num { font-weight: 600; } .ds-table tfoot th, .ds-table tfoot td { font-weight: 600; border-bottom: 0; border-top: 1px solid var(--line, #e5e7eb); }"
     },
     {
       "name": "Sidebar Navigation",
       "kind": "nav",
       "refersTo": "nav-item",
-      "description": "Grouped sidebar links with 1.5px stroke icons; active takes Indigo Wash; the Review queue carries a count badge.",
-      "html": "<nav class=\"ds-nav\"><div class=\"ds-nav-group\">Dashboard</div><a class=\"ds-nav-item on\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-9-9v9z\"/><path d=\"M15 3.5A9 9 0 0 1 20.5 9H15z\"/></svg>Spending</a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/></svg>Cash flow</a><div class=\"ds-nav-group\">Ledger</div><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-4.2-7.6\"/><path d=\"m9 11 3 3 9-9\"/></svg>Review queue<span class=\"ds-badge\">7</span></a></nav>",
-      "css": ".ds-nav { width: 240px; padding: 20px 12px; background: var(--card, #ffffff); display: flex; flex-direction: column; gap: 2px; font: 14px/1.5 Inter, system-ui, sans-serif; } .ds-nav-group { font-size: 12px; font-weight: 500; color: var(--muted, #6b7280); padding: 16px 8px 4px; } .ds-nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; color: var(--ink-2, #374151); text-decoration: none; font-weight: 500; } .ds-nav-item svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-nav-item:hover { background: var(--hover, #f3f4f6); color: var(--ink, #111827); } .ds-nav-item.on { background: var(--accent-soft, #eef2ff); color: var(--accent-text, #4338ca); } .ds-nav-item:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-badge { margin-left: auto; min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent, #4f46e5); color: var(--accent-ink, #ffffff); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }"
+      "description": "Four destinations with 1.5px stroke icons; active takes Indigo Wash with Indigo Ink; the Review queue carries an Indigo count badge.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item on\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-9-9v9z\"/><path d=\"M15 3.5A9 9 0 0 1 20.5 9H15z\"/></svg>Dashboard</a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01\"/></svg>Transactions</a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M21 12a9 9 0 1 1-4.2-7.6\"/><path d=\"m9 11 3 3 9-9\"/></svg>Review queue<span class=\"ds-badge\">7</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\"><path d=\"M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4\"/></svg>Import</a></nav>",
+      "css": ".ds-nav { width: 232px; padding: 20px 12px; background: var(--card, #ffffff); display: flex; flex-direction: column; gap: 2px; font: 14px/1.5 Inter, system-ui, sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; color: var(--ink-2, #374151); text-decoration: none; font-weight: 500; } .ds-nav-item svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-nav-item:hover { background: var(--hover, #f3f4f6); color: var(--ink, #111827); } .ds-nav-item.on { background: var(--accent-soft, #eef2ff); color: var(--accent-text, #4338ca); } .ds-nav-item:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-badge { margin-left: auto; min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent, #4f46e5); color: var(--accent-ink, #ffffff); font-size: 12px; font-weight: 600; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }"
     },
     {
       "name": "Stat Tile",
@@ -961,7 +1036,7 @@
       "refersTo": "card",
       "description": "A period figure with a neutral, muted comparison; never coloured by sign.",
       "html": "<div class=\"ds-tile\"><div class=\"ds-tile-label\">Spent</div><div class=\"ds-tile-value\">2.380,55 €</div><div class=\"ds-tile-compare\">523,55 € less than September</div></div>",
-      "css": ".ds-tile { background: var(--card, #ffffff); border-radius: 14px; box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06); padding: 20px; font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); font-variant-numeric: tabular-nums; } .ds-tile-label { color: var(--muted, #6b7280); font-weight: 500; } .ds-tile-value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; } .ds-tile-compare { color: var(--muted, #6b7280); font-size: 13px; margin-top: 2px; }"
+      "css": ".ds-tile { background: var(--card, #ffffff); border-radius: 14px; box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06); padding: 20px; font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); font-variant-numeric: tabular-nums; } .ds-tile-label { color: var(--muted, #656c79); font-weight: 500; } .ds-tile-value { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; } .ds-tile-compare { color: var(--muted, #656c79); font-size: 13px; margin-top: 2px; }"
     },
     {
       "name": "Category Row",
@@ -969,15 +1044,15 @@
       "refersTo": "category-row",
       "description": "Signature ranked row: hue dot, name, share bar, share and amount. Hover lights the donut segment; open takes Indigo Wash. Awaiting review uses grey plus hatch.",
       "html": "<div class=\"ds-cats\"><button class=\"ds-cat\" type=\"button\"><span class=\"ds-name\"><i class=\"ds-dot\" style=\"background:#59a14f\"></i>Food</span><span class=\"ds-bar\"><i style=\"width:59%;background:#59a14f\"></i></span><span class=\"ds-share\">26 %</span><span class=\"ds-amt\">612,40 €</span></button><button class=\"ds-cat open\" type=\"button\"><span class=\"ds-name\"><i class=\"ds-dot\" style=\"background:#f28e2b\"></i>Transport</span><span class=\"ds-bar\"><i style=\"width:23%;background:#f28e2b\"></i></span><span class=\"ds-share\">10 %</span><span class=\"ds-amt\">238,75 €</span></button><button class=\"ds-cat ds-awaiting\" type=\"button\"><span class=\"ds-name\"><i class=\"ds-dot\"></i>Awaiting review</span><span class=\"ds-bar\"><i style=\"width:9%\"></i></span><span class=\"ds-share\">4 %</span><span class=\"ds-amt\">96,30 €</span></button></div>",
-      "css": ".ds-cats { width: 560px; font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-cat { display: grid; grid-template-columns: minmax(0,1fr) 140px 52px 104px; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; } .ds-cat:hover { background: var(--hover, #f3f4f6); } .ds-cat.open { background: var(--accent-soft, #eef2ff); } .ds-cat:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-name { display: flex; align-items: center; gap: 10px; font-weight: 500; } .ds-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; } .ds-bar { height: 6px; border-radius: 999px; background: var(--ground, #f4f5f7); overflow: hidden; } .ds-bar i { display: block; height: 100%; border-radius: inherit; } .ds-share { color: var(--muted, #6b7280); font-size: 13px; text-align: right; } .ds-amt { font-weight: 600; text-align: right; } .ds-awaiting .ds-dot { background: repeating-linear-gradient(45deg, var(--awaiting, #9ca3af) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting, #9ca3af); } .ds-awaiting .ds-bar i { background: repeating-linear-gradient(45deg, var(--awaiting, #9ca3af) 0 3px, color-mix(in srgb, var(--awaiting, #9ca3af) 40%, transparent) 3px 6px); }"
+      "css": ".ds-cats { width: 560px; font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-cat { display: grid; grid-template-columns: minmax(0,1fr) 140px 52px 104px; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; } .ds-cat:hover { background: var(--hover, #f3f4f6); } .ds-cat.open { background: var(--accent-soft, #eef2ff); } .ds-cat:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-name { display: flex; align-items: center; gap: 10px; font-weight: 500; } .ds-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; } .ds-bar { height: 6px; border-radius: 999px; background: var(--ground, #f4f5f7); overflow: hidden; } .ds-bar i { display: block; height: 100%; border-radius: inherit; } .ds-share { color: var(--muted, #656c79); font-size: 13px; text-align: right; } .ds-amt { font-weight: 600; text-align: right; } .ds-awaiting .ds-dot { background: repeating-linear-gradient(45deg, var(--awaiting, #9ca3af) 0 2px, transparent 2px 4px); box-shadow: inset 0 0 0 1px var(--awaiting, #9ca3af); } .ds-awaiting .ds-bar i { background: repeating-linear-gradient(45deg, var(--awaiting, #9ca3af) 0 3px, color-mix(in srgb, var(--awaiting, #9ca3af) 40%, transparent) 3px 6px); }"
     },
     {
       "name": "Period Stepper",
       "kind": "custom",
       "refersTo": "button",
       "description": "One bordered 36px control stepping the period; next is disabled at the current period.",
-      "html": "<div class=\"ds-period\"><a class=\"ds-step\" href=\"#\" aria-label=\"Previous period\"><svg viewBox=\"0 0 24 24\"><path d=\"m15 18-6-6 6-6\"/></svg></a><span class=\"ds-period-label\">October 2026 <small>· so far, to 16 Oct</small></span><a class=\"ds-step\" href=\"#\" aria-label=\"Next period\" aria-disabled=\"true\"><svg viewBox=\"0 0 24 24\"><path d=\"m9 18 6-6-6-6\"/></svg></a></div>",
-      "css": ".ds-period { display: inline-flex; align-items: center; gap: 2px; height: 36px; background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); border-radius: 8px; box-shadow: 0 1px 2px rgb(16 24 40 / .04); font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); } .ds-step { display: grid; place-items: center; width: 32px; height: 34px; border-radius: 8px; color: var(--muted, #6b7280); } .ds-step:hover { background: var(--hover, #f3f4f6); } .ds-step:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-step[aria-disabled=\"true\"] { opacity: .35; pointer-events: none; } .ds-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-period-label { padding: 0 8px; font-weight: 600; white-space: nowrap; } .ds-period-label small { font-weight: 400; color: var(--muted, #6b7280); }"
+      "html": "<div class=\"ds-period\"><a class=\"ds-step\" href=\"#\" aria-label=\"Previous period\"><svg viewBox=\"0 0 24 24\"><path d=\"m15 18-6-6 6-6\"/></svg></a><span class=\"ds-period-label\">October 2026 <small>so far, to 16 Oct</small></span><span class=\"ds-step off\" aria-disabled=\"true\"><svg viewBox=\"0 0 24 24\"><path d=\"m9 18 6-6-6-6\"/></svg></span></div>",
+      "css": ".ds-period { display: inline-flex; align-items: center; height: 36px; background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); border-radius: 8px; box-shadow: var(--shadow-ctl, 0 1px 2px rgb(16 24 40 / .04)); font: 14px/1.5 Inter, system-ui, sans-serif; color: var(--ink, #111827); font-variant-numeric: tabular-nums; } .ds-step { display: grid; place-items: center; width: 32px; height: 100%; border-radius: 7px; color: var(--muted, #656c79); } a.ds-step:hover { background: var(--hover, #f3f4f6); } .ds-step:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-step.off { opacity: .35; } .ds-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; } .ds-period-label { padding: 0 8px; font-weight: 600; white-space: nowrap; } .ds-period-label small { font-size: inherit; font-weight: 400; color: var(--muted, #656c79); }"
     },
     {
       "name": "Theme Switch",
@@ -985,15 +1060,15 @@
       "refersTo": null,
       "description": "Light / System / Dark segmented control in the account popover (on a phone, the More sheet): a native radio group (one tab stop, arrow keys), hidden until static/theme.js runs; sets data-theme on <html>, remembered per browser in localStorage.",
       "html": "<fieldset class=\"ds-theme\" hidden><legend class=\"visually-hidden\">Theme</legend><label><input type=\"radio\" name=\"theme\" value=\"light\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/></svg><span>Light</span></label><label><input type=\"radio\" name=\"theme\" value=\"system\" checked><svg viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/></svg><span>System</span></label><label><input type=\"radio\" name=\"theme\" value=\"dark\"><svg viewBox=\"0 0 24 24\"><path d=\"M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z\"/></svg><span>Dark</span></label></fieldset>",
-      "css": ".ds-theme { display: grid; grid-template-columns: repeat(3, 1fr); width: 216px; margin: 0; padding: 3px; gap: 2px; border: 0; background: var(--ground, #f4f5f7); border-radius: 8px; } .ds-theme[hidden] { display: none; } .ds-theme label { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; height: 28px; border-radius: 6px; color: var(--muted, #6b7280); font: 500 13px/1 Inter, system-ui, sans-serif; cursor: pointer; } .ds-theme label:hover { color: var(--ink, #111827); } .ds-theme input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; } .ds-theme label:has(input:checked) { background: var(--card, #ffffff); color: var(--ink, #111827); box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06); } .ds-theme label:has(input:focus-visible) { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-theme svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
+      "css": ".ds-theme { display: grid; grid-template-columns: repeat(3, 1fr); width: 216px; margin: 0; padding: 3px; gap: 2px; border: 0; background: var(--ground, #f4f5f7); border-radius: 8px; } .ds-theme[hidden] { display: none; } .ds-theme label { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; height: 28px; border-radius: 6px; color: var(--muted, #656c79); font: 500 13px/1 Inter, system-ui, sans-serif; cursor: pointer; } .ds-theme label:hover { color: var(--ink, #111827); } .ds-theme input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; } .ds-theme label:has(input:checked) { background: var(--card, #ffffff); color: var(--ink, #111827); box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06); } .ds-theme label:has(input:focus-visible) { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; } .ds-theme svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }"
     },
     {
-      "name": "View Pills (phone)",
-      "kind": "chip",
-      "refersTo": "view-pill",
-      "description": "Below 900px the five Dashboard views become a horizontally scrolling row of pills.",
-      "html": "<nav class=\"ds-pills\"><a class=\"on\" href=\"#\" aria-current=\"page\">Spending</a><a href=\"#\">Cash flow</a><a href=\"#\">Category trends</a><a href=\"#\">Per Member</a></nav>",
-      "css": ".ds-pills { display: flex; gap: 4px; overflow-x: auto; font: 500 13px/1.5 Inter, system-ui, sans-serif; } .ds-pills a { flex: none; padding: 6px 12px; border-radius: 999px; color: var(--ink-2, #374151); text-decoration: none; background: var(--card, #ffffff); border: 1px solid var(--line, #e5e7eb); } .ds-pills a:hover { background: var(--hover, #f3f4f6); } .ds-pills a.on { background: var(--accent-soft, #eef2ff); color: var(--accent-text, #4338ca); border-color: transparent; } .ds-pills a:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; }"
+      "name": "View Tabs",
+      "kind": "nav",
+      "refersTo": "view-tab",
+      "description": "The five Dashboard views as in-page underline tabs over a Line hairline: muted labels, the active one Indigo Ink over a 2px Household Indigo underline. They scroll sideways on phones.",
+      "html": "<nav class=\"ds-tabs\"><a class=\"on\" href=\"#\" aria-current=\"page\">Spending</a><a href=\"#\">Cash flow</a><a href=\"#\">Category trends</a><a href=\"#\">Per Member</a><a href=\"#\">Money flow</a></nav>",
+      "css": ".ds-tabs { display: flex; gap: 24px; overflow-x: auto; border-bottom: 1px solid var(--line, #e5e7eb); font: 500 14px/1.5 Inter, system-ui, sans-serif; } .ds-tabs a { flex: none; padding: 8px 0 10px; margin-bottom: -1px; color: var(--muted, #656c79); text-decoration: none; border-bottom: 2px solid transparent; } .ds-tabs a:hover { color: var(--ink, #111827); } .ds-tabs a.on { color: var(--accent-text, #4338ca); border-bottom-color: var(--accent, #4f46e5); } .ds-tabs a:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; }"
     },
     {
       "name": "Wordmark",
@@ -1018,7 +1093,7 @@
     "rules": [
       {
         "name": "The One Indigo Rule",
-        "body": "Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category.",
+        "body": "Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category. On the Accounts board, the stretch the import just added is Indigo as a state (\"this import\", like the active nav item), not as a series.",
         "section": "colors"
       },
       {
@@ -1058,12 +1133,25 @@
       "**Do** set every figure in tabular numerals and format amounts as sl-SI EUR with grouping always on (\"1.234,56 €\").",
       "**Do** write comparisons as neutral muted sentences (\"523,55 € less than September\").",
       "**Do** define every colour as a CSS custom property, with a `[data-theme=\"dark\"]` block and a `prefers-color-scheme` block for `data-theme=\"system\"`, and rebuild chart options from those properties when the theme changes.",
+      "**Do** set CSS `color-scheme` per theme, so native controls and scrollbars match, and ship `media`-scoped `<meta name=\"theme-color\">` tags for the ground colour, rewritten by JS when the choice is Light or Dark.",
       "**Do** self-host every asset, including Inter (variable woff2 under `static/fonts/`) and ECharts.",
-      "**Do** turn motion off under `prefers-reduced-motion`. The donut sweep, chevron rotation and drawer slide (cubic-bezier(.16,1,.3,1)) are the whole motion vocabulary."
+      "**Do** show each facet option's count with the other facets held, so a Member sees where a pick leads before making it.",
+      "**Do** commit an outcome only on a deliberate choice (Accept, a chip, a confirmed OS pick), always name it \"Category › Subcategory\", and offer Undo after every save.",
+      "**Do** show a Rule's effect before it is saved: the Transactions it matches, Now → After, and the count on its Save button.",
+      "**Do** turn motion off under `prefers-reduced-motion`. The donut sweep, the chart entrance, chevron rotation, the More and Filter sheets' slide up (cubic-bezier(.16,1,.3,1)) and the loading line are the whole motion vocabulary. Swaps themselves are instant.",
+      "**Do** follow the Swap feedback convention on every HTMX swap: focus by kind of swap, one polite announcement of the new state, and a `<title>` from the partial.",
+      "**Do** give every empty page its reason and the action that fills it.",
+      "**Do** replace an action that can't run with its reason, and confirm a destructive one inline, naming what it moves or keeps."
     ],
     "donts": [
+      "**Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.",
       "**Don't** use the indigo accent as a data colour, a chart series or a Category hue.",
       "**Don't** give Awaiting review a Category hue, or show it without its hatch.",
+      "**Don't** draw a month without Coverage as 0, or compare a figure with an incomplete month without saying so.",
+      "**Don't** offer a page before it can have content (setup mode), or show example figures as if they were the Household's.",
+      "**Don't** blank a region while it loads, or show a loading state for a swap that finishes within 300 ms.",
+      "**Don't** stripe or hatch a Coverage Gap. The hatch is Awaiting review's; a Gap is an outlined slot with its dates in text.",
+      "**Don't** write an import rejection for the developer. Lead with the cause and the next step, and keep the reconciliation behind a disclosure.",
       "**Don't** colour spending, Net or comparisons red or green to mean good or bad.",
       "**Don't** add uppercase tracked labels, kickers or eyebrows above titles. Labels are sentence case.",
       "**Don't** use hard offset shadows or borders around cards. Lift is soft and ambient.",

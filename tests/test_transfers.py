@@ -158,8 +158,8 @@ def test_a_tie_between_candidates_goes_to_the_review_queue_with_the_candidates(
     page = review_queue(logged_in_client)
     assert outcome_shown(page, "Ana Novak") == "Pick the other side"
     assert pairing_options(page, "Ana Novak") == [
-        "2026-09-09 · Ana&#x27;s Revolut · Top-up by card",
-        "2026-09-11 · Ana&#x27;s Revolut · Payment from Ana Novak",
+        "9 Sep 2026 · Ana&#x27;s Revolut · Top-up by card",
+        "11 Sep 2026 · Ana&#x27;s Revolut · Payment from Ana Novak",
     ]
     assert pairing_options(page, "Top-up by card") == []
     # The side, both still unresolved candidates, and the 11 other Sparkasse rows.
@@ -377,7 +377,7 @@ def test_two_sides_equally_close_to_one_candidate_go_to_the_review_queue(logged_
     page = review_queue(logged_in_client)
     assert outcome_shown(page, "Savings early") == "Pick the other side"
     assert outcome_shown(page, "Savings late") == "Pick the other side"
-    assert pairing_options(page, "Savings early") == ["2026-09-03 · Bor&#x27;s Revolut · From Ana"]
+    assert pairing_options(page, "Savings early") == ["3 Sep 2026 · Bor&#x27;s Revolut · From Ana"]
     assert counterpart_of("From Ana") is None
 
 
