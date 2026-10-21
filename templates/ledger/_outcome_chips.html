@@ -1,0 +1,43 @@
+{% load hues i18n %}{% comment %} The chip panel a Transaction row's Change opens with a fine pointer, once per table: static/outcome.js copies it
+under the row, names the Transaction in its title, marks the current outcome's chip and adds the pairing cards. Needs
+`categories` and `most_used`. {% endcomment %}
+<template class="outcome-chips">
+  <tr class="chip-panel">
+    <td colspan="5">
+      <div class="pick" role="group">
+        <div class="pick-head">
+          <p class="pick-title" data-title="{% translate 'Choose an outcome for %(description)s' %}"></p>
+          <button type="button" class="link" data-cancel>{% translate "Cancel" %}</button>
+        </div>
+        <div class="pick-step" data-step="pairs" hidden>
+          <p class="pick-h">{% translate "The other side of this Transfer" %}</p>
+          <div class="pairs"></div>
+        </div>
+        <div class="pick-step" data-step="">
+          {% if most_used %}
+          <p class="pick-h">{% translate "Most used" %}</p>
+          <div class="chips">
+            {% for s in most_used %}<button type="button" data-pick="{{ s.pk }}"><i class="dot" style="--hue: var(--{{ s.category_id|hue }})" aria-hidden="true"></i><span><span class="cat-name">{{ s.category.name }}</span> <span class="sep">›</span> {{ s.name }}</span></button>{% endfor %}
+          </div>
+          {% endif %}
+          <p class="pick-h">{% translate "Category" %}</p>
+          <div class="chips">
+            {% for category in categories %}<button type="button" data-category="{{ category.pk }}"><i class="dot" style="--hue: var(--{{ category.pk|hue }})" aria-hidden="true"></i>{{ category.name }}</button>{% endfor %}
+            <button type="button" data-pick="transfer"><i class="dot transfer" aria-hidden="true"></i>{% translate "Transfer" %}</button>
+          </div>
+        </div>
+        {% for category in categories %}
+        <div class="pick-step" data-step="{{ category.pk }}" hidden>
+          <div class="pick-h">
+            <button type="button" class="link" data-category="">{% translate "‹ All Categories" %}</button>
+            <i class="dot" style="--hue: var(--{{ category.pk|hue }})" aria-hidden="true"></i><span>{{ category.name }}</span>
+          </div>
+          <div class="chips">
+            {% for s in category.subcategories.all %}<button type="button" data-pick="{{ s.pk }}">{{ s.name }}</button>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </td>
+  </tr>
+</template>

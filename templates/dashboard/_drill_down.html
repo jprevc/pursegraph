@@ -7,12 +7,13 @@
   </div>
   {% if transactions %}
   <div class="scroll">
-  <table>
-    <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
+  <table class="rows">
+    <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
     <tbody>
     {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
     </tbody>
   </table>
+{% include "ledger/_outcome_chips.html" %}
   </div>
   {% else %}
   <p class="muted">{% translate "No Transactions here." %}</p>

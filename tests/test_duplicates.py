@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ledger.models import Account
 
-from .conftest import EUR
+from .conftest import EUR, transaction_rows
 
 pytestmark = pytest.mark.django_db
 
@@ -82,10 +82,10 @@ def test_overlapping_rows_that_match_are_skipped_as_duplicates(logged_in_client,
     page = response.content.decode()
     assert "1 Transaction imported" in page
     assert "2 Duplicates skipped" in page
-    transactions = transactions_page(logged_in_client)
-    assert transactions.count("Bakery") == 1
-    assert transactions.count("Mercator") == 1
-    assert "Petrol" in transactions
+    descriptions = [d for _d, _a, d, _x in transaction_rows(transactions_page(logged_in_client))]
+    assert descriptions.count("Bakery") == 1
+    assert descriptions.count("Mercator") == 1
+    assert "Petrol" in descriptions
 
 
 def test_overlap_that_does_not_match_rejects_the_whole_file(
@@ -187,7 +187,8 @@ def test_identical_rows_on_one_statement_are_both_imported_and_both_matched_late
     twice = [("2026-06-01", "Parking", "-2"), ("2026-06-01", "Parking", "-2")]
     upload(logged_in_client, ("first.csv", revolut_csv("100", twice)))
     account = Account.objects.get()
-    assert transactions_page(logged_in_client).count("<td>Parking</td>") == 2
+    rows = transaction_rows(transactions_page(logged_in_client))
+    assert [description for _d, _a, description, _x in rows].count("Parking") == 2
 
     page = upload(
         logged_in_client,
@@ -197,7 +198,8 @@ def test_identical_rows_on_one_statement_are_both_imported_and_both_matched_late
 
     assert "1 Transaction imported" in page
     assert "2 Duplicates skipped" in page
-    assert transactions_page(logged_in_client).count("<td>Parking</td>") == 2
+    rows = transaction_rows(transactions_page(logged_in_client))
+    assert [description for _d, _a, description, _x in rows].count("Parking") == 2
 
 
 def statement_row(page, period):

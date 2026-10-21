@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from tests.conftest import EUR, assert_nothing_stored, make_account
+from tests.conftest import EUR, assert_nothing_stored, make_account, transaction_rows
 
 pytestmark = pytest.mark.django_db
 
@@ -84,7 +84,8 @@ def test_reuploading_the_same_file_is_rejected(logged_in_client):
     assert "already imported" in page
     assert "keep this file" not in page
     assert "Second" not in logged_in_client.get("/import/").content.decode()
-    assert logged_in_client.get("/transactions/").content.decode().count("Hiša kave") == 1
+    rows = transaction_rows(logged_in_client.get("/transactions/").content.decode())
+    assert [description for _d, _a, description, _x in rows].count("Hiša kave") == 1
 
 
 def test_statement_whose_balances_dont_add_up_is_rejected_with_a_diagnosis(
@@ -172,8 +173,7 @@ def test_import_into_an_existing_revolut_account(logged_in_client, member):
 
     assert "Imported into Bor&#x27;s Revolut" in response.content.decode()
     page = logged_in_client.get("/transactions/").content.decode()
-    assert "<td>Bor&#x27;s Revolut</td>" in page
-    assert "<td>Ana&#x27;s Revolut</td>" not in page
+    assert {account for _d, account, _t, _x in transaction_rows(page)} == {"Bor's Revolut"}
 
 
 def test_statement_bank_must_match_the_account_bank(logged_in_client, member, statement_files):

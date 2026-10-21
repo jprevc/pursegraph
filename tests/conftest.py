@@ -37,12 +37,17 @@ def statement_files(settings, tmp_path):
 
 
 def outcome_shown(page, description):
-    """The outcome selected in the Transaction row whose description is `description`, as "Category → Subcategory",
-    "Transfer" or "Awaiting review"."""
+    """The outcome the Transaction row whose description is `description` shows, as "Category → Subcategory",
+    "Transfer" or "Awaiting review": the text of the shared row, or the option selected in the Review queue's."""
     row = re.search(
         rf"<tr[^>]*>(?:(?!</tr>).)*>{re.escape(description)}<(?:(?!</tr>).)*</tr>", page, re.S
     )
     assert row, f"no row for {description!r}"
+    if label := re.search(
+        r'<span class="oc-label">(.*?)(?:<span class="cap">|</span>\s*<form)', row[0], re.S
+    ):
+        words = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", label[1])).split())
+        return words.replace(" › ", " → ")
     group = None
     for match in re.finditer(
         r'<optgroup label="([^"]*)">|<option value="[^"]*"( selected)?>([^<]*)</option>', row[0]
@@ -159,12 +164,25 @@ def view_chart(page, view):
     return json.loads(data[1])
 
 
+def transaction_rows(page):
+    """Each Transaction row a page lists, as (date, Account, description, amount), in the order shown."""
+
+    def cell(name, row):
+        found = re.search(rf'class="{name}">([^<]*)<', row)
+        assert found, f"no {name} in {row}"
+        return html.unescape(found[1])
+
+    return [
+        (cell("c-date fig", row), cell("pill", row), cell("desc", row), cell("num amt", row))
+        for row in re.findall(r'<tr id="transaction-\d+" class="txn".*?</tr>', page, re.S)
+    ]
+
+
 def drill_rows(client, url, params):
     """The descriptions of the Transactions a drill-down lists."""
-    page = client.get(url, params).content.decode()
     return [
-        html.unescape(d)
-        for d in re.findall(
-            r'<tr id="transaction-\d+">\s*<td[^>]*>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
+        description
+        for _date, _account, description, _amount in transaction_rows(
+            client.get(url, params).content.decode()
         )
     ]

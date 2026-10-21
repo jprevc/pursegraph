@@ -13,6 +13,7 @@ urlpatterns = [
     path("review/", views.review_queue, name="review_queue"),
     path("review/accept/", views.accept_suggestions, name="accept_suggestions"),
     path("transactions/<int:pk>/outcome/", views.transaction_outcome, name="transaction_outcome"),
+    path("transactions/<int:pk>/undo/", views.undo_outcome, name="undo_outcome"),
     path("categories/", views.categories, name="categories"),
     path("categories/add/", views.add_category, name="add_category"),
     path("categories/<int:pk>/rename/", views.rename_category, name="rename_category"),

@@ -18,10 +18,11 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from members.permissions import admin_required
 from pursegraph import figures
+from pursegraph.htmx import announce
 
 from . import categories as category_edits
+from . import outcomes, suggestions
 from . import rules as rule_edits
-from . import suggestions
 from .forms import (
     AccountAdminForm,
     AccountForm,
@@ -251,7 +252,11 @@ def transactions(request):
     """Every Transaction, filtered and paged. The sidebar swaps it into the main area via HTMX."""
     categories = categories_with_subcategories()
     form = TransactionFilterForm(request.GET, categories=categories)
-    rows = form.filter(Transaction.objects.select_related("account").order_by("-date", "-id"))
+    rows = form.filter(
+        Transaction.objects.select_related("account", "subcategory__category").order_by(
+            "-date", "-id"
+        )
+    )
     page = Paginator(rows, TRANSACTIONS_PER_PAGE).get_page(request.GET.get("page"))
     query = request.GET.copy()
     query.pop("page", None)
@@ -264,6 +269,7 @@ def transactions(request):
             "page": page,
             "query": query.urlencode(),
             "categories": categories,
+            "most_used": outcomes.most_used_outcomes(),
             "any_transactions": page.paginator.count or Transaction.objects.exists(),
             "page_title": _("Transactions"),
             # Swapped in alone, it also brings the sidebar, so that only Transactions is highlighted and the
@@ -311,28 +317,79 @@ def accept_suggestions(request):
     return redirect("review_queue")
 
 
+UNDO_SESSION_KEY = "outcome_undo"
+# Undo is offered for 10 s; a few saves' worth is plenty to keep.
+UNDO_KEPT = 20
+
+
 @require_POST
 def transaction_outcome(request, pk):
-    """Sets a Transaction's outcome by hand. HTMX gets the updated row back; a plain form post goes back to `next`."""
-    transaction = get_object_or_404(Transaction.objects.select_related("account"), pk=pk)
+    """Sets a Transaction's outcome by hand. HTMX gets the updated row back, saying it saved and offering Undo; a
+    plain form post goes back to `next`."""
+    transaction = get_object_or_404(
+        Transaction.objects.select_related("account", "subcategory__category", "counterpart"), pk=pk
+    )
     form = OutcomeForm(request.POST, transaction=transaction)
     if not form.is_valid():
         return HttpResponseBadRequest(form.errors.as_text())
+    before = outcomes.snapshot(
+        transaction, transaction.counterpart, form.candidates.get(form.cleaned_data["outcome"])
+    )
     form.save()
+    undo = request.session.get(UNDO_SESSION_KEY, {})
+    undo.pop(str(pk), None)
+    undo[str(pk)] = before
+    request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
     if request.headers.get("HX-Request"):
+        transaction.refresh_from_db()
+        return announce(
+            _transaction_row(request, transaction, saved=True),
+            _("Saved %(description)s as %(outcome)s.")
+            % {"description": transaction.description, "outcome": transaction.outcome_label},
+        )
+    next_url = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        next_url = "transactions"
+    return redirect(next_url)
+
+
+@require_POST
+def undo_outcome(request, pk):
+    """Puts back the outcome the last save of this Transaction replaced, with its source, and returns the row."""
+    transaction = get_object_or_404(Transaction, pk=pk)
+    before = request.session.get(UNDO_SESSION_KEY, {}).pop(str(pk), None)
+    request.session.modified = True
+    if before is None:
+        return HttpResponseBadRequest()
+    try:
+        outcomes.restore(before)
+    except outcomes.UndoRefused:
+        return HttpResponseBadRequest()
+    transaction.refresh_from_db()
+    return announce(
+        _transaction_row(request, transaction),
+        _("Undone. %(description)s is back to %(outcome)s.")
+        % {"description": transaction.description, "outcome": transaction.outcome_label},
+    )
+
+
+def _transaction_row(request, transaction, *, saved=False):
+    """The row swapped in for a Transaction just changed: the Review queue's own, or the shared Transaction row."""
+    if request.POST.get("row") == "review":
         return render(
             request,
-            "ledger/_transaction_row.html",
+            "ledger/_review_row.html",
             {
                 "t": transaction,
                 "categories": categories_with_subcategories(),
                 "refresh_review_queue_count": True,
             },
         )
-    next_url = request.POST.get("next", "")
-    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
-        next_url = "transactions"
-    return redirect(next_url)
+    return render(
+        request,
+        "ledger/_transaction_row.html",
+        {"t": transaction, **outcomes.picker(), "saved": saved, "refresh_review_queue_count": True},
+    )
 
 
 @admin_required

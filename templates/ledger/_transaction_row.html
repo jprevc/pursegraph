@@ -1,44 +1,71 @@
-{% load figures i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`; `next` overrides where a plain form post goes back to. #}
-{# An unresolved Transaction with an LLM suggestion has it preselected, to accept with one click. #}
-{% with suggested=t.pending_suggestion_id %}
-<tr id="transaction-{{ t.pk }}">
-  <td class="fig">{{ t.date|day }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount|money }}</td>
-  <td>
-    <form class="outcome" data-action method="post" action="{% url 'transaction_outcome' t.pk %}"
-          hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change, submit" hx-target="closest tr" hx-swap="outerHTML">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">
-      <select name="outcome" aria-label="{% translate 'Outcome' %}">
-        {% if t.ambiguous_pairing %}<option value="" selected>{% translate "Pick the other side" %}</option>
-        {% elif t.is_unresolved and not suggested %}<option value="" selected>{% translate "Awaiting review" %}</option>{% endif %}
-        {% for category in categories %}
-        <optgroup label="{{ category.name }}">
-          {% for s in category.subcategories.all %}
-          <option value="{{ s.pk }}"{% if s.pk == t.subcategory_id or s.pk == suggested %} selected{% endif %}>{{ s.name }}</option>
-          {% endfor %}
-        </optgroup>
-        {% endfor %}
-        {% if t.ambiguous_pairing %}
-        <optgroup label="{% translate 'Transfer' %}">
-          {% for c in t.pairing_candidates %}
-          <option value="pair-{{ c.pk }}">{% blocktranslate with date=c.date|day account=c.account.name description=c.description %}Pair with {{ date }} · {{ account }} · {{ description }}{% endblocktranslate %}</option>
-          {% endfor %}
-          <option value="transfer">{% translate "Transfer, one-sided" %}</option>
-        </optgroup>
-        {% else %}
-        <option value="transfer"{% if t.is_transfer %} selected{% endif %}>{% translate "Transfer" %}</option>
-        {% endif %}
-      </select>
-      {% if suggested %}
-      <button type="submit" class="accept primary" data-busy-label="{% translate 'Accepting…' %}">{% translate "Accept" %}</button>
-      <span class="muted source">{% blocktranslate with percent=t.confidence|share %}Suggested · {{ percent }} sure{% endblocktranslate %}</span>
-      {% else %}
-      <noscript><button type="submit">{% translate "Save" %}</button></noscript>
-      {% endif %}
-      {% if t.source %}<span class="muted source">{{ t.get_source_display }}</span>{% endif %}
-      {% if t.source == "manual" %}<a class="source" href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
-    </form>
+{% load figures hues i18n icons %}{% comment %} The Transaction row (docs/design/transaction-row.md), shared by Transactions and the drill-down. The outcome is text;
+only Change changes it: with a fine pointer it opens the chip panel (static/outcome.js, from the table's
+_outcome_chips.html), with a coarse one it is a native select laid over the button, and without JS the select and a
+Save button. Needs `t`, `categories`, `most_used` and `request`; `next` overrides where a plain form post goes back
+to, and `saved` adds the line that says so, with Undo. {% endcomment %}
+{% url 'transaction_outcome' t.pk as outcome_url %}
+<tr id="transaction-{{ t.pk }}" class="txn" data-outcome="{% if t.subcategory_id %}{{ t.subcategory_id }}{% elif t.is_transfer and not t.ambiguous_pairing %}transfer{% endif %}">
+  <td class="c-date fig">{{ t.date|day }}</td>
+  <td class="c-desc">
+    <span class="desc">{{ t.description }}</span>
+    {% if t.is_fee %}<small class="kind">{% translate "Bank fee" %}</small>{% endif %}
+    <small class="m-meta"><span class="fig">{{ t.date|day }}</span>{% if t.is_fee %} · {% translate "Bank fee" %}{% endif %} · {{ t.account.name }}</small>
   </td>
+  <td class="c-acct"><span class="pill">{{ t.account.name }}</span></td>
+  <td class="c-out">
+    <div class="oc">
+      <span class="oc-label">
+        {% if t.subcategory_id %}<i class="dot" style="--hue: var(--{{ t.subcategory.category_id|hue }})" aria-hidden="true"></i><span><span class="cat-name">{{ t.subcategory.category.name }}</span> <span class="sep">›</span> <span class="sub-name">{{ t.subcategory.name }}</span></span>
+        {% elif t.is_transfer %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer" %}</span>
+        {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "Awaiting review" %}</span>{% endif %}
+        {% if t.ambiguous_pairing %}<span class="cap">{% translate "other side unknown" %}</span>
+        {% elif t.source_caption %}<span class="cap">{{ t.source_caption }}</span>{% endif %}
+      </span>
+      <form class="oc-form" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}" method="post" action="{{ outcome_url }}" hx-post="{{ outcome_url }}" hx-target="closest tr" hx-swap="outerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">
+        {% blocktranslate asvar change_label with description=t.description %}Change the outcome of {{ description }}{% endblocktranslate %}
+        <span class="change">
+          <button type="button" class="link" data-change aria-expanded="false" aria-label="{{ change_label }}">{% translate "Change" %}</button>
+          <span class="change-label" aria-hidden="true">{% translate "Change" %}</span>
+          <select name="outcome" aria-label="{{ change_label }}">
+            {% if t.ambiguous_pairing %}<option value="" selected disabled>{% translate "Pick the other side" %}</option>
+            {% elif t.is_unresolved %}<option value="" selected disabled>{% translate "Awaiting review" %}</option>{% endif %}
+            {% if t.ambiguous_pairing %}
+            <optgroup label="{% translate 'The other side of this Transfer' %}" data-pairs>
+              {% for c in t.pairing_candidates %}
+              <option value="pair-{{ c.pk }}">{% blocktranslate with date=c.date|day account=c.account.name description=c.description %}{{ date }} · {{ account }} · {{ description }}{% endblocktranslate %}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+            {% if most_used %}
+            <optgroup label="{% translate 'Most used' %}">
+              {% for s in most_used %}<option value="{{ s.pk }}">{{ s.category.name }} › {{ s.name }}</option>{% endfor %}
+            </optgroup>
+            {% endif %}
+            {% for category in categories %}
+            <optgroup label="{{ category.name }}">
+              {% for s in category.subcategories.all %}<option value="{{ s.pk }}"{% if s.pk == t.subcategory_id %} selected{% endif %}>{{ category.name }} › {{ s.name }}</option>{% endfor %}
+            </optgroup>
+            {% endfor %}
+            <optgroup label="{% translate 'Transfer' %}">
+              <option value="transfer"{% if t.is_transfer and not t.ambiguous_pairing %} selected{% endif %}>{% if t.ambiguous_pairing %}{% translate "Transfer, one-sided" %}{% else %}{% translate "Transfer" %}{% endif %}</option>
+            </optgroup>
+          </select>
+        </span>
+        <button type="submit" class="oc-save">{% translate "Save" %}</button>
+      </form>
+      {% if saved %}
+      <p class="oc-saved" data-saved>
+        {% icon "check" %}<span>{% blocktranslate with outcome=t.outcome_label %}Saved as {{ outcome }}{% endblocktranslate %}</span>
+        <span aria-hidden="true">·</span>
+        <button type="button" class="link" data-action hx-post="{% url 'undo_outcome' t.pk %}" hx-target="closest tr" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
+        {% if t.source == "manual" and not t.counterpart_id %}<span aria-hidden="true">·</span>
+        <a href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
+      </p>
+      {% endif %}
+    </div>
+  </td>
+  <td class="num amt">{{ t.amount|money }}</td>
 </tr>
-{% endwith %}
 {% if refresh_review_queue_count %}{% include "_review_count.html" with oob=True %}{% endif %}

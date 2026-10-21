@@ -121,7 +121,8 @@ def test_a_drill_down_into_another_views_mark_is_titled_by_its_label(logged_in_c
     assert [text(h) for h in re.findall(r"<h2[^>]*>(.*?)</h2>", page, re.S)] == [
         "Sep 2026 · Q3 2026"
     ]
-    assert "--hue" not in page
+    card = re.search(r"<section[^>]*>", page)
+    assert card and "--hue" not in card[0]
 
 
 def test_an_empty_drill_down_says_so_and_announces_none(logged_in_client, household):

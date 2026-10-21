@@ -7,7 +7,7 @@ import pytest
 
 from ledger.models import Account, Subcategory, Transaction
 
-from .conftest import EUR
+from .conftest import EUR, transaction_rows
 
 pytestmark = pytest.mark.django_db
 
@@ -84,10 +84,8 @@ def chart_data(page):
 
 
 def drill_rows(client, params):
-    page = client.get("/spending/transactions/", params).content.decode()
-    return re.findall(
-        r'<tr id="transaction-\d+">\s*<td[^>]*>[^<]*</td><td>[^<]*</td><td>([^<]*)</td>', page
-    )
+    rows = transaction_rows(client.get("/spending/transactions/", params).content.decode())
+    return [description for _date, _account, description, _amount in rows]
 
 
 def test_dashboard_lands_on_spending_by_category_for_the_last_complete_month(

@@ -349,6 +349,110 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .rules .actions form { display: flex; gap: var(--s-1); }
 .bulk-accept { margin-bottom: var(--s-3); }
 
+/* ---------- Transaction row ---------- */
+/* docs/design/transaction-row.md: Date, Transaction, Account, Outcome and Amount, with a Raised hover. The outcome is
+   text; only Change changes it, through the chip panel (fine pointer) or a native select laid over it (coarse). */
+.rows td { padding-top: .625rem; padding-bottom: .625rem; }
+.rows tr.txn:hover > td { background: var(--raised); }
+.rows .c-date { width: 6.5rem; white-space: nowrap; color: var(--ink-2); }
+.rows .desc { font-weight: 500; overflow-wrap: anywhere; }
+.rows .kind { display: block; color: var(--muted); font-size: var(--text-label); }
+.rows .m-meta { display: none; }
+.rows .c-out { width: 42%; }
+.rows .amt { width: 1%; }
+.pill {
+  display: inline-block; max-width: 12rem; padding: .125rem .5rem; border-radius: var(--r-pill);
+  background: var(--raised); color: var(--ink-2); font-size: var(--text-label); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+}
+tr.txn:hover .pill { background: var(--hover); }
+.dot.transfer { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }
+
+/* The outcome, then its actions at a fixed place at the end: a long outcome wraps its own label. */
+.oc { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .375rem var(--s-3); }
+.oc-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); min-width: 0; font-weight: 500; }
+.oc-label .dot { align-self: center; margin-right: calc(var(--s-1) * -1); }
+.oc-label .cat-name { color: var(--muted); font-weight: 400; }
+.oc-label .sep { color: var(--faint); }
+.oc-label .cap { color: var(--muted); font-size: var(--text-label); font-weight: 400; }
+.oc-form { display: flex; align-items: center; gap: var(--s-2); }
+.change { position: relative; display: inline-flex; }
+button.link[data-change] { margin: 0; padding: .375rem .25rem; }
+.change-label { display: none; }
+.oc-form select { height: 2rem; max-width: 16rem; font-size: var(--text-sm); }
+.oc-save { height: 2rem; }
+/* With JS, Change opens the chip panel and the select and Save are for no-JS only. */
+.js .oc-form select, .js .oc-save { display: none; }
+.js [data-change] { display: inline-flex; }
+[data-change] { display: none; }
+@media (pointer: coarse) {
+  /* A tap on Change opens the OS picker: the select lies transparent over the label. 16px, so iOS doesn't zoom. */
+  .js [data-change] { display: none; }
+  .js .change-label { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 .25rem; color: var(--accent-text); font-weight: 500; }
+  .js .oc-form select { display: block; position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; opacity: 0; font-size: 1rem; cursor: pointer; }
+  .js .change:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-inner); }
+}
+.oc-saved, .oc-failed {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); margin: 0;
+  font-size: var(--text-label); color: var(--muted);
+}
+.oc-saved .icon, .oc-failed .icon { width: .875rem; height: .875rem; }
+.oc-saved button.link, .oc-failed button.link { margin: 0; padding: .25rem .125rem; font-size: inherit; }
+.oc-saved a { font-weight: 500; }
+/* A failed save: Ink with an alert icon, never red. */
+.oc-failed { color: var(--ink); font-weight: 500; }
+
+/* The chip panel, in a full-width row under the Transaction. */
+.rows tr.chip-panel > td { background: var(--raised); padding: var(--s-3) var(--s-4) var(--s-4); }
+.pick { display: grid; gap: var(--s-3); }
+.pick-head { display: flex; align-items: center; gap: var(--s-3); }
+.pick-title { flex: 1; margin: 0; color: var(--ink-2); }
+.pick-title b { font-weight: 600; color: var(--ink); }
+.pick-head button.link { margin: 0; padding: .375rem .25rem; }
+.pick-step { display: grid; gap: var(--s-2); }
+.pick-step[hidden] { display: none; }
+.pick-h { display: flex; align-items: center; gap: var(--s-2); margin: 0; color: var(--muted); font-size: var(--text-label); font-weight: 500; }
+.pick-h button.link { margin: 0; padding: .25rem 0; font-size: var(--text-sm); }
+.pick-h > span { color: var(--ink); font-size: var(--text-sm); font-weight: 600; }
+.chips, .pairs { display: flex; flex-wrap: wrap; gap: .375rem; }
+.chips button, .pairs button {
+  height: auto; min-height: 2.25rem; padding: .375rem .75rem; border-radius: var(--r-pill); box-shadow: none;
+  color: var(--ink-2); white-space: normal; text-align: left; line-height: 1.3;
+}
+.chips button:hover, .pairs button:hover { color: var(--ink); }
+.chips button .cat-name { color: var(--muted); font-weight: 400; }
+.chips button .sep { color: var(--faint); }
+.chips button[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+.chips button[aria-current="true"] .cat-name, .chips button[aria-current="true"] .sep { color: inherit; }
+.pairs button { border-radius: var(--r-ctl); }
+
+@media (max-width: 600px) {
+  /* Each row is a stacked card: the description and amount, the date and Account, then the outcome with Change. */
+  .scroll:has(> .rows) { overflow: visible; }
+  .rows thead { display: none; }
+  .rows tr.txn {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3);
+    padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line);
+  }
+  .rows tbody tr.txn:last-child { border-bottom: 0; }
+  .rows tr.txn > td { padding: 0; border: 0; background: none; width: auto; }
+  .rows tr.txn:hover > td { background: none; }
+  .rows .c-date, .rows .c-acct, .rows .kind { display: none; }
+  .rows .c-desc { grid-column: 1; }
+  .rows .amt { grid-column: 2; grid-row: 1; }
+  .rows .m-meta { display: block; color: var(--muted); font-size: var(--text-label); }
+  .rows .c-out { grid-column: 1 / -1; padding-top: var(--s-2); }
+  .oc { grid-template-columns: minmax(0, 1fr); }
+  .oc-form, .change { display: flex; }
+  .change, button.link[data-change], .js .change-label { width: 100%; }
+  button.link[data-change], .js .change-label {
+    justify-content: center; min-height: 2.75rem; border: 1px solid var(--line-strong); border-radius: var(--r-ctl);
+    background: var(--card);
+  }
+  .rows tr.chip-panel, .rows tr.chip-panel > td { display: block; }
+  .chips button, .pairs button { min-height: 2.75rem; }
+}
+
 /* ---------- Dashboard ---------- */
 /* The page head, the view tabs, then the filter bar, which sticks to the top on scroll so the period stays beside
    the figures. */
@@ -485,7 +589,6 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .drill-card .scroll { margin-top: var(--s-3); }
 .drill-card th:first-child, .drill-card td:first-child { padding-left: var(--s-5); }
 .drill-card th:last-child, .drill-card td:last-child { padding-right: var(--s-5); }
-.drill-card tbody tr:hover { background: var(--raised); }
 .drill-card > p.muted { margin: 0; padding: var(--s-3) var(--s-5) 0; }
 .drill-card > p.foot { padding: var(--s-3) var(--s-5) var(--s-5); font-size: var(--text-sm); }
 
@@ -517,24 +620,7 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
   .cat .bar, .review-link { display: none; }
   .sub .amt { grid-column: 4; }
 
-  /* The drill-down's rows stack as cards: the description and amount, then the date and Account, then the
-     outcome. (Transaction row rebuilds the row itself.) */
   #drill { scroll-margin-top: 7.5rem; }
-  .drill-card .scroll { overflow: visible; }
-  .drill-card thead { display: none; }
-  .drill-card tr {
-    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "desc desc amount" "date account account" "outcome outcome outcome";
-    gap: 2px var(--s-2); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line);
-  }
-  .drill-card tbody tr:last-child { border-bottom: 0; }
-  .drill-card td, .drill-card td:first-child, .drill-card td:last-child { padding: 0; border: 0; }
-  .drill-card td:nth-child(1) { grid-area: date; }
-  .drill-card td:nth-child(2) { grid-area: account; }
-  .drill-card td:nth-child(1), .drill-card td:nth-child(2) { color: var(--muted); font-size: var(--text-sm); }
-  .drill-card td:nth-child(3) { grid-area: desc; font-weight: 500; }
-  .drill-card td:nth-child(4) { grid-area: amount; }
-  .drill-card td:nth-child(5) { grid-area: outcome; margin-top: var(--s-2); }
-  .drill-card .outcome select { flex: 1 1 12rem; max-width: none; }
 }
 
 /* ---------- Swaps ---------- */
