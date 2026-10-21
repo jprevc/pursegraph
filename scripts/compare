@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# compare — before/after screenshots for issue N: this worktree against BASE (default origin/main),
+# each on its own demo-server, shot by scripts/shots into OUT_DIR/before and OUT_DIR/after.
+#
+#   scripts/compare N OUT_DIR [page...]      BASE=<ref> to compare against another ref
+#
+# Ports 8000+N (after) and 9000+N (before). Servers, the BASE worktree and the demo databases are
+# all gone when it exits. Then scripts/publish-shots N OUT_DIR for the PR.
+set -euo pipefail
+n="$1" out="$2"; shift 2
+here="$(cd "$(dirname "$0")" && pwd)"
+base="${BASE:-origin/main}"
+after_port=$((8000 + n)) before_port=$((9000 + n))
+
+git -C "$here" fetch -q origin
+before_tree="$(mktemp -d)/before"
+git -C "$here" worktree add -q --detach "$before_tree" "$base"
+
+pids=()
+cleanup() {
+    for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done
+    wait 2>/dev/null || true
+    git -C "$here" worktree remove --force "$before_tree"
+}
+trap cleanup EXIT
+
+"$here/demo-server" "$after_port" >"$out.after.log" 2>&1 & pids+=($!)
+"$before_tree/scripts/demo-server" "$before_port" >"$out.before.log" 2>&1 & pids+=($!)
+
+for port in "$after_port" "$before_port"; do
+    for _ in $(seq 120); do
+        curl -sf -o /dev/null "http://127.0.0.1:$port/login/" && continue 2
+        sleep 0.5
+    done
+    echo "compare: the demo-server on :$port didn't come up; see $out.*.log" >&2
+    exit 1
+done
+
+echo "before ($base):"
+"$here/shots" "http://127.0.0.1:$before_port" "$out/before" "$@"
+echo "after (this worktree):"
+"$here/shots" "http://127.0.0.1:$after_port" "$out/after" "$@"

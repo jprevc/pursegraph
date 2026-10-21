@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# demo-server — run this worktree's app on PORT against a fresh demo database (`seed_demo`).
+#
+#   scripts/demo-server PORT        log in as ana / demo-pass-123 (admin) or luka
+#
+# Uses the PostgreSQL from compose.test.yaml (`docker compose -f compose.test.yaml up -d`), in a
+# database of its own, pursegraph_demo_PORT, made fresh on start and dropped on exit. It reloads on
+# code changes. Start it with run_in_background and stop it with TaskStop.
+set -euo pipefail
+port="$1"
+cd "$(dirname "$0")/.."
+unset VIRTUAL_ENV  # another worktree's venv, inherited from the shell, only makes uv warn
+
+export DJANGO_SETTINGS_MODULE=pursegraph.settings_test DJANGO_DEBUG=1
+export POSTGRES_DB="pursegraph_demo_$port"
+PURSEGRAPH_STATEMENT_FILES="$(mktemp -d)"
+export PURSEGRAPH_STATEMENT_FILES
+
+database() {  # database create|drop: on the server settings_test points at
+    uv run -q python - "$1" <<'PY'
+import sys
+import django
+from django.conf import settings
+django.setup()
+import psycopg
+db = settings.DATABASES["default"]
+with psycopg.connect(host=db["HOST"], port=db["PORT"], user=db["USER"], password=db["PASSWORD"],
+                     dbname="postgres", autocommit=True) as conn:
+    conn.execute(f'DROP DATABASE IF EXISTS "{db["NAME"]}" WITH (FORCE)')
+    if sys.argv[1] == "create":
+        conn.execute(f'CREATE DATABASE "{db["NAME"]}"')
+PY
+}
+server=""
+# runserver's reloader runs the app in a child process, so stop its whole process group.
+cleanup() {
+    [[ -n "$server" ]] && kill -- "-$server" 2>/dev/null && wait "$server" 2>/dev/null
+    database drop || true
+    rm -rf "$PURSEGRAPH_STATEMENT_FILES"
+}
+trap cleanup EXIT
+trap 'exit 143' TERM INT
+
+database create
+uv run -q python manage.py migrate -v0
+uv run -q python manage.py seed_demo
+setsid uv run -q python manage.py runserver "127.0.0.1:$port" &
+server=$!
+wait "$server"
