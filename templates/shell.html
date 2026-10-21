@@ -6,4 +6,6 @@
   {% include "_sidebar.html" %}
   <main id="main" tabindex="-1">{% block main %}{% endblock %}</main>
 </div>
+{# The one polite live region the swap script reads announcements and failures out through; never swapped out. It holds the script's own words. #}
+<div id="announcer" class="sr" role="status" data-saving="{% translate 'Saving…' %}" data-load-failed="{% translate "Couldn't load." %}" data-save-failed="{% translate "Couldn't save. Nothing changed." %}" data-retry="{% translate 'Try again' %}" data-login="{% url 'login' %}"></div>
 {% endblock %}

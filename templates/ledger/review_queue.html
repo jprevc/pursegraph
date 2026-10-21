@@ -1,8 +1,8 @@
 {% extends "shell.html" %}
 {% load i18n %}
-{% block title %}{% translate "Review queue" %}{% endblock %}
+{% block title %}{% if transactions %}{% blocktranslate count n=transactions|length %}Review queue ({{ n }}){% plural %}Review queue ({{ n }}){% endblocktranslate %}{% else %}{% translate "Review queue" %}{% endif %}{% endblock %}
 {% block main %}
-<h2>{% translate "Review queue" %}</h2>
+<h1 tabindex="-1">{% translate "Review queue" %}</h1>
 {% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 {% if transactions %}
 <p class="muted">{% translate "Transactions that still need an outcome, oldest first." %}</p>

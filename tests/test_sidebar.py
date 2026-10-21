@@ -306,7 +306,7 @@ def test_transactions_are_swapped_in_alone_via_htmx(logged_in_client, household)
     ).content.decode()
 
     assert '<div class="shell">' not in swapped
-    assert "<h2>Transactions</h2>" in swapped
+    assert '<h1 tabindex="-1">Transactions</h1>' in swapped
     assert "<title>Transactions · Pursegraph</title>" in swapped
     assert "{#" not in swapped  # no template comment leaks
     # The navigation comes along, with Transactions current.

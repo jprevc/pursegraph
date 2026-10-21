@@ -2,7 +2,7 @@
 {% load figures i18n %}
 {% block title %}{% translate "Delete Statement" %}{% endblock %}
 {% block main %}
-<h2>{% translate "Delete Statement" %}</h2>
+<h1 tabindex="-1">{% translate "Delete Statement" %}</h1>
 <form class="panel stack-form" method="post">
   {% csrf_token %}
   <p>{% blocktranslate with account=statement.account.name period=statement.period_start|date_range:statement.period_end %}{{ account }}: {{ period }}{% endblocktranslate %}</p>

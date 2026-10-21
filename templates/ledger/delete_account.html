@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{% translate "Delete Account" %}{% endblock %}
 {% block main %}
-<h2>{% translate "Delete Account" %}</h2>
+<h1 tabindex="-1">{% translate "Delete Account" %}</h1>
 <form class="panel stack-form" method="post">
   {% csrf_token %}
   <p>{{ account.name }} <span class="muted">· {{ account.get_bank_display }}</span></p>

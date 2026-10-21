@@ -2,7 +2,7 @@
 {% load i18n icons %}
 {% block title %}{% translate "Categories" %}{% endblock %}
 {% block main %}
-<h2>{% translate "Categories" %}</h2>
+<h1 tabindex="-1">{% translate "Categories" %}</h1>
 {% for message in messages %}<p class="panel notice rejected error">{{ message }}</p>{% endfor %}
 <p class="muted">{% translate "Deleting a Subcategory moves its Transactions to its Category's catch-all. A catch-all can't be deleted, and a Category can be deleted only when no Transactions or Rules use it." %}</p>
 
