@@ -1,5 +1,5 @@
-{% load hues i18n icons %}{# The Transactions behind a chart mark, editable inline like on the Transactions page: a full-width card titled by the mark and the period, which static/dashboard.js keeps the open Category in step with. #}
-<section class="panel drill-card" data-mark="{{ mark }}"{% if hue %} style="--hue: var(--{{ hue|hue }})"{% endif %} aria-labelledby="drill-heading">
+{% load i18n icons %}{# The Transactions behind a chart mark, editable inline like on the Transactions page: a full-width card titled by the mark and the period, which static/dashboard.js keeps the open Category in step with. #}
+<section class="panel drill-card" data-mark="{{ mark }}"{% if hue %} style="--hue: var(--{{ hue }})"{% endif %} aria-labelledby="drill-heading">
   <div class="card-head">
     {% if hue %}<i class="dot{% if hue == 'awaiting' %} awaiting{% endif %}" aria-hidden="true"></i>{% endif %}
     <h2 id="drill-heading">{{ title }}</h2>

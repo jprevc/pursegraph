@@ -236,9 +236,12 @@ def spending_by_category(period: Period, filters: Filters) -> ViewData:
         "segments": segments,
         # The share bars are scaled to the largest amount.
         "largest": float(max((r.amount for r in rows), default=Decimal(0))),
-        "categories": sum(1 for r in rows if r.key != AWAITING_REVIEW),
+        "category_count": sum(1 for r in rows if r.key != AWAITING_REVIEW),
     }
-    return ViewData(rows, sum((r.amount for r in rows), Decimal(0)), chart)
+    total = sum((r.amount for r in rows), Decimal(0))
+    # Shares are of the whole total, Refunds netted in, as the list's are.
+    chart["total"] = float(total)
+    return ViewData(rows, total, chart)
 
 
 def spending_transactions(period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
@@ -630,11 +633,14 @@ def tiles(view: str, period: Period, filters: Filters) -> list[Tile]:
     heeds: Per Member ignores the Member filter."""
     if view == "per_member":
         filters = replace(filters, member=None)
-    now, before = _headline(period, filters), _headline(period.previous, filters)
-    labels = [_("Spent"), _("Money in"), _("Net")]
+    (spent, money_in, net), (spent_before, money_in_before, net_before) = (
+        _headline(period, filters),
+        _headline(period.previous, filters),
+    )
     return [
-        Tile(label, amount, previous, signed=label == labels[2])
-        for label, amount, previous in zip(labels, now, before, strict=True)
+        Tile(_("Spent"), spent, spent_before),
+        Tile(_("Money in"), money_in, money_in_before),
+        Tile(_("Net"), net, net_before, signed=True),
     ]
 
 

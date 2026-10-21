@@ -30,7 +30,7 @@
     // The donut: segments labelled directly (only those of 5 % or more when narrow), Awaiting review hatched and
     // unlabelled, and every segment but the open Category's dimmed while one is open. It sweeps in once.
     spending: (data, { TEXT, tooltip, INK2, LINE_STRONG, colour }, { narrow, open, animate }) => {
-      const total = data.segments.reduce((sum, s) => sum + s.value, 0);
+      const total = data.total;
       const labelled = s => s.key !== AWAITING && (!narrow || s.value / total >= 0.05);
       const html = echarts.format.encodeHTML;
       return {
@@ -139,8 +139,11 @@
     el.dataset.open = openMark() || '';
     build(chart, el, !quiet);
     // Every mark that names Transactions carries its key: a bar, a point, a segment or a Sankey node.
+    // The open Category's segment closes it again, as its row does.
     chart.on('click', p => {
-      if (p.data?.key) htmx.ajax('GET', data.drill + encodeURIComponent(p.data.key), '#drill');
+      if (!p.data?.key) return;
+      if (p.data.key === openMark()) close();
+      else htmx.ajax('GET', data.drill + encodeURIComponent(p.data.key), '#drill');
     });
     if (el.dataset.chart === 'spending') {
       chart.on('mouseover', p => light(p.data.key, true));
@@ -243,7 +246,9 @@
     });
   }
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('drill')?.contains(document.activeElement)) close();
+    // From the drill-down, or from the list or table that opened it.
+    const from = document.activeElement;
+    if (e.key === 'Escape' && openMark() && from.closest('#drill, .cats, .view-table')) close();
   });
 
   document.addEventListener('DOMContentLoaded', () => charts(document).forEach(el => mount(el)));

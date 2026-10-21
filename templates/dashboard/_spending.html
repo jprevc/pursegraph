@@ -8,7 +8,7 @@
     <div class="donut-wrap">
       <div class="chart donut" data-chart="spending" data-source="{{ source }}" role="img" aria-label="{% translate 'Donut chart of spending by Category; the list beside it has every figure.' %}"></div>
       {# What the donut's centre shows: the period's total, or the Category hovered. #}
-      <p class="donut-centre" aria-hidden="true"><span class="k">{% translate "Spent" %}</span><span class="v fig" data-centre-value>{{ data.total|money }}</span><span class="s" data-centre-name>{% blocktranslate count n=chart.categories %}{{ n }} Category{% plural %}{{ n }} Categories{% endblocktranslate %}</span></p>
+      <p class="donut-centre" aria-hidden="true"><span class="k">{% translate "Spent" %}</span><span class="v fig" data-centre-value>{{ data.total|money }}</span><span class="s" data-centre-name>{% blocktranslate count n=chart.category_count %}{{ n }} Category{% plural %}{{ n }} Categories{% endblocktranslate %}</span></p>
     </div>
   </section>
   <section class="panel cats-card" aria-labelledby="categories-heading">

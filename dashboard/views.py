@@ -16,6 +16,7 @@ from pursegraph.htmx import announce
 
 from . import queries
 from .periods import Period
+from .templatetags.hues import hue
 
 if TYPE_CHECKING:
     from django_stubs_ext import StrOrPromise
@@ -105,8 +106,10 @@ def _announcement(v: View, period: Period, filters: queries.Filters, members, ac
     if len(filters.accounts) == 1:
         parts += [a.name for a in accounts if a.pk in filters.accounts]
     elif filters.accounts:
-        parts.append(_("%(count)d Accounts") % {"count": len(filters.accounts)})
-    return ", ".join(parts)
+        count = len(filters.accounts)
+        parts.append(ngettext("%(count)d Account", "%(count)d Accounts", count) % {"count": count})
+    # A list of the parts, as a translation may join them otherwise.
+    return str(_(", ")).join(parts)
 
 
 def show(request, view: str):
@@ -179,9 +182,9 @@ def transactions(request, view: str):
             "transactions": rows,
             "categories": categories_with_subcategories(),
             "mark": key,
-            # A Category's hue, where the view's marks are Categories.
-            "hue": key if v.name == "spending" else "",
-            "title": f"{label} · {period.label}",
+            # A Category's hue token, where the view's marks are Categories.
+            "hue": hue(key) if v.name == "spending" else "",
+            "title": _("%(mark)s · %(period)s") % {"mark": label, "period": period.label},
             # Without HTMX, saving an outcome goes back to the view rather than to this fragment.
             "next": f"{reverse(v.name)}?period={period.token}{_filter_query(filters)}",
         },
