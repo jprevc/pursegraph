@@ -366,50 +366,10 @@ Ranked rows, largest first, with Awaiting review always last. Each row shows a d
 An ECharts SVG pie, radius 56–78% (47–66% when narrow), with the period total in the centre (Headline figure, muted caption). On hover the centre shows the hovered Category's amount and name. Segments are labelled directly in Ink 2, Inter 500 12px (11px narrow, and only segments of 5% or more when narrow), with Line Strong leader lines. Awaiting review is unlabelled and hatched with 45° white stripes at 45%. Hovering a segment highlights its row (and the reverse), with a 6px emphasis scale. With a Category open, other segments dim to Line Strong. The donut sweeps in once on load (700ms, cubic-out), and not at all under reduced motion. Tooltips use the card fill, a Line border and Ink text. The chart re-themes by rebuilding its options from CSS custom properties (`getComputedStyle`) and calling `setOption` with `notMerge` on theme switch, system scheme change and resize. ECharts 5.6 has no live theme switch.
 
 ### Charts (the other Dashboard views)
-Classic axes, Monarch-style: every chart sits in a card, has a legend, has quiet axes and a table beside it. All charts are ECharts SVG and are built from the same parts:
-- **Legend:** top left, 8px circle icons, Ink 2 Inter 500 12px, 16px between items. It scrolls when it overflows. A hidden series' icon turns Line Strong. Clicking an entry hides its series (Trends, Per Member).
-- **Value axis:** labels in whole euros ("1.200 €"), Muted 12px. Solid Line gridlines. No axis line or ticks.
-- **Category axis:** a Line Strong baseline, no ticks, Muted 12px labels (the month labels the server sends).
-- **Tooltip:** the card fill, a Line border, a 10px radius and the Pop shadow, with Ink 13px text. An axis tooltip is a small table: the month in 600, then one row per series (hue dot, name in Ink 2, amount right-aligned in 600, tabular), sorted biggest first where the series are Categories, with a Total row under a hairline. Amounts in tooltips carry cents ("1.234,56 €"), and Net carries its sign. Bars use a shadow pointer in Hover at 60%, and lines use a Line Strong pointer line.
-- **Emphasis:** hovering a series focuses it and blurs the rest (lines to 15% opacity, bar segments to 25%).
-- **Motion:** a 600ms cubic-out entrance, and none under reduced motion. `aria.enabled` is on for every chart.
-
-Per view:
-- **Cashflow:** grouped bars for Money in (the Income Category's hue) and Money out (Muted, a neutral, since spending as a whole is no Category). The bars are at most 22px wide, with a 4px top radius and a 10% gap. Net is an Ink line, 2px, with 7px circle points ringed in the card colour. Under a Member filter, "To/from other Members" is a dashed Ink 2 line.
-- **Category trends:** one 2px line per Category in its hue, with no points until hover (7px circles). Awaiting review is a dashed Awaiting line, since a line can't carry the hatch. The tooltip lists every Category for the month, biggest first, with a Total row.
-- **Per Member:** horizontal stacked bars, one per Bucket (at most 28px), Bucket names in Ink 13px 600. Segments are in Category hues with a 1.5px card-coloured border between them, and Awaiting review is hatched. The tooltip lists the Bucket's Categories, biggest first, with a Total row.
-- **Money flow (Sankey):** income nodes on the left, Household in the middle, Categories and Saved/From savings on the right. Nodes are 12px wide with a 2px radius and 10px gaps. Income Subcategories wear the Income Category's hue, Household is Ink 2, Saved, From savings and To/from other Members are Muted, and Awaiting review is hatched. Links take a source-to-target gradient at 30% opacity (60% on hover, with adjacency focus). Income node labels sit to the left of their nodes, Household's sits above it, and the rest sit to the right, each as "name amount" (Ink 2 500, then the amount in Muted, whole euros). Labels that would overlap are dropped, and the table beside the chart still lists every node. The edge tooltip reads "Salary → Household", then the amount and its share of money in.
-
-Every chart rebuilds its options from the CSS tokens and calls `setOption(…, { notMerge: true })` on theme switch, on system scheme change and when its width changes (the existing per-chart `ResizeObserver`), as the donut does.
+Classic axes in a card, with a legend and a table beside each chart. Legend, axes, tooltip, emphasis, motion and each view's chart: see `docs/design/charts.md`.
 
 ### Period completeness
-A missing Statement must never read as less spending. The Dashboard reads Coverage (derived, read-only: no new data, no URL change) and says how complete the period is. It considers only the Accounts the Member and Account filters include, so it never names an Account whose numbers aren't on screen. Accounts that receive no Statements are never considered.
-
-**Month states.** Each month, for the included Accounts, is one of:
-- **Complete:** no Gap. Drawn as usual, and a 0 is a real 0.
-- **Partial:** at least one included Account has a Gap in it (a missing July; or 16–30 Sep, after a mid-month import).
-- **Partly tracked:** before the first Coverage day of some included Account but not of all. It isn't a Gap: Coverage can't tell an Account opened later from one whose earlier Statements were never imported, so the month says what is known without claiming anything is missing.
-- **In progress:** the running month, with no Gap up to today. Incomplete by time, not by a Gap.
-- **Not tracked:** before the first Coverage day of every included Account. There are no numbers, not zeros.
-
-The running month with a Gap is Partial. A longer period takes the first of Partial, Partly tracked, In progress, Not tracked, Complete that any of its months is. A period that is wholly Not tracked shows the Not tracked card (see Empty states) instead of a view.
-
-**Header line.** One line between the view bar and the stat tiles: Ink 2 13px with a muted 16px info icon, no fill, border or alert colour (the No Verdict Rule). It has up to three parts, joined by "·":
-1. **Gaps,** leading with the consequence: "Incomplete: no Statements yet from Luka's N26 for 1–31 Jul". Each Account name links to Import. Past two Accounts the rest collapse into "and 2 more", which expands in place.
-2. **Partly tracked,** for each included Account that isn't tracked yet during a part of the period in which another one is: "Joint Revolut is tracked from 1 Feb 2026". No link, because there may be nothing to import.
-3. **Awaiting review:** "2.148 € (81 %) still awaiting review", linked to the Review queue, whenever the period's Awaiting review is not zero. It is a statement of fact, not a nudge, and never makes a period incomplete.
-
-The line is absent when neither part applies. In progress alone adds nothing here, because the stepper's "so far, to 17 Oct" already says it. On a phone it wraps and is never truncated.
-
-**Month-axis charts** (Cashflow, Category trends, and any view over several months). The data marks stay as they are, because they are real numbers, only incomplete. The month column carries the state:
-- **Partial / Partly tracked / In progress:** a full-height band behind the month in Hover (Raised is invisible on the card), with a muted 11px label at its top, "Partial", "Partly tracked" or "So far". The bands are a bar series of their own on hidden axes, because a `markArea` from a month to itself has no width on a category axis, and on the shared axes they would join Cashflow's bar groups. Category trends draws its points at month centres (`boundaryGap: true`) so that each month is a column a band can fill. The axis label of the running month reads "Oct (so far)". The axis tooltip opens with the reason ("No Statements from Luka's N26 for 1–31 Jul", "Joint Revolut is tracked from 1 Feb 2026", or "So far, to 17 Oct") above its table.
-- **Not tracked:** the month keeps its place on the axis with a Faint label, and its data is `null`: no bar, and lines break rather than dropping to 0. Its tooltip reads "No Statements yet".
-
-The bands' text labels are the non-colour cue. The hatch stays reserved for Awaiting review and the dash for Awaiting review as a line, so completeness uses neither.
-
-**Tables** beside the charts carry the same states in text: column headers "Jul (partial)", "Jan (partly tracked)" and "Oct (so far)", and "—" (never 0) in a Not tracked month's cells. A qualifier wraps under the month, in Muted, so it never widens the table.
-
-**Periods.** Every view opens on the last full month, even when that month is Partial (the header line says why), and Category trends opens on the 12 months ending with it. The running month is reached only with ›, as In progress. There is no "this month so far" anywhere else.
+A missing Statement must never read as less spending. Month states, the header line, chart bands, table qualifiers and the opening period: see `docs/design/period-completeness.md`.
 
 ### Drill-down
 A full-width card titled with the Category's hue dot and "Category · Period", with a ghost close button. When the period isn't Complete, the title carries the same qualifier as the tables: "Food · July 2026 (partial)", "(partly tracked)" or "(so far)". A table of Transaction rows follows (see Transaction row). A muted footnote explains that changing an outcome moves the amount between Categories. The card's foot links to the whole list: "All 37 in Transactions ›", which opens Transactions filtered to that Category, period, Member and Account.
@@ -426,16 +386,12 @@ Each page-level surface has its own file in `docs/design/`, so parallel tickets 
 - **Import and the Accounts board** (`docs/design/import.md`), with Import copy
 - **Transactions page** (`docs/design/transactions-page.md`)
 - **Admin pages** (`docs/design/admin.md`): Categories, LLM suggestions and Members
+- **Navigation** (`docs/design/navigation.md`): the shell, Manage and the theme switch
+- **Charts** (`docs/design/charts.md`): the Dashboard views other than Spending
+- **Period completeness** (`docs/design/period-completeness.md`)
 
 ### Navigation
-The shell is organised by the Household's jobs, not by code modules: four destinations, with everything that is maintenance tucked under Manage.
-- **Sidebar:** the wordmark and mark at the top. Then four destinations: Dashboard, Transactions, Review queue (with its count badge) and Import. Items are an 18px 1.5px-stroke icon plus a 500 15px label, Ink 2, padded 9px 12px. Hover takes the Hover fill. Active takes Indigo Wash with Indigo Ink and `aria-current="page"`. Dashboard stays active on all five views.
-- **Manage:** below the destinations, a collapsible group under a muted 12px "Manage" heading with a rotating chevron. It holds Rules for every Member, then Categories, LLM suggestions, Accounts and Members for admins. Its links are 14px, indented, without a separate Admin heading. The group is closed by default and opens when one of its pages is current.
-- **Review queue count:** an Indigo count badge on the Review queue item (sidebar) and on the Review tab (phone), shown to every Member and hidden when the queue is empty. The Dashboard's Awaiting review row also links to the queue ("Review 7").
-- **Sidebar foot:** a single account button (avatar, name and role, an up/down chevron). It opens a popover upward holding the theme switch (a three-segment Light / System / Dark control on a ground track, where the pressed segment takes the card fill and Card shadow; it sets `data-theme` on `<html>` and is remembered per browser in `localStorage`) and Log out.
-- **Theme switch behaviour:** the three segments are a native radio group (visually hidden `<input type="radio" name="theme">` with labelled segments, each an icon plus its text), so arrow keys move between them and there is one tab stop. The switch stays `hidden` until `static/theme.js` runs, which checks the saved segment on load and again on `htmx:historyRestore`. Only the shell has it, in the account popover (desktop) and the More sheet (phone): login and registration simply honour the saved choice. Radio groups are grouped by `name` across the whole document, so if both are rendered they use distinct names (`theme`, `theme-sheet`) and `theme.js` keeps them in step. `<html>` ships as `data-theme="system"`, and a blocking inline script in `base.html`'s `<head>`, before the stylesheet, applies the saved `theme` (only `light`, `dark` or `system`; anything else, or storage throwing, means `system`) before first paint. HTMX never replaces `<html>`, so swaps cannot flash. On a change, `theme.js` dispatches a `themechange` event on `document`, also when the system scheme changes while System is active, and `dashboard.js` rebuilds each mounted chart's options from it. The switch is instant, with no colour transition.
-- **Carried period and filters:** every link back to a Dashboard view carries the chosen period and the Member and Account filters in its URL, from any page. Links into Transactions carry them too, as the same query parameters. The sidebar's Transactions link opens All time. Transactions and the Dashboard views are swapped in by HTMX without a full reload.
-- **Phone:** the bottom tab bar and More sheet as described in Layout.
+Organised by the Household's jobs: four destinations, with maintenance under Manage. Sidebar, Manage, count badge, account popover, theme switch, carried filters and phone: see `docs/design/navigation.md`.
 
 ### Icons
 Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. They are 18px in navigation and 16px in controls. Icons are inline SVG symbols, never glyphs or an icon font.
