@@ -35,7 +35,7 @@
   <a href="{{ dashboard_url }}{{ carried_query }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Dashboard" %}</a>
   <a href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true"{% if nav == 'transactions' %} aria-current="page"{% endif %}>{% icon "list" %}{% translate "Transactions" %}</a>
   <a href="{{ review_url }}{{ carried_page_query }}"{% if nav == 'review_queue' %} aria-current="page"{% endif %}>{% icon "check" %}{% translate "Review" %}{% include "_review_count.html" %}</a>
-  <button type="button" popovertarget="more"{% if manage_open or nav == 'import' %} aria-current="page"{% endif %}>{% icon "more" %}{% translate "More" %}</button>
+  <button type="button" popovertarget="more"{% if manage_open or nav == 'import' %} aria-current="true"{% endif %}>{% icon "more" %}{% translate "More" %}</button>
 </nav>
 <div id="more" class="sheet" popover role="dialog" aria-label="{% translate 'More' %}">
   <div class="grip" aria-hidden="true"></div>

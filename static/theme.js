@@ -24,19 +24,21 @@
     metas.forEach(([meta, own]) => { meta.content = theme === 'system' ? own : ground; });
   };
 
+  const announce = theme => document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
+
   const apply = theme => {
     root.dataset.theme = theme;
     try { localStorage.setItem('theme', theme); } catch (e) { /* not remembered, but still applied */ }
     paintMetas();
     sync();
-    document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
+    announce(theme);
   };
 
   document.addEventListener('change', e => {
     if (e.target.matches('.theme-switch input[type="radio"]') && THEMES.includes(e.target.value)) apply(e.target.value);
   });
   dark.addEventListener('change', () => {
-    if (current() === 'system') document.dispatchEvent(new CustomEvent('themechange', { detail: { theme: 'system' } }));
+    if (current() === 'system') announce('system');
   });
 
   paintMetas();

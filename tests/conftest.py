@@ -74,7 +74,7 @@ def subcategory_id(category, name):
 
 def review_queue_count(page):
     """The count the badge on "Review queue" shows, hidden at 0."""
-    count = re.search(r'<span class="badge review-count"[^>]*>(\d+)</span>', page)
+    count = re.search(r'<span class="badge review-count"[^>]*>(\d+)<span class="sr">', page)
     assert count, "no Review queue count"
     return int(count[1])
 

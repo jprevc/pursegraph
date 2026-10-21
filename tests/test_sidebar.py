@@ -16,11 +16,12 @@ def today(monkeypatch):
 
 def text(fragment):
     """What `fragment` reads as, leaving out a count badge."""
-    fragment = re.sub(r'<span class="badge[^>]*>[^<]*</span>', "", fragment)
+    fragment = re.sub(r'<span class="badge.*?</span></span>', "", fragment, flags=re.S)
     return html.unescape(re.sub(r"<[^>]+>", "", fragment)).strip()
 
 
 def sidebar(page):
+    """The desktop sidebar's markup."""
     aside = re.search(r'<aside class="sidebar"[^>]*>(.*?)</aside>', page, re.S)
     assert aside, "no sidebar"
     return aside[1]
@@ -37,6 +38,7 @@ def nav_items(fragment):
 
 
 def manage(page):
+    """The Manage group in the sidebar: its attributes, then its contents."""
     group = re.search(r'<details class="manage"([^>]*)>(.*?)</details>', sidebar(page), re.S)
     assert group, "no Manage group"
     return group
@@ -107,7 +109,9 @@ def test_the_review_queue_badge_counts_on_the_sidebar_and_the_phone_tab(
 ):
     page = logged_in_client.get("/transactions/").content.decode()
 
-    badges = re.findall(r'<span class="badge review-count"([^>]*)>(\d+)</span>', page)
+    badges = re.findall(
+        r'<span class="badge review-count"([^>]*)>(\d+)<span class="sr"> to review</span>', page
+    )
     assert [(" hidden" in attrs, n) for attrs, n in badges] == [(False, "2"), (False, "2")]
     assert review_queue_count(page) == 2
 
@@ -233,7 +237,7 @@ def test_the_more_sheet_holds_import_manage_the_theme_and_log_out(admin_client, 
 def test_more_is_current_on_the_pages_it_holds(logged_in_client, household):
     bar = tab_bar(logged_in_client.get("/import/").content.decode())
 
-    assert re.search(r'<button type="button" popovertarget="more" aria-current="page"', bar)
+    assert re.search(r'<button type="button" popovertarget="more" aria-current="true"', bar)
 
 
 def view_tabs(page):

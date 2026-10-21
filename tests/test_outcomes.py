@@ -31,7 +31,8 @@ def test_inline_change_returns_the_updated_row_marked_manual(logged_in_client):
     assert row.lstrip().startswith("<tr")
     assert outcome_shown(row, "Corner Shop") == "Food → Groceries"
     assert "Manual" in row
-    assert review_queue_count(row) == 5  # swapped into the sidebar out of band
+    assert review_queue_count(row) == 5  # swapped into every badge out of band
+    assert 'hx-swap-oob="outerHTML:.review-count"' in row
 
 
 def test_inline_change_without_htmx_goes_back_to_the_page(logged_in_client):
