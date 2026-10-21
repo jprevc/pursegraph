@@ -6,9 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from django.utils import formats, timezone
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
+
+from pursegraph import figures
 
 UNITS = [
     ("month", gettext_lazy("Month")),
@@ -174,7 +176,7 @@ class Period:
     @property
     def label(self) -> str:
         if self.unit == "month":
-            return formats.date_format(self.start, "F Y")
+            return figures.month(self.start)
         if self.unit == "quarter":
             return _("Q%(quarter)s %(year)s") % {
                 "quarter": _quarter_of(self.start),
@@ -182,10 +184,7 @@ class Period:
             }
         if self.unit == "year":
             return str(self.start.year)
-        pattern = "M Y" if self.unit == "last12" else "j M Y"
-        return (
-            f"{formats.date_format(self.start, pattern)} – {formats.date_format(self.end, pattern)}"
-        )
+        return figures.date_range(self.start, self.end)
 
     @property
     def so_far(self) -> date | None:

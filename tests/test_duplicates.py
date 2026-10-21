@@ -8,6 +8,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ledger.models import Account
 
+from .conftest import EUR
+
 pytestmark = pytest.mark.django_db
 
 HEADER = "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance"
@@ -103,9 +105,9 @@ def test_overlap_that_does_not_match_rejects_the_whole_file(
     assert "Not imported" in page
     assert "don&#x27;t match the Transactions already imported" in page
     mismatch = page[page.index('class="mismatch"') :]
-    assert "2026-06-08" in mismatch
-    assert "-3.20" in mismatch  # already imported, missing from the file
-    assert "-3.30" in mismatch  # in the file, not imported before
+    assert "8 Jun 2026" in mismatch
+    assert f"−3,20{EUR}" in mismatch  # already imported, missing from the file
+    assert f"−3,30{EUR}" in mismatch  # in the file, not imported before
     assert "Mercator" in mismatch  # June 10 is in the Coverage, but missing from the file
     assert "Petrol" not in transactions_page(logged_in_client)
     assert len(list(statement_files.rglob("*.csv"))) == 1
@@ -217,8 +219,8 @@ def test_a_duplicate_is_linked_to_every_statement_it_appears_on(logged_in_client
 
     page = import_page(logged_in_client)
 
-    assert '<td class="num">6</td>' in statement_row(page, "1 Jun 2026 – 10 Jun 2026")
-    assert '<td class="num">3</td>' in statement_row(page, "8 Jun 2026 – 12 Jun 2026")
+    assert '<td class="num">6</td>' in statement_row(page, "1–10 Jun 2026")
+    assert '<td class="num">3</td>' in statement_row(page, "8–12 Jun 2026")
 
 
 def test_opening_balance_must_line_up_with_the_accounts_running_balance(
@@ -232,8 +234,8 @@ def test_opening_balance_must_line_up_with_the_accounts_running_balance(
     ).content.decode()
 
     assert "Not imported" in page
-    assert "2400.00" in page
-    assert BALANCE_JUNE_10 in page
+    assert f"2.400,00{EUR}" in page
+    assert f"2.429,44{EUR}" in page
     assert "Petrol" not in transactions_page(logged_in_client)
 
 
@@ -260,7 +262,7 @@ def test_several_files_are_imported_independently_in_period_order(
 
     # The later file lines up only because June was imported first, and each file gets its own block.
     assert page.count("Imported into Ana&#x27;s Revolut") == 2
-    assert page.index("1 Jun 2026 – 10 Jun 2026") < page.index("11 Jun 2026 – 11 Jun 2026")
+    assert page.index("·</span> 1–10 Jun 2026</p>") < page.index("·</span> 11 Jun 2026</p>")
     assert "broken.csv" in page[page.index('class="panel notice rejected"') :]
     assert page.count("Not imported") == 1
     # Both went into the one Account created by the upload.
@@ -277,7 +279,7 @@ def test_summary_warns_when_the_statement_leaves_a_coverage_gap(logged_in_client
     ).content.decode()
 
     assert "2 Transactions imported" in page  # a warning, not a rejection
-    assert "No Statement covers 11 Jun 2026 – 14 Jun 2026 yet." in page
+    assert "No Statement covers 11–14 Jun 2026 yet." in page
 
 
 def test_summary_has_no_gap_warning_when_the_coverage_stays_continuous(
@@ -302,13 +304,13 @@ def test_import_page_shows_each_accounts_coverage_with_its_gaps(logged_in_client
 
     account = page[page.index("<h4>Ana&#x27;s Revolut") : page.index(f"<h4>{savings.name}")]
     timeline = account[account.index('class="coverage"') :]
-    assert "Covered 1 Jun 2026 – 10 Jun 2026" in timeline
-    assert "Gap 11 Jun 2026 – 14 Jun 2026" in timeline
-    assert "Covered 15 Jun 2026 – 20 Jun 2026" in timeline
+    assert "Covered 1–10 Jun 2026" in timeline
+    assert "Gap 11–14 Jun 2026" in timeline
+    assert "Covered 15–20 Jun 2026" in timeline
     assert "Last Statement ends 20 Jun 2026" in account
     statements = account[account.index("<details") :]
-    assert "1 Jun 2026 – 10 Jun 2026" in statements
-    assert "15 Jun 2026 – 20 Jun 2026" in statements
+    assert "1–10 Jun 2026" in statements
+    assert "15–20 Jun 2026" in statements
     no_statements = page[page.index(f"<h4>{savings.name}") :]
     assert "No Statements yet." in no_statements
     assert 'class="coverage"' not in no_statements
@@ -325,8 +327,8 @@ def test_a_statement_just_before_the_coverage_must_close_at_its_opening_balance(
     ).content.decode()
 
     assert "Not imported" in page
-    assert "998.50" in page
-    assert "500.00" in page
+    assert f"998,50{EUR}" in page
+    assert f"500,00{EUR}" in page
     assert "Kiosk" not in transactions_page(logged_in_client)
 
 

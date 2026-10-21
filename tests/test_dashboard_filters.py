@@ -6,7 +6,7 @@ import pytest
 
 from ledger.models import Account, Category, Transaction
 
-from .conftest import drill_rows, make_account, view_chart, view_table
+from .conftest import EUR, drill_rows, make_account, view_chart, view_table
 
 pytestmark = pytest.mark.django_db
 
@@ -90,7 +90,11 @@ def test_per_member_ignores_the_member_filter_but_not_the_account_filter(
     page = logged_in_client.get(
         "/per-member/", {"period": "2026-09", "member": marko}
     ).content.decode()
-    assert view_table(page) == [["ana", "162.30"], ["marko", "40.00"], ["Joint", "60.00"]]
+    assert view_table(page) == [
+        ["ana", f"162,30{EUR}"],
+        ["marko", f"40,00{EUR}"],
+        ["Joint", f"60,00{EUR}"],
+    ]
     assert drill_rows(
         logged_in_client,
         "/per-member/transactions/",
@@ -101,7 +105,7 @@ def test_per_member_ignores_the_member_filter_but_not_the_account_filter(
         "/per-member/",
         {"period": "2026-09", "member": marko, "account": account_id("Joint Revolut")},
     ).content.decode()
-    assert view_table(page) == [["Joint", "60.00"]]
+    assert view_table(page) == [["Joint", f"60,00{EUR}"]]
 
 
 def pair(description, other):
@@ -129,20 +133,24 @@ def test_under_a_member_filter_cashflow_shows_transfers_to_and_from_other_member
     page = logged_in_client.get("/cashflow/", {"period": "2026-09", "member": ana}).content.decode()
     # The net is what Ana's Account balance moved by: 2045.00 in, 162.30 spent, 500.00 to the joint Account.
     assert "To/from other Members" in page
-    assert view_table(page) == [["Sep 2026", "2045.00", "162.30", "-500.00", "1382.70"]]
+    assert view_table(page) == [
+        ["Sep 2026", f"2.045,00{EUR}", f"162,30{EUR}", f"−500,00{EUR}", f"+1.382,70{EUR}"]
+    ]
     assert view_chart(page, "cashflow")["others"] == [-500]
 
     page = logged_in_client.get(
         "/cashflow/", {"period": "2026-09", "member": "joint"}
     ).content.decode()
-    assert view_table(page) == [["Sep 2026", "0.00", "60.00", "500.00", "440.00"]]
+    assert view_table(page) == [
+        ["Sep 2026", f"0,00{EUR}", f"60,00{EUR}", f"+500,00{EUR}", f"+440,00{EUR}"]
+    ]
 
 
 def test_without_a_member_filter_cashflow_has_no_other_members(logged_in_client, paired):
     page = logged_in_client.get("/cashflow/", {"period": "2026-09"}).content.decode()
 
     assert "To/from other Members" not in page
-    assert view_table(page) == [["Sep 2026", "3550.00", "262.30", "3287.70"]]
+    assert view_table(page) == [["Sep 2026", f"3.550,00{EUR}", f"262,30{EUR}", f"+3.287,70{EUR}"]]
 
 
 def test_a_transfers_other_side_is_its_counterpart_or_else_the_account_of_its_iban(
@@ -170,7 +178,9 @@ def test_a_transfers_other_side_is_its_counterpart_or_else_the_account_of_its_ib
     page = logged_in_client.get(
         "/cashflow/", {"period": "2026-09", "member": marko.pk}
     ).content.decode()
-    assert view_table(page) == [["Sep 2026", "1505.00", "40.00", "-50.00", "1415.00"]]
+    assert view_table(page) == [
+        ["Sep 2026", f"1.505,00{EUR}", f"40,00{EUR}", f"−50,00{EUR}", f"+1.415,00{EUR}"]
+    ]
 
 
 def test_a_months_drill_down_includes_transfers_to_other_members(logged_in_client, paired):
@@ -217,7 +227,7 @@ def test_category_trends_leave_transfers_out_under_a_member_filter(logged_in_cli
         "/trends/", {"period": "2026-09", "member": "joint"}
     ).content.decode()
 
-    assert view_table(page) == [["Food", "60.00", "60.00"]]
+    assert view_table(page) == [["Food", f"60,00{EUR}", f"60,00{EUR}"]]
 
 
 def selected_member(page):

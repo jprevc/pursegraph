@@ -4,7 +4,7 @@ import pytest
 
 from ledger.models import Category
 
-from .conftest import drill_rows, view_chart, view_table
+from .conftest import EUR, drill_rows, view_chart, view_table
 
 pytestmark = pytest.mark.django_db
 
@@ -24,14 +24,35 @@ def test_category_trends_default_to_the_last_12_months(logged_in_client, househo
     page = logged_in_client.get("/trends/").content.decode()
 
     assert "Category trends" in page
-    assert "Nov 2025 – Oct 2026" in page
+    assert "1 Nov 2025 – 31 Oct 2026" in page
     assert "so far, to 15 Oct 2026" in page
     table = view_table(page)
     assert [row[0] for row in table] == ["Food", "Shopping", "Awaiting review"]
-    zeros = ["0.00"] * 9
-    assert table[0] == ["Food", *zeros, "999.00", "180.00", "777.00", "1956.00"]
-    assert table[1] == ["Shopping", *zeros, "0.00", "70.00", "0.00", "70.00"]
-    assert table[2] == ["Awaiting review", *zeros, "0.00", "12.30", "0.00", "12.30"]
+    zeros = [f"0,00{EUR}"] * 9
+    assert table[0] == [
+        "Food",
+        *zeros,
+        f"999,00{EUR}",
+        f"180,00{EUR}",
+        f"777,00{EUR}",
+        f"1.956,00{EUR}",
+    ]
+    assert table[1] == [
+        "Shopping",
+        *zeros,
+        f"0,00{EUR}",
+        f"70,00{EUR}",
+        f"0,00{EUR}",
+        f"70,00{EUR}",
+    ]
+    assert table[2] == [
+        "Awaiting review",
+        *zeros,
+        f"0,00{EUR}",
+        f"12,30{EUR}",
+        f"0,00{EUR}",
+        f"12,30{EUR}",
+    ]
 
 
 def test_the_chart_draws_one_line_per_category(logged_in_client, household):
@@ -55,7 +76,7 @@ def test_the_chart_draws_one_line_per_category(logged_in_client, household):
 def test_an_explicit_period_overrides_the_default(logged_in_client, household):
     page = logged_in_client.get("/trends/", {"period": "2026-09"}).content.decode()
 
-    assert view_table(page)[0] == ["Food", "180.00", "180.00"]
+    assert view_table(page)[0] == ["Food", f"180,00{EUR}", f"180,00{EUR}"]
 
 
 def test_drill_down_into_a_point_or_a_whole_line(logged_in_client, household):

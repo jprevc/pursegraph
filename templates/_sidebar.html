@@ -1,4 +1,4 @@
-{% load i18n %}{# The sidebar. Its links carry the dashboard's period and filters; a view or Transactions swapped in by HTMX swaps it too (`swap_nav`), so that they carry the view's and only its own link is highlighted. #}
+{% load figures i18n %}{# The sidebar. Its links carry the dashboard's period and filters; a view or Transactions swapped in by HTMX swaps it too (`swap_nav`), so that they carry the view's and only its own link is highlighted. #}
 <div id="sidebar"{% if swap_nav %} hx-swap-oob="true"{% endif %}>
 {% with nav=request.resolver_match.url_name %}
   <h1>Pursegraph</h1>
@@ -12,9 +12,9 @@
   <div class="figures">
     <p class="muted">{{ this_month.label }}</p>
     <dl class="this-month">
-      <dt>{% translate "In" %}</dt><dd class="num">{{ this_month.money_in|floatformat:2 }}</dd>
-      <dt>{% translate "Spent" %}</dt><dd class="num">{{ this_month.money_out|floatformat:2 }}</dd>
-      <dt>{% translate "Net" %}</dt><dd class="num">{{ this_month.net|floatformat:2 }}</dd>
+      <dt>{% translate "In" %}</dt><dd class="num">{{ this_month.money_in|money }}</dd>
+      <dt>{% translate "Spent" %}</dt><dd class="num">{{ this_month.money_out|money }}</dd>
+      <dt>{% translate "Net" %}</dt><dd class="num">{{ this_month.net|money_signed }}</dd>
     </dl>
   </div>
   {% if user.is_admin %}

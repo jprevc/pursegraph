@@ -1,8 +1,8 @@
-{% load i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`; `next` overrides where a plain form post goes back to. #}
+{% load figures i18n %}{# One Transaction with its inline outcome editor. Needs `t`, `categories` and `request`; `next` overrides where a plain form post goes back to. #}
 {# An unresolved Transaction with an LLM suggestion has it preselected, to accept with one click. #}
 {% with suggested=t.pending_suggestion_id %}
 <tr id="transaction-{{ t.pk }}">
-  <td>{{ t.date|date:"Y-m-d" }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount }}</td>
+  <td>{{ t.date|day }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount|money }}</td>
   <td>
     <form class="outcome" method="post" action="{% url 'transaction_outcome' t.pk %}"
           hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change, submit" hx-target="closest tr" hx-swap="outerHTML">
@@ -21,7 +21,7 @@
         {% if t.ambiguous_pairing %}
         <optgroup label="{% translate 'Transfer' %}">
           {% for c in t.pairing_candidates %}
-          <option value="pair-{{ c.pk }}">{% blocktranslate with date=c.date|date:"Y-m-d" account=c.account.name description=c.description %}Pair with {{ date }} · {{ account }} · {{ description }}{% endblocktranslate %}</option>
+          <option value="pair-{{ c.pk }}">{% blocktranslate with date=c.date|day account=c.account.name description=c.description %}Pair with {{ date }} · {{ account }} · {{ description }}{% endblocktranslate %}</option>
           {% endfor %}
           <option value="transfer">{% translate "Transfer, one-sided" %}</option>
         </optgroup>
@@ -31,7 +31,7 @@
       </select>
       {% if suggested %}
       <button type="submit" class="accept">{% translate "Accept" %}</button>
-      {% widthratio t.confidence 1 100 as percent %}<span class="muted source">{% blocktranslate %}Suggested · {{ percent }}% sure{% endblocktranslate %}</span>
+      <span class="muted source">{% blocktranslate with percent=t.confidence|share %}Suggested · {{ percent }} sure{% endblocktranslate %}</span>
       {% else %}
       <noscript><button type="submit">{% translate "Save" %}</button></noscript>
       {% endif %}

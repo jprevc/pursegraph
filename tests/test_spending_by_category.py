@@ -6,6 +6,8 @@ import pytest
 
 from ledger.models import Account, Subcategory, Transaction
 
+from .conftest import EUR
+
 pytestmark = pytest.mark.django_db
 
 TODAY = date(2026, 10, 15)
@@ -94,9 +96,13 @@ def test_spending_nets_refunds_and_leaves_out_transfers_and_income(logged_in_cli
 
     table = spending_table(page)
     assert list(table) == ["Food", "Shopping", "Awaiting review"]
-    assert table == {"Food": "120.50", "Shopping": "70.00", "Awaiting review": "12.30"}
+    assert table == {
+        "Food": f"120,50{EUR}",
+        "Shopping": f"70,00{EUR}",
+        "Awaiting review": f"12,30{EUR}",
+    }
     assert "Income" not in table
-    assert "Total" in page and "202.80" in page
+    assert "Total" in page and f"202,80{EUR}" in page
 
 
 def test_the_chart_shows_the_same_numbers_as_the_table(logged_in_client, household):
@@ -117,9 +123,9 @@ def test_subcategories_are_listed_under_their_category(logged_in_client, househo
         r'<tr class="subcategory"[^>]*>\s*<td>([^<]*)</td>\s*<td class="num">([^<]*)</td>', page
     )
     assert subcategories == [
-        ("Groceries", "80.00"),
-        ("Restaurants &amp; cafés", "40.50"),
-        ("Other", "70.00"),
+        ("Groceries", f"80,00{EUR}"),
+        ("Restaurants &amp; cafés", f"40,50{EUR}"),
+        ("Other", f"70,00{EUR}"),
     ]
 
 
@@ -129,10 +135,10 @@ def test_subcategories_are_listed_under_their_category(logged_in_client, househo
         ("2026-09", "September 2026", "2026-08", "2026-10"),
         ("2026-Q3", "Q3 2026", "2026-Q2", "2026-Q4"),
         ("2025", "2025", "2024", "2026"),
-        ("last12-2026-09", "Oct 2025 – Sep 2026", "last12-2026-08", "last12-2026-10"),
+        ("last12-2026-09", "1 Oct 2025 – 30 Sep 2026", "last12-2026-08", "last12-2026-10"),
         (
             "2026-09-10..2026-09-19",
-            "10 Sep 2026 – 19 Sep 2026",
+            "10–19 Sep 2026",
             "2026-08-31..2026-09-09",
             "2026-09-20..2026-09-29",
         ),
@@ -169,14 +175,14 @@ def test_a_custom_range_comes_from_two_dates(logged_in_client, household):
         "/spending/", {"from": "2026-09-01", "to": "2026-09-10"}
     ).content.decode()
 
-    assert "1 Sep 2026 – 10 Sep 2026" in page
-    assert spending_table(page) == {"Food": "120.50", "Shopping": "100.00"}
+    assert "1–10 Sep 2026" in page
+    assert spending_table(page) == {"Food": f"120,50{EUR}", "Shopping": f"100,00{EUR}"}
 
 
 def test_the_period_covers_its_whole_range(logged_in_client, household):
     page = logged_in_client.get("/spending/", {"period": "2026-Q3"}).content.decode()
 
-    assert spending_table(page)["Food"] == "1119.50"
+    assert spending_table(page)["Food"] == f"1.119,50{EUR}"
 
 
 def test_the_current_month_is_labelled_so_far(logged_in_client, household):
@@ -184,7 +190,7 @@ def test_the_current_month_is_labelled_so_far(logged_in_client, household):
 
     assert "October 2026" in page
     assert "so far, to 15 Oct 2026" in page
-    assert spending_table(page) == {"Food": "777.00"}
+    assert spending_table(page) == {"Food": f"777,00{EUR}"}
     assert "period=2026-11" not in page  # nothing to step forward to
 
 
@@ -271,7 +277,7 @@ def test_drill_down_rows_edit_the_outcome_inline(logged_in_client, household):
         headers={"HX-Request": "true"},
     )
     after = logged_in_client.get("/spending/", {"period": "2026-09"}).content.decode()
-    assert spending_table(after) == {"Food": "132.80", "Shopping": "70.00"}
+    assert spending_table(after) == {"Food": f"132,80{EUR}", "Shopping": f"70,00{EUR}"}
 
 
 def test_restoring_history_gets_the_whole_page(logged_in_client, household):

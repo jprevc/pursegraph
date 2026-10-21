@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from tests.conftest import assert_nothing_stored, make_account
+from tests.conftest import EUR, assert_nothing_stored, make_account
 
 pytestmark = pytest.mark.django_db
 
@@ -23,7 +23,7 @@ def test_import_into_a_new_revolut_account_shows_the_summary(logged_in_client):
     assert response.status_code == 200
     summary = response.content.decode()
     assert "Ana&#x27;s Revolut" in summary
-    assert "1 Jun 2026 – 11 Jun 2026" in summary
+    assert "1–11 Jun 2026" in summary
     assert "8 Transactions imported" in summary
     assert "1 non-completed row skipped" in summary
 
@@ -35,7 +35,7 @@ def test_imported_statement_is_listed_under_its_account(logged_in_client):
 
     assert "Ana&#x27;s Revolut" in page
     assert "Revolut · ana" in page  # the importing Member owns the new Account
-    assert "1 Jun 2026 – 11 Jun 2026" in page
+    assert "1–11 Jun 2026" in page
     assert "<td>CSV</td>" in page
 
 
@@ -48,9 +48,9 @@ def test_imported_transactions_appear_in_the_transactions_view(logged_in_client)
         "Hiša kave",
         "Payment from Ana Novak",
         "Fee: Corner Shop",
-        "-0.50",
+        f"−0,50{EUR}",
         "Mercator Žalec",
-        "2000.00",
+        f"2.000,00{EUR}",
     ):
         assert text in page
     assert "Bakery" not in page  # pending
@@ -98,9 +98,9 @@ def test_statement_whose_balances_dont_add_up_is_rejected_with_a_diagnosis(
     page = response.content.decode()
     assert "balances don&#x27;t add up" in page
     assert "keep this file" in page
-    assert "500.00" in page  # opening
-    assert "1627.64" in page  # Σ rows
-    assert "2152.64" in page  # closing
+    assert f"500,00{EUR}" in page  # opening
+    assert f"1.627,64{EUR}" in page  # Σ rows
+    assert f"2.152,64{EUR}" in page  # closing
     assert "Mercator Žalec" in page  # the parsed rows
     assert_nothing_stored(logged_in_client, statement_files)
 
@@ -132,7 +132,7 @@ def test_a_csv_asks_for_the_account(logged_in_client):
     page = upload_without_account(logged_in_client)
 
     assert "Choose the Account" in page
-    assert "a Revolut Statement, 1 Jun 2026 – 11 Jun 2026" in page
+    assert "a Revolut Statement, 1–11 Jun 2026" in page
     assert "No Transactions yet" in logged_in_client.get("/transactions/").content.decode()
 
 

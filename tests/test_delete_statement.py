@@ -58,7 +58,7 @@ def test_confirmation_names_the_statement(logged_in_client, june):
     page = logged_in_client.get(delete_url(june)).content.decode()
 
     assert "Delete Statement" in page
-    assert "1 Jun 2026 – 10 Jun 2026" in page
+    assert "1–10 Jun 2026" in page
     assert "No manual outcomes will be lost" in page
 
 
@@ -97,7 +97,7 @@ def test_coverage_shrinks_to_the_remaining_statements(logged_in_client, june, ov
     assert june.account.coverage() == overlap.account.coverage()
     [covered] = june.account.coverage()
     assert (str(covered.start), str(covered.end)) == ("2026-06-08", "2026-06-12")
-    assert "Covered 8 Jun 2026 – 12 Jun 2026" in import_page(logged_in_client)
+    assert "Covered 8–12 Jun 2026" in import_page(logged_in_client)
 
 
 def test_the_deleted_file_can_be_imported_again(logged_in_client, june):

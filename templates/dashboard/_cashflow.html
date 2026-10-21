@@ -1,5 +1,5 @@
 {% extends "dashboard/_view.html" %}
-{% load i18n %}
+{% load figures i18n %}
 {% block title %}{% translate "Cashflow" %}{% endblock %}
 {% block layout %}split wide{% endblock %}
 {% block table %}
@@ -9,14 +9,14 @@
   {% for row in data.rows %}
   <tr class="mark" tabindex="0" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill" hx-trigger="click, keyup[key=='Enter']">
     <td>{{ row.label }}</td>
-    <td class="num">{{ row.money_in|floatformat:2 }}</td>
-    <td class="num">{{ row.money_out|floatformat:2 }}</td>
-    {% if chart.others %}<td class="num">{{ row.others|floatformat:2 }}</td>{% endif %}
-    <td class="num">{{ row.net|floatformat:2 }}</td>
+    <td class="num">{{ row.money_in|money }}</td>
+    <td class="num">{{ row.money_out|money }}</td>
+    {% if chart.others %}<td class="num">{{ row.others|money_signed }}</td>{% endif %}
+    <td class="num">{{ row.net|money_signed }}</td>
   </tr>
   {% endfor %}
   </tbody>
-  <tfoot><tr><th>{{ data.total.label }}</th><th class="num">{{ data.total.money_in|floatformat:2 }}</th><th class="num">{{ data.total.money_out|floatformat:2 }}</th>{% if chart.others %}<th class="num">{{ data.total.others|floatformat:2 }}</th>{% endif %}<th class="num">{{ data.total.net|floatformat:2 }}</th></tr></tfoot>
+  <tfoot><tr><th>{{ data.total.label }}</th><th class="num">{{ data.total.money_in|money }}</th><th class="num">{{ data.total.money_out|money }}</th>{% if chart.others %}<th class="num">{{ data.total.others|money_signed }}</th>{% endif %}<th class="num">{{ data.total.net|money_signed }}</th></tr></tfoot>
 </table>
 {% endblock %}
 {% block hint %}{% translate "Click a bar, a point or a month to see its Transactions." %}{% endblock %}

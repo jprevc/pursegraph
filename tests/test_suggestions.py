@@ -72,7 +72,7 @@ def test_a_suggestion_below_the_threshold_waits_preselected_in_the_review_queue(
 
     page = review_page(logged_in_client)
     assert outcome_shown(page, "Mercator Žalec") == "Food → Groceries"
-    assert "62%" in page
+    assert "Suggested · 62\u00a0% sure" in page
     assert review_queue_count(page) == 6
     mercator = Transaction.objects.get(description="Mercator Žalec")
     assert (mercator.subcategory, mercator.source) == (None, "")

@@ -10,6 +10,8 @@ from ledger.models import Account, Subcategory, Transaction
 
 USERNAME = "ana"
 PASSWORD = "correct horse battery"
+# What follows an amount on a page: a no-break space and the euro sign, as in "1.234,56\u00a0€".
+EUR = "\u00a0€"
 
 
 def log_in(client, username=USERNAME, password=PASSWORD):
