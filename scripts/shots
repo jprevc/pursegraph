@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# shots — logged-in screenshots of the demo app: each page in light and dark, at desktop (1440x1000)
+# and phone (390x844) size, as OUT_DIR/<page>-<light|dark>-<desk|phone>.png. Prints any page that
+# scrolls sideways.
+#
+#   scripts/shots BASE_URL OUT_DIR [page...]   (default: every page; see PAGES in scripts/shots.js)
+#
+# BASE_URL is a scripts/demo-server. For one static page without logging in, use scripts/shoot.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+node_dir="${XDG_CACHE_HOME:-$HOME/.cache}/pursegraph/node"
+if [[ ! -d "$node_dir/node_modules/playwright-core" ]]; then
+    mkdir -p "$node_dir" && npm i -s --prefix "$node_dir" playwright-core >/dev/null
+fi
+NODE_PATH="$node_dir/node_modules" exec node "$here/shots.js" "$@"

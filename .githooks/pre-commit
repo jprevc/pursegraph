@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Runs scripts/check --fast before each commit. Enabled once per clone (worktrees share it):
+#   git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check" --fast

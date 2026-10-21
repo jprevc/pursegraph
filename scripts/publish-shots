@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# publish-shots — push OUT_DIR/{before,after}/*.png (from scripts/compare) as branch shots/N, a
+# commit holding only shots/N/, and print a Markdown before/after table for the PR body. The image
+# links name the commit, so they outlive later pushes to the branch.
+#
+#   scripts/publish-shots N OUT_DIR [shot...]   shot: a file name without .png, e.g. spending-dark-phone
+#                                               (default: every shot in after/)
+set -euo pipefail
+n="$1" out="$2"; shift 2
+cd "$(dirname "$0")/.."
+
+index="$(mktemp)"; rm -f "$index"
+trap 'rm -f "$index"' EXIT
+for f in "$out"/before/*.png "$out"/after/*.png; do
+    [[ -e "$f" ]] || continue
+    side="$(basename "$(dirname "$f")")"
+    GIT_INDEX_FILE="$index" git update-index --add \
+        --cacheinfo "100644,$(git hash-object -w "$f"),shots/$n/$side/$(basename "$f")"
+done
+tree="$(GIT_INDEX_FILE="$index" git write-tree)"
+commit="$(git commit-tree "$tree" -m "Before/after screenshots for #$n (synthetic demo data)")"
+git push -q -f origin "$commit:refs/heads/shots/$n"
+
+repo="$(gh repo view --json url -q .url)"
+url="$repo/blob/$commit/shots/$n"
+shots=("$@")
+if ((${#shots[@]} == 0)); then
+    for f in "$out"/after/*.png; do shots+=("$(basename "$f" .png)"); done
+fi
+echo "All shots: $repo/tree/shots/$n/shots/$n"
+echo
+echo "| | Before | After |"
+echo "|---|---|---|"
+for s in "${shots[@]}"; do
+    before="—"
+    [[ -e "$out/before/$s.png" ]] && before="![]($url/before/$s.png?raw=1)"
+    echo "| $s | $before | ![]($url/after/$s.png?raw=1) |"
+done

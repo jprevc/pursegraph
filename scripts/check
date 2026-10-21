@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# check — every check a change must pass: lint, format, types, a runtime import check and the tests.
+#
+#   scripts/check          everything (CI runs this)
+#   scripts/check --fast   everything but the tests (the pre-commit hook runs this)
+#
+# The tests need the PostgreSQL from compose.test.yaml: `docker compose -f compose.test.yaml up -d`.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+unset VIRTUAL_ENV  # another worktree's venv, inherited from the shell, only makes uv warn
+
+failed=()
+step() {
+    local name="$1"; shift
+    "$@" || failed+=("$name")
+}
+
+step "ruff check" uv run -q ruff check -q .
+step "ruff format" uv run -q ruff format --check -q .
+step "mypy" uv run -q mypy .
+# Production installs no dev dependencies, so a module importing one at runtime fails only there.
+step "imports without dev dependencies" uv run -q --isolated --no-dev python manage.py check
+[[ "${1:-}" == "--fast" ]] || step "pytest" uv run -q pytest -q
+
+if ((${#failed[@]})); then
+    printf 'check: failed: %s\n' "${failed[@]}" >&2
+    exit 1
+fi
+echo "check: all passed"
