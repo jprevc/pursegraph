@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{% translate "LLM suggestions" %}{% endblock %}
 {% block main %}
-<h2>{% translate "LLM suggestions" %}</h2>
+<h1 tabindex="-1">{% translate "LLM suggestions" %}</h1>
 {% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 
 {% if offered %}

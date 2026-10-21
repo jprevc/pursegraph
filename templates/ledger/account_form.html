@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{% if form.instance.pk %}{% translate "Edit Account" %}{% else %}{% translate "New Account" %}{% endif %}{% endblock %}
 {% block main %}
-<h2>{% if form.instance.pk %}{% translate "Edit Account" %}{% else %}{% translate "New Account" %}{% endif %}</h2>
+<h1 tabindex="-1">{% if form.instance.pk %}{% translate "Edit Account" %}{% else %}{% translate "New Account" %}{% endif %}</h1>
 <p class="muted">{% translate "Several Members owning it make a joint Account. Choose bank “Other” for an Account whose Statements aren't imported, such as savings at another bank." %}</p>
 <form class="panel stack-form" method="post">{% csrf_token %}
   {{ form.as_div }}

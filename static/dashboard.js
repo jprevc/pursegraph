@@ -133,7 +133,8 @@
   const charts = root => root.querySelectorAll('[data-chart]');
 
   document.addEventListener('DOMContentLoaded', () => charts(document).forEach(mount));
-  document.addEventListener('htmx:beforeSwap', e => charts(e.detail.target).forEach(unmount));
+  // Not for a failed response, which keeps the old content and its charts (swap.js).
+  document.addEventListener('htmx:beforeSwap', e => { if (e.detail.shouldSwap) charts(e.detail.target).forEach(unmount); });
   // A view swapped in brings the sidebar's view links along, marking its own as current.
   document.addEventListener('htmx:afterSettle', e => charts(e.detail.elt).forEach(mount));
   document.addEventListener('htmx:historyRestore', () => charts(document).forEach(mount));

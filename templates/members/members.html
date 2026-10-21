@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{% translate "Members" %}{% endblock %}
 {% block main %}
-<h2>{% translate "Members" %}</h2>
+<h1 tabindex="-1">{% translate "Members" %}</h1>
 {% for message in messages %}<p class="panel notice {{ message.tags }}">{{ message }}</p>{% endfor %}
 <p><a class="button primary" href="{% url 'new_member' %}">{% translate "New Member" %}</a></p>
 <div class="scroll">

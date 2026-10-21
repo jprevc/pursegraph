@@ -1,17 +1,22 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from django.http import Http404
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
 from django.utils.http import urlencode
+from django.utils.translation import gettext_lazy as _
 
 from ledger.models import Statement, Transaction
 from ledger.views import categories_with_subcategories, wants_the_fragment_alone
 
 from . import queries
 from .periods import Period
+
+if TYPE_CHECKING:
+    from django_stubs_ext import StrOrPromise
 
 
 @dataclass(frozen=True)
@@ -21,6 +26,7 @@ class View:
 
     name: str
     path: str
+    label: "StrOrPromise"
     # The drill-down's query parameter naming the chart mark.
     mark_param: str = "key"
     default_period: Callable[[], Period] = Period.default
@@ -29,11 +35,11 @@ class View:
 VIEWS = {
     v.name: v
     for v in [
-        View("spending", "spending", "category"),
-        View("cashflow", "cashflow"),
-        View("trends", "trends", default_period=Period.last_12_months),
-        View("per_member", "per-member"),
-        View("money_flow", "money-flow"),
+        View("spending", "spending", _("Spending by Category"), "category"),
+        View("cashflow", "cashflow", _("Cashflow")),
+        View("trends", "trends", _("Category trends"), default_period=Period.last_12_months),
+        View("per_member", "per-member", _("Per Member")),
+        View("money_flow", "money-flow", _("Money flow")),
     ]
 }
 
@@ -97,6 +103,9 @@ def show(request, view: str):
     members, accounts = queries.filter_choices()
     context = {
         "view": v.name,
+        "view_label": v.label,
+        # Most specific first, as every page title.
+        "page_title": f"{v.label} · {period.label}",
         "view_url": reverse(v.name),
         "period": period,
         "period_chosen": period_chosen,

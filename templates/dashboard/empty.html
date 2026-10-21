@@ -2,6 +2,7 @@
 {% load i18n %}
 {% block title %}{% translate "Dashboard" %}{% endblock %}
 {% block main %}
+<h1 class="sr" tabindex="-1">{% translate "Dashboard" %}</h1>
 <div class="empty">
   <p>{% translate "There is nothing to show yet." %}</p>
   <a class="button primary" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>

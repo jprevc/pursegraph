@@ -4,7 +4,7 @@
 <tr id="transaction-{{ t.pk }}">
   <td class="fig">{{ t.date|day }}</td><td>{{ t.account.name }}</td><td>{{ t.description }}</td><td class="num">{{ t.amount|money }}</td>
   <td>
-    <form class="outcome" method="post" action="{% url 'transaction_outcome' t.pk %}"
+    <form class="outcome" data-action method="post" action="{% url 'transaction_outcome' t.pk %}"
           hx-post="{% url 'transaction_outcome' t.pk %}" hx-trigger="change, submit" hx-target="closest tr" hx-swap="outerHTML">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">
@@ -30,7 +30,7 @@
         {% endif %}
       </select>
       {% if suggested %}
-      <button type="submit" class="accept primary">{% translate "Accept" %}</button>
+      <button type="submit" class="accept primary" data-busy-label="{% translate 'Accepting…' %}">{% translate "Accept" %}</button>
       <span class="muted source">{% blocktranslate with percent=t.confidence|share %}Suggested · {{ percent }} sure{% endblocktranslate %}</span>
       {% else %}
       <noscript><button type="submit">{% translate "Save" %}</button></noscript>

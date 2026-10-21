@@ -2,7 +2,7 @@
 {% load i18n icons %}
 {% block title %}{% translate "Rules" %}{% endblock %}
 {% block main %}
-<h2>{% translate "Rules" %}</h2>
+<h1 tabindex="-1">{% translate "Rules" %}</h1>
 {% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 <p class="muted">{% translate "At import, each Transaction still awaiting review is categorized by the first Rule it matches. Every condition a Rule sets must hold. Drag Rules to reorder them." %}</p>
 <p><a class="button primary" href="{% url 'new_rule' %}">{% translate "New Rule" %}</a></p>

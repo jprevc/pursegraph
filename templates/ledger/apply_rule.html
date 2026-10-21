@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{% translate "Apply Rule" %}{% endblock %}
 {% block main %}
-<h2>{% translate "Apply the Rule to existing Transactions?" %}</h2>
+<h1 tabindex="-1">{% translate "Apply the Rule to existing Transactions?" %}</h1>
 <form class="panel stack-form" method="post">{% csrf_token %}
   <p>{% blocktranslate count n=count %}{{ n }} existing Transaction matches this Rule.{% plural %}{{ n }} existing Transactions match this Rule.{% endblocktranslate %}
   {% if rule.subcategory %}{% blocktranslate with outcome=rule.subcategory %}Applying it categorizes them as {{ outcome }}.{% endblocktranslate %}{% else %}{% translate "Applying it marks them as Transfers." %}{% endif %}</p>
