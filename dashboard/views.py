@@ -10,8 +10,9 @@ from django.utils.http import urlencode
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
+from ledger import outcomes
 from ledger.models import Statement, Transaction
-from ledger.views import categories_with_subcategories, wants_the_fragment_alone
+from ledger.views import wants_the_fragment_alone
 from pursegraph.htmx import announce
 
 from . import queries
@@ -173,14 +174,16 @@ def transactions(request, view: str):
     period = Period.from_query(request.GET, v.default_period)
     filters = queries.Filters.from_query(request.GET)
     key = request.GET.get(v.mark_param, "")
-    rows = queries.drill_down(v.name, period, filters, key).select_related("account")
+    rows = queries.drill_down(v.name, period, filters, key).select_related(
+        "account", "subcategory__category"
+    )
     label = queries.mark_label(v.name, period, filters, key) or _("Transactions")
     response = render(
         request,
         "dashboard/_drill_down.html",
         {
             "transactions": rows,
-            "categories": categories_with_subcategories(),
+            **outcomes.picker(),
             "mark": key,
             # A Category's hue token, where the view's marks are Categories.
             "hue": hue(key) if v.name == "spending" else "",

@@ -30,7 +30,7 @@ def test_inline_change_returns_the_updated_row_marked_manual(logged_in_client):
     assert response.status_code == 200
     assert row.lstrip().startswith("<tr")
     assert outcome_shown(row, "Corner Shop") == "Food → Groceries"
-    assert "Manual" in row
+    assert "by hand" in row
     assert review_queue_count(row) == 5  # swapped into every badge out of band
     assert 'hx-swap-oob="outerHTML:.review-count"' in row
 
@@ -63,7 +63,7 @@ def test_a_transfer_can_be_categorized_again(logged_in_client):
 def test_changing_an_automatic_outcome_makes_it_manual(logged_in_client):
     upload(logged_in_client)
     page = logged_in_client.get("/transactions/").content.decode()
-    assert "Manual" not in page
+    assert "by hand" not in page
 
     logged_in_client.post(
         f"/transactions/{transaction_id('Fee: Corner Shop')}/outcome/",
@@ -72,7 +72,7 @@ def test_changing_an_automatic_outcome_makes_it_manual(logged_in_client):
 
     page = logged_in_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Fee: Corner Shop") == "Finance → Other"
-    assert page.count("Manual") == 1
+    assert page.count("by hand") == 1
 
 
 def test_an_unknown_outcome_is_refused(logged_in_client):

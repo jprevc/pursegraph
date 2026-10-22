@@ -131,6 +131,16 @@ class Source(models.TextChoices):
     PARSER = "parser", _("Parser")
 
 
+SOURCE_CAPTIONS = {
+    Source.RULE: _("by Rule"),
+    Source.LLM: _("by LLM"),
+    Source.MANUAL: _("by hand"),
+    Source.IBAN: _("by IBAN"),
+    Source.PAIRING: _("paired"),
+    Source.PARSER: _("by import"),
+}
+
+
 class TransactionQuerySet(models.QuerySet):
     def unresolved(self):
         """Neither a Subcategory nor a Transfer."""
@@ -232,6 +242,20 @@ class Transaction(models.Model):
     def pending_suggestion_id(self) -> int | None:
         """The suggested Subcategory's id while the Transaction is unresolved, to preselect in the Review queue."""
         return self.suggested_subcategory_id if self.is_unresolved else None
+
+    @property
+    def outcome_label(self) -> str:
+        """The outcome in words, as the Transaction row names it: "Category › Subcategory", "Transfer" or
+        "Awaiting review"."""
+        if self.subcategory_id:
+            assert self.subcategory is not None
+            return f"{self.subcategory.category.name} › {self.subcategory.name}"
+        return str(_("Transfer") if self.is_transfer else _("Awaiting review"))
+
+    @property
+    def source_caption(self) -> str:
+        """What set the outcome, as the row's muted caption ("by Rule"); "" while unresolved."""
+        return str(SOURCE_CAPTIONS[Source(self.source)]) if self.source else ""
 
     def pairing_candidates(self) -> list["Transaction"]:
         """For an ambiguous pairing, the Transactions equally close to being its other side."""

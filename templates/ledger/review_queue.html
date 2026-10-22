@@ -17,7 +17,7 @@
 <table>
   <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
   <tbody>
-  {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
+  {% for t in transactions %}{% include "ledger/_review_row.html" %}{% endfor %}
   </tbody>
 </table>
 </div>

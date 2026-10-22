@@ -118,6 +118,8 @@
       return;
     }
     s.elt.closest('form')?.reset();
+    // An action that words its own failure (the Transaction row, naming the outcome) says it itself.
+    if (s.action?.hasAttribute('data-own-failure')) return;
     const path = e.detail.pathInfo?.finalRequestPath;
     if (s.action || !path || !s.region.id || e.detail.requestConfig?.verb !== 'get') {
       say(s.action ? strings.saveFailed : strings.loadFailed);

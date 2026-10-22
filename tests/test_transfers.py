@@ -91,7 +91,7 @@ def test_the_other_side_imported_later_is_paired(logged_in_client, sparkasse, re
     page = transactions_page(logged_in_client)
     assert outcome_shown(page, "Payment from Ana Novak") == "Transfer"
     assert outcome_shown(page, "Ana Novak") == "Transfer"
-    assert ">Pairing<" in page
+    assert ">paired<" in page
 
 
 def test_a_categorized_side_imported_first_is_converted_when_its_counterpart_arrives(
