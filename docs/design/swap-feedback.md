@@ -8,6 +8,7 @@ One convention, kept by one shell script on `htmx:afterSettle` and `htmx:history
 - **Page change** (a sidebar or bottom-tab link, or a link into Transactions or the Dashboard from another page): focus moves to the new page's `<h1>` (`tabindex="-1"`), and the page scrolls to the top.
 - **In-place control** (a view tab, period ‹ ›, a filter, a facet, the search, the pager, Show resolved): focus stays on the control that was used, and the scroll position stays. The pager still scrolls to the top of the grid. The change is announced instead. If the control isn't in the new content, focus goes to the region's heading.
 - **Something opens** (the drill-down, the chip panel, a Review group, a Rule's detail, a sheet): focus moves to its heading or first control, as each component says. Closing it returns focus to the control that opened it. Anything that opens out of sight, the drill-down especially, is scrolled into view (`block: "nearest"`).
+- **Named by the response:** when one region is swapped for several kinds of change, as the Review queue's is (opening a group, saving it, going back to the list), the response marks the element that takes focus with `data-focus`, and the shell script focuses it and scrolls it into view (`block: "nearest"`). The server knows which kind of change it answered; the script still does the focusing.
 - **Back and forward** (`htmx:historyRestore`): focus moves to the `<h1>`.
 - Every scroll is instant, never smooth.
 

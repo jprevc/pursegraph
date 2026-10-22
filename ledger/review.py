@@ -1,13 +1,17 @@
 """The Review queue (docs/design/review-queue.md): the Transactions waiting for an outcome, in groups of one exact
 description that are decided together, with the outcome the description got last time."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
 from django.db.models import Q
 
-from .models import SOURCE_CAPTIONS, Source, Subcategory, Transaction
+from dashboard.completeness import COMPLETE, Tracking
+from dashboard.periods import Period
+
+from .models import SOURCE_CAPTIONS, Account, Source, Subcategory, Transaction
 
 
 @dataclass
@@ -79,7 +83,7 @@ def _queryset():
     ).order_by("date", "id")
 
 
-def _sorted(groups: list[Group]) -> list[Group]:
+def sorted_groups(groups: list[Group]) -> list[Group]:
     """Newest first, by their newest Transaction."""
     return sorted(groups, key=lambda g: (g.newest.date, g.newest.pk), reverse=True)
 
@@ -95,17 +99,13 @@ def waiting_groups() -> list[Group]:
             group.transactions.append(t)
         else:
             by_description[t.description] = Group([t])
-    return _sorted([*by_description.values(), *alone])
+    return sorted_groups([*by_description.values(), *alone])
 
 
 def group_of(pks: list[int]) -> Group | None:
     """The Transactions `pks` as one group, whatever their outcome now: a group decided just now."""
     transactions = list(_queryset().filter(pk__in=pks))
     return Group(transactions) if transactions else None
-
-
-def sorted_groups(groups: list[Group]) -> list[Group]:
-    return _sorted(groups)
 
 
 @dataclass(frozen=True)
@@ -129,7 +129,7 @@ class LastTime:
         return str(SOURCE_CAPTIONS[Source(self.source)]) if self.source else ""
 
 
-def last_time(description: str, exclude: list[int] = ()) -> LastTime | None:  # type: ignore[assignment]
+def last_time(description: str, exclude: Sequence[int] = ()) -> LastTime | None:
     """What the exact `description` got last time, leaving out the Transactions `exclude` (the ones being decided);
     None for a description never decided."""
     decided = (
@@ -154,11 +154,6 @@ def last_time(description: str, exclude: list[int] = ()) -> LastTime | None:  # 
 def completed_month(decided: list[int]) -> date | None:
     """The first day of the newest month that the Transactions `decided` fall in and that is now Complete: every
     Account has a Statement for it, it is over, and nothing in it is awaiting review."""
-    from dashboard.completeness import COMPLETE, Tracking
-    from dashboard.periods import Period
-
-    from .models import Account
-
     months = sorted(
         {
             d.replace(day=1)

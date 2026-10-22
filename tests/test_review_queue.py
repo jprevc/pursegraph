@@ -166,6 +166,25 @@ def test_a_transaction_decided_since_is_left_alone(logged_in_client, queue):
     assert Transaction.objects.filter(pk__in=queue[1:], is_transfer=True).count() == 2
 
 
+def test_a_group_decided_elsewhere_meanwhile_is_not_said_to_be_saved(logged_in_client, queue):
+    for pk in queue:
+        Transaction.objects.get(pk=pk).set_outcome(None, source=Source.MANUAL)
+
+    response = decide(logged_in_client, queue, sub("Food", "Groceries").pk, **HX)
+
+    assert announced(response) == "Bolt.eu was already decided. 1 left to review."
+    assert Transaction.objects.filter(pk__in=queue, is_transfer=True).count() == 3
+    assert detail_heading(html.unescape(response.content.decode())) == "Kavarna Zvezda"
+
+
+def test_show_resolved_says_what_it_changed(logged_in_client, queue):
+    shown = logged_in_client.get("/review/", {"at": queue[0], "resolved": 1}, **HX)
+    hidden = logged_in_client.get("/review/", {"at": queue[0]}, **HX)
+
+    assert announced(shown) == "Resolved groups shown."
+    assert announced(hidden) == "Resolved groups hidden."
+
+
 def test_an_unknown_outcome_changes_nothing(logged_in_client, queue):
     response = decide(logged_in_client, queue, "nonsense", **HX)
 
@@ -189,7 +208,7 @@ def test_undo_puts_the_whole_group_back(logged_in_client, queue):
 
     assert response.status_code == 200
     assert Transaction.objects.in_review_queue().count() == 4
-    assert announced(response) == "Undone. Bolt.eu is back in the Review queue."
+    assert announced(response) == "Undone. Bolt.eu is back in the Review queue. 4 left to review."
     content = html.unescape(response.content.decode())
     assert groups_listed(content) == ["Bolt.eu ×3", "Kavarna Zvezda"]
     assert detail_heading(content) == "Bolt.eu"
@@ -209,11 +228,11 @@ def test_show_resolved_keeps_the_groups_decided_just_now(logged_in_client, queue
     shown = page(logged_in_client, at=queue[-1], resolved=1)
 
     assert groups_listed(hidden) == ["Kavarna Zvezda"]
-    assert "Show resolved (1)" in hidden
+    assert "Show resolved (1)" in words(hidden)
     assert groups_listed(shown) == ["Bolt.eu ×3", "Kavarna Zvezda"]
     assert re.search(r'<li class="decided">.*?Bolt\.eu.*?Transfer', shown, re.S)
     # Arriving again starts a new review.
-    assert "Show resolved (1)" not in page(logged_in_client)
+    assert "Show resolved (1)" not in words(page(logged_in_client))
 
 
 @pytest.fixture

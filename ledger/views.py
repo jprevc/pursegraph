@@ -294,13 +294,21 @@ def review_queue(request):
         request.session[REVIEW_DECIDED_SESSION_KEY] = []
     opened = params.get("group", "")
     marked = opened or params.get("at", "")
-    return _review(
+    resolved = bool(params.get("resolved"))
+    response = _review(
         request,
         selected=int(marked) if marked.isdigit() else None,
         opened=bool(opened),
         focus="heading" if opened else ("group" if "back" in params else ""),
-        resolved=bool(params.get("resolved")),
+        resolved=resolved,
     )
+    # Show resolved, an in-place control, says what it changed.
+    if request.headers.get("HX-Request") and "at" in params and "back" not in params:
+        return announce(
+            response,
+            _("Resolved groups shown.") if resolved else _("Resolved groups hidden."),
+        )
+    return response
 
 
 def _posted_pks(request) -> list[int] | None:
@@ -347,9 +355,11 @@ def review_decide(request):
     group = review.group_of(decided or pks)
     if group is None:
         return HttpResponseBadRequest()
-    if not request.headers.get("HX-Request"):
-        return redirect(f"{reverse('review_queue')}?group={group.key}")
-    saved = ngettext(
+    if not decided:
+        # Decided elsewhere meanwhile: nothing was saved, and the next waiting group opens.
+        said = _("%(description)s was already decided.") % {"description": group.description}
+        return _review_changed(request, group, focus="heading", said=said, select=False)
+    said = ngettext(
         "Saved %(description)s as %(outcome)s.",
         "Saved %(count)d × %(description)s as %(outcome)s.",
         group.size,
@@ -358,16 +368,24 @@ def review_decide(request):
         "description": group.description,
         "outcome": group.newest.outcome_label,
     }
+    return _review_changed(request, group, focus="next", said=said)
+
+
+def _review_changed(request, group: review.Group, *, focus: str, said: str, select=True):
+    """After a decision or its Undo: the group open again (a plain form post goes to it), and what changed said,
+    with how many are left."""
+    if not request.headers.get("HX-Request"):
+        return redirect(f"{reverse('review_queue')}?group={group.key}")
     left = Transaction.objects.in_review_queue().count()
     return announce(
         _review(
             request,
-            selected=group.key,
+            selected=group.key if select else None,
             opened=True,
-            focus="next",
+            focus=focus,
             resolved=bool(request.POST.get("resolved")),
         ),
-        f"{saved} {_left_to_review(left)}",
+        f"{said} {_left_to_review(left)}",
     )
 
 
@@ -402,19 +420,10 @@ def review_undo(request):
     group = review.group_of(pks)
     if group is None:
         return HttpResponseBadRequest()
-    if not request.headers.get("HX-Request"):
-        return redirect(f"{reverse('review_queue')}?group={group.key}")
-    return announce(
-        _review(
-            request,
-            selected=group.key,
-            opened=True,
-            focus="heading",
-            resolved=bool(request.POST.get("resolved")),
-        ),
-        _("Undone. %(description)s is back in the Review queue.")
-        % {"description": group.description},
-    )
+    said = _("Undone. %(description)s is back in the Review queue.") % {
+        "description": group.description
+    }
+    return _review_changed(request, group, focus="heading", said=said)
 
 
 def _review(request, *, selected: int | None, opened: bool, focus: str, resolved: bool):

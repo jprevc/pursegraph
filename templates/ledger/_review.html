@@ -12,7 +12,7 @@ Swapped in alone, it brings the page title and the sidebar's count too. {% endco
     <span>{% blocktranslate count n=waiting_count %}{{ n }} waiting{% plural %}{{ n }} waiting{% endblocktranslate %}</span>
     <form class="show-resolved" method="get" action="{{ review_url }}">
       {% if group %}<input type="hidden" name="at" value="{{ group.key }}">{% endif %}
-      <label><input type="checkbox" name="resolved" value="1"{% if resolved %} checked{% endif %} hx-get="{{ review_url }}?at={{ group.key|default:'' }}" hx-trigger="change" hx-target="#review" hx-swap="outerHTML" hx-push-url="true">{% translate "Show resolved" %}{% if decided_count %} ({{ decided_count }}){% endif %}</label>
+      <label><input type="checkbox" name="resolved" value="1"{% if resolved %} checked{% endif %} hx-get="{{ review_url }}?at={{ group.key|default:'' }}" hx-trigger="change" hx-target="#review" hx-swap="outerHTML" hx-push-url="true">{% translate "Show resolved" %}{% if decided_count %} <span class="fig">({{ decided_count }})</span>{% endif %}</label>
       <noscript><button type="submit">{% translate "Show" %}</button></noscript>
     </form>
   </div>
@@ -23,12 +23,12 @@ Swapped in alone, it brings the page title and the sidebar's count too. {% endco
       {% for g in groups %}
       <li{% if not g.waiting %} class="decided"{% endif %}>
         <button type="submit" name="group" value="{{ g.key }}" hx-get="{{ review_url }}?group={{ g.key }}{% if resolved %}&amp;resolved=1{% endif %}" hx-target="#review" hx-swap="outerHTML" hx-push-url="true"{% if g.key == group.key %} aria-current="true"{% if focus == "group" %} data-focus{% endif %}{% endif %}>
-          <span class="g-desc">{{ g.description }}{% if g.size > 1 %} <span class="n">×{{ g.size }}</span>{% endif %}</span>
+          <span class="g-desc">{{ g.description }}{% if g.size > 1 %} <span class="n fig">×{{ g.size }}</span>{% endif %}</span>
           <span class="g-amt fig">{{ g.total|money }}</span>
           <span class="g-sub">
             {% if not g.waiting %}{% icon "check" %}{% include "ledger/_outcome_label.html" with subcategory=g.newest.subcategory %}
             {% elif g.ambiguous %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer · other side unknown" %}</span>
-            {% elif g.suggestion %}<i class="dot" style="--hue: var(--{{ g.suggestion.category_id|hue }})" aria-hidden="true"></i><span>{{ g.suggestion.category.name }} › {{ g.suggestion.name }} · {% blocktranslate with percent=g.confidence|share %}{{ percent }} sure{% endblocktranslate %}</span>
+            {% elif g.suggestion %}{% include "ledger/_outcome_label.html" with subcategory=g.suggestion %}<span class="fig">· {% blocktranslate with percent=g.confidence|share %}{{ percent }} sure{% endblocktranslate %}</span>
             {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "No suggestion" %}</span>{% endif %}
           </span>
         </button>
