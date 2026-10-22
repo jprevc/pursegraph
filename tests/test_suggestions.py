@@ -14,6 +14,7 @@ from ledger.suggestions import (
 from tests.conftest import (
     group_caption,
     outcome_shown,
+    page_text,
     review_queue_count,
     subcategory_id,
     transaction_id,
@@ -245,7 +246,7 @@ def test_the_import_summary_counts_what_waits_for_suggestions_or_review(logged_i
 
     summary = upload(logged_in_client).content.decode()
 
-    assert "5 Transactions waiting for suggestions or review" in summary
+    assert "5 wait for suggestions and review" in page_text(summary)
 
 
 def test_backoff_doubles_up_to_a_limit():

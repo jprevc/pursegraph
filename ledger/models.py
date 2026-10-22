@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 from pursegraph import figures
 
-from .coverage import DateRange, Segment, coverage, timeline
+from .coverage import DateRange, coverage
 
 
 class Bank(models.TextChoices):
@@ -38,10 +38,6 @@ class Account(models.Model):
     def coverage(self) -> list[DateRange]:
         """The dates this Account's Statements cover, as separate date ranges. Derived, not stored."""
         return coverage(self.statements.all())
-
-    def coverage_timeline(self) -> list[Segment]:
-        """The Coverage as covered stretches with the gaps between them, for the Import page."""
-        return timeline(self.coverage())
 
 
 class AccountIBAN(models.Model):

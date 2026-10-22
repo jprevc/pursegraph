@@ -22,4 +22,5 @@ USER pursegraph
 
 EXPOSE 8000
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["gunicorn", "pursegraph.wsgi", "--bind", "0.0.0.0:8000", "--workers", "3"]
+# Import checks and imports a whole batch of Statements in one request, so a worker gets five minutes, not 30 s.
+CMD ["gunicorn", "pursegraph.wsgi", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "300"]

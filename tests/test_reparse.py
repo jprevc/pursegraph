@@ -7,7 +7,7 @@ import pytest
 from django.core.management import CommandError, call_command
 
 from ledger.models import Rule, Source, Statement, Subcategory, Transaction
-from tests.conftest import make_account, transaction_id
+from tests.conftest import make_account, page_text, transaction_id
 from tests.test_import import upload
 
 pytestmark = pytest.mark.django_db
@@ -143,7 +143,7 @@ def test_a_duplicate_is_compared_only_by_what_the_duplicate_check_matched(
         filename="overlap.csv",
         account=statement.account.pk,
     )
-    assert "1 Duplicate" in response.content.decode()
+    assert "1 Duplicate skipped" in page_text(response.content.decode())
     second = Statement.objects.exclude(pk=statement.pk).get()
 
     output = reparse(str(second.pk))

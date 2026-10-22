@@ -6,7 +6,7 @@ import pytest
 
 from ledger.importer import ImportRejected, check_statement, commit_statement
 from ledger.models import Account, Rule, Transaction
-from tests.conftest import make_account
+from tests.conftest import board_row, make_account, page_text
 from tests.test_import import FIXTURE as REVOLUT_CSV
 from tests.test_import import upload as upload_csv
 from tests.test_import import upload_without_account
@@ -49,7 +49,7 @@ def test_non_admins_get_a_403(logged_in_client, member, url):
 
 
 def test_members_can_still_create_an_account_during_import(logged_in_client):
-    assert "Imported into Ana&#x27;s Revolut" in upload_csv(logged_in_client).content.decode()
+    assert "New: " in board_row(upload_csv(logged_in_client).content.decode(), "Ana's Revolut")
 
 
 def test_the_import_page_links_admins_to_the_accounts_page(admin_client, logged_in_client):
@@ -259,8 +259,10 @@ def test_an_account_with_no_statements_cant_receive_one(admin_client, member):
 
     page = upload_pdf(admin_client).content.decode()
 
-    assert "Not imported" in page
-    assert "Ana&#x27;s savings is an Account with no Statements" in page
+    said = page_text(page)
+    assert "Not imported" in said
+    assert "Ana's savings takes no Statements" in said
+    assert "Choose another Account, or ask an admin to change its bank." in said
     assert not Account.objects.get(name="Ana's savings").statements.exists()
 
 
@@ -279,9 +281,10 @@ def test_an_import_rechecks_the_account_once_it_holds_it(member):
     checked = check_statement(content=REVOLUT_CSV, filename="revolut.csv")
     Account.objects.filter(pk=account.pk).update(bank="other")
 
-    with pytest.raises(ImportRejected, match="no Statements"):
+    with pytest.raises(ImportRejected) as rejected:
         commit_statement(checked, member=member, account=account)
 
+    assert rejected.value.heading == "Ana's Revolut takes no Statements"
     assert not account.statements.exists()
 
 

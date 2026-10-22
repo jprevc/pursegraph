@@ -71,18 +71,34 @@ class AccountForm(forms.Form):
     """Which Account a Statement goes into, when its IBAN didn't tell: one of the Statement's bank,
     or a new one."""
 
-    account = forms.ChoiceField(label=_("Account"))
-    new_account_name = forms.CharField(label=_("New Account name"), max_length=100, required=False)
+    account = forms.ChoiceField(
+        label=_("Account"),
+        widget=forms.RadioSelect,
+        error_messages={"required": _("Choose an Account.")},
+    )
+    new_account_name = forms.CharField(label=_("Name"), max_length=100, required=False)
+    owners = forms.ModelMultipleChoiceField(
+        label=_("Owners"),
+        queryset=get_user_model().objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        help_text=_("Several owners make it a joint Account."),
+    )
 
     def __init__(self, *args, statement: CheckedStatement, **kwargs):
         super().__init__(*args, **kwargs)
         bank = Bank(statement.parsed.bank)
-        accounts = Account.objects.filter(bank=bank)
+        # Offered with their owners.
+        self.accounts = accounts = list(
+            Account.objects.filter(bank=bank).prefetch_related("owners")
+        )
         cast(forms.ChoiceField, self.fields["account"]).choices = [
-            ("", _("Choose an Account")),
             *((str(a.pk), a.name) for a in accounts),
-            (NEW, _("New %(bank)s Account") % {"bank": bank.label}),
+            (NEW, _("A new %(bank)s Account") % {"bank": bank.label}),
         ]
+        cast(forms.ModelMultipleChoiceField, self.fields["owners"]).queryset = (
+            get_user_model().objects.filter(is_active=True).order_by("username")
+        )
         if not accounts:
             self.initial.update(account=NEW, new_account_name=bank.label)
         elif len(accounts) == 1 and not statement.parsed.iban:
@@ -98,7 +114,9 @@ class AccountForm(forms.Form):
 
     def chosen_account(self) -> Account | NewAccount:
         if self.cleaned_data["account"] == NEW:
-            return NewAccount(self.cleaned_data["new_account_name"].strip())
+            return NewAccount(
+                self.cleaned_data["new_account_name"].strip(), tuple(self.cleaned_data["owners"])
+            )
         return Account.objects.get(pk=self.cleaned_data["account"])
 
 

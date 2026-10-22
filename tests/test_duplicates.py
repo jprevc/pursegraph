@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ledger.models import Account
 
-from .conftest import EUR, transaction_rows
+from .conftest import EUR, board_row, page_text, transaction_rows
 
 pytestmark = pytest.mark.django_db
 
@@ -80,8 +80,8 @@ def test_overlapping_rows_that_match_are_skipped_as_duplicates(logged_in_client,
     response = upload(logged_in_client, ("overlap.csv", overlap), account=str(june_imported.pk))
 
     page = response.content.decode()
-    assert "1 Transaction imported" in page
-    assert "2 Duplicates skipped" in page
+    assert "1 Transaction imported" in page_text(page)
+    assert "2 Duplicates skipped" in page_text(page)
     descriptions = [d for _d, _a, d, _x in transaction_rows(transactions_page(logged_in_client))]
     assert descriptions.count("Bakery") == 1
     assert descriptions.count("Mercator") == 1
@@ -102,8 +102,9 @@ def test_overlap_that_does_not_match_rejects_the_whole_file(
     response = upload(logged_in_client, ("overlap.csv", overlap), account=str(june_imported.pk))
 
     page = response.content.decode()
-    assert "Not imported" in page
-    assert "don&#x27;t match the Transactions already imported" in page
+    said = page_text(page)
+    assert "Disagrees with what's already imported" in said
+    assert "On 2 days inside Ana's Revolut's Coverage, its rows don't match" in said
     mismatch = page[page.index('class="mismatch"') :]
     assert "8 Jun 2026" in mismatch
     assert f"−3,20{EUR}" in mismatch  # already imported, missing from the file
@@ -129,8 +130,8 @@ def test_a_statement_may_add_rows_on_the_last_day_of_the_coverage(logged_in_clie
         logged_in_client, ("overlap.csv", overlap), account=str(june_imported.pk)
     ).content.decode()
 
-    assert "2 Transactions imported" in page
-    assert "2 Duplicates skipped" in page
+    assert "2 Transactions imported" in page_text(page)
+    assert "2 Duplicates skipped" in page_text(page)
     assert "Kiosk" in transactions_page(logged_in_client)
 
 
@@ -148,8 +149,8 @@ def test_a_statement_may_add_rows_on_the_first_day_of_the_coverage(logged_in_cli
         logged_in_client, ("may.csv", earlier), account=str(june_imported.pk)
     ).content.decode()
 
-    assert "2 Transactions imported" in page
-    assert "1 Duplicate skipped" in page
+    assert "2 Transactions imported" in page_text(page)
+    assert "1 Duplicate skipped" in page_text(page)
 
 
 def test_an_edge_day_must_still_match_every_existing_row(logged_in_client, june_imported):
@@ -196,8 +197,8 @@ def test_identical_rows_on_one_statement_are_both_imported_and_both_matched_late
         account=str(account.pk),
     ).content.decode()
 
-    assert "1 Transaction imported" in page
-    assert "2 Duplicates skipped" in page
+    assert "1 Transaction imported" in page_text(page)
+    assert "2 Duplicates skipped" in page_text(page)
     rows = transaction_rows(transactions_page(logged_in_client))
     assert [description for _d, _a, description, _x in rows].count("Parking") == 2
 
@@ -250,7 +251,7 @@ def test_a_statement_that_continues_the_running_balance_is_imported(
         logged_in_client, ("later.csv", later), account=str(june_imported.pk)
     ).content.decode()
 
-    assert "1 Transaction imported" in page
+    assert "1 Transaction imported" in page_text(page)
 
 
 def test_several_files_are_imported_independently_in_period_order(
@@ -262,39 +263,29 @@ def test_several_files_are_imported_independently_in_period_order(
 
     page = upload(logged_in_client, later, broken, june).content.decode()
 
-    # The later file lines up only because June was imported first, and each file gets its own block.
-    assert page.count("Imported into Ana&#x27;s Revolut") == 2
-    assert page.index("·</span> 1–10 Jun 2026</p>") < page.index("·</span> 11 Jun 2026</p>")
-    assert "broken.csv" in page[page.index('class="panel notice rejected"') :]
-    assert page.count("Not imported") == 1
+    # The later file lines up only because June was imported first; each lands on the Account's row.
+    row = board_row(page, "Ana's Revolut")
+    assert row.index("New: 1–10 Jun 2026") < row.index("New: 11 Jun 2026")
+    assert "Not imported broken.csv" in page_text(page)
+    assert "2 files Needs you" not in page_text(page)
+    assert page_text(page).count("Not imported") == 1
     # Both went into the one Account created by the upload.
     assert import_page(logged_in_client).count("Revolut · ana") == 1
     assert "Petrol" in transactions_page(logged_in_client)
     assert len(list(statement_files.rglob("*.csv"))) == 2
 
 
-def test_summary_warns_when_the_statement_leaves_a_coverage_gap(logged_in_client, june_imported):
+def test_the_row_shows_the_gap_a_statement_leaves(logged_in_client, june_imported):
     later = revolut_csv("1000", [("2026-06-15", "Petrol", "-60"), ("2026-06-20", "Kiosk", "-2")])
 
     page = upload(
         logged_in_client, ("later.csv", later), account=str(june_imported.pk)
     ).content.decode()
 
-    assert "2 Transactions imported" in page  # a warning, not a rejection
-    assert "No Statement covers 11–14 Jun 2026 yet." in page
-
-
-def test_summary_has_no_gap_warning_when_the_coverage_stays_continuous(
-    logged_in_client, june_imported
-):
-    later = revolut_csv(BALANCE_JUNE_10, [("2026-06-11", "Petrol", "-60")])
-
-    page = upload(
-        logged_in_client, ("later.csv", later), account=str(june_imported.pk)
-    ).content.decode()
-
-    assert "1 Transaction imported" in page
-    assert "No Statement covers" not in page
+    row = board_row(page, "Ana's Revolut")
+    assert "New: 15–20 Jun 2026 · 2 Transactions" in row  # a Gap, not a rejection
+    assert "Covered 1–10 Jun 2026 Gap 11–14 Jun 2026 Covered by this import 15–20 Jun 2026" in row
+    assert "Gap 11–14 Jun 2026 Gap 21 Jun" in row  # the captions, the last since the last Statement
 
 
 def test_import_page_shows_each_accounts_coverage_with_its_gaps(logged_in_client, june_imported):
@@ -304,18 +295,13 @@ def test_import_page_shows_each_accounts_coverage_with_its_gaps(logged_in_client
 
     page = import_page(logged_in_client)
 
-    account = page[page.index("<h4>Ana&#x27;s Revolut") : page.index(f"<h4>{savings.name}")]
-    timeline = account[account.index('class="coverage"') :]
-    assert "Covered 1–10 Jun 2026" in timeline
-    assert "Gap 11–14 Jun 2026" in timeline
-    assert "Covered 15–20 Jun 2026" in timeline
-    assert "Last Statement ends 20 Jun 2026" in account
-    statements = account[account.index("<details") :]
-    assert "1–10 Jun 2026" in statements
-    assert "15–20 Jun 2026" in statements
-    no_statements = page[page.index(f"<h4>{savings.name}") :]
-    assert "No Statements yet." in no_statements
-    assert 'class="coverage"' not in no_statements
+    row = board_row(page, "Ana's Revolut")
+    assert "Covered 1–10 Jun 2026 Gap 11–14 Jun 2026 Covered 15–20 Jun 2026 Gap 21 Jun" in row
+    assert ", since the last Statement" in row
+    assert "Tracked from 1 Jun 2026" in row
+    assert 'aria-label="Gap 11–14 Jun 2026: import a Statement"' in page
+    assert row.index("15–20 Jun 2026 CSV") < row.index("1–10 Jun 2026 CSV")  # newest first
+    assert board_row(page, savings.name).endswith("No Statements yet.")
 
 
 def test_a_statement_just_before_the_coverage_must_close_at_its_opening_balance(
@@ -334,9 +320,7 @@ def test_a_statement_just_before_the_coverage_must_close_at_its_opening_balance(
     assert "Kiosk" not in transactions_page(logged_in_client)
 
 
-def test_no_gap_warning_for_a_gap_the_statement_does_not_border(logged_in_client, june_imported):
-    later = revolut_csv("1000", [("2026-06-15", "Petrol", "-60")])
-    upload(logged_in_client, ("later.csv", later), account=str(june_imported.pk))
+def test_a_statement_inside_the_coverage_adds_no_new_stretch(logged_in_client, june_imported):
     inside = revolut_csv(
         "2444.98", [("2026-06-08", "Bakery", "-3.20"), ("2026-06-10", "Mercator", "-12.34")]
     )
@@ -345,5 +329,7 @@ def test_no_gap_warning_for_a_gap_the_statement_does_not_border(logged_in_client
         logged_in_client, ("inside.csv", inside), account=str(june_imported.pk)
     ).content.decode()
 
-    assert "2 Duplicates skipped" in page
-    assert "No Statement covers" not in page
+    assert "2 Duplicates skipped" in page_text(page)
+    row = board_row(page, "Ana's Revolut")
+    assert "New: 8–10 Jun 2026 · 0 Transactions" in row
+    assert "Covered by this import" not in row

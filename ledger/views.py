@@ -10,6 +10,7 @@ from django.db.models import Count, Prefetch
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from django.utils.formats import number_format
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
@@ -26,6 +27,8 @@ from pursegraph.htmx import announce, wants_the_fragment_alone
 from . import categories as category_edits
 from . import facets, outcomes, review, suggestions
 from . import rules as rule_edits
+from .board import Axis, track
+from .coverage import DateRange, coverage
 from .forms import (
     AccountAdminForm,
     AccountForm,
@@ -36,6 +39,7 @@ from .forms import (
     StatementFileForm,
     ThresholdForm,
 )
+from .import_results import banner, domain_counts
 from .importer import (
     CheckedStatement,
     FileResult,
@@ -55,7 +59,7 @@ def categories_with_subcategories():
 
 
 def import_statements(request):
-    """Upload Statements, several at once, each accepted or rejected on its own.
+    """Upload Statements, several at once, each accepted or rejected on its own (docs/design/import.md).
 
     Every file is checked first; the rest are then imported in period order, so each one's
     Duplicate check sees the Coverage the earlier ones left. A file goes into the Account its
@@ -63,15 +67,23 @@ def import_statements(request):
     Posting `account` with the files skips straight to that step's answer, for every file that
     needs one; a new Account it names is created by the first such file, and later files of that
     bank go into it.
+
+    The result is told by a banner, a tray of the files that need the Member, and on the board, where each
+    Account's row shows the stretch this import added. HTMX posts swap the `#import` region in.
     """
     form = StatementFileForm()
     results: list[FileResult] = []
     pending: list[dict] = []
+    before: dict[int, list[DateRange]] | None = None
     if request.method == "POST":
         posted = StatementFileForm(request.POST, request.FILES)
         if not posted.is_valid():
             form = posted
         else:
+            before = {
+                account.pk: account.coverage()
+                for account in Account.objects.prefetch_related("statements")
+            }
             checked: list[CheckedStatement] = []
             for filename, content in posted.cleaned_data["files"]:
                 try:
@@ -90,6 +102,7 @@ def import_statements(request):
                     account_form = AccountForm(
                         request.POST if choosing else None,
                         statement=statement,
+                        initial={"owners": [request.user.pk]},
                         auto_id=f"id_{len(pending)}_%s",
                     )
                     if not (choosing and account_form.is_valid()):
@@ -107,22 +120,73 @@ def import_statements(request):
                     if isinstance(account, NewAccount):
                         created[statement.parsed.bank] = summary.account
 
-    statements = Statement.objects.select_related("imported_by").annotate(
-        transaction_count=Count("transactions")
-    )
-    accounts = Account.objects.prefetch_related(
-        "owners", "ibans", Prefetch("statements", queryset=statements)
-    )
-    return render(
+    said = banner(results, needs_account=len(pending)) if before is not None else None
+    rejected = [r for r in results if r.rejection and not r.rejection.already_imported]
+    response = render(
         request,
-        "ledger/import.html",
+        "ledger/_import.html" if wants_the_fragment_alone(request) else "ledger/import.html",
         {
             "form": form,
-            "results": results,
+            "banner": said,
             "pending": pending,
-            "accounts": accounts,
+            "rejected": rejected,
+            "already": [r for r in results if r.rejection and r.rejection.already_imported],
+            "tray_count": len(pending) + len(rejected),
+            **_board(request, before, [r.summary for r in results if r.summary]),
         },
     )
+    if said:
+        announce(response, f"{said.headline}. {said.rest}" if said.rest else said.headline)
+    patch_vary_headers(response, ["HX-Request"])
+    return response
+
+
+def _board(request, before: dict[int, list[DateRange]] | None, summaries: list) -> dict:
+    """The Accounts board: each Account's track on one axis from the Household's first covered day to today, with
+    what this import added (when `before` holds the Coverage it started from) and its Statements."""
+    statements = (
+        Statement.objects.select_related("imported_by")
+        .annotate(transaction_count=Count("transactions"))
+        .order_by("-period_start", "-id")
+    )
+    accounts = list(
+        Account.objects.prefetch_related(
+            Prefetch("owners", queryset=get_user_model().objects.order_by("username")),
+            Prefetch("statements", queryset=statements),
+        )
+    )
+    ranges = {account.pk: coverage(account.statements.all()) for account in accounts}
+    today = timezone.localdate()
+    starts = [r[0].start for r in ranges.values() if r]
+    ends = [r[-1].end for r in ranges.values() if r]
+    axis = Axis(min(starts), max([today, *ends])) if starts else None
+    rows = []
+    for account in accounts:
+        covered = ranges[account.pk]
+        stretches = (
+            track(
+                axis,
+                covered,
+                before=covered if before is None else before.get(account.pk, []),
+            )
+            if axis and covered
+            else []
+        )
+        rows.append(
+            {
+                "account": account,
+                "statements": account.statements.all(),
+                "stretches": stretches,
+                "gaps": [s for s in stretches if s.is_gap],
+                "tracked_from": covered[0].start if covered else None,
+                "results": [
+                    {"summary": s, "counts": domain_counts(s)}
+                    for s in summaries
+                    if s.account.pk == account.pk
+                ],
+            }
+        )
+    return {"axis": axis, "ticks": axis.ticks() if axis else [], "rows": rows}
 
 
 def _account_step(statement: CheckedStatement, account_form: AccountForm) -> dict:

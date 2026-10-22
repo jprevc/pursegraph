@@ -12,6 +12,7 @@ from tests.conftest import (
     group_caption,
     make_account,
     outcome_shown,
+    page_text,
     review_queue_count,
     subcategory_id,
     transaction_id,
@@ -73,7 +74,7 @@ def test_a_payment_to_a_household_iban_is_a_one_sided_transfer(logged_in_client,
 
     summary = import_sparkasse(logged_in_client)
 
-    assert "1 Transfer recognised: 0 paired, 1 one-sided" in summary
+    assert "1 Transfer recognised: 0 paired, 1 one-sided" in page_text(summary)
     page = transactions_page(logged_in_client)
     assert outcome_shown(page, "Ana Novak") == "Transfer"
     assert outcome_shown(page, "DARS d.d.") == "Awaiting review"
@@ -89,7 +90,7 @@ def test_the_other_side_imported_later_is_paired(logged_in_client, sparkasse, re
 
     summary = import_revolut(logged_in_client, revolut, payment_from_ana())
 
-    assert "1 Transfer recognised: 1 paired, 0 one-sided" in summary
+    assert "1 Transfer recognised: 1 paired, 0 one-sided" in page_text(summary)
     page = transactions_page(logged_in_client)
     assert outcome_shown(page, "Payment from Ana Novak") == "Transfer"
     assert outcome_shown(page, "Ana Novak") == "Transfer"
@@ -113,8 +114,8 @@ def test_a_categorized_side_imported_first_is_converted_when_its_counterpart_arr
 
     summary = import_sparkasse(logged_in_client)
 
-    assert "1 Transfer recognised: 1 paired, 0 one-sided" in summary
-    assert "1 categorized Transaction converted to a Transfer" in summary
+    assert "1 Transfer recognised: 1 paired, 0 one-sided" in page_text(summary)
+    assert "1 categorized Transaction is now a Transfer" in page_text(summary)
     assert (
         outcome_shown(transactions_page(logged_in_client), "Payment from Ana Novak") == "Transfer"
     )
@@ -165,7 +166,10 @@ def tie(logged_in_client, sparkasse, revolut):
 def test_a_tie_between_candidates_goes_to_the_review_queue_with_the_candidates(
     logged_in_client, tie
 ):
-    assert "1 Transfer with several possible counterparts waits in the Review queue" in tie
+    assert (
+        "1 Transfer has several possible other sides, so it waits in the Review queue"
+        in page_text(tie)
+    )
     page = review_queue(logged_in_client)
     assert group_caption(page, "Ana Novak") == UNKNOWN_SIDE
     assert pairing_options(logged_in_client, "Ana Novak") == [
@@ -259,7 +263,7 @@ def test_a_counterpart_more_than_three_days_away_is_not_paired(
 
     summary = import_revolut(logged_in_client, revolut, payment_from_ana("2026-09-14"))
 
-    assert "0 Transfers recognised: 0 paired, 0 one-sided" in summary
+    assert "No Transfers" in page_text(summary)
     assert outcome_shown(transactions_page(logged_in_client), "Payment from Ana Novak") == (
         "Awaiting review"
     )
@@ -276,7 +280,7 @@ def test_a_manually_categorized_transaction_is_never_converted(
 
     summary = import_sparkasse(logged_in_client)
 
-    assert "1 Transfer recognised: 0 paired, 1 one-sided" in summary
+    assert "1 Transfer recognised: 0 paired, 1 one-sided" in page_text(summary)
     page = transactions_page(logged_in_client)
     assert outcome_shown(page, "Payment from Ana Novak") == "Income → Gifts received"
 
@@ -292,7 +296,7 @@ def test_a_side_marked_as_a_transfer_by_hand_is_paired_and_stays_manual(
 
     summary = import_sparkasse(logged_in_client)
 
-    assert "1 Transfer recognised: 1 paired, 0 one-sided" in summary
+    assert "1 Transfer recognised: 1 paired, 0 one-sided" in page_text(summary)
     assert counterpart_of("Payment from Ana Novak") == "Ana Novak"
     assert Transaction.objects.get(description="Payment from Ana Novak").source == "manual"
 
@@ -339,7 +343,7 @@ def test_a_transfer_marked_by_a_rule_is_paired(logged_in_client, sparkasse, memb
 
     summary = import_revolut(logged_in_client, revolut, payment_from_ana())
 
-    assert "1 Transfer recognised: 1 paired, 0 one-sided" in summary
+    assert "1 Transfer recognised: 1 paired, 0 one-sided" in page_text(summary)
     assert "converted" not in summary  # the Sparkasse side was unresolved, not categorized
     assert Transaction.objects.get(description="Payment from Ana Novak").source == "rule"
     assert counterpart_of("Payment from Ana Novak") == "Ana Novak"
@@ -386,7 +390,10 @@ def test_two_sides_equally_close_to_one_candidate_go_to_the_review_queue(logged_
         [("2026-09-03", "From Ana", "50")],
     )
 
-    assert "2 Transfers with several possible counterparts wait in the Review queue" in summary
+    assert (
+        "2 Transfers have several possible other sides, so they wait in the Review queue"
+        in page_text(summary)
+    )
     page = review_queue(logged_in_client)
     assert group_caption(page, "Savings early") == UNKNOWN_SIDE
     assert group_caption(page, "Savings late") == UNKNOWN_SIDE
@@ -440,7 +447,7 @@ def test_a_payment_to_another_members_account_is_a_transfer(
 
     summary = import_sparkasse(logged_in_client)
 
-    assert "1 Transfer recognised: 0 paired, 1 one-sided" in summary
+    assert "1 Transfer recognised: 0 paired, 1 one-sided" in page_text(summary)
 
 
 def test_duplicates_of_a_paired_side_are_not_counted_again(logged_in_client, sparkasse, revolut):
@@ -454,6 +461,6 @@ def test_duplicates_of_a_paired_side_are_not_counted_again(logged_in_client, spa
         filename="overlap.csv",
     )
 
-    assert "1 Duplicate skipped" in summary
-    assert "0 Transfers recognised: 0 paired, 0 one-sided" in summary
+    assert "1 Duplicate skipped" in page_text(summary)
+    assert "No Transfers" in page_text(summary)
     assert counterpart_of("Ana Novak") == "Payment from Ana Novak"

@@ -4,7 +4,13 @@ from pathlib import Path
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from tests.conftest import assert_nothing_stored, make_account, transaction_rows
+from tests.conftest import (
+    assert_nothing_stored,
+    board_row,
+    make_account,
+    page_text,
+    transaction_rows,
+)
 
 from .conftest import EUR
 
@@ -46,7 +52,7 @@ def test_an_unknown_iban_asks_for_the_account_with_a_new_one_preselected(logged_
     assert "Choose the Account" in page
     assert "Sparkasse SI" in page
     assert IBAN in page
-    assert '<option value="new" selected>' in page
+    assert 'value="new" id="id_0_account_new" checked>' in page
     assert 'value="Sparkasse SI"' in page
     assert "No Transactions yet" in logged_in_client.get("/transactions/").content.decode()
 
@@ -59,14 +65,15 @@ def test_creating_the_account_for_an_unknown_iban_imports_the_statement(logged_i
         new_account_name="Ana's Sparkasse",
     )
 
-    summary = response.content.decode()
-    assert "Imported into Ana&#x27;s Sparkasse" in summary
-    assert "1–30 Sep 2026" in summary
-    assert "12 Transactions imported" in summary
-    page = logged_in_client.get("/import/").content.decode()
-    assert "Sparkasse SI · ana" in page  # the importing Member owns the new Account
-    assert IBAN in page  # with the Statement's IBAN filled in
-    assert "<td>PDF</td>" in page
+    row = board_row(response.content.decode(), "Ana's Sparkasse")
+    assert "New: 1–30 Sep 2026 · 12 Transactions" in row
+    assert "12 Transactions imported" in row
+    assert "Sparkasse SI · ana" in row  # the importing Member owns the new Account
+    assert "1–30 Sep 2026 PDF" in row
+    # With the Statement's IBAN filled in, the next one goes there by itself.
+    assert "New: 1–31 Dec 2026" in board_row(
+        upload(logged_in_client, october()).content.decode(), "Ana's Sparkasse"
+    )
 
 
 def october(text=FIXTURE):
@@ -86,7 +93,7 @@ def test_a_known_iban_imports_straight_into_its_account(logged_in_client, member
     response = upload(logged_in_client)
 
     page = response.content.decode()
-    assert "Imported into Joint Sparkasse" in page
+    assert "New: 1–30 Sep 2026" in board_row(page, "Joint Sparkasse")
     assert "Choose the Account" not in page
     rows = transaction_rows(logged_in_client.get("/transactions/").content.decode())
     assert "Joint Sparkasse" in {account for _d, account, _t, _x in rows}
@@ -99,17 +106,19 @@ def test_picking_an_existing_account_for_an_unknown_iban_adds_the_iban_to_it(
     account = make_sparkasse("Joint Sparkasse", member, ibans=["SI56020100001234582"])
     step = upload(logged_in_client)
     page = step.content.decode()
-    assert "Joint Sparkasse</option>" in page
-    assert "Ana&#x27;s Revolut</option>" not in page  # only Accounts of the Statement's bank
-    assert "selected>" not in page.replace('<option value="" selected>', "")
-
-    assert (
-        "Imported into Joint Sparkasse"
-        in choose(logged_in_client, step, account=str(account.pk)).content.decode()
+    choice = page_text(
+        page[page.index('class="choose"') : page.index("</form>", page.index('class="choose"'))]
     )
+    assert "Joint Sparkasse · ana" in choice
+    assert "Ana's Revolut" not in choice  # only Accounts of the Statement's bank
+    assert not re.search(r'name="account" value="[^"]*" id="[^"]*" checked>', page)
+
+    chosen = choose(logged_in_client, step, account=str(account.pk)).content.decode()
+    assert "New: 1–30 Sep 2026" in board_row(chosen, "Joint Sparkasse")
 
     # The next Statement of that IBAN is recognised.
-    assert "Imported into Joint Sparkasse" in upload(logged_in_client, october()).content.decode()
+    later = upload(logged_in_client, october()).content.decode()
+    assert "New: 1–31 Dec 2026" in board_row(later, "Joint Sparkasse")
 
 
 def test_a_statement_of_a_known_iban_cant_go_into_another_account(logged_in_client, member):
@@ -124,7 +133,10 @@ def test_a_statement_of_a_known_iban_cant_go_into_another_account(logged_in_clie
 
     response = upload(logged_in_client, october(), account=str(other.pk))
 
-    assert f"IBAN {IBAN} belongs to Ana&#x27;s Sparkasse" in response.content.decode()
+    said = page_text(response.content.decode())
+    assert "This Statement belongs to Ana's Sparkasse" in said
+    assert f"Its IBAN {IBAN} is on Ana's Sparkasse, but Bor's Sparkasse was chosen." in said
+    assert "Import it again without choosing an Account" in said
     assert (
         "Bor&#x27;s Sparkasse</td>" not in logged_in_client.get("/transactions/").content.decode()
     )
@@ -149,12 +161,15 @@ def test_rows_that_dont_match_the_printed_totals_are_rejected_with_a_diagnosis(
 
     page = upload(logged_in_client, text).content.decode()
 
-    assert "rows don&#x27;t match its printed totals" in page
-    assert "keep this file" in page
-    assert f'<tr><th>Printed</th><td class="num">1.250,02{EUR}</td><td class="num">3</td>' in page
+    said = page_text(page)
+    assert "A payment seems to be missing" in said
     assert (
-        f'<tr><th>Parsed rows</th><td class="num">1.250,02{EUR}</td><td class="num">2</td>' in page
-    )
+        f"The Statement lists 3 payments in, totalling 1.250,02{EUR}. "
+        "Pursegraph read 2 of them, with the same total."
+    ) in said
+    assert "Keep the file: the Sparkasse SI reader needs a fix." in said
+    assert f"Printed on the Statement 1.250,02{EUR} 3 1.842,85{EUR} 10" in said
+    assert '<td class="num off">2</td>' in page  # the count that differs
     assert "Pozitivne obresti" in page  # the parsed rows
     assert_nothing_stored(logged_in_client, statement_files)
 
@@ -164,8 +179,9 @@ def test_statement_whose_balances_dont_add_up_is_rejected(logged_in_client, stat
 
     page = upload(logged_in_client, text).content.decode()
 
-    assert "balances don&#x27;t add up" in page
-    assert f"4.320,90{EUR}" in page
+    said = page_text(page)
+    assert "A payment seems to be missing" in said
+    assert f"It opens with 4.320,90{EUR}" in said
     assert_nothing_stored(logged_in_client, statement_files)
 
 
@@ -175,7 +191,7 @@ def test_statement_with_an_unsupported_row_is_rejected(logged_in_client, stateme
     page = upload(logged_in_client, text).content.decode()
 
     assert "unsupported row: 02.09.2026 MARKO K 85,00 / 02.09.2026 Flik plačilo" in page
-    assert "keep this file" in page
+    assert "Not a Statement Pursegraph can read" in page
     assert_nothing_stored(logged_in_client, statement_files)
 
 
@@ -205,10 +221,8 @@ def test_an_n26_statement_imports_into_the_account_of_its_iban(logged_in_client,
 
     response = upload(logged_in_client, N26, filename="statement-2026-09.pdf")
 
-    page = response.content.decode()
-    assert "Imported into Ana&#x27;s N26" in page
-    assert "1–30 Sep 2026" in page
-    assert "7 Transactions imported" in page
+    row = board_row(response.content.decode(), "Ana's N26")
+    assert "New: 1–30 Sep 2026 · 7 Transactions" in row
     page = logged_in_client.get("/transactions/").content.decode()
     assert ("10 Sep 2026", "Ana's N26", "Ana Novak", f"−1.000,00{EUR}") in transaction_rows(page)
     assert "EasyPark SI" in page
@@ -231,7 +245,9 @@ def test_n26_rows_that_dont_match_the_printed_totals_are_rejected(
 
     page = upload(logged_in_client, text, filename="statement-2026-09.pdf").content.decode()
 
-    assert "rows don&#x27;t match its printed totals" in page
+    said = page_text(page)
+    assert f"The Statement prints 1.078,73{EUR} of payments out." in said
+    assert f"Pursegraph read 1.077,73{EUR}: 1,00{EUR} short." in said
     # N26 prints no row counts.
-    assert f'<tr><th>Printed</th><td class="num">1.251,00{EUR}</td><td class="num">—</td>' in page
+    assert f"Printed on the Statement 1.251,00{EUR} — 1.078,73{EUR} —" in said
     assert_nothing_stored(logged_in_client, statement_files)

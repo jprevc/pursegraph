@@ -1,0 +1,231 @@
+{% load figures i18n icons %}{# Import's region under the title row (docs/design/import.md): the drop strip, the result of an import and the Accounts board. An import posted with HTMX swaps it in alone. #}
+<div id="import" class="import">
+{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
+
+<div class="gap-notice" role="status" data-gap-notice hidden>{% icon "file" %}<span></span><button type="button" class="ghost icon-button" data-gap-dismiss aria-label="{% translate 'Dismiss' %}">{% icon "x" %}</button></div>
+
+<form class="panel drop" method="post" action="{% url 'import' %}" enctype="multipart/form-data" hx-post="{% url 'import' %}" hx-target="#import" hx-swap="outerHTML" data-action data-import
+  data-ready="{% translate 'Ready' %}" data-remove="{% translate 'Remove %(name)s' %}"
+  data-import-one="{% translate 'Import 1 file' %}" data-import-many="{% translate 'Import %(count)s files' %}"
+  data-uploading-one="{% translate 'Uploading 1 file' %}" data-uploading-many="{% translate 'Uploading %(count)s files' %}"
+  data-checking-one="{% translate 'Checking and importing 1 Statement' %}" data-checking-many="{% translate 'Checking and importing %(count)s Statements' %}"
+  data-uploaded="{% translate 'Uploaded. Checking and importing them, oldest first.' %}">
+  {% csrf_token %}
+  <div class="drop-idle">
+    {% icon "upload" %}
+    <p><span class="drop-lead">{% translate "Drop Statements anywhere on this page." %}</span> <span class="muted">{% translate "PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports. Several at once." %}</span></p>
+  </div>
+  {% if form.errors %}<div class="drop-errors">{{ form.file.errors }}{{ form.non_field_errors }}</div>{% endif %}
+  <div class="drop-pick">
+    <label for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+    {{ form.file }}
+    <button type="submit" class="primary">{% translate "Import" %}</button>
+  </div>
+  <div class="staging" data-staging hidden>
+    <div class="progress-line" data-progress hidden>
+      <p><b id="progress-label" data-progress-label></b> <span data-progress-detail hidden>· {% translate "oldest first, so each one's Duplicates are found" %}</span><span class="num" data-progress-percent></span></p>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="progress-label" data-bar><i></i></div>
+    </div>
+    <ul class="staged" data-staged></ul>
+    <div class="staged-foot" data-staged-foot>
+      <p class="muted">{% translate "Each file lands on its Account's row below." %}</p>
+      <button type="button" data-cancel>{% translate "Cancel" %}</button>
+      <button type="submit" class="primary" data-submit></button>
+    </div>
+  </div>
+</form>
+
+{% if banner %}
+<section class="panel result" aria-labelledby="result-h">
+  {% if banner.imported %}{% icon "check" %}{% else %}{% icon "info" %}{% endif %}
+  <div class="result-text">
+    <p id="result-h" class="result-head" tabindex="-1" data-focus>{{ banner.headline }}</p>
+    {% if banner.rest %}<p class="muted">{{ banner.rest }}</p>{% endif %}
+  </div>
+  {% if banner.to_review %}<a class="button primary" href="{% url 'review_queue' %}">{% translate "Review now" %}{% icon "arrow" %}</a>{% endif %}
+</section>
+{% endif %}
+
+{% if pending or rejected %}
+<section class="panel tray" aria-labelledby="tray-h">
+  <h2 id="tray-h">{% blocktranslate count n=tray_count %}Needs you · {{ n }} file{% plural %}Needs you · {{ n }} files{% endblocktranslate %}</h2>
+  {% for step in pending %}{% with f=step.account_form s=step.statement %}
+  <div class="tray-item">
+    <div class="tray-file"><span class="status">{% icon "question" %}{% translate "Needs an Account" %}</span><span class="file-name">{{ step.form.filename.value }}</span></div>
+    <form class="choose" method="post" action="{% url 'import' %}" hx-post="{% url 'import' %}" hx-target="#import" hx-swap="outerHTML" data-action>
+      {% csrf_token %}{{ step.form.content }}{{ step.form.filename }}
+      <h3>{% translate "Choose the Account" %}</h3>
+      {% with period=s.period_start|date_range:s.period_end %}
+      {% if s.iban %}
+      <p>{% blocktranslate with bank=step.bank iban=s.iban %}A Statement from {{ bank }}, {{ period }}. Its IBAN {{ iban }} isn't on any Account yet. Pick the Account it belongs to, or create one. The IBAN is added to it, so next time the Statement goes there by itself.{% endblocktranslate %}</p>
+      {% else %}
+      <p>{% blocktranslate with bank=step.bank %}A {{ bank }} CSV export, {{ period }}. It carries no IBAN, so pick the Account it belongs to, or create one.{% endblocktranslate %}</p>
+      {% endif %}
+      {% endwith %}
+      <fieldset>
+        <legend class="sr">{% translate "Account" %}</legend>
+        {{ f.account.errors }}
+        {% for a in f.accounts %}
+        <label class="option"><input type="radio" name="account" value="{{ a.pk }}" id="{{ f.account.auto_id }}_{{ a.pk }}"{% if f.account.value|stringformat:"s" == a.pk|stringformat:"s" %} checked{% endif %}> <span>{{ a.name }} <span class="muted">· {% for o in a.owners.all %}{{ o.get_full_name|default:o.get_username }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></span></label>
+        {% endfor %}
+        <label class="option"><input type="radio" name="account" value="new" id="{{ f.account.auto_id }}_new"{% if f.account.value == "new" %} checked{% endif %}> <span>{% blocktranslate with bank=step.bank %}A new {{ bank }} Account{% endblocktranslate %}</span></label>
+        <div class="new-account">
+          <div class="field"><label for="{{ f.new_account_name.id_for_label }}">{{ f.new_account_name.label }}</label>{{ f.new_account_name }}{{ f.new_account_name.errors }}</div>
+          <fieldset class="field">
+            <legend>{{ f.owners.label }}</legend>
+            <div class="checks">{% for box in f.owners %}<label>{{ box.tag }} {{ box.data.value.instance.get_full_name|default:box.data.value.instance.get_username }}</label>{% endfor %}</div>
+            <p class="helptext">{{ f.owners.help_text }}</p>
+          </fieldset>
+        </div>
+      </fieldset>
+      <div><button type="submit" class="primary">{% translate "Import into this Account" %}</button></div>
+    </form>
+  </div>
+  {% endwith %}{% endfor %}
+  {% for result in rejected %}{% with r=result.rejection %}
+  <div class="tray-item">
+    <div class="tray-file"><span class="status">{% icon "alert" %}{% translate "Not imported" %}</span><span class="file-name">{{ result.filename }}</span></div>
+    <div class="rejection">
+      <h3>{{ r.heading }}</h3>
+      <p>{{ r }}</p>
+      {% if r.next_step %}<p class="next">{{ r.next_step }}</p>{% endif %}
+      {% with d=r.diagnosis %}{% if d %}
+      <details>
+        <summary>{% translate "Show the reconciliation" %}</summary>
+        <div class="evidence">
+          <dl>
+            <dt>{% translate "Opening balance" %}</dt><dd>{{ d.opening_balance|money }}</dd>
+            <dt>{% translate "All rows read, added up" %}</dt><dd>{{ d.rows_total|money_signed }}</dd>
+            <dt>{% translate "So the closing balance should be" %}</dt><dd>{{ d.expected_closing|money }}</dd>
+            <dt>{% translate "The Statement prints" %}</dt><dd{% if not d.balances_add_up %} class="off"{% endif %}>{{ d.closing_balance|money }}</dd>
+          </dl>
+          {% if d.printed_totals %}{% with p=d.printed_totals t=d.parsed_totals %}
+          <div class="scroll"><table class="totals">
+            <thead><tr><th></th><th class="num">{% translate "Money in" %}</th><th class="num">{% translate "Payments in" %}</th><th class="num">{% translate "Money out" %}</th><th class="num">{% translate "Payments out" %}</th></tr></thead>
+            <tbody>
+              <tr><th>{% translate "Printed on the Statement" %}</th><td class="num">{{ p.money_in|money }}</td><td class="num">{{ p.count_in|default_if_none:"—" }}</td><td class="num">{{ p.money_out|money }}</td><td class="num">{{ p.count_out|default_if_none:"—" }}</td></tr>
+              <tr><th>{% translate "Read by Pursegraph" %}</th><td class="num{% if t.money_in != p.money_in %} off{% endif %}">{{ t.money_in|money }}</td><td class="num{% if p.count_in is not None and t.count_in != p.count_in %} off{% endif %}">{{ t.count_in }}</td><td class="num{% if t.money_out != p.money_out %} off{% endif %}">{{ t.money_out|money }}</td><td class="num{% if p.count_out is not None and t.count_out != p.count_out %} off{% endif %}">{{ t.count_out }}</td></tr>
+            </tbody>
+          </table></div>
+          {% endwith %}{% endif %}
+          <details>
+            <summary>{% blocktranslate count n=d.rows|length %}The {{ n }} row read{% plural %}All {{ n }} rows read{% endblocktranslate %}</summary>
+            <div class="scroll"><table>
+              <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th class="num">{% translate "Balance" %}</th></tr></thead>
+              <tbody>{% for row in d.rows %}<tr><td class="fig">{{ row.date|day }}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>{% endfor %}</tbody>
+            </table></div>
+          </details>
+        </div>
+      </details>
+      {% endif %}{% endwith %}
+      {% with b=r.balances %}{% if b %}
+      <details>
+        <summary>{% translate "Show the balances" %}</summary>
+        <div class="evidence"><dl>
+          <dt>{% blocktranslate with date=b.day|day %}The Account, going into {{ date }}{% endblocktranslate %}</dt><dd>{{ b.expected|money }}</dd>
+          <dt>{% blocktranslate with date=b.day|day %}This Statement, going into {{ date }}{% endblocktranslate %}</dt><dd class="off">{{ b.balance|money }}</dd>
+        </dl></div>
+      </details>
+      {% endif %}{% endwith %}
+      {% if r.mismatch %}
+      <details>
+        <summary>{% blocktranslate count n=r.mismatch|length %}Show the day that differs{% plural %}Show the {{ n }} days that differ{% endblocktranslate %}</summary>
+        <div class="evidence"><div class="scroll"><table class="mismatch">
+          <thead><tr><th>{% translate "Date" %}</th><th></th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th class="num">{% translate "Balance" %}</th></tr></thead>
+          <tbody>
+          {% for day in r.mismatch %}
+            {% for row in day.missing %}<tr><td class="fig">{{ day.day|day }}</td><td>{% translate "Imported before, not in this file" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>{% endfor %}
+            {% for row in day.unexpected %}<tr><td class="fig">{{ day.day|day }}</td><td>{% translate "In this file, not imported before" %}</td><td>{{ row.description }}</td><td class="num">{{ row.amount|money }}</td><td class="num">{{ row.running_balance|money }}</td></tr>{% endfor %}
+          {% endfor %}
+          </tbody>
+        </table></div></div>
+      </details>
+      {% endif %}
+      {% if r.found %}
+      <details>
+        <summary>{% translate "What the reader found" %}</summary>
+        <div class="evidence"><p>{{ r.found }}</p></div>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}{% endfor %}
+</section>
+{% endif %}
+
+{% for result in already %}{% with e=result.rejection.existing %}
+<p class="already"><span class="status">{% icon "equals" %}{% translate "Already imported" %}</span> <span>{% if e %}{% blocktranslate with file=result.filename account=e.account.name date=e.imported_at|day %}{{ file }} went into {{ account }} on {{ date }}; nothing changed.{% endblocktranslate %}{% else %}{% blocktranslate with file=result.filename %}{{ file }} was already imported; nothing changed.{% endblocktranslate %}{% endif %}</span></p>
+{% endwith %}{% endfor %}
+
+<section class="panel board" aria-labelledby="board-h">
+  <h2 id="board-h" class="sr">{% translate "Accounts and their Coverage" %}</h2>
+  <div class="board-head" aria-hidden="true">
+    <span>{% translate "Account" %}</span>
+    <div class="axis">{% for tick in ticks %}<span class="{% if tick.is_year %}year{% endif %}" style="left: {{ tick.left|stringformat:'.3f' }}%">{{ tick.label }}</span>{% endfor %}</div>
+  </div>
+  {% for row in rows %}{% with account=row.account %}
+  <div class="board-row">
+    <div class="who">
+      <h3>{{ account.name }}</h3>
+      <p class="muted">{{ account.get_bank_display }}{% for o in account.owners.all %}{% if forloop.first %} · {% else %}, {% endif %}{{ o.get_full_name|default:o.get_username }}{% endfor %}</p>
+      {% if row.statements or user.is_admin %}<p class="who-links">
+        {% if row.statements %}<button type="button" class="link" aria-expanded="false" aria-controls="statements-{{ account.pk }}" data-disclose>{% blocktranslate count n=row.statements|length %}{{ n }} Statement{% plural %}{{ n }} Statements{% endblocktranslate %}</button>{% endif %}
+        {% if user.is_admin %}<a class="link" href="{% url 'edit_account' account.pk %}">{% translate "Edit" %}</a>{% endif %}
+      </p>{% endif %}
+    </div>
+    <div class="where">
+      {% if row.stretches %}
+      <div class="track">
+        {% for tick in ticks %}<i class="tick" style="left: {{ tick.left|stringformat:'.3f' }}%" aria-hidden="true"></i>{% endfor %}
+        {% for s in row.stretches %}{% with period=s.range.start|date_range:s.range.end %}
+        {% if s.is_gap %}
+        <button type="button" class="stretch gap" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%"
+          aria-label="{% if s.since_last_statement %}{% blocktranslate %}Gap {{ period }}, since the last Statement: import a Statement{% endblocktranslate %}{% else %}{% blocktranslate %}Gap {{ period }}: import a Statement{% endblocktranslate %}{% endif %}"
+          data-notice="{% blocktranslate with name=account.name bank=account.get_bank_display %}For {{ name }}: a Statement covering {{ period }}. Download it from {{ bank }} and drop it here.{% endblocktranslate %}">{% if s.label_fits %}{{ s.label }}{% endif %}</button>
+        {% else %}
+        <span class="stretch {{ s.kind }}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-hidden="true"></span>
+        {% endif %}
+        {% endwith %}{% endfor %}
+        <i class="today" aria-hidden="true"></i>
+      </div>
+      <ol class="sr">{% for s in row.stretches %}{% with period=s.range.start|date_range:s.range.end %}<li>{% if s.kind == "covered" %}{% blocktranslate %}Covered {{ period }}{% endblocktranslate %}{% elif s.kind == "new" %}{% blocktranslate %}Covered by this import {{ period }}{% endblocktranslate %}{% elif s.since_last_statement %}{% blocktranslate %}Gap {{ period }}, since the last Statement{% endblocktranslate %}{% else %}{% blocktranslate %}Gap {{ period }}{% endblocktranslate %}{% endif %}</li>{% endwith %}{% endfor %}</ol>
+      <p class="caption">
+        {% for result in row.results %}{% with s=result.summary %}<button type="button" class="link new" aria-expanded="false" aria-controls="counts-{{ account.pk }}-{{ forloop.counter }}" data-disclose>{% blocktranslate with period=s.period_start|date_range:s.period_end count n=s.imported_count %}New: {{ period }} · {{ n }} Transaction{% plural %}New: {{ period }} · {{ n }} Transactions{% endblocktranslate %}{% if s.awaiting_count %}, {% blocktranslate with n=s.awaiting_count %}{{ n }} to review{% endblocktranslate %}{% endif %}</button>{% endwith %}{% endfor %}
+        {% for gap in row.gaps %}{% with period=gap.range.start|date_range:gap.range.end %}<span>{% if gap.since_last_statement %}{% blocktranslate %}Gap {{ period }}, since the last Statement{% endblocktranslate %}{% else %}{% blocktranslate %}Gap {{ period }}{% endblocktranslate %}{% endif %}</span>{% endwith %}{% endfor %}
+        <span>{% blocktranslate with date=row.tracked_from|day %}Tracked from {{ date }}{% endblocktranslate %}</span>
+      </p>
+      {% elif not account.receives_statements %}
+      <p class="caption">{% translate "Takes no Statements: money moved to its IBAN counts as a Transfer." %}</p>
+      {% else %}
+      <p class="caption">{% translate "No Statements yet." %}</p>
+      {% endif %}
+    </div>
+    {% for result in row.results %}{% with s=result.summary %}
+    <div class="expand" id="counts-{{ account.pk }}-{{ forloop.counter }}" data-disclosed>
+      <ul class="counts">{% for c in result.counts %}<li{% if c.zero %} class="zero"{% endif %}><b>{{ c.figure }}</b><span>{{ c.text }}{% if forloop.last and not c.zero %} · <a href="{% url 'review_queue' %}">{% translate "Review queue" %}</a>{% endif %}</span></li>{% endfor %}</ul>
+    </div>
+    {% endwith %}{% endfor %}
+    {% if row.statements %}
+    <div class="expand" id="statements-{{ account.pk }}" data-disclosed>
+      <div class="scroll"><table class="statements">
+        <thead><tr><th>{% translate "Period" %}</th><th>{% translate "Format" %}</th><th class="num">{% translate "Transactions" %}</th><th>{% translate "Imported" %}</th><th><span class="sr">{% translate "Delete" %}</span></th></tr></thead>
+        <tbody>
+        {% for statement in row.statements %}
+          <tr>
+            <td class="fig">{{ statement.period_start|date_range:statement.period_end }}</td>
+            <td>{{ statement.get_format_display }}</td>
+            <td class="num">{{ statement.transaction_count }}</td>
+            <td><span class="fig">{{ statement.imported_at|day }}</span>, {{ statement.imported_by.get_full_name|default:statement.imported_by.get_username }}</td>
+            <td class="num">{% if user.is_admin or statement.imported_by_id == user.pk %}<a href="{% url 'delete_statement' statement.pk %}">{% translate "Delete" %}</a>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endwith %}{% empty %}
+  <p class="board-empty muted">{% translate "No Accounts yet. An import makes the first one." %}</p>
+  {% endfor %}
+</section>
+</div>

@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from ledger.models import Account, Category, Rule, Source, Transaction
-from tests.conftest import make_account, outcome_shown, subcategory_id, transaction_id
+from tests.conftest import make_account, outcome_shown, page_text, subcategory_id, transaction_id
 from tests.test_import import upload
 
 pytestmark = pytest.mark.django_db
@@ -47,7 +47,7 @@ def test_rules_categorize_matching_rows_at_import(logged_in_client):
 
     summary = upload(logged_in_client).content.decode()
 
-    assert "1 Transaction categorized by Rules" in summary
+    assert "1 categorized by Rules" in page_text(summary)
     page = logged_in_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Mercator Žalec") == "Food → Groceries"
     mercator = Transaction.objects.get(description="Mercator Žalec")
@@ -61,7 +61,7 @@ def test_description_contains_ignores_case_and_accents(logged_in_client):
 
     summary = upload(logged_in_client).content.decode()
 
-    assert "2 Transactions categorized by Rules" in summary
+    assert "2 categorized by Rules" in page_text(summary)
     page = logged_in_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Mercator Žalec") == "Food → Groceries"
     assert outcome_shown(page, "Hiša kave") == "Leisure → Other"

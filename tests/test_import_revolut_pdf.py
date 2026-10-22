@@ -3,7 +3,14 @@ from pathlib import Path
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from tests.conftest import EUR, assert_nothing_stored, make_account, outcome_shown
+from tests.conftest import (
+    EUR,
+    assert_nothing_stored,
+    board_row,
+    make_account,
+    outcome_shown,
+    page_text,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -28,9 +35,7 @@ def test_a_revolut_pdf_imports_into_the_account_of_its_iban(logged_in_client, me
 
     page = upload(logged_in_client, FIXTURE.encode(), "revolut-june.pdf").content.decode()
 
-    assert "Imported into Bor&#x27;s Revolut" in page
-    assert "1–11 Jun 2026" in page
-    assert "8 Transactions imported" in page
+    assert "New: 1–11 Jun 2026 · 8 Transactions" in board_row(page, "Bor's Revolut")
     transactions = logged_in_client.get("/transactions/").content.decode()
     assert outcome_shown(transactions, "Fee: Corner Shop") == "Finance → Bank fees"
     assert outcome_shown(transactions, "Fee: To Janez Kranjc") == "Finance → Bank fees"
@@ -47,8 +52,8 @@ def test_the_revolut_csv_of_an_imported_pdfs_period_is_all_duplicates(logged_in_
         account=str(account.pk),
     ).content.decode()
 
-    assert "0 Transactions imported" in page
-    assert "8 Duplicates skipped" in page
+    assert "0 Transactions imported" in page_text(page)
+    assert "8 Duplicates skipped" in page_text(page)
 
 
 def test_rows_that_dont_match_the_printed_money_in_are_rejected(logged_in_client, statement_files):
@@ -57,9 +62,8 @@ def test_rows_that_dont_match_the_printed_money_in_are_rejected(logged_in_client
 
     page = upload(logged_in_client, text.encode(), "revolut-june.pdf").content.decode()
 
-    assert "rows don&#x27;t match its printed totals" in page
-    assert f'<tr><th>Printed</th><td class="num">2.026,00{EUR}</td><td class="num">—</td>' in page
-    assert (
-        f'<tr><th>Parsed rows</th><td class="num">2.025,00{EUR}</td><td class="num">2</td>' in page
-    )
+    assert "A payment seems to be missing" in page
+    assert f"Printed on the Statement 2.026,00{EUR} —" in page_text(page)
+    assert f'<td class="num off">2.026,00{EUR}</td>' not in page
+    assert f'<td class="num off">2.025,00{EUR}</td>' in page  # the money that differs
     assert_nothing_stored(logged_in_client, statement_files)

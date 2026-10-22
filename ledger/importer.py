@@ -13,7 +13,7 @@ Any failure raises ImportRejected and stores nothing of that Statement.
 """
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from pathlib import PurePath
@@ -22,10 +22,12 @@ from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _lazy
+from django.utils.translation import ngettext
 
 from pursegraph import figures
 
-from .coverage import ONE_DAY, DateRange, gaps
+from .coverage import ONE_DAY
 from .models import (
     Account,
     AccountIBAN,
@@ -43,9 +45,10 @@ from .transfers import apply_iban_rule, pair
 
 @dataclass(frozen=True)
 class NewAccount:
-    """An Account to create during the import; the importing Member becomes its owner."""
+    """An Account to create during the import, with its owners: the importing Member, if none are named."""
 
     name: str
+    owners: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -60,8 +63,13 @@ class Diagnosis:
     parsed_totals: Totals
 
     @property
+    def expected_closing(self) -> Decimal:
+        """The closing balance the rows read lead to."""
+        return self.opening_balance + self.rows_total
+
+    @property
     def balances_add_up(self) -> bool:
-        return self.opening_balance + self.rows_total == self.closing_balance
+        return self.expected_closing == self.closing_balance
 
 
 @dataclass(frozen=True)
@@ -75,25 +83,50 @@ class DayMismatch:
     """On the new Statement, but not among the Transactions already imported for this day."""
 
 
-class ImportRejected(Exception):
-    """The Statement was not imported.
+@dataclass(frozen=True)
+class BalanceBreak:
+    """Where a new Statement's running balance doesn't follow the Account's: going into `day`, the Account had
+    `expected`, the Statement `balance`."""
 
-    `keep_file` asks the Member to keep the file because a parser fix needs it; `diagnosis` is
-    set when the numbers didn't add up, `mismatch` when rows inside the Coverage didn't match.
+    day: date
+    expected: Decimal
+    balance: Decimal
+
+
+class ImportRejected(Exception):
+    """The Statement was not imported (docs/design/import.md, Import copy).
+
+    `heading` names the cause, the message says it, `next_step` says what the Member can do. The evidence, where
+    there is some: `diagnosis` when the numbers didn't add up, `balances` when the Statement didn't follow on,
+    `mismatch` when rows inside the Coverage didn't match, `found` what the reader found. A Statement that was
+    `already_imported` is no failure; `existing` is the Statement it was, if known.
     """
 
     def __init__(
         self,
         message: str,
         *,
-        keep_file: bool = False,
+        heading: str,
+        next_step: str = "",
         diagnosis: Diagnosis | None = None,
+        balances: BalanceBreak | None = None,
         mismatch: list[DayMismatch] | None = None,
+        found: str = "",
+        already_imported: bool = False,
+        existing: Statement | None = None,
     ):
         super().__init__(message)
-        self.keep_file = keep_file or diagnosis is not None
+        self.heading = heading
+        self.next_step = next_step
         self.diagnosis = diagnosis
+        self.balances = balances
         self.mismatch = mismatch or []
+        self.found = found
+        self.already_imported = already_imported
+        self.existing = existing
+
+
+NOTHING_IMPORTED = _lazy("So nothing from this file was imported.")
 
 
 @dataclass(frozen=True)
@@ -129,8 +162,6 @@ class ImportSummary:
     """The Transfer sides, new or already imported, sent to the Review queue for a tie between candidates."""
     awaiting_count: int
     """The new Transactions still unresolved, waiting for an LLM suggestion or the Review queue."""
-    gaps: list[DateRange] = field(default_factory=list)
-    """The Coverage gaps the new Statement left: new ones, or ones it only partly filled."""
 
 
 @dataclass(frozen=True)
@@ -147,32 +178,47 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
     existing = Statement.objects.filter(sha256=sha256).select_related("account").first()
     if existing:
         raise ImportRejected(
-            _("This Statement was already imported on %(date)s, into %(account)s.")
-            % {"date": existing.imported_at.date(), "account": existing.account}
+            _("This Statement went into %(account)s on %(date)s; nothing changed.")
+            % {"account": existing.account, "date": figures.day(existing.imported_at.date())},
+            heading=_("Already imported"),
+            already_imported=True,
+            existing=existing,
         )
 
     format = PurePath(filename).suffix.lower().removeprefix(".")
     if format not in Statement.Format.values:
-        raise ImportRejected(_("Only PDF and CSV Statements can be imported."))
+        raise ImportRejected(
+            _("Only PDF Statements, and the CSV exports Revolut gives, can be imported."),
+            heading=_("Not a PDF or CSV file"),
+            next_step=_("Download the Statement as a PDF (or a CSV from Revolut) and import that."),
+        )
     try:
         parsed = parse(content, format)
     except ParseError as error:
-        raise ImportRejected(str(error), keep_file=True) from error
-
-    check_balances_and_totals(parsed)
+        raise ImportRejected(
+            _("Pursegraph couldn't read it as a Statement from Sparkasse SI, N26 or Revolut."),
+            heading=_("Not a Statement Pursegraph can read"),
+            next_step=_(
+                "Download the Statement from your bank's website or app; scans and photos can't be read. "
+                "If it is a downloaded Statement, keep it: the reader may need a fix."
+            ),
+            found=str(error),
+        ) from error
 
     known = (
         AccountIBAN.objects.filter(iban=parsed.iban).select_related("account").first()
         if parsed.iban
         else None
     )
-    return CheckedStatement(
-        content, filename, sha256, format, parsed, known.account if known else None
-    )
+    account = known.account if known else None
+    check_balances_and_totals(parsed, account=account)
+    return CheckedStatement(content, filename, sha256, format, parsed, account)
 
 
-def check_balances_and_totals(parsed: ParsedStatement) -> None:
-    """Opening balance + rows = closing balance, and the rows match the printed totals, if any."""
+def check_balances_and_totals(parsed: ParsedStatement, *, account: Account | None = None) -> None:
+    """Opening balance + rows = closing balance, and the rows match the printed totals, if any.
+
+    `account`, the one the Statement's IBAN names, is told to have a Gap for its period until a fix."""
     parsed_totals = _totals(parsed.rows)
     diagnosis = Diagnosis(
         parsed.opening_balance,
@@ -184,12 +230,82 @@ def check_balances_and_totals(parsed: ParsedStatement) -> None:
     )
     totals_match = parsed.printed_totals is None or parsed.printed_totals.matches(parsed_totals)
     if not diagnosis.balances_add_up or not totals_match:
+        bank = Bank(parsed.bank).label
+        next_step = _("Keep the file: the %(bank)s reader needs a fix.") % {"bank": bank}
+        if account:
+            next_step += " " + _("Until then, %(account)s has a Gap for %(period)s.") % {
+                "account": account,
+                "period": figures.date_range(parsed.period_start, parsed.period_end),
+            }
         raise ImportRejected(
-            _("The Statement's balances don't add up, so it was not imported.")
-            if not diagnosis.balances_add_up
-            else _("The Statement's rows don't match its printed totals, so it was not imported."),
+            f"{_missing_payment(diagnosis) if not totals_match else _rows_dont_add_up(diagnosis)} "
+            f"{NOTHING_IMPORTED}",
+            heading=_("A payment seems to be missing"),
+            next_step=next_step,
             diagnosis=diagnosis,
         )
+
+
+def _missing_payment(diagnosis: Diagnosis) -> str:
+    """The printed totals against the rows read, on the side (money in or out) where they differ."""
+    printed, read = diagnosis.printed_totals, diagnosis.parsed_totals
+    assert printed is not None
+    if printed.money_out != read.money_out or printed.count_out not in (None, read.count_out):
+        printed_money, read_money, printed_count, read_count = (
+            printed.money_out,
+            read.money_out,
+            printed.count_out,
+            read.count_out,
+        )
+        listed = ngettext(
+            "The Statement lists %(count)s payment out, totalling %(money)s.",
+            "The Statement lists %(count)s payments out, totalling %(money)s.",
+            printed_count or 0,
+        )
+        prints = _("The Statement prints %(money)s of payments out.")
+    else:
+        printed_money, read_money, printed_count, read_count = (
+            printed.money_in,
+            read.money_in,
+            printed.count_in,
+            read.count_in,
+        )
+        listed = ngettext(
+            "The Statement lists %(count)s payment in, totalling %(money)s.",
+            "The Statement lists %(count)s payments in, totalling %(money)s.",
+            printed_count or 0,
+        )
+        prints = _("The Statement prints %(money)s of payments in.")
+    difference = figures.money(abs(printed_money - read_money))
+    said = {"money": figures.money(printed_money), "count": printed_count}
+    if printed_count is None:
+        return f"{prints % said} " + (
+            _("Pursegraph read %(money)s: %(difference)s short.")
+            if read_money < printed_money
+            else _("Pursegraph read %(money)s: %(difference)s over.")
+        ) % {"money": figures.money(read_money), "difference": difference}
+    read_said = {"count": read_count, "money": figures.money(read_money), "difference": difference}
+    if read_money == printed_money:
+        sentence = _("Pursegraph read %(count)s of them, with the same total.")
+    elif read_money < printed_money:
+        sentence = _(
+            "Pursegraph read %(count)s of them, totalling %(money)s: %(difference)s short."
+        )
+    else:
+        sentence = _("Pursegraph read %(count)s of them, totalling %(money)s: %(difference)s over.")
+    return f"{listed % said} {sentence % read_said}"
+
+
+def _rows_dont_add_up(diagnosis: Diagnosis) -> str:
+    return _(
+        "It opens with %(opening)s and closes with %(closing)s, so its rows should add up to %(expected)s. "
+        "The rows Pursegraph read add up to %(rows)s."
+    ) % {
+        "opening": figures.money(diagnosis.opening_balance),
+        "closing": figures.money(diagnosis.closing_balance),
+        "expected": figures.money(diagnosis.closing_balance - diagnosis.opening_balance),
+        "rows": figures.money(diagnosis.rows_total),
+    }
 
 
 def commit_statement(
@@ -198,14 +314,21 @@ def commit_statement(
     parsed = checked.parsed
     if checked.account and account != checked.account:
         raise ImportRejected(
-            _("This Statement's IBAN %(iban)s belongs to %(account)s.")
-            % {"iban": parsed.iban, "account": checked.account}
+            _("Its IBAN %(iban)s is on %(account)s, but %(chosen)s was chosen.")
+            % {
+                "iban": parsed.iban,
+                "account": checked.account,
+                "chosen": account.name,
+            },
+            heading=_("This Statement belongs to %(account)s") % {"account": checked.account},
+            next_step=_("Import it again without choosing an Account: it goes there by its IBAN."),
         )
 
     with transaction.atomic():
         if isinstance(account, NewAccount):
+            account_owners = account.owners
             account = Account.objects.create(name=account.name, bank=parsed.bank)
-            account.owners.add(member)
+            account.owners.add(*(account_owners or [member]))
         else:
             # Imports into one Account run one at a time, so each sees the Coverage the previous one left.
             account = Account.objects.select_for_update().get(pk=account.pk)
@@ -213,7 +336,6 @@ def commit_statement(
             _check_bank(account, parsed)
         duplicates, new_rows = _match_coverage(account, parsed)
         _check_running_balance(account, parsed, new_rows)
-        gaps_before = set(gaps(account.coverage()))
         statement = Statement(
             account=account,
             format=checked.format,
@@ -254,13 +376,14 @@ def commit_statement(
             paired_count = transfers.filter(counterpart__isnull=False).count()
             one_sided_count = transfers.filter(counterpart__isnull=True).count()
             awaiting_count = new.unresolved().count()
-            gaps_left = sorted(
-                set(gaps(account.coverage())) - gaps_before, key=lambda gap: gap.start
-            )
         except IntegrityError as err:
             # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)
-            raise ImportRejected(_("This Statement was already imported.")) from err
+            raise ImportRejected(
+                _("It was already imported; nothing changed."),
+                heading=_("Already imported"),
+                already_imported=True,
+            ) from err
         except BaseException:
             statement.file.delete(save=False)
             raise
@@ -278,7 +401,6 @@ def commit_statement(
         steps.converted_count,
         steps.ambiguous_count,
         awaiting_count,
-        gaps_left,
     )
 
 
@@ -316,19 +438,27 @@ def run_automatic_steps(new: TransactionQuerySet) -> AutomaticSteps:
 def _check_bank(account: Account, parsed: ParsedStatement) -> None:
     if not account.receives_statements:
         raise ImportRejected(
-            _("%(account)s is an Account with no Statements, so none can be imported into it.")
-            % {"account": account}
+            _(
+                'It\'s an Account with bank "Other", known only by its IBANs, so money moved to it counts as '
+                "a Transfer."
+            ),
+            heading=_("%(account)s takes no Statements") % {"account": account},
+            next_step=_("Choose another Account, or ask an admin to change its bank."),
         )
     if account.bank != parsed.bank:
+        statement_bank = Bank(parsed.bank).label
         raise ImportRejected(
             _(
-                "This is a %(statement_bank)s Statement, but %(account)s is a %(account_bank)s Account."
+                "This Statement is from %(statement_bank)s, but %(account)s is with %(account_bank)s."
             )
             % {
-                "statement_bank": Bank(parsed.bank).label,
+                "statement_bank": statement_bank,
                 "account": account,
                 "account_bank": account.get_bank_display(),
-            }
+            },
+            heading=_("Wrong bank for that Account"),
+            next_step=_("Import it again and choose an Account with %(bank)s, or a new one.")
+            % {"bank": statement_bank},
         )
 
 
@@ -368,7 +498,7 @@ def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: 
             + _total(before.transactions.filter(date__lt=start))
             + _total(added_on_last_day)
         )
-        _require_balance(start, parsed.opening_balance, expected)
+        _require_balance(account, start, parsed.opening_balance, expected)
 
     for covered in account.coverage():
         if not start <= covered.start <= parsed.period_end + ONE_DAY:
@@ -380,25 +510,26 @@ def _check_running_balance(account: Account, parsed: ParsedStatement, inserted: 
             + sum((row.amount for row in parsed.rows if row.date < covered.start), Decimal(0))
             + sum((row.amount for row in inserted if row.date == covered.start), Decimal(0))
         )
-        _require_balance(covered.start, reached, first.opening_balance)
+        _require_balance(account, covered.start, reached, first.opening_balance)
 
 
 def _total(transactions) -> Decimal:
     return transactions.aggregate(total=Sum("amount"))["total"] or Decimal(0)
 
 
-def _require_balance(day: date, balance: Decimal, expected: Decimal):
+def _require_balance(account: Account, day: date, balance: Decimal, expected: Decimal):
     if balance != expected:
+        said = _("Going into %(date)s it has %(balance)s, but %(account)s had %(expected)s.") % {
+            "date": figures.day(day),
+            "balance": figures.money(balance),
+            "account": account,
+            "expected": figures.money(expected),
+        }
         raise ImportRejected(
-            _(
-                "The Statement's balance going into %(date)s is %(balance)s, but the Account's was %(expected)s, "
-                "so it was not imported."
-            )
-            % {
-                "date": figures.day(day),
-                "balance": figures.money(balance),
-                "expected": figures.money(expected),
-            }
+            f"{said} {NOTHING_IMPORTED}",
+            heading=_("Doesn't follow on from what's imported"),
+            next_step=_("A Statement in between may be missing, or a balance was misread."),
+            balances=BalanceBreak(day, expected, balance),
         )
 
 
@@ -443,9 +574,16 @@ def _match_coverage(
         duplicates += matched
         to_insert += unexpected
     if mismatch:
+        said = ngettext(
+            "On %(count)s day inside %(account)s's Coverage, its rows don't match the Transactions already imported.",
+            "On %(count)s days inside %(account)s's Coverage, its rows don't match the Transactions already imported.",
+            len(mismatch),
+        ) % {"count": len(mismatch), "account": account}
         raise ImportRejected(
-            _(
-                "Rows inside the Account's Coverage don't match the Transactions already imported, so it was not imported."
+            f"{said} {NOTHING_IMPORTED}",
+            heading=_("Disagrees with what's already imported"),
+            next_step=_(
+                "The bank may have re-booked or reverted a payment since the earlier export."
             ),
             mismatch=mismatch,
         )

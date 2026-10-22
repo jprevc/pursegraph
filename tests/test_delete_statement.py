@@ -4,7 +4,7 @@ import pytest
 from django.test import Client
 
 from ledger.models import Bank, Source, Statement, Transaction
-from tests.conftest import PASSWORD, make_account
+from tests.conftest import PASSWORD, make_account, page_text
 from tests.test_duplicates import (
     JUNE_1_TO_10,
     import_page,
@@ -105,7 +105,7 @@ def test_the_deleted_file_can_be_imported_again(logged_in_client, june):
 
     response = upload(logged_in_client, ("june.csv", JUNE), account=str(june.account_id))
 
-    assert "Imported into" in response.content.decode()
+    assert "Transactions imported from 1 file" in page_text(response.content.decode())
     assert Transaction.objects.count() == 6
 
 

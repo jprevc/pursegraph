@@ -36,6 +36,19 @@ def statement_files(settings, tmp_path):
     return settings.MEDIA_ROOT
 
 
+def page_text(page):
+    """A page's words as a Member reads them: tags dropped, entities and runs of whitespace undone."""
+    return re.sub(r"[ \t\n\r]+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page))).strip()
+
+
+def board_row(page, account):
+    """The words of the Accounts board's row of the Account named `account`, with what an import added to it."""
+    for row in page.split('<div class="board-row">')[1:]:
+        if f"<h3>{html.escape(account)}</h3>" in row:
+            return page_text(row)
+    raise AssertionError(f"no row for {account!r}")
+
+
 def outcome_shown(page, description):
     """The outcome the Transaction row whose description is `description` shows, as "Category → Subcategory",
     "Transfer" or "Awaiting review": the text of the shared row, or the option selected in the Review queue's."""

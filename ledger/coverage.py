@@ -44,22 +44,3 @@ def gaps(ranges: list[DateRange], until: date | None = None) -> list[DateRange]:
     if ranges and until and ranges[-1].end < until:
         missing.append(DateRange(ranges[-1].end + ONE_DAY, until))
     return missing
-
-
-@dataclass(frozen=True)
-class Segment:
-    """One stretch of a Coverage timeline: covered days, or a gap between them."""
-
-    range: DateRange
-    is_gap: bool
-
-
-def timeline(ranges: list[DateRange]) -> list[Segment]:
-    """The Coverage from its first to its last day, as covered stretches with the gaps between them."""
-    if not ranges:
-        return []
-    segments = [Segment(ranges[0], is_gap=False)]
-    # Each gap is followed by the range after it.
-    for gap, covered in zip(gaps(ranges), ranges[1:], strict=True):
-        segments += [Segment(gap, is_gap=True), Segment(covered, is_gap=False)]
-    return segments
