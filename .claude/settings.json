@@ -1,4 +1,5 @@
 {
+  "autoCompactWindow": 200000,
   "hooks": {
     "PreToolUse": [
       {
@@ -7,17 +8,6 @@
           {
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-self-pkill.py\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/compact-after-commit.py\""
           }
         ]
       }
