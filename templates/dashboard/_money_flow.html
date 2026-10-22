@@ -19,5 +19,6 @@
   <tfoot><tr class="balance"><td>{{ data.total.label }}</td><td class="num">{{ data.total.amount|money }}</td></tr></tfoot>
 </table>
 {% endblock %}
+{% block chart_label %}{% translate "Flow chart of money in, through the Household, to the Categories; the table beside it has every figure." %}{% endblock %}
 {% block hint %}{% translate "Click a node or a line to see its Transactions." %}{% endblock %}
 {% block empty %}{% translate "No money in or out in this period." %}{% endblock %}

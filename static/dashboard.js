@@ -4,37 +4,89 @@
 // On Spending, the donut and the Category list light each other's Category, and the drill-down's Category is the
 // open one in both: #drill's card names it (`data-mark`), so whatever opens or closes it, they follow.
 (() => {
-  const AWAITING = 'awaiting';
+  const AWAITING = 'awaiting', HOUSEHOLD = 'household';
   const { money, moneyWhole, moneySigned, share } = window.Figures;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   // Awaiting review's hatch (the Neutral Wait Rule): 45° white stripes at 45 %.
   const HATCH = { symbol: 'rect', dashArrayX: [1, 0], dashArrayY: [3, 3], rotation: Math.PI / 4, color: 'rgba(255, 255, 255, .45)' };
   const token = name => getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
 
-  // The options' building blocks in the current theme's colours.
+  // The options' building blocks in the current theme's colours: the parts every chart shares (docs/design/charts.md).
   const theme = () => {
-    const INK = token('ink'), INK2 = token('ink-2'), MUTED = token('muted'), LINE = token('line'), LINE_STRONG = token('line-strong');
+    const INK = token('ink'), INK2 = token('ink-2'), MUTED = token('muted'), LINE = token('line'), LINE_STRONG = token('line-strong'), CARD = token('card');
     // A Category keeps its hue in every view: cat-((id − 1) mod 10). Awaiting review is always its neutral grey.
     const colour = key => key === AWAITING ? token('awaiting') : token(`cat-${(Number(key) - 1) % 10}`);
+    const text = (fontSize, fontWeight, color) => ({ fontFamily: token('font'), fontSize, fontWeight, color });
+    const shadow = { type: 'shadow', shadowStyle: { color: token('hover'), opacity: 0.6 } };
     return {
-      INK, INK2, MUTED, LINE, LINE_STRONG, CARD: token('card'), colour,
-      TEXT: { fontFamily: token('font'), color: INK2 },
-      tooltip: { backgroundColor: token('card'), borderColor: LINE, borderRadius: 10, extraCssText: `box-shadow: ${token('shadow-pop')}`, textStyle: { color: INK } },
-      valueAxis: { type: 'value', axisLabel: { color: MUTED, formatter: v => moneyWhole(v) }, splitLine: { lineStyle: { color: LINE } } },
-      categoryAxis: (data, extra = {}) => ({ type: 'category', data, axisLine: { lineStyle: { color: LINE_STRONG } }, axisTick: { show: false }, axisLabel: { color: MUTED }, ...extra }),
-      legend: { top: 0, left: 0, type: 'scroll', textStyle: { color: INK2 }, icon: 'circle', itemWidth: 8, itemHeight: 8, inactiveColor: LINE_STRONG },
+      INK, INK2, MUTED, LINE, LINE_STRONG, CARD, colour, text,
+      // The entrance, once on mount: not on a rebuild, and never under reduced motion. The chart's description is
+      // its element's label, rather than ECharts' own (English) one.
+      base: ({ animate, label }) => ({
+        textStyle: text(12, 400, INK2), aria: { enabled: true, label: { description: label } },
+        animation: animate && !reducedMotion.matches, animationDuration: 600, animationEasing: 'cubicOut',
+      }),
+      tooltip: {
+        confine: true, backgroundColor: CARD, borderColor: LINE, borderWidth: 1, padding: [8, 12], textStyle: text(13, 400, INK),
+        extraCssText: `border-radius: 10px; box-shadow: ${token('shadow-pop')}`,
+      },
+      // Bars point with a shaded band, lines with a hairline.
+      pointer: { bar: shadow, line: { type: 'line', lineStyle: { color: LINE_STRONG } } },
+      valueAxis: {
+        type: 'value', axisLabel: { ...text(12, 400, MUTED), formatter: v => moneyWhole(v) },
+        splitLine: { lineStyle: { color: LINE } }, axisLine: { show: false }, axisTick: { show: false },
+      },
+      categoryAxis: (data, extra = {}) => ({
+        type: 'category', data, axisLine: { lineStyle: { color: LINE_STRONG } }, axisTick: { show: false },
+        axisLabel: text(12, 400, MUTED), ...extra,
+      }),
+      legend: {
+        top: 0, left: 0, type: 'scroll', icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 16,
+        textStyle: text(12, 500, INK2), pageTextStyle: text(12, 400, MUTED), inactiveColor: LINE_STRONG,
+        pageIconColor: INK2, pageIconInactiveColor: LINE_STRONG,
+      },
+      // Hovering a series focuses it: the other lines fade to 15 %, the other bars to 25 %.
+      focus: { emphasis: { focus: 'series' }, blur: { lineStyle: { opacity: 0.15 }, itemStyle: { opacity: 0.25 } } },
     };
+  };
+
+  const html = echarts.format.encodeHTML;
+  const dot = (colour, hatched) => `<i class="dot${hatched ? ' awaiting' : ''}" style="--hue: ${colour}"></i>`;
+  // An axis tooltip: the month (or Bucket), then one row per series (dot, name, amount), and a Total under a hairline.
+  const table = (title, rows, total) => `<p class="tip-head">${html(title)}</p><table class="tip">${rows.map(r =>
+    `<tr><td>${dot(r.colour, r.hatched)}${html(r.name)}</td><td>${r.value}</td></tr>`).join('')}${
+    total ? `<tfoot><tr><td>${html(total[0])}</td><td>${total[1]}</td></tr></tfoot>` : ''}</table>`;
+  // Category series in a tooltip, biggest first, with their Total.
+  const ranked = (ps, words, awaiting) => {
+    const shown = ps.filter(p => p.value).sort((a, b) => b.value - a.value);
+    return table(ps[0].axisValue, shown.map(p => ({ name: p.seriesName, colour: p.color, hatched: awaiting(p), value: money(p.value) })),
+      [words.total, money(ps.reduce((sum, p) => sum + (p.value || 0), 0))]);
+  };
+
+  // The Money in bar wears the Income Category's hue, darkened until it stands 3:1 off the card (WCAG 1.4.11).
+  const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const luminance = c => {
+    const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  const standingOff = (hex, ground, toward) => {
+    const from = rgb(hex), card = rgb(ground), to = rgb(toward);
+    for (let t = 0; t <= 1; t += 0.05) {
+      const mixed = from.map((v, i) => Math.round(v + (to[i] - v) * t));
+      if (contrast(mixed, card) >= 3) return `rgb(${mixed.join(', ')})`;
+    }
+    return toward;
   };
 
   const options = {
     // The donut: segments labelled directly (only those of 5 % or more when narrow), Awaiting review hatched and
     // unlabelled, and every segment but the open Category's dimmed while one is open. It sweeps in once.
-    spending: (data, { TEXT, tooltip, INK2, LINE_STRONG, colour }, { narrow, open, animate }) => {
+    spending: (data, { text, tooltip, INK2, LINE_STRONG, colour }, { narrow, open, animate }) => {
       const total = data.total;
       const labelled = s => s.key !== AWAITING && (!narrow || s.value / total >= 0.05);
-      const html = echarts.format.encodeHTML;
       return {
-        textStyle: TEXT,
+        textStyle: text(12, 400, INK2),
         animation: animate && !reducedMotion.matches, animationDuration: 700, animationEasing: 'cubicOut',
         tooltip: { ...tooltip, trigger: 'item', confine: true, formatter: p => `${html(p.name)}<br><b>${money(p.value)}</b> · ${share(p.value / total)}` },
         series: [{
@@ -54,67 +106,102 @@
       };
     },
 
-    cashflow: (data, { TEXT, tooltip, legend, valueAxis, categoryAxis, INK, INK2, MUTED, CARD, colour }) => {
-      const IN = data.in_key ? colour(data.in_key) : INK2, OUT = MUTED, NET = INK, OTHERS = INK2;
+    // Grouped Money in and Money out bars (Money out is Muted: spending as a whole is no Category), and Net as an Ink line.
+    cashflow: (data, { base, tooltip, pointer, legend, valueAxis, categoryAxis, focus, INK, INK2, MUTED, CARD, colour }, view) => {
+      const IN = data.in_key ? standingOff(colour(data.in_key), CARD, INK) : INK2;
       const marks = (values, side) => values.map((value, i) => ({ value, key: side ? `${data.keys[i]}:${side}` : data.keys[i] }));
+      const bar = (name, values, side, color) => ({
+        name, type: 'bar', cursor: 'pointer', data: marks(values, side), barMaxWidth: 22, barGap: '10%',
+        itemStyle: { color, borderRadius: [4, 4, 0, 0] }, ...focus,
+      });
+      const line = (name, values, side, color, type) => ({
+        name, type: 'line', cursor: 'pointer', data: marks(values, side), z: 3, symbol: 'circle', symbolSize: 7,
+        lineStyle: { width: 2, color, type }, itemStyle: { color, borderColor: CARD, borderWidth: 2 }, ...focus,
+      });
       return {
-        textStyle: TEXT, legend,
-        tooltip: { ...tooltip, trigger: 'axis', confine: true, valueFormatter: money },
-        grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+        ...base(view), legend,
+        tooltip: {
+          ...tooltip, trigger: 'axis', axisPointer: pointer.bar,
+          formatter: ps => table(ps[0].axisValue, ps.map(p => ({
+            name: p.seriesName, colour: p.color, value: p.seriesType === 'line' ? moneySigned(p.value) : money(p.value),
+          }))),
+        },
+        grid: { left: 4, right: 8, top: 40, bottom: 4, containLabel: true },
         xAxis: categoryAxis(data.months), yAxis: valueAxis,
         series: [
-          { name: data.labels.in, type: 'bar', cursor: 'pointer', data: marks(data.in, 'in'), itemStyle: { color: IN, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 22, barGap: '10%' },
-          { name: data.labels.out, type: 'bar', cursor: 'pointer', data: marks(data.out, 'out'), itemStyle: { color: OUT, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 22 },
-          { name: data.labels.net, type: 'line', cursor: 'pointer', data: marks(data.net), symbol: 'circle', symbolSize: 7, lineStyle: { width: 2, color: NET }, itemStyle: { color: NET, borderColor: CARD, borderWidth: 1.5 }, tooltip: { valueFormatter: moneySigned } },
+          bar(data.labels.in, data.in, 'in', IN),
+          bar(data.labels.out, data.out, 'out', MUTED),
+          line(data.labels.net, data.net, null, INK, 'solid'),
           // Under a Member filter: what Transfers moved to (below zero) or from other Members.
-          ...(data.others ? [{ name: data.labels.others, type: 'line', cursor: 'pointer', data: marks(data.others, 'others'), symbol: 'circle', symbolSize: 7, lineStyle: { width: 2, type: 'dashed', color: OTHERS }, itemStyle: { color: OTHERS, borderColor: CARD, borderWidth: 1.5 }, tooltip: { valueFormatter: moneySigned } }] : []),
+          ...(data.others ? [line(data.labels.others, data.others, 'others', INK2, 'dashed')] : []),
         ],
       };
     },
 
+    // One line per Category in its hue, points only on hover; Awaiting review dashed, as a line can't carry the hatch.
     // Clicking a Category in the legend hides its line.
-    trends: (data, { TEXT, tooltip, legend, valueAxis, categoryAxis, colour }) => ({
-      textStyle: TEXT, legend,
-      tooltip: { ...tooltip, trigger: 'axis', confine: true, order: 'valueDesc', valueFormatter: money },
-      grid: { left: 8, right: 32, top: 36, bottom: 8, containLabel: true },
+    trends: (data, { base, tooltip, pointer, legend, valueAxis, categoryAxis, focus, colour }, view) => ({
+      ...base(view), legend,
+      tooltip: { ...tooltip, trigger: 'axis', axisPointer: pointer.line, formatter: ps => ranked(ps, data.words, p => data.lines[p.seriesIndex].key === AWAITING) },
+      grid: { left: 4, right: 32, top: 40, bottom: 4, containLabel: true },
       xAxis: categoryAxis(data.months, { boundaryGap: false }), yAxis: valueAxis,
       series: data.lines.map(line => ({
-        name: line.name, type: 'line', cursor: 'pointer', symbolSize: 8, emphasis: { focus: 'series' },
+        name: line.name, type: 'line', cursor: 'pointer', showSymbol: false, symbol: 'circle', symbolSize: 7, ...focus,
         data: line.data.map((value, j) => ({ value, key: line.keys[j] })),
-        lineStyle: { width: 2, color: colour(line.key) }, itemStyle: { color: colour(line.key) },
+        lineStyle: { width: 2, color: colour(line.key), type: line.key === AWAITING ? 'dashed' : 'solid' }, itemStyle: { color: colour(line.key) },
       })),
     }),
 
-    per_member: (data, { TEXT, tooltip, legend, valueAxis, categoryAxis, INK, CARD, colour }) => ({
-      textStyle: TEXT, legend,
-      tooltip: { ...tooltip, trigger: 'item', confine: true, valueFormatter: money },
-      grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
-      xAxis: { ...valueAxis, splitNumber: 3 },
-      yAxis: categoryAxis(data.members, { inverse: true, axisLabel: { color: INK, fontWeight: 600 } }),
+    // A stacked bar per Bucket, segments in Category hues and Awaiting review hatched. A Category that nets to a
+    // Refund draws its segment below zero.
+    per_member: (data, { base, tooltip, pointer, legend, valueAxis, categoryAxis, focus, INK, CARD, text, colour }, view) => ({
+      ...base(view), legend,
+      tooltip: { ...tooltip, trigger: 'axis', axisPointer: pointer.bar, formatter: ps => ranked(ps, data.words, p => data.segments[p.seriesIndex].key === AWAITING) },
+      // Room for half the last axis label, which sits centred on the grid's edge.
+      grid: { left: 4, right: 28, top: 40, bottom: 4, containLabel: true },
+      xAxis: { ...valueAxis, splitNumber: 4 },
+      yAxis: categoryAxis(data.members, { inverse: true, axisLabel: text(13, 600, INK) }),
       series: data.segments.map(segment => ({
-        name: segment.name, type: 'bar', stack: 'spent', barMaxWidth: 28, cursor: 'pointer', data: segment.data,
-        itemStyle: { color: colour(segment.key), borderColor: CARD, borderWidth: 1.5 },
+        name: segment.name, type: 'bar', stack: 'spent', barMaxWidth: 28, cursor: 'pointer', data: segment.data, ...focus,
+        itemStyle: { color: colour(segment.key), decal: segment.key === AWAITING ? HATCH : null, borderColor: CARD, borderWidth: 1.5 },
       })),
     }),
 
-    // Node names are unique keys; what a node shows is its label.
-    money_flow: (data, { TEXT, tooltip, INK2, MUTED, colour }) => {
+    // Income on the left, labelled to the left; Household in the middle, labelled above; the rest on the right. Each
+    // node wears its Category's hue; Household is Ink 2, and what no Category names is Muted. Node names are unique
+    // keys; what a node shows is its label.
+    money_flow: (data, { base, tooltip, text, INK2, MUTED, colour }, view) => {
       const labels = Object.fromEntries(data.nodes.map(n => [n.name, n.label]));
+      const into = data.links.filter(l => l.target === HOUSEHOLD);
+      const moneyIn = into.reduce((sum, l) => sum + l.value, 0);
+      const incoming = new Set(into.map(l => l.source));
+      const side = n => n.name === HOUSEHOLD ? { position: 'top', distance: 6 } : incoming.has(n.name) ? { position: 'left' } : {};
+      // Narrow, the labels take 11px and most of the width, and Household's (crowded between the columns) only its name.
+      const size = view.narrow ? 11 : 12;
+      const nameOnly = n => view.narrow && n === HOUSEHOLD ? `{name|${labels[n]}}` : null;
       return {
-        textStyle: TEXT,
+        ...base(view),
         tooltip: {
-          ...tooltip, trigger: 'item', confine: true,
+          ...tooltip, trigger: 'item',
           formatter: p => p.dataType === 'edge'
-            ? `${labels[p.data.source]} → ${labels[p.data.target]}: ${money(p.value)}`
-            : `${p.data.label}: ${money(p.value)}`,
+            ? `${html(labels[p.data.source])} → ${html(labels[p.data.target])}<br><b class="fig">${money(p.value)}</b> · ${
+              html(data.words.of_money_in.replace('%(share)s', share(p.value / moneyIn)))}`
+            : `${dot(p.color, p.data.category === AWAITING)}${html(labels[p.data.name])}<br><b class="fig">${money(p.value)}</b>`,
         },
         series: [{
-          type: 'sankey', left: 8, right: 160, top: 8, bottom: 8, nodeGap: 10, nodeWidth: 12, draggable: false,
-          emphasis: { focus: 'adjacency', lineStyle: { opacity: 0.6 } }, lineStyle: { color: 'gradient', opacity: 0.3 },
-          label: { color: INK2, fontWeight: 500, formatter: p => `${p.data.label}  ${moneyWhole(p.value)}` },
+          type: 'sankey', draggable: false, nodeAlign: 'justify', layoutIterations: 32,
+          left: view.narrow ? 92 : 150, right: view.narrow ? 124 : 150, top: 28, bottom: 8, nodeGap: 10, nodeWidth: 12,
+          emphasis: { focus: 'adjacency', lineStyle: { opacity: 0.6 } }, blur: { lineStyle: { opacity: 0.08 }, itemStyle: { opacity: 0.3 } },
+          lineStyle: { color: 'gradient', opacity: 0.3, curveness: 0.5 }, itemStyle: { borderWidth: 0, borderRadius: 2 },
+          labelLayout: { hideOverlap: true },
+          label: {
+            ...text(size, 500, INK2), formatter: p => nameOnly(p.data.name) ?? `{name|${labels[p.data.name]}}  {amount|${moneyWhole(p.value)}}`,
+            rich: { name: text(size, 500, INK2), amount: text(size, 400, MUTED) },
+          },
+          // Built afresh, as a node's `label` would be read as its label's style.
           data: data.nodes.map(n => ({
-            ...n, cursor: n.key ? 'pointer' : 'default',
-            itemStyle: { color: ['saved', 'from_savings', 'others'].includes(n.name) ? MUTED : n.name === 'household' ? INK2 : n.key.startsWith('in:') ? colour(data.in_key) : colour(n.key) },
+            name: n.name, key: n.key, category: n.category, cursor: n.key ? 'pointer' : 'default', label: side(n),
+            itemStyle: { color: n.category ? colour(n.category) : n.name === HOUSEHOLD ? INK2 : MUTED, decal: n.category === AWAITING ? HATCH : null },
           })),
           links: data.links,
         }],
@@ -127,7 +214,7 @@
   const dataOf = el => JSON.parse(document.getElementById(el.dataset.source).textContent);
   // ECharts has no live theme switch, and a narrow chart lays out differently: rebuild the options from the tokens.
   const build = (chart, el, animate = false) => chart.setOption(
-    options[el.dataset.chart](dataOf(el), theme(), { narrow: el.clientWidth < 420, open: el.dataset.open, animate }),
+    options[el.dataset.chart](dataOf(el), theme(), { narrow: el.clientWidth < 420, open: el.dataset.open, animate, label: el.getAttribute('aria-label') }),
     { notMerge: true },
   );
   // `quiet` for the numbers refetched after an outcome changed: the same view, so its donut doesn't sweep in again.

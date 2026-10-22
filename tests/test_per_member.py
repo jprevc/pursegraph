@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from ledger.models import Category
+from ledger.models import Category, Subcategory, Transaction
 
 from .conftest import EUR, drill_rows, view_chart, view_table
 
@@ -91,3 +91,20 @@ def test_drill_down_into_a_member_or_one_segment(logged_in_client, household):
     assert drill_rows(
         logged_in_client, url, {**params, "key": f"joint:{category_key('Food')}"}
     ) == ["Spar"]
+
+
+def test_a_category_netting_to_a_refund_draws_a_negative_segment(logged_in_client, household):
+    shopping = Subcategory.objects.get(category__name="Shopping", name="Other")
+    account = Transaction.objects.get(description="Shoe shop").account
+    Transaction.objects.create(
+        account=account, date=date(2026, 9, 14), amount="200.00", description="Big refund",
+        subcategory=shopping, source="manual",
+    )  # fmt: skip
+    page = logged_in_client.get("/per-member/", {"period": "2026-09"}).content.decode()
+
+    segments = {
+        s["name"]: [p["value"] for p in s["data"]]
+        for s in view_chart(page, "per_member")["segments"]
+    }
+    assert segments["Shopping"] == [-130, 0, 0]
+    assert view_table(page)[0] == ["ana", f"−37,70{EUR}"]

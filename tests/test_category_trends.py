@@ -1,3 +1,5 @@
+import html
+import re
 from datetime import date
 
 import pytest
@@ -77,6 +79,31 @@ def test_an_explicit_period_overrides_the_default(logged_in_client, household):
     page = logged_in_client.get("/trends/", {"period": "2026-09"}).content.decode()
 
     assert view_table(page)[0] == ["Food", f"180,00{EUR}", f"180,00{EUR}"]
+
+
+def table_head(page):
+    return [
+        html.unescape(c)
+        for c in re.findall(r"<th[^>]*>([^<]*)</th>", page.split("<thead>")[1].split("</thead>")[0])
+    ]
+
+
+def test_the_tables_month_columns_drop_the_year(logged_in_client, household):
+    page = logged_in_client.get("/trends/").content.decode()
+
+    assert table_head(page) == [
+        "Category",
+        *["Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"],
+        "Total",
+    ]
+
+
+def test_a_period_longer_than_a_year_keeps_the_year_in_its_columns(logged_in_client, household):
+    page = logged_in_client.get(
+        "/trends/", {"from": "2025-09-01", "to": "2026-10-31"}
+    ).content.decode()
+
+    assert table_head(page)[1:3] == ["Sep 2025", "Oct 2025"]
 
 
 def test_drill_down_into_a_point_or_a_whole_line(logged_in_client, household):

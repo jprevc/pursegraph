@@ -18,5 +18,6 @@
   <tfoot><tr><th>{{ data.total.label }}</th><th class="num">{{ data.total.money_in|money }}</th><th class="num">{{ data.total.money_out|money }}</th>{% if chart.others %}<th class="num">{{ data.total.others|money_signed }}</th>{% endif %}<th class="num">{{ data.total.net|money_signed }}</th></tr></tfoot>
 </table>
 {% endblock %}
+{% block chart_label %}{% translate "Bar chart of money in and money out per month, with Net as a line; the table beside it has every figure." %}{% endblock %}
 {% block hint %}{% translate "Click a bar, a point or a month to see its Transactions." %}{% endblock %}
 {% block empty %}{% translate "No money in or out in this period." %}{% endblock %}

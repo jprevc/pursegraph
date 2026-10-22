@@ -54,7 +54,7 @@ def test_money_flow_runs_from_income_to_categories(logged_in_client, household):
         ("subcategory", "Food", f"180,00{EUR}"),
         ("subcategory", "Shopping", f"70,00{EUR}"),
         ("subcategory", "Awaiting review", f"12,30{EUR}"),
-        ("balance", "Saved", f"3.287,70{EUR}"),
+        ("balance", "Left over", f"3.287,70{EUR}"),
     ]
 
 
@@ -73,7 +73,7 @@ def test_the_sankey_has_uniquely_named_nodes_and_balanced_links(logged_in_client
         (food, "Food", food),
         (shopping, "Shopping", shopping),
         ("awaiting", "Awaiting review", "awaiting"),
-        ("saved", "Saved", None),
+        ("left_over", "Left over", None),
     ]
     assert len({n["name"] for n in chart["nodes"]}) == len(chart["nodes"])
     links = [(link["source"], link["target"], link["value"]) for link in chart["links"]]
@@ -84,17 +84,17 @@ def test_the_sankey_has_uniquely_named_nodes_and_balanced_links(logged_in_client
         ("household", food, 180),
         ("household", shopping, 70),
         ("household", "awaiting", 12.3),
-        ("household", "saved", 3287.7),
+        ("household", "left_over", 3287.7),
     ]
     assert chart["drill"] == "/money-flow/transactions/?period=2026-09&key="
 
 
-def test_spending_more_than_came_in_draws_from_savings(logged_in_client, household):
+def test_spending_more_than_came_in_is_spent_beyond_money_in(logged_in_client, household):
     page = logged_in_client.get("/money-flow/", {"period": "2026-10"}).content.decode()
 
-    assert flow_table(page)[-1] == ("balance", "From savings", f"777,00{EUR}")
+    assert flow_table(page)[-1] == ("balance", "Spent beyond money in", f"777,00{EUR}")
     chart = view_chart(page, "money_flow")
-    assert ("from_savings", "household", 777) in [
+    assert ("beyond", "household", 777) in [
         (link["source"], link["target"], link["value"]) for link in chart["links"]
     ]
 
@@ -138,7 +138,26 @@ def test_a_category_netting_to_a_refund_keeps_the_sankey_balanced(logged_in_clie
     assert into == pytest.approx(out_of)
 
 
-def test_income_nodes_wear_the_income_categorys_hue(logged_in_client, household):
+def test_each_income_node_wears_its_own_income_categorys_hue(logged_in_client, household):
+    gifts = Category.objects.create(name="Gifts", kind=Category.Kind.INCOME)
+    birthday = Subcategory.objects.create(category=gifts, name="Birthday")
+    account = Transaction.objects.get(description="Shoe shop").account
+    Transaction.objects.create(
+        account=account, date=date(2026, 9, 20), amount="50.00", description="From grandma",
+        subcategory=birthday, source="manual",
+    )  # fmt: skip
     page = logged_in_client.get("/money-flow/", {"period": "2026-09"}).content.decode()
 
-    assert view_chart(page, "money_flow")["in_key"] == str(Category.objects.get(name="Income").pk)
+    hues = {n["label"]: n["category"] for n in view_chart(page, "money_flow")["nodes"]}
+    income = category_key("Income")
+    assert hues == {
+        "Salary": income,
+        "Interest": income,
+        "Birthday": str(gifts.pk),
+        "Income awaiting review": "awaiting",
+        "Household": None,
+        "Food": category_key("Food"),
+        "Shopping": category_key("Shopping"),
+        "Awaiting review": "awaiting",
+        "Left over": None,
+    }

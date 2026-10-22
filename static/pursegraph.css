@@ -553,7 +553,7 @@ button.cat-open::after { content: ""; position: absolute; inset: 0; border-radiu
 .sub .amt { grid-column: 5; font-weight: 400; }
 .cats-total { display: flex; justify-content: space-between; gap: var(--s-3); margin: 0; padding: var(--s-4) var(--s-5); border-top: 1px solid var(--line); font-weight: 600; }
 
-/* The other views keep their chart beside a table until their slice rebuilds them. */
+/* The other views: a chart in classic axes beside its table (docs/design/charts.md). */
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 21.25rem; gap: var(--s-4); align-items: start; }
 .split .chart { height: 26.25rem; }
 .split.wide { grid-template-columns: minmax(0, 1fr) 26.25rem; }
@@ -564,6 +564,14 @@ button.cat-open::after { content: ""; position: absolute; inset: 0; border-radiu
 .stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
 .stack .chart { height: 26.25rem; }
 .view-table td { padding: var(--s-2) var(--s-3); }
+/* A chart's tooltip (static/dashboard.js): the month, a row per series and a Total under a hairline. */
+.chart .tip-head { margin: 0 0 var(--s-1); font-weight: 600; }
+.chart .tip { border-collapse: collapse; }
+.chart .tip td { padding: 2px 0; border: 0; }
+.chart .tip td:first-child { padding-right: var(--s-4); color: var(--ink-2); }
+.chart .tip td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chart .tip tfoot td { padding-top: var(--s-2); border-top: 1px solid var(--line); }
+.chart .dot { display: inline-block; margin-right: var(--s-2); }
 .view-table tr.mark, .view-table tr.subcategory:has(.mark-open) { position: relative; cursor: pointer; }
 .view-table tr.mark:hover, .view-table tr.mark:has(.mark-open:focus-visible),
 .view-table tr.subcategory:has(.mark-open):hover, .view-table tr.subcategory:has(.mark-open:focus-visible) { background: var(--hover); }

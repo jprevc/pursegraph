@@ -93,6 +93,11 @@ def test_a_month_is_spelled_out():
     assert render("{{ d|month }}", d=date(2026, 9, 1)) == "September 2026"
 
 
+def test_a_short_month_is_abbreviated_and_drops_its_year_in_a_table_column():
+    assert figures.month_short(date(2026, 9, 1)) == "Sep 2026"
+    assert figures.month_short(date(2026, 9, 1), year=False) == "Sep"
+
+
 AMOUNTS = [1234.56, -1234.56, 12.3, 1234567.891, 0.005, -0.004, 1200.5, -950, 0, 3287.7]
 SHARES = [0.256, 0.785, 1, 0, 0.004, 0.995, -0.25, -0.004]
 

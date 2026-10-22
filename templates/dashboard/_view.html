@@ -15,7 +15,7 @@
 {% with source=view|add:"-data" %}
 {% block view %}
 <div class="{% block layout %}split{% endblock %}">
-  <div class="panel"><div class="chart" data-chart="{{ view }}" data-source="{{ source }}"></div></div>
+  <div class="panel"><div class="chart" data-chart="{{ view }}" data-source="{{ source }}" role="img" aria-label="{% block chart_label %}{% endblock %}"></div></div>
   <div class="panel">{% block table %}{% endblock %}</div>
 </div>
 <p class="muted hint">{% block hint %}{% endblock %}</p>
