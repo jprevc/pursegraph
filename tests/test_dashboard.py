@@ -1,6 +1,8 @@
+import re
 from datetime import date
 
 import pytest
+from django.conf import settings
 
 from ledger.models import Account, Transaction
 
@@ -41,3 +43,17 @@ def test_htmx_and_echarts_are_vendored(logged_in_client):
     assert b"/static/vendor/echarts.min.js" in content
     assert b"unpkg.com" not in content
     assert b"jsdelivr" not in content
+
+
+def test_the_echarts_build_registers_every_chart_the_dashboard_draws():
+    # Every `type:` in dashboard.js but an axis's, an axis pointer's and the legend's names a series.
+    types = set(
+        re.findall(r"type: '(\w+)'", (settings.BASE_DIR / "static" / "dashboard.js").read_text())
+    )
+    charts = types - {"category", "value", "shadow", "scroll"}
+    recipe = (settings.BASE_DIR / "static" / "vendor" / "echarts.md").read_text()
+    use = re.search(r"echarts\.use\(\[(.*?)\]\)", recipe, re.S)
+    assert use
+
+    assert charts == {"bar", "line", "pie", "sankey"}
+    assert {f"{chart.capitalize()}Chart" for chart in charts} <= set(use.group(1).split(", "))
