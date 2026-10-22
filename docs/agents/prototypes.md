@@ -23,6 +23,6 @@ Then hand over the URL (with any `?variant=` query), not a recipe to run. Leave 
 Python Playwright is not installed. Use the Playwright-cached Chromium under `~/.cache/ms-playwright/`:
 
 - **Static shot:** `scripts/shoot <url> <out.png> [WxH]` (default 1440x1000). Use 390x844 for phone.
-- **Shots after clicks/typing:** in the scratchpad, `npm i playwright-core`, then `chromium.launch({ executablePath: <newest ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome> })`.
+- **Shots after clicks/typing:** a scratchpad script run with `scripts/playwright <script.js>`, using `launch()`, `open(browser, url, { user: null })` and `shoot()` from `require('browser')` (`scripts/browser.js`).
 
 Keep shots at viewport height (no 2600px full-page captures) and Read only the ones you are comparing; every image Read costs context.

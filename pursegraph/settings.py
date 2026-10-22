@@ -3,6 +3,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
@@ -65,7 +66,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "pursegraph.wsgi.application"
 
-DATABASES = {
+DATABASES: dict[str, dict[str, Any]] = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),

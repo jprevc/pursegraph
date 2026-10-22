@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# playwright — run a node SCRIPT that drives headless Chromium, with playwright-core and
+# scripts/browser.js (`require('browser')`: launch, log in, shoot) on NODE_PATH.
+#
+#   scripts/playwright SCRIPT.js [arg...]
+#
+# Installs playwright-core into ~/.cache/pursegraph/node on first use.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+node_dir="${XDG_CACHE_HOME:-$HOME/.cache}/pursegraph/node"
+if [[ ! -d "$node_dir/node_modules/playwright-core" ]]; then
+    mkdir -p "$node_dir" && npm i -s --prefix "$node_dir" playwright-core >/dev/null
+fi
+NODE_PATH="$node_dir/node_modules:$here" exec node "$@"

@@ -22,7 +22,11 @@ Before reading `DESIGN.md`, `docs/design/`, `static/pursegraph.css` or a prototy
 
 ### Checks
 
-`scripts/check` runs every check (ruff, format, mypy, imports without dev dependencies, pytest); `--fast` skips pytest. The pre-commit hook and CI run it.
+`scripts/check` runs every check (ruff, format, mypy, one-line template comments, imports without dev dependencies, pytest); `--fast` skips pytest. The pre-commit hook and CI run it.
+
+### Branches
+
+A worktree's local `main` lags behind; branch from, diff against and review against `origin/main` (`git fetch` first).
 
 ### Screenshots and the demo app
 
