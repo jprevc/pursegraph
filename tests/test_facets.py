@@ -163,7 +163,7 @@ def test_a_choice_writes_back_the_query_it_was_read_from(homes):
     query = (
         f"period=2026-09&member={homes['ana'].pk}&account={homes['ana_account'].pk}"
         "&outcome=unresolved&source=rule&dir=out&min=10.5&max=20&q=hofer&decided=3%2C4"
-        "&dashboard=period%3D2026-09&from=spending&mark=awaiting"
+        "&dashboard=period%3D2026-09&view=spending&mark=awaiting"
     )
 
     assert facets.Choice.from_query(QueryDict(query)).query() == query
@@ -171,12 +171,10 @@ def test_a_choice_writes_back_the_query_it_was_read_from(homes):
 
 
 def test_changing_the_period_the_member_or_the_outcome_leaves_the_dashboards_mark(homes):
-    drilled = choice(
-        period="2026-09", outcome="unresolved", **{"from": "spending", "mark": "awaiting"}
-    )
+    drilled = choice(period="2026-09", outcome="unresolved", view="spending", mark="awaiting")
 
     assert drilled.query(direction="out") == (
-        "period=2026-09&outcome=unresolved&dir=out&from=spending&mark=awaiting"
+        "period=2026-09&outcome=unresolved&dir=out&view=spending&mark=awaiting"
     )
     assert drilled.query(period=None) == "outcome=unresolved"
     assert drilled.query(outcome="") == "period=2026-09"
@@ -241,3 +239,10 @@ def test_the_totals_count_every_row_but_leave_transfers_out_of_money_out_and_in(
 
     assert facets.totals(choice()) == (3, Decimal("12.50"), Decimal("30.00"))
     assert facets.totals(choice(q="nothing")) == (0, Decimal(0), Decimal(0))
+
+
+def test_without_a_readable_period_it_is_all_time(homes):
+    add(homes["ana_account"], date(2020, 1, 1), "-5", "Long ago")
+
+    assert shown(choice(view="spending", mark="awaiting")) == ["Long ago"]
+    assert shown(choice(period="nonsense")) == ["Long ago"]

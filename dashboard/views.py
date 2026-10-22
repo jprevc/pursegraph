@@ -221,7 +221,7 @@ def transactions(request, view: str):
             [
                 *linked,
                 ("dashboard", urlencode(_carried(period, True, filters))),
-                ("from", v.name),
+                ("view", v.name),
                 ("mark", key),
             ]
         )

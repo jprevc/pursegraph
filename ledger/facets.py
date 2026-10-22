@@ -70,7 +70,7 @@ class Choice:
     q: str = ""
     decided: tuple[int, ...] = ()
     # Carried along untouched: the Dashboard's period and filters for the sidebar's links (`dashboard`), and the
-    # Dashboard view and chart mark a drill-down's link came from, for the breadcrumb back (`from`, `mark`).
+    # Dashboard view and chart mark a drill-down's link came from, for the breadcrumb back (`view`, `mark`).
     dashboard: str = ""
     view: str = ""
     mark: str = ""
@@ -82,13 +82,12 @@ class Choice:
     @classmethod
     def from_query(cls, params) -> "Choice":
         """The choice a request's query names; whatever can't be read is left unchosen."""
-        period = Period.from_query(params) if params.get("period") or params.get("from") else None
         source = params.get("source", "")
-        view = params.get("from", "")
+        view = params.get("view", "")
         direction = params.get("dir", "")
         of_account, _labels = buckets()
         return cls(
-            period=period,
+            period=Period.named_in(params),
             filters=Filters.from_query(params, of_account),
             outcome=_outcome(params.get("outcome", "")),
             source=source if source in SOURCES else "",
@@ -117,7 +116,7 @@ class Choice:
             ("q", self.q),
             ("decided", ",".join(map(str, self.decided))),
             ("dashboard", self.dashboard),
-            ("from", self.view),
+            ("view", self.view),
             ("mark", self.mark if self.view else ""),
         ]
         return [(name, value) for name, value in named if value]
@@ -181,6 +180,7 @@ class Choice:
 
 
 def _outcome_condition(outcome: str) -> Q:
+    """The Transactions with `outcome`, as `Choice.outcome` names it; all of them for none."""
     if outcome == UNRESOLVED:
         return Q(subcategory__isnull=True, is_transfer=False)
     if outcome == TRANSFER:

@@ -124,6 +124,19 @@ class Period:
             return cls.custom(params["from"], params["to"], default)
         return cls.parse(params.get("period", ""), default)
 
+    @classmethod
+    def named_in(cls, params) -> "Period | None":
+        """The Period a request's query names, as `from_query` reads it; None when it names none it can read."""
+        if params.get("from") and params.get("to"):
+            token = f"{params['from']}..{params['to']}"
+        else:
+            token = params.get("period", "")
+        try:
+            period = cls._read(token)
+        except ValueError:
+            return None
+        return period if period and period.in_bounds else None
+
     @property
     def token(self) -> str:
         if self.unit == "month":

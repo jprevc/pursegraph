@@ -270,7 +270,7 @@ def test_the_breadcrumb_goes_once_the_period_member_or_outcome_changes(logged_in
     base = {
         "period": "2026-09",
         "outcome": f"category-{food.pk}",
-        "from": "spending",
+        "view": "spending",
         "mark": food.pk,
     }
 
@@ -282,8 +282,8 @@ def test_the_breadcrumb_goes_once_the_period_member_or_outcome_changes(logged_in
     assert crumbed(dir="out")
     page = logged_in_client.get("/transactions/", base).content.decode()
     period_form = found(r'<form class="facet".*?</form>', page)
-    assert 'name="from"' not in period_form
-    assert 'name="from"' in found(r'<form class="facet amount".*?</form>', page)
+    assert 'name="view"' not in period_form
+    assert 'name="view"' in found(r'<form class="facet amount".*?</form>', page)
 
 
 def test_a_rows_source_caption_gives_its_specific_reason_as_a_title(logged_in_client):

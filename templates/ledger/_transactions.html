@@ -1,5 +1,5 @@
 {% load figures i18n icons %}{# The Transactions page's main area (docs/design/transactions-page.md): the whole page includes it, and HTMX swaps it in alone. A facet, the search or the pager swaps #results, and the regions _facet_swap.html names out of band. #}
-{% if swapped %}{% include "_title.html" %}{% endif %}
+{% if alone %}{% include "_title.html" %}{% endif %}
 <div id="crumbs">{% if crumb %}<nav class="crumbs" aria-label="{% translate 'Breadcrumb' %}"><a href="{{ crumb.url }}">{% translate "Dashboard" %}</a> <span class="sep" aria-hidden="true">›</span> <span>{{ crumb.label }}</span></nav>{% endif %}</div>
 <h1 tabindex="-1">{% translate "Transactions" %}</h1>
 {% if any_transactions %}
@@ -15,7 +15,7 @@
   <b>{% blocktranslate count n=count %}{{ n }} Transaction{% plural %}{{ n }} Transactions{% endblocktranslate %}</b>
   <span class="fig">· {% blocktranslate with amount=money_out|money %}{{ amount }} out{% endblocktranslate %} · {% blocktranslate with amount=money_in|money %}{{ amount }} in{% endblocktranslate %}</span>
   {% if names %}<span class="named">· {{ names|join:", " }}</span>
-  <a class="clear" href="{% url 'transactions' %}{% if clear_query %}?{{ clear_query }}{% endif %}" hx-get="{% url 'transactions' %}{% if clear_query %}?{{ clear_query }}{% endif %}">{% translate "Clear filters" %}</a>{% endif %}
+  <a class="clear" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear filters" %}</a>{% endif %}
 </p>
 <div class="tx-grid">
   <aside id="rail" class="rail panel" popover aria-labelledby="rail-h" {% include "ledger/_facet_swap.html" %}>
@@ -34,25 +34,24 @@
     {% include "ledger/_outcome_chips.html" %}
     </div>
     {% if page.has_other_pages %}
-    {% url 'transactions' as here %}
     <nav class="pager" aria-label="{% translate 'Pages' %}" data-scroll-top hx-headers='{"X-Pager": "true"}' {% include "ledger/_facet_swap.html" %}>
-      {% if page.has_previous %}<a class="button" href="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}" hx-get="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}">{% icon "left" %}{% translate "Newer" %}</a>
+      {% if page.has_previous %}<a class="button" href="{{ page_url }}{{ page.previous_page_number }}" hx-get="{{ page_url }}{{ page.previous_page_number }}">{% icon "left" %}{% translate "Newer" %}</a>
       {% else %}<a class="button" role="link" aria-disabled="true">{% icon "left" %}{% translate "Newer" %}</a>{% endif %}
       <span class="nums">
         {% for n in page_range %}{% if n == ellipsis %}<span class="gap" aria-hidden="true">…</span>
-        {% elif n == page.number %}<a aria-current="page" href="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ n }}" hx-get="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ n }}" aria-label="{% blocktranslate %}Page {{ n }}{% endblocktranslate %}">{{ n }}</a>
-        {% else %}<a href="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ n }}" hx-get="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ n }}" aria-label="{% blocktranslate %}Page {{ n }}{% endblocktranslate %}">{{ n }}</a>{% endif %}
+        {% elif n == page.number %}<a aria-current="page" href="{{ page_url }}{{ n }}" hx-get="{{ page_url }}{{ n }}" aria-label="{% blocktranslate %}Page {{ n }}{% endblocktranslate %}">{{ n }}</a>
+        {% else %}<a href="{{ page_url }}{{ n }}" hx-get="{{ page_url }}{{ n }}" aria-label="{% blocktranslate %}Page {{ n }}{% endblocktranslate %}">{{ n }}</a>{% endif %}
         {% endfor %}
       </span>
       <span class="range fig">{% blocktranslate with first=page.start_index last=page.end_index %}{{ first }}–{{ last }} of {{ count }}{% endblocktranslate %}</span>
-      {% if page.has_next %}<a class="button" href="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}" hx-get="{{ here }}?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}">{% translate "Older" %}{% icon "right" %}</a>
+      {% if page.has_next %}<a class="button" href="{{ page_url }}{{ page.next_page_number }}" hx-get="{{ page_url }}{{ page.next_page_number }}">{% translate "Older" %}{% icon "right" %}</a>
       {% else %}<a class="button" role="link" aria-disabled="true">{% translate "Older" %}{% icon "right" %}</a>{% endif %}
     </nav>
     {% endif %}
     {% else %}
     <div class="none" {% include "ledger/_facet_swap.html" %}>
       <p>{% translate "No Transactions match." %}</p>
-      <a href="{% url 'transactions' %}{% if clear_query %}?{{ clear_query }}{% endif %}" hx-get="{% url 'transactions' %}{% if clear_query %}?{{ clear_query }}{% endif %}">{% translate "Clear the filters" %}</a>
+      <a href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear the filters" %}</a>
     </div>
     {% endif %}
   </section>

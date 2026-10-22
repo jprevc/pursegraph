@@ -3,7 +3,7 @@
   <div class="grip" aria-hidden="true"></div>
   <div class="sheet-head">
     <h2 id="rail-h">{% translate "Filter" %}</h2>
-    {% if names %}<a class="clear-all" href="{% url 'transactions' %}{% if clear_query %}?{{ clear_query }}{% endif %}" hx-get="{% url 'transactions' %}{% if clear_query %}?{{ clear_query }}{% endif %}">{% translate "Clear all" %}</a>{% endif %}
+    {% if names %}<a class="clear-all" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear all" %}</a>{% endif %}
   </div>
   {% for group in groups %}
   <form class="facet" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" aria-labelledby="facet-{{ group.param }}">

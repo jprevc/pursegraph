@@ -257,6 +257,8 @@ def transactions(request):
     groups = facets.rail(choice, facets.counts(choice), count)
     names = facets.named(choice, groups)
     query = choice.query()
+    cleared = facets.Choice(dashboard=choice.dashboard).query()
+    page_url = f"{request.path}?{query}&page=" if query else f"{request.path}?page="
     alone = wants_the_fragment_alone(request)
     in_place = alone and request.headers.get("HX-Target") == "results"
     title = str(_(" · ")).join([_("Transactions"), *names[:2]])
@@ -275,9 +277,10 @@ def transactions(request):
                 paginator.get_elided_page_range(page.number, on_each_side=1, on_ends=1)
             ),
             "ellipsis": Paginator.ELLIPSIS,
-            "query": query,
+            # A page's address is this plus its number.
+            "page_url": page_url,
             # Clearing the filters keeps what the sidebar's links carry.
-            "clear_query": facets.Choice(dashboard=choice.dashboard).query(),
+            "clear_url": f"{request.path}?{cleared}" if cleared else request.path,
             "crumb": _crumb(choice),
             # The Amount facet keeps the rest of the choice, and its Clear only its own.
             "amount_carry": choice.changed(direction="", least=None, most=None).params,
@@ -287,7 +290,7 @@ def transactions(request):
             **outcomes.picker(),
             "any_transactions": count or Transaction.objects.exists(),
             "page_title": title,
-            "swapped": alone,
+            "alone": alone,
             # Swapped in alone, the page also brings the sidebar, so that only Transactions is highlighted and the
             # dashboard views no longer swap into a view that has left the page.
             "swap_nav": alone and not in_place,
@@ -295,9 +298,8 @@ def transactions(request):
     )
     if in_place:
         # The address names the choice the same way however it was picked.
-        response["HX-Push-Url"] = f"{request.path}?{query}" if query else request.path
-        if page.number > 1:
-            response["HX-Push-Url"] += f"{'&' if query else '?'}page={page.number}"
+        address = f"{request.path}?{query}" if query else request.path
+        response["HX-Push-Url"] = address if page.number == 1 else f"{page_url}{page.number}"
         announce(response, _transactions_said(request, page, count))
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response
