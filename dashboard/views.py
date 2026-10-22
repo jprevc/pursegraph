@@ -13,8 +13,7 @@ from django.utils.translation import ngettext
 
 from ledger import outcomes
 from ledger.models import Statement, Transaction
-from ledger.views import wants_the_fragment_alone
-from pursegraph.htmx import announce
+from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import completeness, queries
 from .periods import Period
@@ -213,11 +212,28 @@ def transactions(request, view: str):
     month = re.search(r"\d{4}-\d{2}", key)
     marked = judged.month(month[0]) if month else None
     qualifier = completeness.qualifier((marked or judged).state)
+    linked = queries.transactions_params(v.name, period, filters, key)
+    # The same Transactions on the Transactions page, which carries the view's period and filters for the sidebar's
+    # links and names the mark for its breadcrumb back.
+    all_url = (
+        f"{reverse('transactions')}?"
+        + urlencode(
+            [
+                *linked,
+                ("dashboard", urlencode(_carried(period, True, filters))),
+                ("from", v.name),
+                ("mark", key),
+            ]
+        )
+        if linked and rows
+        else ""
+    )
     response = render(
         request,
         "dashboard/_drill_down.html",
         {
             "transactions": rows,
+            "all_url": all_url,
             **outcomes.picker(),
             "mark": key,
             # A Category's hue token, where the view's marks are Categories.

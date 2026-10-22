@@ -36,9 +36,11 @@ class Filters:
     accounts: frozenset[int] = frozenset()
 
     @classmethod
-    def from_query(cls, params) -> "Filters":
-        """The filters in a request's query, `member` and any number of `account`; unknown ones are ignored."""
-        of_account, _labels = _buckets()
+    def from_query(cls, params, of_account: dict[int, str] | None = None) -> "Filters":
+        """The filters in a request's query, `member` and any number of `account`; unknown ones are ignored.
+        `of_account` is each Account's bucket, when the caller has already looked it up."""
+        if of_account is None:
+            of_account, _labels = buckets()
         member = params.get("member")
         chosen = {int(a) for a in params.getlist("account") if a.isdigit()}
         return cls(
@@ -380,7 +382,7 @@ def trends_transactions(period: Period, filters: Filters, key: str) -> QuerySet[
     return spending_transactions(period, filters, line)
 
 
-def _buckets() -> tuple[dict[int, str], dict[str, str]]:
+def buckets() -> tuple[dict[int, str], dict[str, str]]:
     """Each Account's Per Member bucket, its Member's key or the Joint one when several Members own it, and each
     bucket's label."""
     of_account, labels = {}, {}
@@ -398,14 +400,14 @@ def _buckets() -> tuple[dict[int, str], dict[str, str]]:
 
 def _bucket(key: str) -> list[int]:
     """The Accounts in one Per Member bucket."""
-    of_account, _labels = _buckets()
+    of_account, _labels = buckets()
     return [account for account, bucket in of_account.items() if bucket == key]
 
 
 def filter_choices() -> tuple[list[tuple[str, str]], list[Account]]:
     """What the filter bar offers: each Per Member bucket's key and label, Members by name then Joint, and the
     Accounts that receive Statements."""
-    of_account, labels = _buckets()
+    of_account, labels = buckets()
     keys = set(of_account.values())
     members = sorted((k for k in keys if k != JOINT), key=lambda k: labels[k].casefold())
     if JOINT in keys:
@@ -419,7 +421,7 @@ def per_member(period: Period, filters: Filters) -> ViewData:
     own rather than shared out. A Member's key drills into their spending; with ":<Category key>", one segment.
     It compares every Member, so it ignores the Member filter."""
     filters = replace(filters, member=None)
-    of_account, labels = _buckets()
+    of_account, labels = buckets()
     spent = (
         _spending(period, filters)
         .values("account", "subcategory__category")
@@ -607,6 +609,56 @@ DRILL_DOWNS = {
     "per_member": per_member_transactions,
     "money_flow": money_flow_transactions,
 }
+
+
+def _spending_params(key: str) -> list[tuple[str, str]] | None:
+    """The Transactions page's facets naming a Spending by Category mark's Transactions."""
+    if key == AWAITING_REVIEW:
+        return [("outcome", "unresolved"), ("dir", "out")]
+    if key.isdigit() and Category.objects.filter(pk=key, kind=Category.Kind.SPENDING).exists():
+        return [("outcome", f"category-{key}")]
+    return None
+
+
+def transactions_params(
+    view: str, period: Period, filters: Filters, key: str
+) -> list[tuple[str, str]] | None:
+    """The Transactions page's query that lists just the Transactions of the mark `key`, as the drill-down does;
+    None for a mark its facets can't name (such as all money in, which mixes income with what awaits review)."""
+    if view == "trends":
+        line, _sep, month_key = key.partition(":")
+        if month_key:
+            month = _month_in(period, month_key)
+            if month is None:
+                return None
+            whole = Period.month(month.start.year, month.start.month)
+            period = month if month == whole else Period("custom", month.start, month.end)
+        return transactions_params("spending", period, filters, line)
+    if view == "per_member":
+        member, _sep, segment = key.partition(":")
+        if not segment or member not in buckets()[0].values():
+            return None
+        return transactions_params("spending", period, replace(filters, member=member), segment)
+    if view == "money_flow":
+        group, _sep, source = key.partition(":")
+        if group != INCOME:
+            facets = _spending_params(key) if key.isdigit() else None
+        elif source == AWAITING_REVIEW:
+            facets = [("outcome", "unresolved"), ("dir", "in")]
+        elif (
+            source.isdigit()
+            and Subcategory.objects.filter(pk=source, category__kind=Category.Kind.INCOME).exists()
+        ):
+            facets = [("outcome", f"subcategory-{source}")]
+        else:
+            facets = None
+    elif view == "spending":
+        facets = _spending_params(key)
+    else:
+        facets = None
+    if facets is None:
+        return None
+    return [("period", period.token), *filters.params, *facets]
 
 
 @dataclass(frozen=True)

@@ -11,18 +11,20 @@ from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.formats import number_format
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.decorators.http import require_http_methods, require_POST
 
-from dashboard import periods
+from dashboard import periods, queries
+from dashboard.views import VIEWS
 from members.permissions import admin_required
 from pursegraph import figures
-from pursegraph.htmx import announce
+from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import categories as category_edits
-from . import outcomes, review, suggestions
+from . import facets, outcomes, review, suggestions
 from . import rules as rule_edits
 from .forms import (
     AccountAdminForm,
@@ -33,7 +35,6 @@ from .forms import (
     RuleForm,
     StatementFileForm,
     ThresholdForm,
-    TransactionFilterForm,
 )
 from .importer import (
     CheckedStatement,
@@ -45,7 +46,7 @@ from .importer import (
 )
 from .models import Account, Bank, Category, Rule, Statement, Subcategory, Transaction
 
-TRANSACTIONS_PER_PAGE = 100
+TRANSACTIONS_PER_PAGE = 25
 
 
 def categories_with_subcategories():
@@ -242,43 +243,98 @@ def delete_statement(request, pk):
     )
 
 
-def wants_the_fragment_alone(request) -> bool:
-    """HTMX swapping a page's content in. Restoring history after a cache miss needs the whole page."""
-    return bool(
-        request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
-    )
-
-
 def transactions(request):
-    """Every Transaction, filtered and paged. The sidebar swaps it into the main area via HTMX."""
-    picker = outcomes.picker()
-    form = TransactionFilterForm(request.GET, categories=picker["categories"])
-    rows = form.filter(
-        Transaction.objects.select_related("account", "subcategory__category").order_by(
-            "-date", "-id"
-        )
+    """Every Transaction, narrowed by the facets and read 25 at a time (docs/design/transactions-page.md). A facet,
+    the search or the pager swaps the results in (`#results`), with the rail, the summary and the breadcrumb out of
+    band; the sidebar swaps the whole page into the main area."""
+    choice = facets.Choice.from_query(request.GET)
+    count, money_out, money_in = facets.totals(choice)
+    rows = facets.rows(choice).select_related(
+        "account", "subcategory__category", "rule", "counterpart__account"
     )
-    page = Paginator(rows, TRANSACTIONS_PER_PAGE).get_page(request.GET.get("page"))
-    query = request.GET.copy()
-    query.pop("page", None)
+    paginator = Paginator(rows, TRANSACTIONS_PER_PAGE)
+    page = paginator.get_page(request.GET.get("page"))
+    groups = facets.rail(choice, facets.counts(choice), count)
+    names = facets.named(choice, groups)
+    query = choice.query()
     alone = wants_the_fragment_alone(request)
+    in_place = alone and request.headers.get("HX-Target") == "results"
+    title = str(_(" · ")).join([_("Transactions"), *names[:2]])
     response = render(
         request,
         "ledger/_transactions.html" if alone else "ledger/transactions.html",
         {
-            "form": form,
+            "choice": choice,
+            "groups": groups,
+            "names": names,
+            "count": count,
+            "money_out": money_out,
+            "money_in": money_in,
             "page": page,
-            "query": query.urlencode(),
-            **picker,
-            "any_transactions": page.paginator.count or Transaction.objects.exists(),
-            "page_title": _("Transactions"),
-            # Swapped in alone, it also brings the sidebar, so that only Transactions is highlighted and the
+            "page_range": list(
+                paginator.get_elided_page_range(page.number, on_each_side=1, on_ends=1)
+            ),
+            "ellipsis": Paginator.ELLIPSIS,
+            "query": query,
+            # Clearing the filters keeps what the sidebar's links carry.
+            "clear_query": facets.Choice(dashboard=choice.dashboard).query(),
+            "crumb": _crumb(choice),
+            # The Amount facet keeps the rest of the choice, and its Clear only its own.
+            "amount_carry": choice.changed(direction="", least=None, most=None).params,
+            "amount_clear_query": choice.query(direction="", least=None, most=None),
+            "amount_least": "" if choice.least is None else number_format(choice.least),
+            "amount_most": "" if choice.most is None else number_format(choice.most),
+            **outcomes.picker(),
+            "any_transactions": count or Transaction.objects.exists(),
+            "page_title": title,
+            "swapped": alone,
+            # Swapped in alone, the page also brings the sidebar, so that only Transactions is highlighted and the
             # dashboard views no longer swap into a view that has left the page.
-            "swap_nav": alone,
+            "swap_nav": alone and not in_place,
         },
     )
+    if in_place:
+        # The address names the choice the same way however it was picked.
+        response["HX-Push-Url"] = f"{request.path}?{query}" if query else request.path
+        if page.number > 1:
+            response["HX-Push-Url"] += f"{'&' if query else '?'}page={page.number}"
+        announce(response, _transactions_said(request, page, count))
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response
+
+
+def _transactions_said(request, page, count: int) -> str:
+    """What a swap of the results announces: the pager the page it went to, anything else the count."""
+    pages = page.paginator.num_pages
+    if request.headers.get("X-Pager"):
+        return _("Page %(page)d of %(pages)d, %(first)d–%(last)d of %(count)d") % {
+            "page": page.number,
+            "pages": pages,
+            "first": page.start_index(),
+            "last": page.end_index(),
+            "count": count,
+        }
+    said = ngettext("%(count)d Transaction", "%(count)d Transactions", count) % {"count": count}
+    if pages > 1:
+        said += _(" · page %(page)d of %(pages)d") % {"page": page.number, "pages": pages}
+    return said
+
+
+def _crumb(choice: facets.Choice) -> dict | None:
+    """The breadcrumb back to the Dashboard view and chart mark the page was opened from: "Spending · Food ·
+    September 2026", linking to the view with the period and filters it had."""
+    if not (choice.view and choice.period):
+        return None
+    view = VIEWS[choice.view]
+    heeded = queries.heeded(view.name, choice.filters)
+    mark = queries.mark_label(view.name, choice.period, heeded, choice.mark)
+    if mark is None:
+        return None
+    query = choice.dashboard or urlencode([("period", choice.period.token), *choice.filters.params])
+    return {
+        "label": str(_(" · ")).join([str(view.label), mark, choice.period.label]),
+        "url": f"{reverse(view.name)}?{query}",
+    }
 
 
 REVIEW_DECIDED_SESSION_KEY = "review_decided"

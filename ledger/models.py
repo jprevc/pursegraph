@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
+from pursegraph import figures
+
 from .coverage import DateRange, Segment, coverage, timeline
 
 
@@ -256,6 +258,40 @@ class Transaction(models.Model):
     def source_caption(self) -> str:
         """What set the outcome, as the row's muted caption ("by Rule"); "" while unresolved."""
         return str(SOURCE_CAPTIONS[Source(self.source)]) if self.source else ""
+
+    @property
+    def source_reason(self) -> str:
+        """Why the outcome is what it is, specifically, as the source caption's hover title: "Matched the Rule
+        “HOFER” → Food › Groceries"; "" while unresolved."""
+        if self.source == Source.RULE:
+            if self.rule is None:
+                return str(_("A Rule matched it; the Rule has since been deleted."))
+            return _("Matched the Rule “%(rule)s” → %(outcome)s") % {
+                "rule": self.rule,
+                "outcome": self.outcome_label,
+            }
+        if self.source == Source.LLM:
+            if self.confidence is None:
+                return str(_("The local model suggested it."))
+            return _("The local model suggested it, %(percent)s sure.") % {
+                "percent": figures.share(self.confidence)
+            }
+        if self.source == Source.IBAN:
+            return _("Its counterparty IBAN, %(iban)s, is one of the Household's.") % {
+                "iban": self.counterparty_iban
+            }
+        if self.source == Source.PAIRING:
+            if self.counterpart is None:
+                return str(_("Paired with its other side in another of the Household's Accounts."))
+            return _("Paired with the other side in %(account)s on %(day)s.") % {
+                "account": self.counterpart.account.name,
+                "day": figures.day(self.counterpart.date),
+            }
+        if self.source == Source.MANUAL:
+            return str(_("A Member chose it."))
+        if self.source == Source.PARSER:
+            return str(_("The bank's Statement listed it as a bank fee."))
+        return ""
 
     def pairing_candidates(self) -> list["Transaction"]:
         """For an ambiguous pairing, the Transactions equally close to being its other side."""
