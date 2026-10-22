@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues and specs are tracked in GitHub Issues, using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues and specs are tracked in GitHub Issues, using the `gh` CLI. Read one with `gh issue view <n> --json title,body,labels,comments --jq '{title, body, labels: [.labels[].name], comments: [.comments[].body]}'`. Everything else: `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -19,6 +19,10 @@ Serving, handoff and screenshots for `/prototype` tickets. See `docs/agents/prot
 ### Design docs
 
 Before reading `DESIGN.md`, `docs/design/`, `static/pursegraph.css` or a prototype, read `docs/agents/design-docs.md`.
+
+### Test seams
+
+When the tdd skill calls for agreed seams, choose them yourself: the public interfaces you would recommend. Name them in the PR body, so the user agrees to them there.
 
 ### Checks
 

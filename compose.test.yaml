@@ -1,5 +1,6 @@
 # PostgreSQL for running the test suite on the host: `docker compose -f compose.test.yaml up -d`.
-# One serves every worktree: "port is already allocated" means another worktree's is up; use it.
+# One serves every worktree: the fixed project name makes `up -d` in any worktree find the running one.
+name: pursegraph
 services:
   postgres-test:
     image: postgres:17
