@@ -45,15 +45,46 @@ def test_htmx_and_echarts_are_vendored(logged_in_client):
     assert b"jsdelivr" not in content
 
 
-def test_the_echarts_build_registers_every_chart_the_dashboard_draws():
-    # Every `type:` in dashboard.js but an axis's, an axis pointer's and the legend's names a series.
+# Every series type ECharts 5 has (`echarts/charts`); a `type:` in dashboard.js that is one of these draws a chart.
+ECHARTS_SERIES = {
+    *(
+        "line",
+        "bar",
+        "pie",
+        "scatter",
+        "effectScatter",
+        "radar",
+        "tree",
+        "treemap",
+        "sunburst",
+        "map",
+        "graph",
+    ),
+    *(
+        "gauge",
+        "funnel",
+        "parallel",
+        "sankey",
+        "boxplot",
+        "candlestick",
+        "heatmap",
+        "pictorialBar",
+        "themeRiver",
+    ),
+    *("lines", "custom"),
+}
+
+
+def test_the_echarts_recipe_registers_every_chart_the_dashboard_draws():
     types = set(
         re.findall(r"type: '(\w+)'", (settings.BASE_DIR / "static" / "dashboard.js").read_text())
     )
-    charts = types - {"category", "value", "shadow", "scroll"}
+    charts = types & ECHARTS_SERIES
     recipe = (settings.BASE_DIR / "static" / "vendor" / "echarts.md").read_text()
     use = re.search(r"echarts\.use\(\[(.*?)\]\)", recipe, re.S)
     assert use
 
-    assert charts == {"bar", "line", "pie", "sankey"}
-    assert {f"{chart.capitalize()}Chart" for chart in charts} <= set(use.group(1).split(", "))
+    assert "sankey" in charts
+    assert {f"{chart[0].upper()}{chart[1:]}Chart" for chart in charts} <= set(
+        use.group(1).split(", ")
+    )
