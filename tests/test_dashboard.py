@@ -1,6 +1,8 @@
+import re
 from datetime import date
 
 import pytest
+from django.conf import settings
 
 from ledger.models import Account, Transaction
 
@@ -41,3 +43,48 @@ def test_htmx_and_echarts_are_vendored(logged_in_client):
     assert b"/static/vendor/echarts.min.js" in content
     assert b"unpkg.com" not in content
     assert b"jsdelivr" not in content
+
+
+# Every series type ECharts 5 has (`echarts/charts`); a `type:` in dashboard.js that is one of these draws a chart.
+ECHARTS_SERIES = {
+    *(
+        "line",
+        "bar",
+        "pie",
+        "scatter",
+        "effectScatter",
+        "radar",
+        "tree",
+        "treemap",
+        "sunburst",
+        "map",
+        "graph",
+    ),
+    *(
+        "gauge",
+        "funnel",
+        "parallel",
+        "sankey",
+        "boxplot",
+        "candlestick",
+        "heatmap",
+        "pictorialBar",
+        "themeRiver",
+    ),
+    *("lines", "custom"),
+}
+
+
+def test_the_echarts_recipe_registers_every_chart_the_dashboard_draws():
+    types = set(
+        re.findall(r"type: '(\w+)'", (settings.BASE_DIR / "static" / "dashboard.js").read_text())
+    )
+    charts = types & ECHARTS_SERIES
+    recipe = (settings.BASE_DIR / "static" / "vendor" / "echarts.md").read_text()
+    use = re.search(r"echarts\.use\(\[(.*?)\]\)", recipe, re.S)
+    assert use
+
+    assert "sankey" in charts
+    assert {f"{chart[0].upper()}{chart[1:]}Chart" for chart in charts} <= set(
+        use.group(1).split(", ")
+    )
