@@ -1,4 +1,5 @@
-# PostgreSQL for running the test suite on the host: `docker compose -f compose.test.yaml up -d`
+# PostgreSQL for running the test suite on the host: `docker compose -f compose.test.yaml up -d`.
+# One serves every worktree: "port is already allocated" means another worktree's is up; use it.
 services:
   postgres-test:
     image: postgres:17

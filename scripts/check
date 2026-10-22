@@ -5,6 +5,7 @@
 #   scripts/check --fast   everything but the tests (the pre-commit hook runs this)
 #
 # The tests need the PostgreSQL from compose.test.yaml: `docker compose -f compose.test.yaml up -d`.
+# One serves every worktree, each in a test database of its own (see pursegraph/settings_test.py).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 unset VIRTUAL_ENV  # another worktree's venv, inherited from the shell, only makes uv warn
@@ -18,6 +19,12 @@ step() {
 step "ruff check" uv run -q ruff check -q .
 step "ruff format" uv run -q ruff format --check -q .
 step "mypy" uv run -q mypy .
+# Django's {# #} comments end on their own line; one that runs on is printed into the page.
+template_comments() {
+    ! git grep --untracked -nP '\{#(?!.*#\})' -- 'templates/*.html' >&2 ||
+        { echo 'check: a {# #} comment spans lines; use {% comment %} … {% endcomment %}' >&2; false; }
+}
+step "one-line template comments" template_comments
 # Production installs no dev dependencies, so a module importing one at runtime fails only there.
 step "imports without dev dependencies" uv run -q --isolated --no-dev python manage.py check
 [[ "${1:-}" == "--fast" ]] || step "pytest" uv run -q pytest -q

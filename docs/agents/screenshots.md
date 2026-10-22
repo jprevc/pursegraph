@@ -6,7 +6,7 @@ Everything here runs on a synthetic demo Household from `manage.py seed_demo`: A
 
 `scripts/demo-server <port>` with `run_in_background`, on port 8000 + the issue number. Each start makes a fresh demo database; it reloads on code changes; TaskStop stops it and drops the database.
 
-To check behaviour (a swap, a popover, focus), write a playwright-core script in the scratchpad: `require` it from `~/.cache/pursegraph/node/node_modules` (`scripts/shots` installs it there), and copy the Chromium launch and the login from `scripts/shots.js`.
+To check behaviour (a swap, a popover, focus) or shoot a state no page shows on load (an open panel, a saved line), write a script in the scratchpad and run it with `scripts/playwright <script.js>`. `require('browser')` gives `launch()`, `open(browser, base, { scheme, size, user })` (a logged-in page) and `shoot(page, dir, name)`, which also reports sideways scroll; see `scripts/browser.js`. Shoot states into the same `after/` folder as `scripts/compare`, so `publish-shots` can publish them too.
 
 ## Before/after for a PR
 
