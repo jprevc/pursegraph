@@ -282,7 +282,7 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 ### Named Rules
 **The One Indigo Rule.** Indigo belongs to the interface: active state, count badge, links, focus, the wordmark and the mark. It is never a data colour, never a chart series and never a Category. On the Accounts board, the stretch the import just added is Indigo as a state ("this import", like the active nav item), not as a series.
 
-**The Fixed Hue Rule.** A Category wears the same hue in every view, chart and theme step (lifted in dark, never re-assigned). Hues are keyed by Category id, never by sort order.
+**The Fixed Hue Rule.** A Category wears the same hue in every view, chart and theme step (lifted in dark, never re-assigned). Hues are keyed by Category id, never by sort order. The one exception is a bar too light to stand 3:1 off the card (WCAG 1.4.11), such as Cash flow's Money in in the Income hue: it is darkened toward Ink until it does, so it stays recognisably that hue.
 
 **The Neutral Wait Rule.** Awaiting review is neutral grey plus a 45° hatch, everywhere it appears (dot, bar and donut segment). It never borrows a Category hue.
 

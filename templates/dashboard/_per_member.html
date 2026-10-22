@@ -20,6 +20,6 @@
   <tfoot><tr><th>{% translate "Total" %}</th><th class="num">{{ data.total|money }}</th></tr></tfoot>
 </table>
 {% endblock %}
-{% block chart_label %}{% translate "Stacked bar chart of each Member's spending by Category; the table beside it has every figure." %}{% endblock %}
+{% block chart_label %}{% translate "Stacked bar chart of the spending of each Member and of the Joint bucket, by Category; the table beside it has every figure." %}{% endblock %}
 {% block hint %}{% translate "Joint Accounts form their own Joint bucket. Click a segment, a Member or a Category to see its Transactions." %}{% endblock %}
 {% block empty %}{% translate "No spending in this period." %}{% endblock %}

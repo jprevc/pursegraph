@@ -491,6 +491,11 @@ def _income(period: Period, filters: Filters) -> QuerySet[Transaction]:
     return _transactions(period, filters).filter(MONEY_IN)
 
 
+def _balance_label(left_over: Decimal) -> str:
+    """What Money flow calls its balance: money in that wasn't spent, which isn't a claim that it was saved."""
+    return _("Left over") if left_over >= 0 else _("Spent beyond money in")
+
+
 def money_flow(period: Period, filters: Filters) -> ViewData:
     """A Sankey from income, per income Subcategory, through the Household to the Categories of Spending by
     Category, balanced by what was left over or spent beyond money in. Unresolved money in is "Income awaiting
@@ -532,9 +537,7 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
         ] or Decimal(0)
         rows.append(Row(_("To/from other Members"), others, OTHERS))
     left_over = money_in + others - spending.total
-    balance = Row(
-        _("Left over") if left_over >= 0 else _("Spent beyond money in"), abs(left_over), None
-    )
+    balance = Row(_balance_label(left_over), abs(left_over), None)
 
     nodes = [{"name": r.key, "label": r.label, "key": r.key} for r in sources]
     nodes.append({"name": HOUSEHOLD, "label": _("Household"), "key": HOUSEHOLD})
@@ -555,8 +558,7 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
     )
     if drawn:
         name = LEFT_OVER if drawn > 0 else BEYOND
-        label = _("Left over") if drawn > 0 else _("Spent beyond money in")
-        nodes.append({"name": name, "label": label, "key": None})
+        nodes.append({"name": name, "label": _balance_label(drawn), "key": None})
         flows.append((HOUSEHOLD, name, drawn) if drawn > 0 else (name, HOUSEHOLD, -drawn))
     links = [
         {"source": source, "target": target, "value": float(amount)}

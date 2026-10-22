@@ -52,7 +52,7 @@
 
   const html = echarts.format.encodeHTML;
   const dot = (colour, hatched) => `<i class="dot${hatched ? ' awaiting' : ''}" style="--hue: ${colour}"></i>`;
-  // An axis tooltip: the month, then one row per series (dot, name, amount), and a Total under a hairline.
+  // An axis tooltip: the month (or Bucket), then one row per series (dot, name, amount), and a Total under a hairline.
   const table = (title, rows, total) => `<p class="tip-head">${html(title)}</p><table class="tip">${rows.map(r =>
     `<tr><td>${dot(r.colour, r.hatched)}${html(r.name)}</td><td>${r.value}</td></tr>`).join('')}${
     total ? `<tfoot><tr><td>${html(total[0])}</td><td>${total[1]}</td></tr></tfoot>` : ''}</table>`;
@@ -172,12 +172,13 @@
     // keys; what a node shows is its label.
     money_flow: (data, { base, tooltip, text, INK2, MUTED, colour }, view) => {
       const labels = Object.fromEntries(data.nodes.map(n => [n.name, n.label]));
-      const moneyIn = data.links.filter(l => l.target === HOUSEHOLD).reduce((sum, l) => sum + l.value, 0);
-      const incoming = new Set(data.links.filter(l => l.target === HOUSEHOLD).map(l => l.source));
+      const into = data.links.filter(l => l.target === HOUSEHOLD);
+      const moneyIn = into.reduce((sum, l) => sum + l.value, 0);
+      const incoming = new Set(into.map(l => l.source));
       const side = n => n.name === HOUSEHOLD ? { position: 'top', distance: 6 } : incoming.has(n.name) ? { position: 'left' } : {};
       // Narrow, the labels take 11px and most of the width, and Household's (crowded between the columns) only its name.
       const size = view.narrow ? 11 : 12;
-      const name = n => view.narrow && n === HOUSEHOLD ? `{name|${labels[n]}}` : null;
+      const nameOnly = n => view.narrow && n === HOUSEHOLD ? `{name|${labels[n]}}` : null;
       return {
         ...base(view),
         tooltip: {
@@ -194,7 +195,7 @@
           lineStyle: { color: 'gradient', opacity: 0.3, curveness: 0.5 }, itemStyle: { borderWidth: 0, borderRadius: 2 },
           labelLayout: { hideOverlap: true },
           label: {
-            ...text(size, 500, INK2), formatter: p => name(p.data.name) ?? `{name|${labels[p.data.name]}}  {amount|${moneyWhole(p.value)}}`,
+            ...text(size, 500, INK2), formatter: p => nameOnly(p.data.name) ?? `{name|${labels[p.data.name]}}  {amount|${moneyWhole(p.value)}}`,
             rich: { name: text(size, 500, INK2), amount: text(size, 400, MUTED) },
           },
           // Built afresh, as a node's `label` would be read as its label's style.

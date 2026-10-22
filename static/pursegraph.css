@@ -566,11 +566,11 @@ button.cat-open::after { content: ""; position: absolute; inset: 0; border-radiu
 .view-table td { padding: var(--s-2) var(--s-3); }
 /* A chart's tooltip (static/dashboard.js): the month, a row per series and a Total under a hairline. */
 .chart .tip-head { margin: 0 0 var(--s-1); font-weight: 600; }
-.chart .tip { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.chart .tip { border-collapse: collapse; }
 .chart .tip td { padding: 2px 0; border: 0; }
 .chart .tip td:first-child { padding-right: var(--s-4); color: var(--ink-2); }
-.chart .tip td:last-child { text-align: right; font-weight: 600; }
-.chart .tip tfoot td { padding-top: 6px; border-top: 1px solid var(--line); }
+.chart .tip td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chart .tip tfoot td { padding-top: var(--s-2); border-top: 1px solid var(--line); }
 .chart .dot { display: inline-block; margin-right: var(--s-2); }
 .view-table tr.mark, .view-table tr.subcategory:has(.mark-open) { position: relative; cursor: pointer; }
 .view-table tr.mark:hover, .view-table tr.mark:has(.mark-open:focus-visible),
