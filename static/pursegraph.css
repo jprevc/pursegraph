@@ -329,12 +329,9 @@ form.inline { display: inline; }
 .coverage .gap { background: var(--card); border: 1.5px solid var(--ink-2); }
 .coverage-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-1) var(--s-4); margin: 0 0 var(--s-2); font-size: var(--text-sm); }
 details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin-bottom: .375rem; }
-.outcome { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.outcome select { max-width: 16.25rem; height: 2rem; font-size: var(--text-sm); }
-.outcome button { height: 2rem; }
-.outcome .source { font-size: var(--text-label); }
 .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-3); margin-bottom: var(--s-4); }
 .filters div { display: flex; flex-direction: column; gap: var(--s-1); }
+.filter-summary { font-size: var(--text-sm); }
 .pages { display: flex; gap: var(--s-4); justify-content: center; align-items: center; padding: var(--s-4); }
 .category-edit { margin-bottom: var(--s-3); }
 .category-edit h3 { margin-top: 0; }
@@ -347,7 +344,6 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .rules .actions, td.actions { white-space: nowrap; }
 .rules .actions { display: flex; align-items: center; gap: .375rem; }
 .rules .actions form { display: flex; gap: var(--s-1); }
-.bulk-accept { margin-bottom: var(--s-3); }
 
 /* ---------- Transaction row ---------- */
 /* docs/design/transaction-row.md: Date, Transaction, Account, Outcome and Amount, with a Raised hover. The outcome is
@@ -451,6 +447,92 @@ button.link[data-change] { margin: 0; padding: .375rem .25rem; }
   }
   .rows tr.chip-panel, .rows tr.chip-panel > td { display: block; }
   .chips button, .pairs button { min-height: 2.75rem; }
+}
+
+/* ---------- Review queue ---------- */
+/* docs/design/review-queue.md: a master–detail pair of cards, the groups on the left and the open group on the right. */
+.review-summary { margin: calc(var(--s-4) * -1) 0 var(--s-5); color: var(--muted); }
+.md { display: grid; grid-template-columns: minmax(0, 23.75rem) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.md.alone { grid-template-columns: minmax(0, 1fr); }
+.md-list { padding: 0; overflow: hidden; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) var(--s-4); color: var(--muted); font-size: var(--text-label); }
+.show-resolved { margin: 0; }
+.show-resolved label { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 2rem; color: var(--ink-2); cursor: pointer; }
+.list-empty { margin: 0; padding: var(--s-5) var(--s-4); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--text-sm); text-align: center; }
+.groups { list-style: none; margin: 0; padding: 0; }
+.groups button {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3); width: 100%; height: auto;
+  padding: .625rem var(--s-4); border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none;
+  background: none; font-weight: 400; line-height: 1.4; text-align: left; white-space: normal;
+}
+.groups button:hover { background: var(--raised); }
+.groups button:focus-visible { outline-offset: -2px; }
+/* The open group: Indigo Wash with a 3px Indigo inset at its left edge. */
+.groups button[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.g-desc { min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.g-desc .n { color: var(--muted); font-weight: 400; }
+.g-amt { font-weight: 600; text-align: right; }
+.g-sub { grid-column: 1 / -1; display: flex; align-items: center; gap: .375rem; min-width: 0; color: var(--muted); font-size: var(--text-label); }
+.g-sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-sub .cat-name, .g-sub .sep { color: inherit; }
+.g-sub .icon { width: .875rem; height: .875rem; color: var(--ink-2); }
+.groups .decided .g-desc, .groups .decided .g-amt { color: var(--muted); }
+
+.md-detail { display: grid; gap: var(--s-5); }
+.back { display: none; justify-self: start; font-weight: 500; text-decoration: none; }
+.d-head { display: flex; align-items: flex-start; gap: var(--s-3); }
+.d-title { flex: 1; min-width: 0; }
+.d-head h2 { margin: 0; font-size: 1.125rem; overflow-wrap: anywhere; }
+.d-meta { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+.d-total { margin: 0; font-size: 1.375rem; font-weight: 600; letter-spacing: -0.01em; }
+.d-sec h3 { margin: 0 0 var(--s-2); font-size: var(--text-sm); }
+.mini td { padding: .4375rem 0; border-top: 1px solid var(--line); border-bottom: 0; font-size: var(--text-sm); }
+.mini td:first-child { width: 7rem; color: var(--ink-2); }
+.last { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin: 0; font-size: var(--text-sm); }
+.last-when { margin-left: auto; color: var(--muted); font-size: var(--text-label); }
+.note { margin: .375rem 0 0; color: var(--muted); font-size: var(--text-label); }
+
+/* Deciding: a bordered box on the card fill. */
+.decide { display: grid; gap: var(--s-3); padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-ctl); }
+.decide-form, .suggested { display: grid; gap: var(--s-3); }
+.suggested { gap: var(--s-2); }
+.sugg-k { margin: 0; color: var(--muted); font-size: var(--text-label); font-weight: 500; }
+.decide > .oc-label, .suggested .oc-label { margin: 0; }
+.decide .acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.decide .pick.or { padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.decide .pick h3 { margin: 0; font-size: var(--text-sm); }
+.pairs button { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s-3); min-width: min(100%, 18rem); }
+.pair-desc { font-weight: 500; color: var(--ink); }
+.pair-meta { grid-column: 1; color: var(--muted); font-size: var(--text-label); }
+.pair-amt { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 600; }
+/* With JS, a Category's Subcategories show in place of the chips; without it they are all listed, by Category. */
+.js .decide .pick-step:not([data-step=""], .shown), .js .decide .pick.stepped .pick-step[data-step=""] { display: none; }
+html:not(.js) .decide [data-category] { display: none; }
+.decide .oc-saved { gap: var(--s-1) var(--s-2); font-size: var(--text-sm); }
+.decide .oc-saved .icon { color: var(--ink-2); }
+.decide .oc-saved button.link { padding: .25rem .125rem; }
+form.undo { display: inline; }
+.decide .oc-failed { font-size: var(--text-sm); }
+
+/* Queue clear: a centred end state. */
+.clear { display: grid; justify-items: center; gap: var(--s-3); padding: var(--s-8) var(--s-4); text-align: center; }
+.clear .tick { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); }
+.clear .tick .icon { width: 1.5rem; height: 1.5rem; vertical-align: 0; }
+.clear h2 { margin: 0; font-size: 1.25rem; }
+.clear p { max-width: 46ch; margin: 0; color: var(--muted); }
+.clear .acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-2); margin-top: var(--s-2); }
+
+@media (max-width: 900px) {
+  /* The list and the detail are two views: a group opens full width, with "‹ All groups" back to the list. */
+  .md { grid-template-columns: minmax(0, 1fr); }
+  .md.opened .md-list, .md:not(.opened) .md-detail { display: none; }
+  .back { display: inline-flex; align-items: center; min-height: 2.75rem; margin: calc(var(--s-3) * -1) 0 calc(var(--s-3) * -1); }
+  .groups button { padding: .75rem var(--s-4); }
+  .md-detail { padding: var(--s-4); }
+  .decide { padding: var(--s-3); }
+  .decide .chips button, .decide .pairs button { min-height: 2.75rem; }
+  .decide .acts .button, .decide .acts button { flex: 1 1 100%; height: 2.75rem; }
+  .pairs button { width: 100%; }
 }
 
 /* ---------- Dashboard ---------- */

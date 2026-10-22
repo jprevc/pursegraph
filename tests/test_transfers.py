@@ -1,5 +1,6 @@
 """Transfers: recognised at import by IBAN, paired across Accounts in either import order."""
 
+import html
 import re
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ledger.models import Transaction
 from tests.conftest import (
+    group_caption,
     make_account,
     outcome_shown,
     review_queue_count,
@@ -118,17 +120,26 @@ def test_a_categorized_side_imported_first_is_converted_when_its_counterpart_arr
     )
 
 
+UNKNOWN_SIDE = "Transfer · other side unknown"
+
+
 def review_queue(client):
     return client.get("/review/").content.decode()
 
 
-def pairing_options(page, description):
-    """The candidate counterparts offered in the outcome dropdown of the row described `description`."""
-    row = re.search(
-        rf"<tr[^>]*>(?:(?!</tr>).)*>{re.escape(description)}<(?:(?!</tr>).)*</tr>", page, re.S
+def pairing_options(client, description):
+    """The candidate counterparts the Review queue offers for the group described `description`, opened."""
+    page = html.unescape(
+        client.get("/review/", {"group": transaction_id(description)}).content.decode()
     )
-    assert row, f"no row for {description!r}"
-    return re.findall(r'<option value="pair-\d+">Pair with ([^<]*)</option>', row[0])
+    return [
+        f"{day} · {account} · {other}"
+        for other, day, account in re.findall(
+            r'<span class="pair-desc">([^<]*)</span><span class="pair-meta"><span class="fig">([^<]*)</span>'
+            r" · ([^<]*)</span>",
+            page,
+        )
+    ]
 
 
 def set_outcome(client, description, outcome, **headers):
@@ -156,20 +167,22 @@ def test_a_tie_between_candidates_goes_to_the_review_queue_with_the_candidates(
 ):
     assert "1 Transfer with several possible counterparts waits in the Review queue" in tie
     page = review_queue(logged_in_client)
-    assert outcome_shown(page, "Ana Novak") == "Pick the other side"
-    assert pairing_options(page, "Ana Novak") == [
-        "9 Sep 2026 · Ana&#x27;s Revolut · Top-up by card",
-        "11 Sep 2026 · Ana&#x27;s Revolut · Payment from Ana Novak",
+    assert group_caption(page, "Ana Novak") == UNKNOWN_SIDE
+    assert pairing_options(logged_in_client, "Ana Novak") == [
+        "9 Sep 2026 · Ana's Revolut · Top-up by card",
+        "11 Sep 2026 · Ana's Revolut · Payment from Ana Novak",
     ]
-    assert pairing_options(page, "Top-up by card") == []
+    assert pairing_options(logged_in_client, "Top-up by card") == []
     # The side, both still unresolved candidates, and the 11 other Sparkasse rows.
     assert review_queue_count(page) == 14
 
 
-def test_ambiguous_sides_are_listed_oldest_first_with_the_rest_of_the_queue(logged_in_client, tie):
+def test_ambiguous_sides_are_listed_newest_first_with_the_rest_of_the_queue(logged_in_client, tie):
     page = review_queue(logged_in_client)
 
-    positions = [page.index(f">{d}<") for d in ("MARKO K", "Top-up by card", "Ana Novak")]
+    positions = [
+        page.index(f">{d}<") for d in ("Payment from Ana Novak", "Ana Novak", "Top-up by card")
+    ]
     assert positions == sorted(positions)
 
 
@@ -185,7 +198,7 @@ def test_picking_a_candidate_pairs_it_and_leaves_the_other_alone(logged_in_clien
     page = review_queue(logged_in_client)
     assert ">Ana Novak<" not in page
     assert ">Payment from Ana Novak<" not in page
-    assert outcome_shown(page, "Top-up by card") == "Awaiting review"
+    assert group_caption(page, "Top-up by card") == "No suggestion"
     assert counterpart_of("Ana Novak") == "Payment from Ana Novak"
 
 
@@ -211,7 +224,7 @@ def test_only_a_listed_candidate_can_be_picked(logged_in_client, tie):
     )
 
     assert response.status_code == 400
-    assert outcome_shown(review_queue(logged_in_client), "Ana Novak") == "Pick the other side"
+    assert group_caption(review_queue(logged_in_client), "Ana Novak") == UNKNOWN_SIDE
 
 
 def test_only_an_ambiguous_side_offers_a_pick(logged_in_client, tie):
@@ -375,9 +388,11 @@ def test_two_sides_equally_close_to_one_candidate_go_to_the_review_queue(logged_
 
     assert "2 Transfers with several possible counterparts wait in the Review queue" in summary
     page = review_queue(logged_in_client)
-    assert outcome_shown(page, "Savings early") == "Pick the other side"
-    assert outcome_shown(page, "Savings late") == "Pick the other side"
-    assert pairing_options(page, "Savings early") == ["3 Sep 2026 · Bor&#x27;s Revolut · From Ana"]
+    assert group_caption(page, "Savings early") == UNKNOWN_SIDE
+    assert group_caption(page, "Savings late") == UNKNOWN_SIDE
+    assert pairing_options(logged_in_client, "Savings early") == [
+        "3 Sep 2026 · Bor's Revolut · From Ana"
+    ]
     assert counterpart_of("From Ana") is None
 
 
@@ -389,7 +404,7 @@ def test_a_closer_counterpart_imported_later_settles_a_tie(logged_in_client, sav
         bor,
         [("2026-09-01", "From Ana early", "50"), ("2026-09-05", "From Ana late", "50")],
     )
-    assert outcome_shown(review_queue(logged_in_client), "Savings out") == "Pick the other side"
+    assert group_caption(review_queue(logged_in_client), "Savings out") == UNKNOWN_SIDE
 
     import_revolut(
         logged_in_client,

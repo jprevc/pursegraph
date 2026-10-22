@@ -1,4 +1,3 @@
-import re
 from decimal import Decimal
 
 import pytest
@@ -12,7 +11,13 @@ from ledger.suggestions import (
     backoff,
     run_once,
 )
-from tests.conftest import outcome_shown, review_queue_count, subcategory_id, transaction_id
+from tests.conftest import (
+    group_caption,
+    outcome_shown,
+    review_queue_count,
+    subcategory_id,
+    transaction_id,
+)
 from tests.test_import import upload
 from tests.test_rules import make_rule, make_transaction
 
@@ -71,8 +76,7 @@ def test_a_suggestion_below_the_threshold_waits_preselected_in_the_review_queue(
     run_once(FakeSuggester({"Mercator Žalec": ("Food", "Groceries", 0.62)}))
 
     page = review_page(logged_in_client)
-    assert outcome_shown(page, "Mercator Žalec") == "Food → Groceries"
-    assert "Suggested · 62\u00a0% sure" in page
+    assert group_caption(page, "Mercator Žalec") == "Food › Groceries · 62\u00a0% sure"
     assert review_queue_count(page) == 6
     mercator = Transaction.objects.get(description="Mercator Žalec")
     assert (mercator.subcategory, mercator.source) == (None, "")
@@ -207,7 +211,7 @@ def test_an_unusable_answer_leaves_that_transaction_to_review_and_goes_on(logged
     assert again.asked() == []  # not asked again
     page = review_page(logged_in_client)
     assert "Suggestions unavailable" not in page
-    assert outcome_shown(page, "Hiša kave") == "Awaiting review"
+    assert group_caption(page, "Hiša kave") == "No suggestion"
 
 
 def test_a_merchant_counts_once_whatever_its_case(logged_in_client):
@@ -232,46 +236,6 @@ def test_deleting_a_suggested_subcategory_asks_again(admin_client):
     run_once(again)
 
     assert again.asked() == ["Hiša kave"]
-
-
-def test_the_suggestions_shown_can_be_accepted_in_bulk(logged_in_client):
-    upload(logged_in_client)
-    run_once(
-        FakeSuggester(
-            {
-                "Mercator Žalec": ("Food", "Groceries", 0.6),
-                "Hiša kave": ("Food", "Restaurants & cafés", 0.7),
-            }
-        )
-    )
-    page = review_page(logged_in_client)
-    shown = re.findall(r'name="accept" value="([^"]+)"', page)
-    assert len(shown) == 6
-    # Decided by hand after the page was shown: bulk accept leaves it alone.
-    logged_in_client.post(
-        f"/transactions/{transaction_id('Hiša kave')}/outcome/", {"outcome": "transfer"}
-    )
-
-    response = logged_in_client.post("/review/accept/", {"accept": shown})
-
-    assert response.status_code == 302
-    assert "Nothing to review" in review_page(logged_in_client)
-    page = transactions_page(logged_in_client)
-    assert outcome_shown(page, "Mercator Žalec") == "Food → Groceries"
-    assert outcome_shown(page, "Hiša kave") == "Transfer"
-    assert Transaction.objects.get(description="Mercator Žalec").source == Source.MANUAL
-
-
-def test_bulk_accept_takes_the_suggestion_that_was_shown(logged_in_client):
-    upload(logged_in_client)
-    run_once(FakeSuggester({"Corner Shop": ("Food", "Groceries", 0.6)}))
-    corner_shop = transaction_id("Corner Shop")
-
-    logged_in_client.post(
-        "/review/accept/", {"accept": [f"{corner_shop}:{subcategory_id('Food', 'Other')}"]}
-    )
-
-    assert outcome_shown(transactions_page(logged_in_client), "Corner Shop") == "Food → Other"
 
 
 def test_the_import_summary_counts_what_waits_for_suggestions_or_review(logged_in_client):

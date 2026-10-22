@@ -233,6 +233,8 @@ class TransactionFilterForm(forms.Form):
     )
     # "unresolved", "transfer", "category-<id>" or "subcategory-<id>".
     outcome = forms.ChoiceField(label=_("Outcome"), required=False)
+    # The ids of the Transactions the Review queue decided just now, comma-separated ("See them in Transactions").
+    decided = forms.CharField(required=False, widget=forms.HiddenInput)
 
     def __init__(self, *args, categories, **kwargs):
         super().__init__(*args, **kwargs)
@@ -255,10 +257,18 @@ class TransactionFilterForm(forms.Form):
             ),
         ]
 
+    def clean_decided(self) -> list[int]:
+        ids = [pk for pk in self.cleaned_data["decided"].split(",") if pk]
+        if not all(pk.isdigit() for pk in ids):
+            raise forms.ValidationError(_("Not a list of Transactions."))
+        return [int(pk) for pk in ids]
+
     def filter(self, transactions):
         if not self.is_valid():
             return transactions.none()
         data = self.cleaned_data
+        if data["decided"]:
+            transactions = transactions.filter(pk__in=data["decided"])
         if q := data["q"].strip():
             transactions = transactions.filter(
                 Q(description__unaccent__icontains=q)

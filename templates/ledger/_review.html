@@ -1,0 +1,170 @@
+{% load figures hues i18n icons %}{% comment %} The Review queue's region (docs/design/review-queue.md): the summary line, the list of groups and the open group's
+detail, or the end state. Every control swaps it whole; `data-focus` names what takes focus after the swap (swap.js).
+Swapped in alone, it brings the page title and the sidebar's count too. {% endcomment %}
+{% if swapped %}{% include "_title.html" %}{% include "_review_count.html" with oob=True %}{% endif %}
+{% url 'review_queue' as review_url %}{% url 'dashboard' as dashboard_url %}
+<div id="review" class="review">
+<p class="review-summary">{{ summary }}</p>
+<div class="md{% if opened %} opened{% endif %}{% if not listed %} alone{% endif %}">
+{% if listed %}
+<section class="panel md-list" aria-label="{% translate 'Groups' %}">
+  <div class="list-head">
+    <span>{% blocktranslate count n=waiting_count %}{{ n }} waiting{% plural %}{{ n }} waiting{% endblocktranslate %}</span>
+    <form class="show-resolved" method="get" action="{{ review_url }}">
+      {% if group %}<input type="hidden" name="at" value="{{ group.key }}">{% endif %}
+      <label><input type="checkbox" name="resolved" value="1"{% if resolved %} checked{% endif %} hx-get="{{ review_url }}?at={{ group.key|default:'' }}" hx-trigger="change" hx-target="#review" hx-swap="outerHTML" hx-push-url="true">{% translate "Show resolved" %}{% if decided_count %} ({{ decided_count }}){% endif %}</label>
+      <noscript><button type="submit">{% translate "Show" %}</button></noscript>
+    </form>
+  </div>
+  {% if groups %}
+  <form method="get" action="{{ review_url }}">
+    {% if resolved %}<input type="hidden" name="resolved" value="1">{% endif %}
+    <ul class="groups">
+      {% for g in groups %}
+      <li{% if not g.waiting %} class="decided"{% endif %}>
+        <button type="submit" name="group" value="{{ g.key }}" hx-get="{{ review_url }}?group={{ g.key }}{% if resolved %}&amp;resolved=1{% endif %}" hx-target="#review" hx-swap="outerHTML" hx-push-url="true"{% if g.key == group.key %} aria-current="true"{% if focus == "group" %} data-focus{% endif %}{% endif %}>
+          <span class="g-desc">{{ g.description }}{% if g.size > 1 %} <span class="n">×{{ g.size }}</span>{% endif %}</span>
+          <span class="g-amt fig">{{ g.total|money }}</span>
+          <span class="g-sub">
+            {% if not g.waiting %}{% icon "check" %}{% include "ledger/_outcome_label.html" with subcategory=g.newest.subcategory %}
+            {% elif g.ambiguous %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer · other side unknown" %}</span>
+            {% elif g.suggestion %}<i class="dot" style="--hue: var(--{{ g.suggestion.category_id|hue }})" aria-hidden="true"></i><span>{{ g.suggestion.category.name }} › {{ g.suggestion.name }} · {% blocktranslate with percent=g.confidence|share %}{{ percent }} sure{% endblocktranslate %}</span>
+            {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "No suggestion" %}</span>{% endif %}
+          </span>
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+  </form>
+  {% else %}
+  <p class="list-empty">{% translate "Nothing waiting." %}</p>
+  {% endif %}
+</section>
+{% endif %}
+<section class="panel md-detail" aria-labelledby="group-heading">
+{% if group %}
+  {% with n=group.size t=group.newest %}
+  <a class="back" href="{{ review_url }}?at={{ group.key }}&amp;back{% if resolved %}&amp;resolved=1{% endif %}" hx-get="{{ review_url }}?at={{ group.key }}&amp;back{% if resolved %}&amp;resolved=1{% endif %}" hx-target="#review" hx-swap="outerHTML" hx-push-url="true">{% translate "‹ All groups" %}</a>
+  <div class="d-head">
+    <div class="d-title">
+      <h2 id="group-heading" tabindex="-1"{% if focus == "heading" %} data-focus{% endif %}>{{ group.description }}</h2>
+      <p class="d-meta">{% if group.counterparty %}{{ group.counterparty }} · {% endif %}{% if t.is_fee %}{% translate "Bank fee" %}{% elif group.total < 0 %}{% translate "Money out" %}{% else %}{% translate "Money in" %}{% endif %}</p>
+    </div>
+    <p class="d-total fig">{{ group.total|money }}</p>
+  </div>
+  <section class="d-sec">
+    <h3>{% if n > 1 %}{% blocktranslate count n=n %}{{ n }} Transaction with this description{% plural %}{{ n }} Transactions with this description{% endblocktranslate %}{% else %}{% translate "Transaction" %}{% endif %}</h3>
+    <table class="mini">
+      <tbody>
+      {% for row in group.transactions %}<tr><td class="fig">{{ row.date|day }}</td><td><span class="pill">{{ row.account.name }}</span></td><td class="num fig">{{ row.amount|money }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="d-sec">
+    <h3>{% translate "Last time" %}</h3>
+    {% if last %}
+    <p class="last"><span class="oc-label">{% include "ledger/_outcome_label.html" with subcategory=last.subcategory %}</span><span class="last-when"><span class="fig">{{ last.date|day }}</span> · {{ last.source_caption }}{% if last.count > 1 %} · <span class="fig">{{ last.count }}×</span>{% endif %}</span></p>
+    {% if group.waiting and group.suggestion and used_last %}<p class="note">{% translate "The suggestion differs from what was used last time." %}</p>{% endif %}
+    {% else %}
+    <p class="note">{% translate "First time this description is seen." %}</p>
+    {% endif %}
+  </section>
+  <div class="decide">
+  {% if group.waiting %}
+    <form class="decide-form" method="post" action="{% url 'review_decide' %}" hx-post="{% url 'review_decide' %}" hx-target="#review" hx-swap="outerHTML" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}">
+      {% csrf_token %}
+      {% for pk in group.pks %}<input type="hidden" name="transaction" value="{{ pk }}">{% endfor %}
+      {% if resolved %}<input type="hidden" name="resolved" value="1">{% endif %}
+      {% if group.suggestion %}
+      <div class="suggested">
+        <p class="sugg-k">{% blocktranslate with percent=group.confidence|share %}Suggested · {{ percent }} sure{% endblocktranslate %}</p>
+        <p class="oc-label">{% include "ledger/_outcome_label.html" with subcategory=group.suggestion %}</p>
+        <div class="acts">
+          <button type="submit" class="primary accept" name="outcome" value="{{ group.suggestion.pk }}" data-label="{{ group.suggestion.category.name }} › {{ group.suggestion.name }}" data-busy-label="{% translate 'Accepting…' %}">{% if n > 1 %}{% blocktranslate count n=n %}Accept for all {{ n }}{% plural %}Accept for all {{ n }}{% endblocktranslate %}{% else %}{% translate "Accept" %}{% endif %}</button>
+        </div>
+      </div>
+      {% endif %}
+      <div class="pick{% if group.suggestion %} or{% endif %}" role="group" aria-labelledby="pick-heading">
+        {% if group.ambiguous %}
+        <h3 id="pick-heading">{% translate "Which is the other side of this Transfer?" %}</h3>
+        <div class="pairs">
+          {% for c in candidates %}<button type="submit" name="outcome" value="pair-{{ c.pk }}" data-label="{{ c.description }}"><span class="pair-desc">{{ c.description }}</span><span class="pair-meta"><span class="fig">{{ c.date|day }}</span> · {{ c.account.name }}</span><span class="pair-amt fig">{{ c.amount|money }}</span></button>{% endfor %}
+        </div>
+        <p class="pick-h">{% translate "Or something else" %}</p>
+        {% elif group.suggestion %}
+        <h3 id="pick-heading">{% translate "Or choose another outcome" %}</h3>
+        {% else %}
+        <h3 id="pick-heading">{% if n > 1 %}{% blocktranslate count n=n %}Choose an outcome for all {{ n }}{% plural %}Choose an outcome for all {{ n }}{% endblocktranslate %}{% else %}{% translate "Choose an outcome" %}{% endif %}</h3>
+        {% endif %}
+        <div class="pick-step" data-step="">
+          {% if used_last %}
+          <p class="pick-h">{% translate "Used last time" %}</p>
+          <div class="chips"><button type="submit" name="outcome" value="{{ used_last.outcome }}" data-label="{% if used_last.subcategory %}{{ used_last.subcategory.category.name }} › {{ used_last.subcategory.name }}{% else %}{% translate 'Transfer' %}{% endif %}">{% include "ledger/_outcome_label.html" with subcategory=used_last.subcategory %}</button></div>
+          {% endif %}
+          {% if most_used %}
+          <p class="pick-h">{% translate "Most used" %}</p>
+          <div class="chips">
+            {% for s in most_used %}<button type="submit" name="outcome" value="{{ s.pk }}" data-label="{{ s.category.name }} › {{ s.name }}">{% include "ledger/_outcome_label.html" with subcategory=s %}</button>{% endfor %}
+          </div>
+          {% endif %}
+          <p class="pick-h">{% translate "Category" %}</p>
+          <div class="chips">
+            {% for category in categories %}<button type="button" data-category="{{ category.pk }}"><i class="dot" style="--hue: var(--{{ category.pk|hue }})" aria-hidden="true"></i>{{ category.name }}</button>{% endfor %}
+            <button type="submit" name="outcome" value="transfer" data-label="{% translate 'Transfer' %}"><i class="dot transfer" aria-hidden="true"></i>{% if group.ambiguous %}{% translate "Transfer, one-sided" %}{% else %}{% translate "Transfer" %}{% endif %}</button>
+          </div>
+        </div>
+        {% for category in categories %}
+        <div class="pick-step" data-step="{{ category.pk }}">
+          <div class="pick-h">
+            <button type="button" class="link" data-category="">{% translate "‹ All Categories" %}</button>
+            <i class="dot" style="--hue: var(--{{ category.pk|hue }})" aria-hidden="true"></i><span>{{ category.name }}</span>
+          </div>
+          <div class="chips">
+            {% for s in category.subcategories.all %}<button type="submit" name="outcome" value="{{ s.pk }}" data-label="{{ category.name }} › {{ s.name }}">{{ s.name }}</button>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </form>
+  {% else %}
+    <p class="oc-label">{% include "ledger/_outcome_label.html" with subcategory=t.subcategory %}{% if t.source_caption %}<span class="cap">{{ t.source_caption }}</span>{% endif %}</p>
+    <div class="oc-saved">
+      {% icon "check" %}<span>{% if n > 1 %}{% blocktranslate with outcome=t.outcome_label count n=n %}Saved all {{ n }} as {{ outcome }}{% plural %}Saved all {{ n }} as {{ outcome }}{% endblocktranslate %}{% else %}{% blocktranslate with outcome=t.outcome_label %}Saved as {{ outcome }}{% endblocktranslate %}{% endif %}</span>
+      <span aria-hidden="true">·</span>
+      <form class="undo" method="post" action="{% url 'review_undo' %}" hx-post="{% url 'review_undo' %}" hx-target="#review" hx-swap="outerHTML" data-action data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}">
+        {% csrf_token %}
+        {% for pk in group.pks %}<input type="hidden" name="transaction" value="{{ pk }}">{% endfor %}
+        {% if resolved %}<input type="hidden" name="resolved" value="1">{% endif %}
+        <button type="submit" class="link" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
+      </form>
+      {% if t.source == "manual" and not t.counterpart_id %}<span aria-hidden="true">·</span>
+      <a href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% blocktranslate with description=group.description %}Make a Rule for "{{ description }}"{% endblocktranslate %}</a>{% endif %}
+      {% if n > 1 %}<span aria-hidden="true">·</span>
+      <a href="{% url 'transactions' %}?decided={{ group.pks|join:',' }}">{% translate "See them in Transactions" %}</a>{% endif %}
+    </div>
+    <div class="acts">
+      {% if next_group %}
+      <a class="button primary next" href="{{ review_url }}?group={{ next_group.key }}{% if resolved %}&amp;resolved=1{% endif %}" hx-get="{{ review_url }}?group={{ next_group.key }}{% if resolved %}&amp;resolved=1{% endif %}" hx-target="#review" hx-swap="outerHTML" hx-push-url="true"{% if focus == "next" %} data-focus{% endif %}>{% blocktranslate with description=next_group.description %}Next: {{ description }} ›{% endblocktranslate %}</a>
+      {% elif completed_month %}
+      <a class="button primary next" href="{{ dashboard_url }}?period={{ completed_month|date:'Y-m' }}"{% if focus == "next" %} data-focus{% endif %}>{% blocktranslate with month=completed_month|date:'F' %}Queue clear · See {{ month }} on the Dashboard{% endblocktranslate %}</a>
+      {% else %}
+      <a class="button primary next" href="{{ dashboard_url }}?period={{ current_month|date:'Y-m' }}"{% if focus == "next" %} data-focus{% endif %}>{% blocktranslate with month=current_month|date:'F' %}Queue clear · See {{ month }} so far{% endblocktranslate %}</a>
+      {% endif %}
+    </div>
+  {% endif %}
+  </div>
+  {% endwith %}
+{% else %}
+  <div class="clear">
+    <span class="tick">{% icon "check" %}</span>
+    <h2 id="group-heading" tabindex="-1">{% translate "Queue clear" %}</h2>
+    <p>{% if decided_now %}{% blocktranslate count n=decided_now %}Every Transaction has an outcome, {{ n }} of them decided just now.{% plural %}Every Transaction has an outcome, {{ n }} of them decided just now.{% endblocktranslate %}{% else %}{% translate "Every Transaction has an outcome." %}{% endif %}{% if completed_month %} {% blocktranslate with month=completed_month|month %}{{ month }} is now complete.{% endblocktranslate %}{% endif %}</p>
+    <div class="acts">
+      {% if completed_month %}<a class="button primary" href="{{ dashboard_url }}?period={{ completed_month|date:'Y-m' }}">{% blocktranslate with month=completed_month|date:'F' %}See {{ month }} on the Dashboard{% endblocktranslate %}</a>{% endif %}
+      <a class="button{% if not completed_month %} primary{% endif %}" href="{{ dashboard_url }}?period={{ current_month|date:'Y-m' }}">{% blocktranslate with month=current_month|date:'F' %}{{ month }} so far{% endblocktranslate %}</a>
+    </div>
+  </div>
+{% endif %}
+</section>
+</div>
+</div>

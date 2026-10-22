@@ -13,6 +13,18 @@ from ledger.models import Account, Bank, Category, Source, Statement, Subcategor
 # Synthetic, so it may sit in scripts and docs; the demo database is thrown away after use.
 PASSWORD = "demo-pass-123"
 MONTHS = 10
+# The Transactions awaiting review, in turn: a description and its LLM suggestion, if any.
+WAITING = [
+    ("Bolt.eu", ("Transport", "Public transport & car sharing", 0.78)),
+    ("Kavarna Zvezda", None),
+    ("PAYPAL *STEAMGAMES", ("Leisure", "Subscriptions & digital services", 0.86)),
+    ("Petrol Celovška", ("Transport", "Fuel", 0.95)),
+    ("Amazon EU S.a.r.l.", ("Shopping", "Other", 0.51)),
+    ("Lekarna Ljubljana 12", ("Health", "Pharmacy", 0.97)),
+    ("Zavarovalnica Triglav", ("Finance", "Insurance (non-health)", 0.74)),
+    ("SEPA from J. Kranjc", None),
+    ("Telekom Slovenije", ("Home", "Internet & phone", 0.93)),
+]
 
 
 class Command(BaseCommand):
@@ -47,6 +59,19 @@ class Command(BaseCommand):
         sources = [Source.MANUAL, Source.RULE, Source.LLM]
 
         today = timezone.localdate()
+        waiting = count()
+
+        def suggestion(suggested):
+            if not suggested:
+                return {}
+            category, name, confidence = suggested
+            return {
+                "suggested_subcategory": Subcategory.objects.get(
+                    category__name=category, name=name
+                ),
+                "confidence": confidence,
+            }
+
         for back in range(MONTHS, -1, -1):
             year, month = divmod(today.year * 12 + today.month - 1 - back, 12)
             month += 1
@@ -76,13 +101,25 @@ class Command(BaseCommand):
                     subcategory=subcategory,
                     source=rng.choice(sources),
                 )
-            # Awaiting review.
-            for i in range(2):
+            # Awaiting review: merchants that come back, so that the Review queue has groups.
+            for _i in range(2):
+                description, suggested = WAITING[next(waiting) % len(WAITING)]
                 Transaction.objects.create(
                     account=sparkasse,
                     date=on(rng.randint(1, last_day)),
                     amount=-Decimal(rng.randint(500, 9000)) / 100,
-                    description=f"Card payment {month}-{i + 1}",
+                    description=description,
+                    **suggestion(suggested),
+                )
+            if back == MONTHS:
+                # What Bolt.eu got last time, unlike its suggestion now.
+                Transaction.objects.create(
+                    account=sparkasse,
+                    date=on(3),
+                    amount=Decimal("-12.40"),
+                    description="Bolt.eu",
+                    subcategory=Subcategory.objects.get(category__name="Transport", name="Other"),
+                    source=Source.MANUAL,
                 )
 
         # Coverage that shows every state of Period completeness: the Joint Revolut is tracked two months later

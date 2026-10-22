@@ -3,7 +3,8 @@
 // - a page change (into `main`) focuses the new <h1> and scrolls to the top;
 // - something that opens (a target marked `data-opens`) focuses its heading or first control and scrolls into view,
 //   and when it empties again focus goes back to the control that opened it;
-// - anything else is in place: focus stays on the control used, or goes to the region's heading if it's gone.
+// - anything else is in place: focus stays on the control used, or goes to the region's heading if it's gone;
+// - an element the response marks `data-focus` takes focus instead, unless the swap is a page change.
 // The server names the new state through `HX-Trigger: {"announce": "…"}` (pursegraph.htmx.announce), read out by the
 // shell's one polite live region. Loading dims the old content after 300 ms; an action (`data-action`) dims nothing
 // but its button. A failed swap keeps the old content with a quiet "Couldn't load." line and a Try again button.
@@ -45,9 +46,15 @@
   const busyWith = new WeakMap();
 
   const settle = (s, region) => {
+    // What a response marks `data-focus` takes focus, whatever the kind of swap: the Review queue swaps one region
+    // for opening a group, saving it and going back to the list, and only the server knows which this was.
+    const named = region.querySelector('[data-focus]');
     if (isPage(region)) {
       focus(pageHeading() || region);
       toTop();
+    } else if (named) {
+      focus(named);
+      named.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     } else if (region.matches('[data-opens]')) {
       if (region.children.length) {
         if (s.focused !== document.body && !region.contains(s.focused)) opener.set(region, s.focused);
