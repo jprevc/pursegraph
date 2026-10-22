@@ -146,6 +146,8 @@ def show(request, view: str):
             **data.chart,
             "drill": f"{reverse(v.name + '_transactions')}?period={period.token}{filter_query}"
             f"&{v.mark_param}=",
+            # What the charts' tooltips say besides the data.
+            "words": {"total": _("Total"), "of_money_in": _("%(share)s of money in")},
         },
         "views": VIEWS.values(),
         "view_template": view_template,

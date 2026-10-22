@@ -1,4 +1,4 @@
-"""How figures read: amounts as sl-SI euros (DESIGN.md, the Locale Figure Rule) and dates in three forms.
+"""How figures read: amounts as sl-SI euros (DESIGN.md, the Locale Figure Rule) and dates in four forms.
 
 `static/figures.js` is the browser's twin of the amount formatters; `tests/test_figures.py` keeps them in step.
 """
@@ -83,3 +83,8 @@ def date_range(start: date, end: date) -> str:
 def month(value: date) -> str:
     """A month: "September 2026"."""
     return formats.date_format(value, "YEAR_MONTH_FORMAT")
+
+
+def month_short(value: date, year: bool = True) -> str:
+    """A short month, for chart axes and table columns only: "Sep 2026", or "Sep" in a table column."""
+    return formats.date_format(value, "M Y" if year else "M")

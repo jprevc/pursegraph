@@ -197,10 +197,15 @@ def test_under_a_member_filter_the_sankey_has_a_node_for_other_members(logged_in
     ).content.decode()
 
     chart = view_chart(page, "money_flow")
-    assert {"name": "others", "label": "To/from other Members", "key": "others"} in chart["nodes"]
+    assert {
+        "name": "others",
+        "label": "To/from other Members",
+        "key": "others",
+        "category": None,
+    } in chart["nodes"]
     assert {"source": "household", "target": "others", "value": 500} in chart["links"]
-    # Saved is what is left of 2045.00 in after 162.30 spent and 500.00 to other Members.
-    assert {"source": "household", "target": "saved", "value": 1382.7} in chart["links"]
+    # Left over is what is left of 2045.00 in after 162.30 spent and 500.00 to other Members.
+    assert {"source": "household", "target": "left_over", "value": 1382.7} in chart["links"]
     assert "To/from other Members" in [row[0] for row in view_table(page)]
 
     page = logged_in_client.get(

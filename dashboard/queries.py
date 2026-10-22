@@ -12,10 +12,10 @@ from typing import Any
 
 from django.db.models import IntegerField, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, TruncMonth
-from django.utils import formats
 from django.utils.translation import gettext as _
 
 from ledger.models import Account, AccountIBAN, Category, Subcategory, Transaction
+from pursegraph.figures import month_short
 
 from . import periods
 from .periods import Period
@@ -193,11 +193,17 @@ def _month_in(period: Period, key: str) -> Period | None:
 
 def _month_label(month: Period) -> str:
     """Short, as months sit side by side on a chart's axis."""
-    return formats.date_format(month.start, "M Y")
+    return month_short(month.start)
+
+
+def _month_columns(months: list[Period]) -> list[str]:
+    """Months as a table's column heads: without their year, unless a month of the year comes round again."""
+    columns = [month_short(m.start, year=False) for m in months]
+    return columns if len(set(columns)) == len(columns) else [_month_label(m) for m in months]
 
 
 def _income_key() -> str | None:
-    """The key of the Income Category, whose hue money in wears on every chart (DESIGN.md, Charts)."""
+    """The key of the first Income Category, whose hue Cash flow's Money in wears (docs/design/charts.md)."""
     income = Category.objects.filter(kind=Category.Kind.INCOME).first()
     return str(income.pk) if income else None
 
@@ -352,6 +358,7 @@ def category_trends(period: Period, filters: Filters) -> ViewData:
         rows.append(trend(_("Awaiting review"), AWAITING_REVIEW))
     chart = {
         "months": [_month_label(m) for m in months],
+        "columns": _month_columns(months),
         "lines": [
             {
                 "name": r.label,
@@ -475,6 +482,9 @@ def per_member_transactions(period: Period, filters: Filters, key: str) -> Query
 # Money flow's node keys besides Categories' and income Subcategories'.
 INCOME = "in"
 HOUSEHOLD = "household"
+# Money flow's balance nodes, which name no Transactions: what is left of money in, or what was spent beyond it.
+LEFT_OVER = "left_over"
+BEYOND = "beyond"
 
 
 def _income(period: Period, filters: Filters) -> QuerySet[Transaction]:
@@ -483,26 +493,32 @@ def _income(period: Period, filters: Filters) -> QuerySet[Transaction]:
 
 def money_flow(period: Period, filters: Filters) -> ViewData:
     """A Sankey from income, per income Subcategory, through the Household to the Categories of Spending by
-    Category, balanced by what was saved or drawn from savings. Unresolved money in is "Income awaiting review",
-    as the node names must be unique. Only positive flows are drawn."""
+    Category, balanced by what was left over or spent beyond money in. Unresolved money in is "Income awaiting
+    review", as the node names must be unique. Only positive flows are drawn. Each node names the Category whose
+    hue it wears (an income Subcategory its own Income Category's), if any."""
     # None is the unresolved money in.
     received: dict[int | None, Decimal] = {
         r["subcategory"]: r["total"]
         for r in _income(period, filters).values("subcategory").annotate(total=Sum("amount"))
     }
-    sources = [
-        Row(s.name, received[s.pk], f"{INCOME}:{s.pk}")
+    income = [
+        s
         for s in Subcategory.objects.filter(category__kind=Category.Kind.INCOME).order_by(
             "category__position", "category", "is_catch_all", "position", "id"
         )
         if s.pk in received
     ]
+    sources = [Row(s.name, received[s.pk], f"{INCOME}:{s.pk}") for s in income]
+    # The Category whose hue each node wears.
+    hues: dict[str | None, str] = {f"{INCOME}:{s.pk}": str(s.category_id) for s in income}
     if None in received:
         sources.append(
             Row(_("Income awaiting review"), received[None], f"{INCOME}:{AWAITING_REVIEW}")
         )
+        hues[f"{INCOME}:{AWAITING_REVIEW}"] = AWAITING_REVIEW
     spending = spending_by_category(period, filters)
     sinks = [Row(r.label, r.amount, r.key) for r in spending.rows]
+    hues |= {r.key: r.key for r in sinks if r.key}
     money_in = sum((r.amount for r in sources), Decimal(0))
     rows = [
         Row(_("Money in"), money_in, INCOME, sources),
@@ -515,8 +531,10 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
             "total"
         ] or Decimal(0)
         rows.append(Row(_("To/from other Members"), others, OTHERS))
-    saved = money_in + others - spending.total
-    balance = Row(_("Saved") if saved >= 0 else _("From savings"), abs(saved), None)
+    left_over = money_in + others - spending.total
+    balance = Row(
+        _("Left over") if left_over >= 0 else _("Spent beyond money in"), abs(left_over), None
+    )
 
     nodes = [{"name": r.key, "label": r.label, "key": r.key} for r in sources]
     nodes.append({"name": HOUSEHOLD, "label": _("Household"), "key": HOUSEHOLD})
@@ -536,8 +554,8 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
         (a for s, _t, a in flows if s == HOUSEHOLD), Decimal(0)
     )
     if drawn:
-        name = "saved" if drawn > 0 else "from_savings"
-        label = _("Saved") if drawn > 0 else _("From savings")
+        name = LEFT_OVER if drawn > 0 else BEYOND
+        label = _("Left over") if drawn > 0 else _("Spent beyond money in")
         nodes.append({"name": name, "label": label, "key": None})
         flows.append((HOUSEHOLD, name, drawn) if drawn > 0 else (name, HOUSEHOLD, -drawn))
     links = [
@@ -546,9 +564,8 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
     ]
     linked = {link["source"] for link in links} | {link["target"] for link in links}
     chart = {
-        "nodes": [n for n in nodes if n["name"] in linked],
+        "nodes": [{**n, "category": hues.get(n["name"])} for n in nodes if n["name"] in linked],
         "links": links,
-        "in_key": _income_key(),
     }
     return ViewData(rows, balance, chart)
 
