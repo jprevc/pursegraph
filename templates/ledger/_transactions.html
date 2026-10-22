@@ -6,9 +6,13 @@
   {{ form.q.as_field_group }}
   {{ form.account.as_field_group }}
   {{ form.outcome.as_field_group }}
+  {{ form.decided }}
   {% if request.GET.dashboard %}<input type="hidden" name="dashboard" value="{{ request.GET.dashboard }}">{% endif %}
   <button type="submit">{% translate "Filter" %}</button>
 </form>
+{% if form.cleaned_data.decided %}
+<p class="filter-summary muted">{% blocktranslate count n=form.cleaned_data.decided|length %}Decided just now · {{ n }}{% plural %}Decided just now · {{ n }}{% endblocktranslate %} · <a href="{% url 'transactions' %}">{% translate "Clear filters" %}</a></p>
+{% endif %}
 {% if page.object_list %}
 <div class="scroll">
 <table class="rows">

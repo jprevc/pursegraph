@@ -1,0 +1,2 @@
+{% load hues i18n %}{# An outcome as the Transaction row shows it, with its hue dot: `subcategory`, or a Transfer when there is none. #}
+{% if subcategory %}<i class="dot" style="--hue: var(--{{ subcategory.category_id|hue }})" aria-hidden="true"></i><span><span class="cat-name">{{ subcategory.category.name }}</span> <span class="sep">›</span> {{ subcategory.name }}</span>{% else %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer" %}</span>{% endif %}

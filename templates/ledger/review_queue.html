@@ -1,27 +1,7 @@
 {% extends "shell.html" %}
-{% load i18n %}
-{% block title %}{% if transactions %}{% blocktranslate count n=transactions|length %}Review queue ({{ n }}){% plural %}Review queue ({{ n }}){% endblocktranslate %}{% else %}{% translate "Review queue" %}{% endif %}{% endblock %}
+{% load i18n static %}
+{% block head %}<script src="{% static 'review.js' %}" defer></script>{% endblock %}
 {% block main %}
 <h1 tabindex="-1">{% translate "Review queue" %}</h1>
-{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
-{% if transactions %}
-<p class="muted">{% translate "Transactions that still need an outcome, oldest first." %}</p>
-{% if suggested %}
-<form class="bulk-accept" method="post" action="{% url 'accept_suggestions' %}">
-  {% csrf_token %}
-  {% for t in suggested %}<input type="hidden" name="accept" value="{{ t.pk }}:{{ t.pending_suggestion_id }}">{% endfor %}
-  <button type="submit" class="primary">{% blocktranslate count n=suggested|length %}Accept {{ n }} suggestion{% plural %}Accept all {{ n }} suggestions{% endblocktranslate %}</button>
-</form>
-{% endif %}
-<div class="scroll">
-<table>
-  <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Account" %}</th><th>{% translate "Description" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Outcome" %}</th></tr></thead>
-  <tbody>
-  {% for t in transactions %}{% include "ledger/_review_row.html" %}{% endfor %}
-  </tbody>
-</table>
-</div>
-{% else %}
-<div class="empty"><p>{% translate "Nothing to review." %}</p></div>
-{% endif %}
+{% include "ledger/_review.html" %}
 {% endblock %}

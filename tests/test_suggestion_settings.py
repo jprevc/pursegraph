@@ -4,7 +4,7 @@ import pytest
 
 from ledger.models import Setting, Source, Subcategory, Transaction
 from ledger.suggestions import run_once
-from tests.conftest import outcome_shown, subcategory_id, transaction_id
+from tests.conftest import group_caption, subcategory_id, transaction_id
 from tests.test_rules import make_transaction
 from tests.test_suggestions import FakeSuggester
 
@@ -123,7 +123,7 @@ def test_declining_the_offer_leaves_the_review_queue_as_it_is(admin_client):
 
     assert Transaction.objects.get(description="Corner Shop").is_unresolved
     review = admin_client.get("/review/").content.decode()
-    assert outcome_shown(review, "Corner Shop") == "Food → Groceries"
+    assert group_caption(review, "Corner Shop").startswith("Food › Groceries ·")
 
 
 def test_accepting_leaves_transactions_decided_meanwhile_alone(admin_client, logged_in_client):

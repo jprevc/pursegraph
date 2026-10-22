@@ -16,12 +16,13 @@ from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.decorators.http import require_http_methods, require_POST
 
+from dashboard import periods
 from members.permissions import admin_required
 from pursegraph import figures
 from pursegraph.htmx import announce
 
 from . import categories as category_edits
-from . import outcomes, suggestions
+from . import outcomes, review, suggestions
 from . import rules as rule_edits
 from .forms import (
     AccountAdminForm,
@@ -42,7 +43,7 @@ from .importer import (
     check_statement,
     commit_statement,
 )
-from .models import Account, Bank, Category, Rule, Source, Statement, Subcategory, Transaction
+from .models import Account, Bank, Category, Rule, Statement, Subcategory, Transaction
 
 TRANSACTIONS_PER_PAGE = 100
 
@@ -280,40 +281,232 @@ def transactions(request):
     return response
 
 
+REVIEW_DECIDED_SESSION_KEY = "review_decided"
+REVIEW_UNDO_SESSION_KEY = "review_undo"
+
+
 def review_queue(request):
-    rows = list(
-        Transaction.objects.in_review_queue().select_related("account").order_by("date", "id")
-    )
-    return render(
+    """The Review queue, a group open beside the list (docs/design/review-queue.md). `group` opens a group (on a
+    phone, over the list), `at` only marks it, `back` returns to the list on a phone, and `resolved` shows the groups
+    decided since arriving. Arriving, with none of them, starts a new review."""
+    params = request.GET
+    if not any(name in params for name in ("group", "at", "resolved", "back")):
+        request.session[REVIEW_DECIDED_SESSION_KEY] = []
+    opened = params.get("group", "")
+    marked = opened or params.get("at", "")
+    resolved = bool(params.get("resolved"))
+    response = _review(
         request,
-        "ledger/review_queue.html",
-        {
-            "transactions": rows,
-            "suggested": [t for t in rows if t.pending_suggestion_id],
-            "categories": categories_with_subcategories(),
-        },
+        selected=int(marked) if marked.isdigit() else None,
+        opened=bool(opened),
+        focus="heading" if opened else ("group" if "back" in params else ""),
+        resolved=resolved,
     )
+    # Show resolved, an in-place control, says what it changed.
+    if request.headers.get("HX-Request") and "at" in params and "back" not in params:
+        return announce(
+            response,
+            _("Resolved groups shown.") if resolved else _("Resolved groups hidden."),
+        )
+    return response
+
+
+def _posted_pks(request) -> list[int] | None:
+    pks = request.POST.getlist("transaction")
+    if not pks or not all(pk.isdigit() for pk in pks):
+        return None
+    return sorted(int(pk) for pk in pks)
+
+
+def _group_key(pks: list[int]) -> str:
+    return ",".join(map(str, pks))
 
 
 @require_POST
-def accept_suggestions(request):
-    """Accepts the suggestions the Review queue showed, each `accept` a "<Transaction id>:<Subcategory id>", as
-    manual outcomes. Transactions decided since are left alone."""
-    shown: dict[int, int] = {}
-    for value in request.POST.getlist("accept"):
-        transaction_pk, _sep, subcategory_pk = value.partition(":")
-        if not (transaction_pk.isdigit() and subcategory_pk.isdigit()):
-            return HttpResponseBadRequest()
-        shown[int(transaction_pk)] = int(subcategory_pk)
-    subcategories = Subcategory.objects.in_bulk(shown.values())
-    count = 0
+def review_decide(request):
+    """Gives a group the outcome posted, as OutcomeForm takes it, all of it or none: the group's Transactions still in
+    the Review queue; any decided since are left alone. Undo puts the whole group back."""
+    pks = _posted_pks(request)
+    if pks is None:
+        return HttpResponseBadRequest()
     with db_transaction.atomic():
-        for t in Transaction.objects.unresolved().select_for_update().filter(pk__in=shown):
-            if subcategory := subcategories.get(shown[t.pk]):
-                t.set_outcome(subcategory, source=Source.MANUAL)
-                count += 1
-    _suggestions_accepted(request, count)
-    return redirect("review_queue")
+        waiting = Transaction.objects.select_for_update().filter(
+            pk__in=Transaction.objects.in_review_queue().filter(pk__in=pks).values("pk")
+        )
+        forms = [OutcomeForm(request.POST, transaction=t) for t in waiting]
+        if not all(form.is_valid() for form in forms):
+            return HttpResponseBadRequest()
+        before = []
+        for form in forms:
+            t = form.transaction
+            before += outcomes.snapshot(
+                t, t.counterpart, form.candidates.get(form.cleaned_data["outcome"])
+            )
+            form.save()
+    decided = sorted(form.transaction.pk for form in forms)
+    if decided:
+        request.session[REVIEW_DECIDED_SESSION_KEY] = [
+            *request.session.get(REVIEW_DECIDED_SESSION_KEY, []),
+            decided,
+        ]
+        undo = request.session.get(REVIEW_UNDO_SESSION_KEY, {})
+        undo[_group_key(decided)] = before
+        request.session[REVIEW_UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
+    group = review.group_of(decided or pks)
+    if group is None:
+        return HttpResponseBadRequest()
+    if not decided:
+        # Decided elsewhere meanwhile: nothing was saved, and the next waiting group opens.
+        said = _("%(description)s was already decided.") % {"description": group.description}
+        return _review_changed(request, group, focus="heading", said=said, select=False)
+    said = ngettext(
+        "Saved %(description)s as %(outcome)s.",
+        "Saved %(count)d × %(description)s as %(outcome)s.",
+        group.size,
+    ) % {
+        "count": group.size,
+        "description": group.description,
+        "outcome": group.newest.outcome_label,
+    }
+    return _review_changed(request, group, focus="next", said=said)
+
+
+def _review_changed(request, group: review.Group, *, focus: str, said: str, select=True):
+    """After a decision or its Undo: the group open again (a plain form post goes to it), and what changed said,
+    with how many are left."""
+    if not request.headers.get("HX-Request"):
+        return redirect(f"{reverse('review_queue')}?group={group.key}")
+    left = Transaction.objects.in_review_queue().count()
+    return announce(
+        _review(
+            request,
+            selected=group.key if select else None,
+            opened=True,
+            focus=focus,
+            resolved=bool(request.POST.get("resolved")),
+        ),
+        f"{said} {_left_to_review(left)}",
+    )
+
+
+def _left_to_review(count: int) -> str:
+    if not count:
+        return _("Nothing left to review.")
+    return ngettext("%(count)d left to review.", "%(count)d left to review.", count) % {
+        "count": count
+    }
+
+
+@require_POST
+def review_undo(request):
+    """Puts back the outcomes a group's decision replaced, the whole group at once, and opens it again."""
+    pks = _posted_pks(request)
+    if pks is None:
+        return HttpResponseBadRequest()
+    key = _group_key(pks)
+    before = request.session.get(REVIEW_UNDO_SESSION_KEY, {}).pop(key, None)
+    request.session.modified = True
+    if before is None:
+        return HttpResponseBadRequest()
+    try:
+        outcomes.restore(before)
+    except outcomes.UndoRefused:
+        return HttpResponseBadRequest()
+    request.session[REVIEW_DECIDED_SESSION_KEY] = [
+        decided
+        for decided in request.session.get(REVIEW_DECIDED_SESSION_KEY, [])
+        if _group_key(decided) != key
+    ]
+    group = review.group_of(pks)
+    if group is None:
+        return HttpResponseBadRequest()
+    said = _("Undone. %(description)s is back in the Review queue.") % {
+        "description": group.description
+    }
+    return _review_changed(request, group, focus="heading", said=said)
+
+
+def _review(request, *, selected: int | None, opened: bool, focus: str, resolved: bool):
+    """The Review queue, whole or (for HTMX) its region alone, with the title and the sidebar's count."""
+    waiting = review.waiting_groups()
+    decided_pks = request.session.get(REVIEW_DECIDED_SESSION_KEY, [])
+    decided = [
+        group
+        for pks in decided_pks
+        if (group := review.group_of(pks)) is not None and not group.waiting
+    ]
+    # With nothing waiting, the end state shows, unless a group decided just now is opened.
+    group = next(
+        (g for g in [*waiting, *decided] if selected in g.pks and (waiting or opened)),
+        waiting[0] if waiting else None,
+    )
+    count = sum(g.size for g in waiting)
+    context = {
+        "groups": review.sorted_groups([*waiting, *decided]) if resolved else waiting,
+        "waiting_count": len(waiting),
+        "decided_count": len(decided),
+        "resolved": resolved,
+        "group": group,
+        # On a phone the detail shows instead of the list: a group opened, or the end state.
+        "opened": opened or group is None,
+        "focus": focus,
+        "summary": _queue_summary(count, len(waiting)),
+        "page_title": _("Review queue (%(count)d)") % {"count": count}
+        if count
+        else _("Review queue"),
+        "next_group": waiting[0] if waiting else None,
+        "listed": bool(waiting or decided),
+    }
+    if not waiting:
+        context.update(_queue_clear([pk for pks in decided_pks for pk in pks], decided))
+    if group is not None:
+        context.update(_group_detail(group))
+    alone = wants_the_fragment_alone(request)
+    response = render(
+        request,
+        "ledger/_review.html" if alone else "ledger/review_queue.html",
+        {**context, "swapped": alone},
+    )
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
+    return response
+
+
+def _queue_summary(count: int, groups: int) -> str:
+    if not count:
+        return _("Nothing left to review.")
+    in_groups = ngettext("%(count)d group", "%(count)d groups", groups) % {"count": groups}
+    return ngettext(
+        "%(count)d Transaction in %(groups)s still needs an outcome",
+        "%(count)d Transactions in %(groups)s still need an outcome",
+        count,
+    ) % {"count": count, "groups": in_groups}
+
+
+def _group_detail(group: review.Group) -> dict:
+    """What deciding `group` offers: what was used last time and the other outcomes, the suggested one left out."""
+    last = review.last_time(group.description, exclude=group.pks)
+    suggested = str(group.suggestion.pk) if group.suggestion else None
+    used_last = last if last and last.outcome != suggested else None
+    left_out = {suggested, used_last.outcome if used_last else None}
+    picker = outcomes.picker()
+    return {
+        "last": last,
+        "used_last": used_last,
+        "categories": picker["categories"],
+        "most_used": [s for s in picker["most_used"] if str(s.pk) not in left_out],
+        "candidates": group.newest.pairing_candidates() if group.ambiguous else [],
+    }
+
+
+def _queue_clear(decided_pks: list[int], decided: list[review.Group]) -> dict:
+    """The end state's words and links: how many were decided just now, and the newest month that made Complete."""
+    completed = review.completed_month(decided_pks) if decided_pks else None
+    current = periods.today().replace(day=1)
+    return {
+        "decided_now": sum(g.size for g in decided),
+        "completed_month": completed,
+        "current_month": current,
+    }
 
 
 UNDO_SESSION_KEY = "outcome_undo"
@@ -373,17 +566,7 @@ def undo_outcome(request, pk):
 
 
 def _transaction_row(request, transaction, *, saved=False):
-    """The row swapped in for a Transaction just changed: the Review queue's own, or the shared Transaction row."""
-    if request.POST.get("row") == "review":
-        return render(
-            request,
-            "ledger/_review_row.html",
-            {
-                "t": transaction,
-                "categories": categories_with_subcategories(),
-                "refresh_review_queue_count": True,
-            },
-        )
+    """The shared Transaction row, swapped in for a Transaction just changed."""
     return render(
         request,
         "ledger/_transaction_row.html",

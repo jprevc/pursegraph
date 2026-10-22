@@ -59,6 +59,18 @@ def outcome_shown(page, description):
     raise AssertionError(f"nothing selected for {description!r}")
 
 
+def group_caption(page, description):
+    """The caption under the Review queue's group described `description`: its suggestion ("Food › Groceries · 62 %
+    sure"), "No suggestion" or "Transfer · other side unknown"."""
+    group = re.search(
+        rf'<span class="g-desc">{re.escape(html.escape(description))}[ <].*?<span class="g-sub">(.*?)</span>\s*</button>',
+        page,
+        re.S,
+    )
+    assert group, f"no group for {description!r}"
+    return re.sub(r"[ \n\t]+", " ", html.unescape(re.sub(r"<[^>]+>", " ", group[1]))).strip()
+
+
 @pytest.fixture
 def admin_client(django_user_model):
     """A client of its own, so a test can act as a Member and as an admin side by side."""
