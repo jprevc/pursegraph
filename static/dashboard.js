@@ -55,13 +55,15 @@
   // ---- Period completeness (docs/design/period-completeness.md): each month of a chart over months has a state ----
   const BANDED = ['partial', 'partly_tracked', 'in_progress'];
   const stateOf = (data, i) => data.states?.[i] || 'complete';
-  // The month axis: a Not tracked month's label is Faint, and the running month's reads "Oct (so far)".
+  // The month axis: a Not tracked month's label is Faint, and the running month's reads "Oct (so far)", whatever its state.
   const monthAxis = (data, { categoryAxis, text, MUTED, FAINT }, extra = {}) => categoryAxis(data.months, {
     ...extra,
     axisLabel: {
       ...text(12, 400, MUTED),
+      // The labels thin out on a narrow axis, but never the running month's.
+      showMaxLabel: data.keys.at(-1) === data.running || null,
       color: (_value, i) => stateOf(data, i) === 'not_tracked' ? FAINT : MUTED,
-      formatter: (value, i) => stateOf(data, i) === 'in_progress' ? data.words.so_far.replace('%(month)s', value) : value,
+      formatter: (value, i) => data.keys[i] === data.running ? data.words.so_far.replace('%(month)s', value) : value,
     },
   });
   // A full-height band in Hover behind each Partial, Partly tracked and In progress month, labelled at its top. The

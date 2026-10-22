@@ -1,6 +1,7 @@
 import random
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import count
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
@@ -90,6 +91,8 @@ class Command(BaseCommand):
             year, month = divmod(today.year * 12 + today.month - 1 - back, 12)
             return date(year, month + 1, 1)
 
+        hashes = count(1)
+
         def statement(account, start, end):
             Statement.objects.create(
                 account=account,
@@ -99,7 +102,8 @@ class Command(BaseCommand):
                 opening_balance=0,
                 closing_balance=0,
                 imported_by=ana,
-                sha256=f"{Statement.objects.count() + 1:064x}",
+                # Stands in for a file's hash, which only has to be unique.
+                sha256=f"{next(hashes):064x}",
                 file=f"demo/{account.pk}-{start}.pdf",
             )
 

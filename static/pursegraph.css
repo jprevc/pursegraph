@@ -611,7 +611,7 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .completeness .sep { color: var(--muted); }
 .completeness button.link { margin: 0; font-size: inherit; line-height: inherit; }
 /* A month's qualifier wraps under it, so that it never widens the table. */
-.view-table .qualifier { display: block; color: var(--muted); font-size: var(--text-label); font-weight: 400; }
+.view-table .qualifier { display: block; color: var(--muted); font-size: var(--text-label); font-weight: 400; white-space: normal; }
 .view-table button.mark-open:has(.qualifier) { flex-direction: column; align-items: flex-start; gap: 0; }
 /* A Not tracked month: no figures, not zeros. Muted rather than Faint, as text must stand 4.5:1 off the card. */
 .view-table .faint, .view-table td.faint { color: var(--muted); font-weight: 400; }

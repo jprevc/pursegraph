@@ -6,7 +6,7 @@
   <p class="muted">{% with date=card.tracked_from|day %}{% if card.accounts|length == 1 %}{% blocktranslate with account=card.accounts.0.name %}{{ account }} is tracked from {{ date }}.{% endblocktranslate %}{% else %}{% with last=card.accounts|last %}{% blocktranslate with others=card.accounts|slice:":-1"|join:", " last=last.name %}{{ others }} and {{ last }} are tracked from {{ date }}.{% endblocktranslate %}{% endwith %}{% endif %}{% endwith %} {% translate "Before that there are no numbers, not zeros." %}</p>
   {# The timeline is drawn for the eye; the list under it reads it out. #}
   <div class="timeline" style="--months: {{ card.months|length }}" aria-hidden="true">
-    {% if card.shown %}<span class="timeline-shown" style="grid-row: 1 / span {{ card.rows|length|add:1 }}; grid-column: {{ card.shown.0|add:1 }} / span {{ card.shown.1 }}"></span>{% endif %}
+    {% if card.shown %}<span class="timeline-shown" style="grid-row: 1 / span {{ card.rows|length|add:1 }}; grid-column: {{ card.shown.column|add:1 }} / span {{ card.shown.span }}"></span>{% endif %}
     {% for month, shown in card.columns %}{% with jan=month.start.month|add:"-1"|divisibleby:12 %}<span class="timeline-month{% if month.start.month|add:2|divisibleby:3 %} quarter{% endif %}{% if shown %} shown{% endif %}" style="grid-row: 1; grid-column: {{ forloop.counter|add:1 }}">{% if jan or forloop.first %}{{ month.start|date:"M Y" }}{% else %}{{ month.start|date:"M" }}{% endif %}</span>{% endwith %}{% endfor %}
     {% for row in card.rows %}
     <span class="timeline-account" style="grid-row: {{ forloop.counter|add:1 }}; grid-column: 1">{{ row.account.name }}</span>

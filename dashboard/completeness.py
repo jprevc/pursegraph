@@ -26,18 +26,36 @@ NOT_TRACKED = "not_tracked"
 PRECEDENCE = [PARTIAL, PARTLY_TRACKED, IN_PROGRESS, NOT_TRACKED, COMPLETE]
 
 
-def _covered(accounts) -> list[tuple[Account, list[DateRange]]]:
-    """Each of `accounts` that has Coverage, with its Coverage."""
+@dataclass(frozen=True)
+class Covered:
+    """An Account that has Coverage, and its Coverage."""
+
+    account: Account
+    ranges: list[DateRange]
+
+    @property
+    def first_day(self) -> date:
+        """Its first Coverage day: before it, the Account isn't tracked yet."""
+        return self.ranges[0].start
+
+
+def _covered(accounts) -> list[Covered]:
+    """Each of `accounts` that receives Statements and has Coverage."""
     covered = []
     for account in accounts.prefetch_related("statements"):
         if account.receives_statements and (ranges := account.coverage()):
-            covered.append((account, ranges))
+            covered.append(Covered(account, ranges))
     return covered
+
+
+def _overlaps(a: DateRange | Period, b: DateRange | Period) -> bool:
+    """Whether two stretches of days share one."""
+    return a.start <= b.end and a.end >= b.start
 
 
 def household_start() -> date | None:
     """The Household's first Coverage day, whatever the filters: where the period stepper stops."""
-    return min((ranges[0].start for _a, ranges in _covered(Account.objects.all())), default=None)
+    return min((c.first_day for c in _covered(Account.objects.all())), default=None)
 
 
 def qualifier(state: str) -> str:
@@ -58,10 +76,12 @@ class AccountGap:
 
     @property
     def label(self) -> str:
+        """Its days, the year left to the period around it: "1–31 Jul"."""
         return figures.date_range(self.days.start, self.days.end, year=False)
 
 
 def _tracked_from(account: Account, start: date) -> str:
+    """ "Joint Revolut is tracked from 1 Feb 2026"."""
     return _("%(account)s is tracked from %(date)s") % {
         "account": account.name,
         "date": figures.day(start),
@@ -78,6 +98,7 @@ class Month:
 
     @property
     def key(self) -> str:
+        """The month's key in a view's chart and drill-downs: "2026-07"."""
         return f"{self.period.start:%Y-%m}"
 
     @property
@@ -86,7 +107,6 @@ class Month:
 
     @property
     def qualifier(self) -> str:
-        """What a table's column or a title adds to the month: "(partial)"; empty for Complete and Not tracked."""
         return qualifier(self.state)
 
 
@@ -101,7 +121,12 @@ class Completeness:
     tracked_from: list[tuple[Account, date]]
 
     def month(self, key: str) -> Month | None:
+        """The month of the Period that `key` names, if any."""
         return next((m for m in self.months if m.key == key), None)
+
+    def months_of(self, keys: list[str]) -> list[Month | None]:
+        """The months the `keys` of a chart over months name, in their order."""
+        return [self.month(key) for key in keys]
 
     @property
     def gaps_by_account(self) -> list[tuple[Account, str]]:
@@ -113,6 +138,7 @@ class Completeness:
 
     @property
     def tracked_from_labels(self) -> list[str]:
+        """What the header line says of each Account tracked only from some day within the Period."""
         return [_tracked_from(account, start) for account, start in self.tracked_from]
 
 
@@ -121,25 +147,28 @@ class Tracking:
 
     def __init__(self, included):
         self.accounts = _covered(included)
-        today = periods.today()
-        self._gaps = [(a, g) for a, ranges in self.accounts for g in gaps(ranges, until=today)]
+        self.today = periods.today()
+        self._gaps = [
+            (c.account, g) for c in self.accounts for g in gaps(c.ranges, until=self.today)
+        ]
 
     def _gaps_within(self, period: Period) -> list[AccountGap]:
+        """The Gaps of the Accounts within `period`, cut to it."""
         return [
             AccountGap(a, DateRange(max(g.start, period.start), min(g.end, period.end)))
             for a, g in self._gaps
-            if g.start <= period.end and g.end >= period.start
+            if _overlaps(g, period)
         ]
 
-    def _late(self, month: Period) -> list[tuple[Account, date]]:
+    def _tracked_later(self, month: Period) -> list[tuple[Account, date]]:
         """The Accounts first tracked after the start of `month`, earliest first."""
-        late = [
-            (a, ranges[0].start) for a, ranges in self.accounts if ranges[0].start > month.start
-        ]
-        return sorted(late, key=lambda pair: pair[1])
+        later = [(c.account, c.first_day) for c in self.accounts if c.first_day > month.start]
+        return sorted(later, key=lambda pair: pair[1])
 
     def month(self, month: Period) -> Month:
-        today = periods.today()
+        """The state of `month`, the first of Partial, Not tracked, Partly tracked and In progress that it is, or
+        else Complete; a month after today is never judged."""
+        today = self.today
         if month.start > today:
             return Month(month, COMPLETE, "")
         if gaps_in := self._gaps_within(month):
@@ -152,22 +181,24 @@ class Tracking:
                     for g in gaps_in
                 ),
             )
-        if self.accounts and all(ranges[0].start > month.end for _a, ranges in self.accounts):
+        if self.accounts and all(c.first_day > month.end for c in self.accounts):
             return Month(month, NOT_TRACKED, _("No Statements yet"))
-        if late := self._late(month):
-            return Month(month, PARTLY_TRACKED, "; ".join(_tracked_from(a, d) for a, d in late))
+        if later := self._tracked_later(month):
+            return Month(month, PARTLY_TRACKED, "; ".join(_tracked_from(a, d) for a, d in later))
         if month.start <= today <= month.end:
             so_far = formats.date_format(today, "MONTH_DAY_FORMAT")
             return Month(month, IN_PROGRESS, _("So far, to %(date)s") % {"date": so_far})
         return Month(month, COMPLETE, "")
 
-    def of(self, period: Period) -> Completeness:
+    def completeness(self, period: Period) -> Completeness:
+        """How complete `period` is: the first state any of its months is, in PRECEDENCE."""
         months = [self.month(m) for m in period.months]
         states = {m.state for m in months}
+        # Not tracked yet during a part of the Period in which another Account is, whatever state that part is in.
         tracked_from: dict[Account, date] = {}
         for m in months:
-            if m.state == PARTLY_TRACKED:
-                tracked_from.update(self._late(m.period))
+            if m.state != NOT_TRACKED and m.period.start <= self.today:
+                tracked_from.update(self._tracked_later(m.period))
         return Completeness(
             next(s for s in PRECEDENCE if s in states or s == COMPLETE),
             months,
@@ -179,7 +210,7 @@ class Tracking:
 def not_comparable(period: Period, tracking: Tracking) -> str | None:
     """Why the stat tiles can't compare `period` with the one before, if either isn't Complete: naming the
     incomplete month, the period's own if both are ("Not comparable: July is incomplete")."""
-    for judged in map(tracking.of, (period, period.previous)):
+    for judged in map(tracking.completeness, (period, period.previous)):
         # The month that makes the period incomplete: the first in its state.
         if month := next((m for m in judged.months if m.state == judged.state != COMPLETE), None):
             same_year = month.period.start.year == period.end.year
@@ -211,7 +242,17 @@ class Stretch:
 
 
 @dataclass(frozen=True)
+class Columns:
+    """Month columns on the Not tracked card's timeline: from `column` (counting from 1), `span` months long."""
+
+    column: int
+    span: int
+
+
+@dataclass(frozen=True)
 class TimelineRow:
+    """One Account's row on the Not tracked card's timeline."""
+
     account: Account
     stretches: list[Stretch]
     months: list[Period]
@@ -230,54 +271,52 @@ class TimelineRow:
 class NotTracked:
     """What the Not tracked card shows for a Period wholly before every included Account's first Coverage day:
     from when they are tracked, the first Period of its unit that is, and their Coverage month by month, from the
-    Household's first Coverage month to the running month, with the shown Period's months (`shown`, its first
-    column and its span) picked out."""
+    Household's first Coverage month to the running month, with the shown Period's months picked out."""
 
     accounts: list[Account]
     tracked_from: date
     first_period: Period
     months: list[Period]
     rows: list[TimelineRow]
-    shown: tuple[int, int] | None
+    shown: Columns | None
 
     @property
     def columns(self) -> list[tuple[Period, bool]]:
         """Each month column, and whether the shown Period holds it."""
-        first, span = self.shown or (0, 0)
+        first, span = (self.shown.column, self.shown.span) if self.shown else (0, 0)
         return [(m, first <= i < first + span) for i, m in enumerate(self.months, start=1)]
 
 
 def not_tracked(period: Period, tracking: Tracking, household_start: date) -> NotTracked:
-    tracked_from = min(ranges[0].start for _a, ranges in tracking.accounts)
-    today = periods.today()
-    months = Period("custom", household_start.replace(day=1), today).months
+    """The Not tracked card for `period`, which the included Accounts' Coverage starts after."""
+    tracked_from = min(c.first_day for c in tracking.accounts)
+    months = Period("custom", household_start.replace(day=1), tracking.today).months
     rows = []
-    for account, ranges in tracking.accounts:
+    for covered in tracking.accounts:
         stretches: list[Stretch] = []
         for column, month in enumerate(months, start=1):
-            tracked = any(r.start <= month.end and r.end >= month.start for r in ranges)
+            tracked = any(_overlaps(r, month) for r in covered.ranges)
             if tracked and stretches and stretches[-1].tracked:
                 stretches[-1] = Stretch(stretches[-1].column, stretches[-1].span + 1, True)
             else:
                 stretches.append(Stretch(column, 1, tracked))
-        rows.append(TimelineRow(account, stretches, months))
-    shown = [
-        i for i, m in enumerate(months, start=1) if m.start <= period.end and m.end >= period.start
-    ]
+        rows.append(TimelineRow(covered.account, stretches, months))
+    shown = [i for i, m in enumerate(months, start=1) if _overlaps(m, period)]
     return NotTracked(
-        [account for account, _ranges in tracking.accounts],
+        [c.account for c in tracking.accounts],
         tracked_from,
         Period.containing(period.unit, tracked_from),
         months,
         rows,
-        (shown[0], len(shown)) if shown else None,
+        Columns(shown[0], len(shown)) if shown else None,
     )
 
 
 def mark_months(chart: dict, completeness: Completeness) -> None:
-    """Gives a chart over months (its `keys`) each month's state and reason, and a Not tracked month no figures
-    rather than zeros, so that bars are missing and lines break."""
-    months = [completeness.month(key) for key in chart["keys"]]
+    """Gives a chart over months (its `keys`) each month's state and reason, the running month's key, whatever
+    its state, and a Not tracked month no figures rather than zeros, so that bars are missing and lines break."""
+    months = completeness.months_of(chart["keys"])
+    chart["running"] = f"{periods.today():%Y-%m}"
     chart["states"] = [m.state if m else COMPLETE for m in months]
     chart["reasons"] = [m.reason if m else "" for m in months]
     tracked = [state != NOT_TRACKED for state in chart["states"]]

@@ -11,12 +11,14 @@ register = template.Library()
 
 @register.filter
 def month_of(completeness: Completeness, key: str) -> Month | None:
+    """The month a table row's key names."""
     return completeness.month(key)
 
 
 @register.filter
 def months_of(completeness: Completeness, keys: list[str]) -> list[Month | None]:
-    return [completeness.month(key) for key in keys]
+    """The months of a table's columns, from its chart's keys."""
+    return completeness.months_of(keys)
 
 
 @register.filter

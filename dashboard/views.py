@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -124,8 +125,9 @@ def show(request, view: str):
     # A period chosen carries to the other views too; otherwise each opens on its own default.
     period_chosen = _period_chosen(request.GET)
     data = queries.view_data(v.name, period, filters)
-    tracking = completeness.Tracking(queries.heeded(v.name, filters).included())
-    period_completeness = tracking.of(period)
+    heeded = queries.heeded(v.name, filters)
+    tracking = completeness.Tracking(heeded.included())
+    period_completeness = tracking.completeness(period)
     household_start = completeness.household_start()
     # A period wholly Not tracked shows the Not tracked card instead (a Not tracked month needs a first Coverage day).
     not_tracked = (
@@ -173,7 +175,7 @@ def show(request, view: str):
         "not_comparable": completeness.not_comparable(period, tracking),
         "completeness": period_completeness,
         "not_tracked": not_tracked,
-        "awaiting_review": queries.awaiting_review(period, queries.heeded(v.name, filters)),
+        "awaiting_review": queries.awaiting_review(period, heeded),
         "chart": chart,
         "views": VIEWS.values(),
         "view_template": view_template,
@@ -206,8 +208,11 @@ def transactions(request, view: str):
         "account", "subcategory__category"
     )
     label = queries.mark_label(v.name, period, filters, key) or _("Transactions")
-    tracking = completeness.Tracking(queries.heeded(v.name, filters).included())
-    qualifier = completeness.qualifier(tracking.of(period).state)
+    judged = completeness.Tracking(queries.heeded(v.name, filters).included()).completeness(period)
+    # A month's mark takes its month's qualifier, as its table row does; any other mark the period's.
+    month = re.search(r"\d{4}-\d{2}", key)
+    marked = judged.month(month[0]) if month else None
+    qualifier = completeness.qualifier((marked or judged).state)
     response = render(
         request,
         "dashboard/_drill_down.html",

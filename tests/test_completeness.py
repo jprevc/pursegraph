@@ -282,3 +282,41 @@ def test_a_partly_covered_period_shows_its_view(logged_in_client, covered):
     content = page(logged_in_client, "/spending/", {"period": "2026-01"})
     assert not not_tracked_card(content)
     assert 'class="tiles"' in content
+
+
+def test_an_account_tracked_later_is_named_even_in_a_partial_month(logged_in_client, covered):
+    later = make_account("Luka's Revolut", "revolut", covered["ana"])
+    statement(later, date(2026, 8, 1), TODAY, covered["ana"])
+    line = header_line(page(logged_in_client, "/spending/", {"period": "2026-07"}))
+    assert line == (
+        "Incomplete: no Statements yet from Marko's N26 for 1–31 Jul"
+        " · Luka's Revolut is tracked from 1 Aug 2026"
+    )
+
+
+def test_a_month_marks_drill_down_takes_its_months_qualifier(logged_in_client, covered):
+    def title(key):
+        content = page(logged_in_client, "/cashflow/transactions/", {**LAST_12, "key": key})
+        return words(found(r'<h2 id="drill-heading">(.*?)</h2>', content))
+
+    assert title("2026-08").endswith("1 Nov 2025 – 31 Oct 2026")
+    assert title("2026-07:in").endswith("(partial)")
+
+
+def test_the_running_month_is_named_on_the_chart_whatever_its_state(logged_in_client, covered):
+    chart = view_chart(page(logged_in_client, "/cashflow/", LAST_12), "cashflow")
+    assert chart["running"] == "2026-10"
+    assert chart["states"][-1] == "partial"
+
+
+def test_three_accounts_expand_into_a_list_ending_with_and(logged_in_client, covered):
+    account = make_account("Ana's N26", "n26", covered["ana"])
+    statement(account, date(2026, 1, 1), date(2026, 6, 30), covered["ana"])
+    joint = Account.objects.get(name="Joint Revolut")
+    joint.statements.all().delete()
+    statement(joint, date(2026, 2, 1), date(2026, 6, 30), covered["ana"])
+    line = header_line(page(logged_in_client, "/spending/", {"period": "2026-07"}))
+    assert line == (
+        "Incomplete: no Statements yet from Ana's N26 for 1–31 Jul, Joint Revolut for 1–31 Jul"
+        " and 1 more and Marko's N26 for 1–31 Jul"
+    )
