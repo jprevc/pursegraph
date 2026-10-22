@@ -132,16 +132,28 @@ def import_statements(request):
             "rejected": rejected,
             "already": [r for r in results if r.rejection and r.rejection.already_imported],
             "tray_count": len(pending) + len(rejected),
-            **_board(request, before, [r.summary for r in results if r.summary]),
+            **_board(before, [r.summary for r in results if r.summary]),
+            "page_title": _("Import"),
+            "alone": wants_the_fragment_alone(request),
         },
     )
     if said:
-        announce(response, f"{said.headline}. {said.rest}" if said.rest else said.headline)
+        announce(
+            response,
+            _("%(headline)s. %(rest)s") % {"headline": said.headline, "rest": said.rest}
+            if said.rest
+            else said.headline,
+        )
+    elif form.errors:
+        # Nothing was posted to import; the strip says why.
+        announce(
+            response, " ".join(str(error) for errors in form.errors.values() for error in errors)
+        )
     patch_vary_headers(response, ["HX-Request"])
     return response
 
 
-def _board(request, before: dict[int, list[DateRange]] | None, summaries: list) -> dict:
+def _board(before: dict[int, list[DateRange]] | None, summaries: list) -> dict:
     """The Accounts board: each Account's track on one axis from the Household's first covered day to today, with
     what this import added (when `before` holds the Coverage it started from) and its Statements."""
     statements = (
@@ -158,8 +170,7 @@ def _board(request, before: dict[int, list[DateRange]] | None, summaries: list) 
     ranges = {account.pk: coverage(account.statements.all()) for account in accounts}
     today = timezone.localdate()
     starts = [r[0].start for r in ranges.values() if r]
-    ends = [r[-1].end for r in ranges.values() if r]
-    axis = Axis(min(starts), max([today, *ends])) if starts else None
+    axis = Axis(min(starts), today) if starts else None
     rows = []
     for account in accounts:
         covered = ranges[account.pk]

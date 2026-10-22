@@ -43,13 +43,14 @@
   };
 
   const stage = files => {
-    const names = new Set(staged.map(file => file.name + file.size));
-    staged.push(...[...files].filter(file => !names.has(file.name + file.size)));
+    const key = file => `${file.size}/${file.name}`;
+    const keys = new Set(staged.map(key));
+    staged.push(...[...files].filter(file => !keys.has(key(file))));
     render();
   };
 
   // The request's stages: uploading, with its share, then checking and importing, each file with a spinner.
-  const progress = (stage, percent = 0) => {
+  const progress = (step, percent = 0) => {
     const f = form();
     const n = staged.length;
     const line = f.querySelector('[data-progress]');
@@ -57,7 +58,7 @@
     line.hidden = false;
     f.querySelector('[data-staged-foot]').hidden = true;
     f.querySelectorAll('[data-unstage]').forEach(button => { button.hidden = true; });
-    const checking = stage === 'checking';
+    const checking = step === 'checking';
     f.querySelector('[data-progress-label]').textContent = counted(checking ? 'checking' : 'uploading', n);
     f.querySelector('[data-progress-detail]').hidden = !checking;
     f.querySelector('[data-progress-percent]').textContent = checking ? '' : `${percent} %`;
@@ -138,20 +139,25 @@
   // Only the upload form's own request; the Choose-the-Account forms post without staging. The form it was sent
   // from is gone once the result is swapped in.
   let sending = null;
+  let uploaded = false;
   document.addEventListener('htmx:beforeRequest', e => {
     if (e.detail.elt !== form() || !staged.length) return;
     sending = e.detail.elt;
+    uploaded = false;
     progress('uploading');
     say(counted('uploading', staged.length));
   });
+  // HTMX reports the response's download as progress too; once the upload is done, that is ignored.
   document.addEventListener('htmx:xhr:progress', e => {
-    if (e.detail.elt !== sending || !e.detail.lengthComputable) return;
+    if (e.detail.elt !== sending || uploaded || !e.detail.lengthComputable) return;
     const percent = Math.round((e.detail.loaded / e.detail.total) * 100);
-    if (percent < 100) progress('uploading', percent);
-    else if (!sending.querySelector('[data-bar].indeterminate')) {
-      progress('checking');
-      say(sending.dataset.uploaded);
+    if (percent < 100) {
+      progress('uploading', percent);
+      return;
     }
+    uploaded = true;
+    progress('checking');
+    say(sending.dataset.uploaded);
   });
   // A swapped-in result starts a new strip; a failed request leaves the files staged (swap.js says what happened).
   document.addEventListener('htmx:afterRequest', e => {

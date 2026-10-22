@@ -22,7 +22,6 @@ from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy as _lazy
 from django.utils.translation import ngettext
 
 from pursegraph import figures
@@ -124,9 +123,6 @@ class ImportRejected(Exception):
         self.found = found
         self.already_imported = already_imported
         self.existing = existing
-
-
-NOTHING_IMPORTED = _lazy("So nothing from this file was imported.")
 
 
 @dataclass(frozen=True)
@@ -238,8 +234,7 @@ def check_balances_and_totals(parsed: ParsedStatement, *, account: Account | Non
                 "period": figures.date_range(parsed.period_start, parsed.period_end),
             }
         raise ImportRejected(
-            f"{_missing_payment(diagnosis) if not totals_match else _rows_dont_add_up(diagnosis)} "
-            f"{NOTHING_IMPORTED}",
+            _missing_payment(diagnosis) if not totals_match else _rows_dont_add_up(diagnosis),
             heading=_("A payment seems to be missing"),
             next_step=next_step,
             diagnosis=diagnosis,
@@ -526,7 +521,7 @@ def _require_balance(account: Account, day: date, balance: Decimal, expected: De
             "expected": figures.money(expected),
         }
         raise ImportRejected(
-            f"{said} {NOTHING_IMPORTED}",
+            said,
             heading=_("Doesn't follow on from what's imported"),
             next_step=_("A Statement in between may be missing, or a balance was misread."),
             balances=BalanceBreak(day, expected, balance),
@@ -580,7 +575,7 @@ def _match_coverage(
             len(mismatch),
         ) % {"count": len(mismatch), "account": account}
         raise ImportRejected(
-            f"{said} {NOTHING_IMPORTED}",
+            said,
             heading=_("Disagrees with what's already imported"),
             next_step=_(
                 "The bank may have re-booked or reverted a payment since the earlier export."

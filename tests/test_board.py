@@ -92,3 +92,22 @@ def test_the_axis_marks_quarters_and_names_the_year_at_january():
         ("Jul", False),
         ("Oct", False),
     ]
+
+
+def test_each_stretch_says_what_it_is():
+    stretches = track(Axis(JUNE.start, TODAY), [JUNE, SEPTEMBER], before=[JUNE])
+
+    assert [s.said for s in stretches] == [
+        "Covered 1–30 Jun 2026",
+        "Gap 1 Jul – 31 Aug 2026",
+        "Covered by this import 1–30 Sep 2026",
+        "Gap 1–19 Oct 2026, since the last Statement",
+    ]
+
+
+def test_a_statement_running_past_today_stops_at_the_end_of_the_axis():
+    axis = Axis(date(2026, 1, 1), date(2026, 1, 10))
+
+    [stretch] = track(axis, [DateRange(date(2026, 1, 6), date(2026, 1, 20))], before=[])
+
+    assert (stretch.left, stretch.left + stretch.width) == (50, 100)

@@ -2,7 +2,7 @@
 first covered day to today, with the stretch an import just added and the Gaps up to today."""
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Literal
 
 from django.utils.translation import gettext as _
@@ -33,8 +33,9 @@ class Axis:
     today: date
 
     def at(self, day: date) -> float:
+        """Where `day` falls, clamped to the axis: a Statement may not run past today."""
         span = (self.today + ONE_DAY - self.start).days
-        return (day - self.start).days / span * 100
+        return min(max((day - self.start).days / span * 100, 0), 100)
 
     def ticks(self) -> list[Tick]:
         ticks = []
@@ -78,6 +79,18 @@ class Stretch:
         return f"{first}–{figures.month_short(end, year=False)}"
 
     @property
+    def said(self) -> str:
+        """The stretch in words, for the screen-reader timeline and the captions."""
+        period = figures.date_range(self.range.start, self.range.end)
+        if self.kind == "covered":
+            return _("Covered %(period)s") % {"period": period}
+        if self.kind == "new":
+            return _("Covered by this import %(period)s") % {"period": period}
+        if self.since_last_statement:
+            return _("Gap %(period)s, since the last Statement") % {"period": period}
+        return _("Gap %(period)s") % {"period": period}
+
+    @property
     def label_fits(self) -> bool:
         return self.width > LABEL_FITS
 
@@ -109,7 +122,7 @@ def _split(covered: DateRange, before: list[DateRange]) -> list[tuple[date, date
             runs[-1] = (runs[-1][0], day, kind)
         else:
             runs.append((day, day, kind))
-        day += timedelta(days=1)
+        day += ONE_DAY
     return runs
 
 

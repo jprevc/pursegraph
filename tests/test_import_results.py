@@ -69,8 +69,8 @@ def test_zero_counts_read_no_and_the_ones_that_only_sometimes_apply_are_left_out
         "1 Transaction imported",
         "No Duplicates",
         "No Transfers",
-        "None categorized by Rules",
-        "None wait for suggestions and review",
+        "No Transactions categorized by Rules",
+        "No Transactions wait for suggestions and review",
     ]
     assert [c.zero for c in counts] == [False, True, True, True, True]
 

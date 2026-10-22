@@ -233,7 +233,9 @@ def test_an_htmx_import_swaps_in_the_region_and_announces_the_result(logged_in_c
     )
 
     page = response.content.decode()
-    assert page.lstrip().startswith('<div id="import"')
+    assert page.lstrip().startswith("<title>Import · Pursegraph</title>")
+    assert '<div id="import"' in page
+    assert "<html" not in page
     assert 'tabindex="-1" data-focus>8 Transactions imported from 1 file<' in page
     announced = json.loads(response["HX-Trigger"])["announce"]
     assert announced == "8 Transactions imported from 1 file. 6 wait for review"
@@ -255,3 +257,9 @@ def test_an_account_that_takes_no_statements_says_so_in_place_of_a_track(logged_
 
     assert "Takes no Statements: money moved to its IBAN counts as a Transfer." in row
     assert "1 Statement" not in row
+
+
+def test_an_htmx_post_without_files_announces_why(logged_in_client):
+    response = logged_in_client.post("/import/", {}, headers={"HX-Request": "true"})
+
+    assert json.loads(response["HX-Trigger"])["announce"] == "Choose a Statement file."

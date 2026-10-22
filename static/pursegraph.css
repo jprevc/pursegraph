@@ -88,7 +88,7 @@ a:hover { text-decoration-thickness: 2px; }
 .muted { color: var(--muted); }
 .num { text-align: right; }
 /* The Tabular Figures Rule: every amount, share, count and date. Not on prose, where tnum widens the hyphen. */
-.num, .fig, dd, .period-label, .caption, .axis, .notice li, input, select { font-variant-numeric: tabular-nums; }
+.num, .fig, dd, .period-label, .axis, .notice li, input, select { font-variant-numeric: tabular-nums; }
 /* ECharts sets each label's font inline, which resets the numerals. */
 .chart text { font-variant-numeric: tabular-nums !important; }
 .fig { white-space: nowrap; }
@@ -873,7 +873,7 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .drop-idle { display: flex; align-items: center; gap: var(--s-3); color: var(--muted); }
 .drop-idle > .icon { width: 1.25rem; height: 1.25rem; }
 .drop-idle p { margin: 0; }
-.drop-lead { color: var(--ink-2); font-weight: 600; }
+.drop-lead { color: var(--ink); font-weight: 600; }
 .drop-pick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); }
 .drop-errors { margin-top: var(--s-2); }
 /* Without JS there is nothing to drop onto. */

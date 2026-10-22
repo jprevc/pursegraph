@@ -17,6 +17,8 @@ class Count:
     figure: str
     text: str
     zero: bool = False
+    links_review: bool = False
+    """Followed by a link to the Review queue."""
 
 
 def domain_counts(summary: ImportSummary) -> list[Count]:
@@ -89,18 +91,24 @@ def domain_counts(summary: ImportSummary) -> list[Count]:
                 ),
             )
         )
-    for n, text in (
-        (s.rule_count, _("categorized by Rules")),
-        (
-            s.awaiting_count,
+    counts.append(
+        count(s.rule_count, _("categorized by Rules"))
+        if s.rule_count
+        else Count(_("No"), _("Transactions categorized by Rules"), zero=True)
+    )
+    counts.append(
+        Count(
+            number_format(s.awaiting_count, force_grouping=True),
             ngettext(
                 "waits for suggestions and review",
                 "wait for suggestions and review",
                 s.awaiting_count,
             ),
-        ),
-    ):
-        counts.append(count(n, text) if n else Count(_("None"), text, zero=True))
+            links_review=True,
+        )
+        if s.awaiting_count
+        else Count(_("No"), _("Transactions wait for suggestions and review"), zero=True)
+    )
     return counts
 
 
@@ -124,12 +132,15 @@ def banner(results: list[FileResult], *, needs_account: int) -> Banner:
     imported = sum(s.imported_count for s in summaries)
     to_review = sum(s.awaiting_count for s in summaries)
     if summaries:
-        headline = ngettext(
-            "%(count)s Transaction imported", "%(count)s Transactions imported", imported
-        ) % {"count": number_format(imported, force_grouping=True)}
-        headline += " " + ngettext(
-            "from %(count)s file", "from %(count)s files", len(summaries)
-        ) % {"count": len(summaries)}
+        # Two counts, each with its own plural.
+        headline = _("%(transactions)s %(files)s") % {
+            "transactions": ngettext(
+                "%(count)s Transaction imported", "%(count)s Transactions imported", imported
+            )
+            % {"count": number_format(imported, force_grouping=True)},
+            "files": ngettext("from %(count)s file", "from %(count)s files", len(summaries))
+            % {"count": len(summaries)},
+        }
     else:
         headline = _("Nothing imported")
     rest = [
@@ -152,4 +163,6 @@ def banner(results: list[FileResult], *, needs_account: int) -> Banner:
         if already
         else "",
     ]
-    return Banner(headline, " · ".join(part for part in rest if part), to_review, bool(summaries))
+    return Banner(
+        headline, _(" · ").join(part for part in rest if part), to_review, bool(summaries)
+    )

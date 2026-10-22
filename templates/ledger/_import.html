@@ -1,4 +1,5 @@
 {% load figures i18n icons %}{# Import's region under the title row (docs/design/import.md): the drop strip, the result of an import and the Accounts board. An import posted with HTMX swaps it in alone. #}
+{% if alone %}{% include "_title.html" %}{% endif %}
 <div id="import" class="import">
 {% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
 
@@ -87,7 +88,7 @@
     <div class="tray-file"><span class="status">{% icon "alert" %}{% translate "Not imported" %}</span><span class="file-name">{{ result.filename }}</span></div>
     <div class="rejection">
       <h3>{{ r.heading }}</h3>
-      <p>{{ r }}</p>
+      <p>{{ r }} {% translate "So nothing from this file was imported." %}</p>
       {% if r.next_step %}<p class="next">{{ r.next_step }}</p>{% endif %}
       {% with d=r.diagnosis %}{% if d %}
       <details>
@@ -180,7 +181,7 @@
         {% for s in row.stretches %}{% with period=s.range.start|date_range:s.range.end %}
         {% if s.is_gap %}
         <button type="button" class="stretch gap" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%"
-          aria-label="{% if s.since_last_statement %}{% blocktranslate %}Gap {{ period }}, since the last Statement: import a Statement{% endblocktranslate %}{% else %}{% blocktranslate %}Gap {{ period }}: import a Statement{% endblocktranslate %}{% endif %}"
+          aria-label="{% blocktranslate with gap=s.said %}{{ gap }}: import a Statement{% endblocktranslate %}"
           data-notice="{% blocktranslate with name=account.name bank=account.get_bank_display %}For {{ name }}: a Statement covering {{ period }}. Download it from {{ bank }} and drop it here.{% endblocktranslate %}">{% if s.label_fits %}{{ s.label }}{% endif %}</button>
         {% else %}
         <span class="stretch {{ s.kind }}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-hidden="true"></span>
@@ -188,10 +189,10 @@
         {% endwith %}{% endfor %}
         <i class="today" aria-hidden="true"></i>
       </div>
-      <ol class="sr">{% for s in row.stretches %}{% with period=s.range.start|date_range:s.range.end %}<li>{% if s.kind == "covered" %}{% blocktranslate %}Covered {{ period }}{% endblocktranslate %}{% elif s.kind == "new" %}{% blocktranslate %}Covered by this import {{ period }}{% endblocktranslate %}{% elif s.since_last_statement %}{% blocktranslate %}Gap {{ period }}, since the last Statement{% endblocktranslate %}{% else %}{% blocktranslate %}Gap {{ period }}{% endblocktranslate %}{% endif %}</li>{% endwith %}{% endfor %}</ol>
+      <ol class="sr">{% for s in row.stretches %}<li>{{ s.said }}</li>{% endfor %}</ol>
       <p class="caption">
         {% for result in row.results %}{% with s=result.summary %}<button type="button" class="link new" aria-expanded="false" aria-controls="counts-{{ account.pk }}-{{ forloop.counter }}" data-disclose>{% blocktranslate with period=s.period_start|date_range:s.period_end count n=s.imported_count %}New: {{ period }} · {{ n }} Transaction{% plural %}New: {{ period }} · {{ n }} Transactions{% endblocktranslate %}{% if s.awaiting_count %}, {% blocktranslate with n=s.awaiting_count %}{{ n }} to review{% endblocktranslate %}{% endif %}</button>{% endwith %}{% endfor %}
-        {% for gap in row.gaps %}{% with period=gap.range.start|date_range:gap.range.end %}<span>{% if gap.since_last_statement %}{% blocktranslate %}Gap {{ period }}, since the last Statement{% endblocktranslate %}{% else %}{% blocktranslate %}Gap {{ period }}{% endblocktranslate %}{% endif %}</span>{% endwith %}{% endfor %}
+        {% for gap in row.gaps %}<span>{{ gap.said }}</span>{% endfor %}
         <span>{% blocktranslate with date=row.tracked_from|day %}Tracked from {{ date }}{% endblocktranslate %}</span>
       </p>
       {% elif not account.receives_statements %}
@@ -202,7 +203,7 @@
     </div>
     {% for result in row.results %}{% with s=result.summary %}
     <div class="expand" id="counts-{{ account.pk }}-{{ forloop.counter }}" data-disclosed>
-      <ul class="counts">{% for c in result.counts %}<li{% if c.zero %} class="zero"{% endif %}><b>{{ c.figure }}</b><span>{{ c.text }}{% if forloop.last and not c.zero %} · <a href="{% url 'review_queue' %}">{% translate "Review queue" %}</a>{% endif %}</span></li>{% endfor %}</ul>
+      <ul class="counts">{% for c in result.counts %}<li{% if c.zero %} class="zero"{% endif %}><b>{{ c.figure }}</b><span>{{ c.text }}{% if c.links_review %} · <a href="{% url 'review_queue' %}">{% translate "Review queue" %}</a>{% endif %}</span></li>{% endfor %}</ul>
     </div>
     {% endwith %}{% endfor %}
     {% if row.statements %}
