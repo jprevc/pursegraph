@@ -4,7 +4,7 @@ import pytest
 from django.core.management import CommandError, call_command
 
 from ledger.management.commands.seed_demo import PASSWORD
-from ledger.models import Transaction
+from ledger.models import Account, Transaction
 from tests.conftest import log_in
 
 pytestmark = pytest.mark.django_db
@@ -31,3 +31,13 @@ def test_seed_demo_refuses_a_database_that_already_has_members(member):
         call_command("seed_demo")
 
     assert not Transaction.objects.exists()
+
+
+def test_seed_demo_has_coverage_with_a_gap_and_an_account_tracked_later():
+    call_command("seed_demo")
+
+    accounts = {a.name: a.coverage() for a in Account.objects.all()}
+    [sparkasse] = accounts["Ana's Sparkasse"]
+    [joint] = accounts["Joint Revolut"]
+    assert joint.start > sparkasse.start
+    assert len(accounts["Luka's N26"]) == 2

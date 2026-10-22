@@ -2,7 +2,7 @@
 <section class="panel drill-card" data-mark="{{ mark }}"{% if hue %} style="--hue: var(--{{ hue }})"{% endif %} aria-labelledby="drill-heading">
   <div class="card-head">
     {% if hue %}<i class="dot{% if hue == 'awaiting' %} awaiting{% endif %}" aria-hidden="true"></i>{% endif %}
-    <h2 id="drill-heading">{{ title }}</h2>
+    <h2 id="drill-heading">{{ title }}{% if qualifier %} <span class="qualifier">{{ qualifier }}</span>{% endif %}</h2>
     <button type="button" class="ghost icon-button" data-close aria-label="{% translate 'Close' %}">{% icon "x" %}</button>
   </div>
   {% if transactions %}

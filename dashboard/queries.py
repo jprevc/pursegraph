@@ -6,7 +6,6 @@ Transactions form an "Awaiting review" bucket: on the spending side, the unresol
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
-from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -61,6 +60,15 @@ class Filters:
         if self.accounts:
             q &= Q(account__in=self.accounts)
         return q
+
+    def included(self) -> QuerySet[Account]:
+        """The filtered Accounts."""
+        accounts = Account.objects.all()
+        if self.member:
+            accounts = accounts.filter(pk__in=_bucket(self.member))
+        if self.accounts:
+            accounts = accounts.filter(pk__in=self.accounts)
+        return accounts
 
 
 @dataclass(frozen=True)
@@ -164,22 +172,11 @@ def _spending(period: Period, filters: Filters) -> QuerySet[Transaction]:
     return _transactions(period, filters).filter(MONEY_OUT)
 
 
-def _months(period: Period) -> list[Period]:
-    """The months a Period touches, each cut to the Period."""
-    months = []
-    day = period.start
-    while day <= period.end:
-        month = Period.month(day.year, day.month)
-        months.append(Period("month", max(month.start, period.start), min(month.end, period.end)))
-        day = month.end + timedelta(days=1)
-    return months
-
-
 def _months_shown(period: Period, with_data: Iterable[str]) -> list[Period]:
     """The months of a Period a chart over time shows: those up to the current one, quiet ones too, and any later
     one holding Transactions (`with_data` are their keys)."""
     with_data = set(with_data)
-    return [m for m in _months(period) if m.start <= periods.today() or _month_key(m) in with_data]
+    return [m for m in period.months if m.start <= periods.today() or _month_key(m) in with_data]
 
 
 def _month_key(month: Period) -> str:
@@ -188,7 +185,7 @@ def _month_key(month: Period) -> str:
 
 def _month_in(period: Period, key: str) -> Period | None:
     """The month of `period` that `key` names, if any."""
-    return next((m for m in _months(period) if _month_key(m) == key), None)
+    return next((m for m in period.months if _month_key(m) == key), None)
 
 
 def _month_label(month: Period) -> str:
@@ -358,6 +355,7 @@ def category_trends(period: Period, filters: Filters) -> ViewData:
         rows.append(trend(_("Awaiting review"), AWAITING_REVIEW))
     chart = {
         "months": [_month_label(m) for m in months],
+        "keys": [_month_key(m) for m in months],
         "columns": _month_columns(months),
         "lines": [
             {
@@ -647,11 +645,19 @@ def _headline(period: Period, filters: Filters) -> tuple[Decimal, Decimal, Decim
     return money_out, money_in, money_in - money_out + others
 
 
+def awaiting_review(period: Period, filters: Filters) -> tuple[Decimal, Decimal | None]:
+    """The Period's money out awaiting review, and its share of all money out (None when there is none to share)."""
+    totals = _spending(period, filters).aggregate(
+        awaiting=-Sum("amount", filter=Q(subcategory__isnull=True)), spent=-Sum("amount")
+    )
+    awaiting, spent = totals["awaiting"] or Decimal(0), totals["spent"] or Decimal(0)
+    return awaiting, awaiting / spent if spent > 0 else None
+
+
 def tiles(view: str, period: Period, filters: Filters) -> list[Tile]:
     """Spent, Money in and Net for the Period, each against the Period before, under the filters the view itself
     heeds: Per Member ignores the Member filter."""
-    if view == "per_member":
-        filters = replace(filters, member=None)
+    filters = heeded(view, filters)
     (spent, money_in, net), (spent_before, money_in_before, net_before) = (
         _headline(period, filters),
         _headline(period.previous, filters),
@@ -661,6 +667,11 @@ def tiles(view: str, period: Period, filters: Filters) -> list[Tile]:
         Tile(_("Money in"), money_in, money_in_before),
         Tile(_("Net"), net, net_before, signed=True),
     ]
+
+
+def heeded(view: str, filters: Filters) -> Filters:
+    """The filters a view heeds: Per Member compares every Member, so it ignores the Member filter."""
+    return replace(filters, member=None) if view == "per_member" else filters
 
 
 def view_data(view: str, period: Period, filters: Filters) -> ViewData:

@@ -10,6 +10,10 @@
 {% if view == "per_member" and filters.member %}<p class="muted filter-note">{% translate "Per Member compares every Member, so it ignores the Member filter." %}</p>{% endif %}
 {# Refetched alone after an outcome is changed in the drill-down. #}
 <div id="numbers">
+{% if not_tracked %}
+{% include "dashboard/_not_tracked.html" %}
+{% else %}
+{% include "dashboard/_completeness.html" %}
 {% include "dashboard/_tiles.html" %}
 {% if data.rows %}
 {% with source=view|add:"-data" %}
@@ -24,6 +28,7 @@
 {% endwith %}
 {% else %}
 <p class="muted">{% block empty %}{% endblock %}</p>
+{% endif %}
 {% endif %}
 </div>
 <div id="drill" data-opens></div>

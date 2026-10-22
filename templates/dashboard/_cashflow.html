@@ -1,18 +1,24 @@
 {% extends "dashboard/_view.html" %}
-{% load figures i18n %}
+{% load figures i18n months %}
 {% block layout %}split wide{% endblock %}
 {% block table %}
 <table class="view-table">
   <thead><tr><th>{% translate "Month" %}</th><th class="num">{% translate "In" %}</th><th class="num">{% translate "Out" %}</th>{% if chart.others %}<th class="num">{% translate "To/from other Members" %}</th>{% endif %}<th class="num">{% translate "Net" %}</th></tr></thead>
   <tbody>
   {% for row in data.rows %}
+  {% with month=completeness|month_of:row.key %}
   <tr class="mark">
-    <td><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button></td>
+    <td{% if month.not_tracked %} class="faint"{% endif %}><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}{% if month.qualifier %} <span class="qualifier">{{ month.qualifier }}</span>{% endif %}</button></td>
+    {% if month.not_tracked %}
+    <td class="num faint">—</td><td class="num faint">—</td>{% if chart.others %}<td class="num faint">—</td>{% endif %}<td class="num faint">—</td>
+    {% else %}
     <td class="num">{{ row.money_in|money }}</td>
     <td class="num">{{ row.money_out|money }}</td>
     {% if chart.others %}<td class="num">{{ row.others|money_signed }}</td>{% endif %}
     <td class="num">{{ row.net|money_signed }}</td>
+    {% endif %}
   </tr>
+  {% endwith %}
   {% endfor %}
   </tbody>
   <tfoot><tr><th>{{ data.total.label }}</th><th class="num">{{ data.total.money_in|money }}</th><th class="num">{{ data.total.money_out|money }}</th>{% if chart.others %}<th class="num">{{ data.total.others|money_signed }}</th>{% endif %}<th class="num">{{ data.total.net|money_signed }}</th></tr></tfoot>

@@ -147,11 +147,11 @@ def household(member, django_user_model):
 
 
 def view_table(page):
-    """A dashboard view's table: each clickable row as [label, *amounts], in the order shown."""
+    """A dashboard view's table: each clickable row as [label, *amounts], in the order shown, as words."""
     return [
         [
-            html.unescape(cell)
-            for cell in re.findall(r"<td[^>]*>(?:<button[^>]*>)?([^<]*)(?:</button>)?</td>", row)
+            re.sub(r"[ \n]+", " ", html.unescape(re.sub(r"<[^>]+>", "", cell))).strip()
+            for cell in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
         ]
         for row in re.findall(r'<tr class="mark"[^>]*>(.*?)</tr>', page, re.S)
     ]
