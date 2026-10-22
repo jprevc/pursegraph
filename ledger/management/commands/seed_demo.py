@@ -1,13 +1,14 @@
 import random
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+from itertools import count
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from ledger.models import Account, Bank, Category, Source, Subcategory, Transaction
+from ledger.models import Account, Bank, Category, Source, Statement, Subcategory, Transaction
 
 # Synthetic, so it may sit in scripts and docs; the demo database is thrown away after use.
 PASSWORD = "demo-pass-123"
@@ -83,5 +84,33 @@ class Command(BaseCommand):
                     amount=-Decimal(rng.randint(500, 9000)) / 100,
                     description=f"Card payment {month}-{i + 1}",
                 )
+
+        # Coverage that shows every state of Period completeness: the Joint Revolut is tracked two months later
+        # than the others, and Luka's N26 lacks a month and has nothing yet since the end of last month.
+        def month_start(back):
+            year, month = divmod(today.year * 12 + today.month - 1 - back, 12)
+            return date(year, month + 1, 1)
+
+        hashes = count(1)
+
+        def statement(account, start, end):
+            Statement.objects.create(
+                account=account,
+                format=Statement.Format.PDF,
+                period_start=start,
+                period_end=end,
+                opening_balance=0,
+                closing_balance=0,
+                imported_by=ana,
+                # Stands in for a file's hash, which only has to be unique.
+                sha256=f"{next(hashes):064x}",
+                file=f"demo/{account.pk}-{start}.pdf",
+            )
+
+        before = timedelta(days=1)
+        statement(sparkasse, month_start(MONTHS), today)
+        statement(joint, month_start(MONTHS - 2), today)
+        statement(n26, month_start(MONTHS), month_start(4) - before)
+        statement(n26, month_start(3), month_start(0) - before)
 
         self.stdout.write(f"Seeded the demo Household: {Transaction.objects.count()} Transactions.")

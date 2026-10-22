@@ -35,11 +35,15 @@ def coverage(statements: Iterable) -> list[DateRange]:
     return ranges
 
 
-def gaps(ranges: list[DateRange]) -> list[DateRange]:
-    """The missing days between the date ranges of a Coverage."""
-    return [
+def gaps(ranges: list[DateRange], until: date | None = None) -> list[DateRange]:
+    """The missing days between the date ranges of a Coverage and, `until` a day (today, for a Gap), those since
+    its last one."""
+    missing = [
         DateRange(before.end + ONE_DAY, after.start - ONE_DAY) for before, after in pairwise(ranges)
     ]
+    if ranges and until and ranges[-1].end < until:
+        missing.append(DateRange(ranges[-1].end + ONE_DAY, until))
+    return missing
 
 
 @dataclass(frozen=True)

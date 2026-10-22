@@ -22,39 +22,20 @@ def category_key(name):
     return str(Category.objects.get(name=name).pk)
 
 
-def test_category_trends_default_to_the_last_12_months(logged_in_client, household):
+def test_category_trends_default_to_the_12_months_ending_with_the_last_full_month(
+    logged_in_client, household
+):
     page = logged_in_client.get("/trends/").content.decode()
 
     assert "Category trends" in page
-    assert "1 Nov 2025 – 31 Oct 2026" in page
-    assert "so far, to 15 Oct 2026" in page
+    assert "1 Oct 2025 – 30 Sep 2026" in page
+    assert "so far, to" not in page
     table = view_table(page)
     assert [row[0] for row in table] == ["Food", "Shopping", "Awaiting review"]
-    zeros = [f"0,00{EUR}"] * 9
-    assert table[0] == [
-        "Food",
-        *zeros,
-        f"999,00{EUR}",
-        f"180,00{EUR}",
-        f"777,00{EUR}",
-        f"1.956,00{EUR}",
-    ]
-    assert table[1] == [
-        "Shopping",
-        *zeros,
-        f"0,00{EUR}",
-        f"70,00{EUR}",
-        f"0,00{EUR}",
-        f"70,00{EUR}",
-    ]
-    assert table[2] == [
-        "Awaiting review",
-        *zeros,
-        f"0,00{EUR}",
-        f"12,30{EUR}",
-        f"0,00{EUR}",
-        f"12,30{EUR}",
-    ]
+    zeros = [f"0,00{EUR}"] * 10
+    assert table[0] == ["Food", *zeros, f"999,00{EUR}", f"180,00{EUR}", f"1.179,00{EUR}"]
+    assert table[1] == ["Shopping", *zeros, f"0,00{EUR}", f"70,00{EUR}", f"70,00{EUR}"]
+    assert table[2] == ["Awaiting review", *zeros, f"0,00{EUR}", f"12,30{EUR}", f"12,30{EUR}"]
 
 
 def test_the_chart_draws_one_line_per_category(logged_in_client, household):
@@ -93,7 +74,7 @@ def test_the_tables_month_columns_drop_the_year(logged_in_client, household):
 
     assert table_head(page) == [
         "Category",
-        *["Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"],
+        *["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"],
         "Total",
     ]
 

@@ -31,11 +31,11 @@ def test_a_longer_period_shows_every_month_so_far(logged_in_client, household):
     table = view_table(page)
     assert [row[0] for row in table] == [
         "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026",
-        "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026",
+        "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026 (so far)",
     ]  # fmt: skip
     assert table[6] == ["Jul 2026", f"0,00{EUR}", f"0,00{EUR}", f"0,00{EUR}"]
     assert table[7] == ["Aug 2026", f"1.500,00{EUR}", f"999,00{EUR}", f"+501,00{EUR}"]
-    assert table[9] == ["Oct 2026", f"0,00{EUR}", f"777,00{EUR}", f"−777,00{EUR}"]
+    assert table[9] == ["Oct 2026 (so far)", f"0,00{EUR}", f"777,00{EUR}", f"−777,00{EUR}"]
     assert f"5.050,00{EUR}" in page  # money in over the year
 
 
@@ -84,6 +84,6 @@ def test_a_transaction_dated_ahead_of_today_still_counts(logged_in_client, house
     page = logged_in_client.get("/cashflow/", {"period": "2026-Q4"}).content.decode()
 
     assert view_table(page) == [
-        ["Oct 2026", f"0,00{EUR}", f"777,00{EUR}", f"−777,00{EUR}"],
+        ["Oct 2026 (so far)", f"0,00{EUR}", f"777,00{EUR}", f"−777,00{EUR}"],
         ["Nov 2026", f"0,00{EUR}", f"10,00{EUR}", f"−10,00{EUR}"],
     ]

@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -15,7 +16,7 @@ from ledger.models import Statement, Transaction
 from ledger.views import wants_the_fragment_alone
 from pursegraph.htmx import announce
 
-from . import queries
+from . import completeness, queries
 from .periods import Period
 from .templatetags.hues import hue
 
@@ -124,8 +125,36 @@ def show(request, view: str):
     # A period chosen carries to the other views too; otherwise each opens on its own default.
     period_chosen = _period_chosen(request.GET)
     data = queries.view_data(v.name, period, filters)
+    heeded = queries.heeded(v.name, filters)
+    tracking = completeness.Tracking(heeded.included())
+    period_completeness = tracking.completeness(period)
+    household_start = completeness.household_start()
+    # A period wholly Not tracked shows the Not tracked card instead (a Not tracked month needs a first Coverage day).
+    not_tracked = (
+        completeness.not_tracked(period, tracking, household_start)
+        if household_start and period_completeness.state == completeness.NOT_TRACKED
+        else None
+    )
     view_template = f"dashboard/_{v.name}.html"
     members, accounts = queries.filter_choices()
+    # A mark's drill-down address is `drill` plus its key.
+    chart = {
+        **data.chart,
+        "drill": f"{reverse(v.name + '_transactions')}?period={period.token}{filter_query}"
+        f"&{v.mark_param}=",
+        # What the charts say besides the data: in tooltips, and on the bands behind incomplete months.
+        "words": {
+            "total": _("Total"),
+            "of_money_in": _("%(share)s of money in"),
+            "partial": _("Partial"),
+            "partly_tracked": _("Partly tracked"),
+            "in_progress": _("So far"),
+            "so_far": _("%(month)s (so far)"),
+        },
+    }
+    # A chart over months says how complete each one is.
+    if "keys" in chart:
+        completeness.mark_months(chart, period_completeness)
     context = {
         "view": v.name,
         "view_label": v.label,
@@ -133,6 +162,8 @@ def show(request, view: str):
         "page_title": f"{v.label} · {period.label}",
         "view_url": reverse(v.name),
         "period": period,
+        # The stepper stops at the period holding the Household's first Coverage day.
+        "first_period": bool(household_start and period.start <= household_start),
         "period_chosen": period_chosen,
         "filters": filters,
         "filter_query": filter_query,
@@ -141,14 +172,11 @@ def show(request, view: str):
         **carried_queries(_carried(period, period_chosen, filters)),
         "data": data,
         "tiles": queries.tiles(v.name, period, filters),
-        # A mark's drill-down address is `drill` plus its key.
-        "chart": {
-            **data.chart,
-            "drill": f"{reverse(v.name + '_transactions')}?period={period.token}{filter_query}"
-            f"&{v.mark_param}=",
-            # What the charts' tooltips say besides the data.
-            "words": {"total": _("Total"), "of_money_in": _("%(share)s of money in")},
-        },
+        "not_comparable": completeness.not_comparable(period, tracking),
+        "completeness": period_completeness,
+        "not_tracked": not_tracked,
+        "awaiting_review": queries.awaiting_review(period, heeded),
+        "chart": chart,
         "views": VIEWS.values(),
         "view_template": view_template,
         # Swapped in alone, the view also brings the sidebar's links, so that they carry its period and filters.
@@ -180,6 +208,11 @@ def transactions(request, view: str):
         "account", "subcategory__category"
     )
     label = queries.mark_label(v.name, period, filters, key) or _("Transactions")
+    judged = completeness.Tracking(queries.heeded(v.name, filters).included()).completeness(period)
+    # A month's mark takes its month's qualifier, as its table row does; any other mark the period's.
+    month = re.search(r"\d{4}-\d{2}", key)
+    marked = judged.month(month[0]) if month else None
+    qualifier = completeness.qualifier((marked or judged).state)
     response = render(
         request,
         "dashboard/_drill_down.html",
@@ -190,6 +223,8 @@ def transactions(request, view: str):
             # A Category's hue token, where the view's marks are Categories.
             "hue": hue(key) if v.name == "spending" else "",
             "title": _("%(mark)s · %(period)s") % {"mark": label, "period": period.label},
+            # The same qualifier as the tables', when the period isn't Complete.
+            "qualifier": qualifier,
             # Without HTMX, saving an outcome goes back to the view rather than to this fragment.
             "next": f"{reverse(v.name)}?period={period.token}{_filter_query(filters)}",
         },

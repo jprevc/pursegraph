@@ -1,20 +1,22 @@
 {% extends "dashboard/_view.html" %}
-{% load figures i18n %}
+{% load figures i18n months %}
 {% block layout %}stack{% endblock %}
 {% block table %}
 <div class="scroll">
+{% with months=completeness|months_of:chart.keys %}
 <table class="view-table">
-  <thead><tr><th>{% translate "Category" %}</th>{% for month in chart.columns %}<th class="num">{{ month }}</th>{% endfor %}<th class="num">{% translate "Total" %}</th></tr></thead>
+  <thead><tr><th>{% translate "Category" %}</th>{% for column, month in chart.columns|beside:months %}<th class="num{% if month.not_tracked %} faint{% endif %}">{{ column }}{% if month.qualifier %} <span class="qualifier">{{ month.qualifier }}</span>{% endif %}</th>{% endfor %}<th class="num">{% translate "Total" %}</th></tr></thead>
   <tbody>
   {% for row in data.rows %}
   <tr class="mark">
     <td><button type="button" class="mark-open" aria-controls="drill" hx-get="{{ chart.drill }}{{ row.key }}" hx-target="#drill">{{ row.label }}</button></td>
-    {% for amount in row.amounts %}<td class="num">{{ amount|money }}</td>{% endfor %}
+    {% for amount, month in row.amounts|beside:months %}{% if month.not_tracked %}<td class="num faint">—</td>{% else %}<td class="num">{{ amount|money }}</td>{% endif %}{% endfor %}
     <td class="num">{{ row.total|money }}</td>
   </tr>
   {% endfor %}
   </tbody>
 </table>
+{% endwith %}
 </div>
 {% endblock %}
 {% block chart_label %}{% translate "Line chart of spending per Category per month; the table below it has every figure." %}{% endblock %}

@@ -68,16 +68,20 @@ def day(value: date) -> str:
     return formats.date_format(value, "DATE_FORMAT")
 
 
-def date_range(start: date, end: date) -> str:
+def date_range(start: date, end: date, year: bool = True) -> str:
     """From `start` to `end`, dropping what repeats: "1–30 Sep 2026", "28 Sep – 3 Oct 2026",
-    "29 Dec 2025 – 4 Jan 2026". The dash is spaced once either side holds a space."""
+    "29 Dec 2025 – 4 Jan 2026". The dash is spaced once either side holds a space. Without `year`, a range within
+    one year drops it too, where the year is plain from around it: "1–31 Jul"."""
+    last = (
+        day(end) if year or start.year != end.year else formats.date_format(end, "MONTH_DAY_FORMAT")
+    )
     if start == end:
-        return day(start)
+        return last
     if (start.year, start.month) == (end.year, end.month):
-        return f"{formats.date_format(start, 'j')}–{day(end)}"
+        return f"{formats.date_format(start, 'j')}–{last}"
     if start.year == end.year:
-        return f"{formats.date_format(start, 'MONTH_DAY_FORMAT')} – {day(end)}"
-    return f"{day(start)} – {day(end)}"
+        return f"{formats.date_format(start, 'MONTH_DAY_FORMAT')} – {last}"
+    return f"{day(start)} – {last}"
 
 
 def month(value: date) -> str:

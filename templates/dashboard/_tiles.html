@@ -1,11 +1,11 @@
-{% load figures i18n %}{# The stat tiles: the Period's headline figures, each against the Period before. Needs `tiles` and `period`. #}
+{% load figures i18n %}{# The stat tiles: the Period's headline figures, each against the Period before. Needs `tiles`, `period` and `not_comparable`. #}
 <section class="tiles" aria-label="{% translate 'This period' %}">
   {% with before=period.previous.compared_label %}
   {% for tile in tiles %}
   <div class="panel tile">
     <p class="tile-label">{{ tile.label }}</p>
     <p class="tile-figure fig">{% if tile.signed %}{{ tile.amount|money_signed }}{% else %}{{ tile.amount|money }}{% endif %}</p>
-    <p class="compare">{% if tile.direction == "same" %}{% blocktranslate %}Same as {{ before }}{% endblocktranslate %}{% else %}{% with change=tile.change|money %}{% if tile.direction == "more" %}{% blocktranslate %}{{ change }} more than {{ before }}{% endblocktranslate %}{% else %}{% blocktranslate %}{{ change }} less than {{ before }}{% endblocktranslate %}{% endif %}{% endwith %}{% endif %}</p>
+    <p class="compare">{% if not_comparable %}{{ not_comparable }}{% elif tile.direction == "same" %}{% blocktranslate %}Same as {{ before }}{% endblocktranslate %}{% else %}{% with change=tile.change|money %}{% if tile.direction == "more" %}{% blocktranslate %}{{ change }} more than {{ before }}{% endblocktranslate %}{% else %}{% blocktranslate %}{{ change }} less than {{ before }}{% endblocktranslate %}{% endif %}{% endwith %}{% endif %}</p>
   </div>
   {% endfor %}
   {% endwith %}

@@ -1,7 +1,7 @@
-{% load figures i18n icons %}{# The period selector. Needs `period`, `filters`, `filter_query` and `view_url`; every control swaps #view. #}
+{% load figures i18n icons %}{# The period selector. Needs `period`, `first_period`, `filters`, `filter_query` and `view_url`; every control swaps #view. #}
 <div class="period" hx-target="#view" hx-push-url="true">
   <span class="stepper">
-  <a class="step" href="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" aria-label="{% translate 'Previous period' %}">{% icon "left" %}</a>
+  {% if first_period %}<span class="step off">{% icon "left" %}</span>{% else %}<a class="step" href="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" aria-label="{% translate 'Previous period' %}">{% icon "left" %}</a>{% endif %}
   <span class="period-label">{{ period.label }}{% if period.so_far %} <span class="muted">{% blocktranslate with date=period.so_far|day %}so far, to {{ date }}{% endblocktranslate %}</span>{% endif %}</span>
   {% if period.next %}<a class="step" href="{{ view_url }}?period={{ period.next.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.next.token }}{{ filter_query }}" aria-label="{% translate 'Next period' %}">{% icon "right" %}</a>{% else %}<span class="step off">{% icon "right" %}</span>{% endif %}
   </span>

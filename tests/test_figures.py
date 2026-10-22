@@ -89,6 +89,19 @@ def test_a_range_drops_the_repeated_month_and_year(start, end, shown):
     assert render("{{ start|date_range:end }}", start=start, end=end) == shown
 
 
+@pytest.mark.parametrize(
+    ("start", "end", "shown"),
+    [
+        (date(2026, 7, 1), date(2026, 7, 31), "1–31 Jul"),
+        (date(2026, 9, 16), date(2026, 10, 17), "16 Sep – 17 Oct"),
+        (date(2026, 9, 5), date(2026, 9, 5), "5 Sep"),
+        (date(2025, 12, 29), date(2026, 1, 4), "29 Dec 2025 – 4 Jan 2026"),
+    ],
+)
+def test_a_range_within_a_year_can_drop_the_year(start, end, shown):
+    assert figures.date_range(start, end, year=False) == shown
+
+
 def test_a_month_is_spelled_out():
     assert render("{{ d|month }}", d=date(2026, 9, 1)) == "September 2026"
 

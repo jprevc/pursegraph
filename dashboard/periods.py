@@ -76,9 +76,9 @@ class Period:
 
     @classmethod
     def last_12_months(cls) -> "Period":
-        """The Category trends' default: the 12 months up to the current one."""
+        """The Category trends' default: the 12 months ending with the last complete one."""
         now = today()
-        return cls.last12(now.year, now.month)
+        return cls.last12(now.year, now.month - 1)
 
     @classmethod
     def parse(cls, token: str, default: "Callable[[], Period] | None" = None) -> "Period":
@@ -136,18 +136,23 @@ class Period:
             return f"last12-{self.end:%Y-%m}"
         return f"{self.start.isoformat()}..{self.end.isoformat()}"
 
+    @classmethod
+    def containing(cls, unit: str, day: date) -> "Period":
+        """The Period of `unit` holding `day`: for Last 12 months, the 12 ending with its month, and for a Custom
+        range, its month."""
+        if unit == "quarter":
+            return cls.quarter(day.year, _quarter_of(day))
+        if unit == "year":
+            return cls.year(day.year)
+        if unit == "last12":
+            return cls.last12(day.year, day.month)
+        return cls.month(day.year, day.month)
+
     def as_unit(self, unit: str) -> "Period":
         """The Period of `unit` holding this one's last month, so switching units stays near the same dates."""
-        last = min(self.end, today())
-        if unit == "month":
-            return Period.month(last.year, last.month)
-        if unit == "quarter":
-            return Period.quarter(last.year, _quarter_of(last))
-        if unit == "year":
-            return Period.year(last.year)
-        if unit == "last12":
-            return Period.last12(last.year, last.month)
-        return Period("custom", self.start, self.end)
+        if unit == "custom":
+            return Period("custom", self.start, self.end)
+        return Period.containing(unit, min(self.end, today()))
 
     def units(self) -> list[tuple[str, str, bool]]:
         """The period selector's options: each unit's token, label and whether it is this Period's unit."""
@@ -162,6 +167,17 @@ class Period:
         start = _month_start(self.start.year, self.start.month + direction * months)
         end = _month_end(self.end.year, self.end.month + direction * months)
         return Period(self.unit, start, end)
+
+    @property
+    def months(self) -> "list[Period]":
+        """The months this Period touches, each cut to it."""
+        months = []
+        day = self.start
+        while day <= self.end:
+            month = Period.month(day.year, day.month)
+            months.append(Period("month", max(month.start, self.start), min(month.end, self.end)))
+            day = month.end + timedelta(days=1)
+        return months
 
     @property
     def previous(self) -> "Period":

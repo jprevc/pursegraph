@@ -13,13 +13,13 @@
 
   // The options' building blocks in the current theme's colours: the parts every chart shares (docs/design/charts.md).
   const theme = () => {
-    const INK = token('ink'), INK2 = token('ink-2'), MUTED = token('muted'), LINE = token('line'), LINE_STRONG = token('line-strong'), CARD = token('card');
+    const INK = token('ink'), INK2 = token('ink-2'), MUTED = token('muted'), FAINT = token('faint'), LINE = token('line'), LINE_STRONG = token('line-strong'), CARD = token('card');
     // A Category keeps its hue in every view: cat-((id − 1) mod 10). Awaiting review is always its neutral grey.
     const colour = key => key === AWAITING ? token('awaiting') : token(`cat-${(Number(key) - 1) % 10}`);
     const text = (fontSize, fontWeight, color) => ({ fontFamily: token('font'), fontSize, fontWeight, color });
     const shadow = { type: 'shadow', shadowStyle: { color: token('hover'), opacity: 0.6 } };
     return {
-      INK, INK2, MUTED, LINE, LINE_STRONG, CARD, colour, text,
+      INK, INK2, MUTED, FAINT, LINE, LINE_STRONG, CARD, colour, text,
       // The entrance, once on mount: not on a rebuild, and never under reduced motion. The chart's description is
       // its element's label, rather than ECharts' own (English) one.
       base: ({ animate, label }) => ({
@@ -51,6 +51,56 @@
   };
 
   const html = echarts.format.encodeHTML;
+
+  // ---- Period completeness (docs/design/period-completeness.md): each month of a chart over months has a state ----
+  const BANDED = ['partial', 'partly_tracked', 'in_progress'];
+  const stateOf = (data, i) => data.states?.[i] || 'complete';
+  // The month axis: a Not tracked month's label is Faint, and the running month's reads "Oct (so far)", whatever its state.
+  const monthAxis = (data, { categoryAxis, text, MUTED, FAINT }, extra = {}) => categoryAxis(data.months, {
+    ...extra,
+    axisLabel: {
+      ...text(12, 400, MUTED),
+      // The labels thin out on a narrow axis, but never the running month's.
+      showMaxLabel: data.keys.at(-1) === data.running || null,
+      color: (_value, i) => stateOf(data, i) === 'not_tracked' ? FAINT : MUTED,
+      formatter: (value, i) => data.keys[i] === data.running ? data.words.so_far.replace('%(month)s', value) : value,
+    },
+  });
+  // A full-height band in Hover behind each Partial, Partly tracked and In progress month, labelled at its top. The
+  // bands are bars on hidden axes of their own: a markArea from a month to itself has no width on a category axis,
+  // and on the shared axes they would join Cash flow's bar groups. Hiding a legend entry never hides them.
+  const BANDS = 'bands';
+  // Months in a row in one state make one wide band, labelled once, its label breaking to the band's width.
+  const bands = (data, { text, MUTED }, { width }) => data.states?.some(s => BANDED.includes(s)) ? {
+    xAxis: [{ type: 'category', data: data.months, show: false, boundaryGap: true, axisPointer: { show: false } }],
+    yAxis: [{ type: 'value', show: false, min: 0, max: 1 }],
+    series: [{
+      id: BANDS, type: 'bar', xAxisIndex: 1, yAxisIndex: 1, z: 0, barWidth: '100%', silent: true, tooltip: { show: false },
+      itemStyle: { color: token('hover') }, emphasis: { disabled: true },
+      label: { position: 'insideTop', distance: 6, ...text(11, 500, MUTED), overflow: 'break', lineHeight: 14 },
+      data: data.states.map((s, i) => {
+        if (!BANDED.includes(s)) return null;
+        if (data.states[i - 1] === s) return { value: 1, label: { show: false } };
+        let run = 1;
+        while (data.states[i + run] === s) run++;
+        // The grid's width less the value axis' labels, shared by the months. A band too narrow for the label's longest
+        // word (about 6px a letter at 11px) goes unlabelled, on a phone: the table's qualifiers and the tooltip say it.
+        const room = (width - 64) / data.states.length * run - 8;
+        const word = Math.max(...data.words[s].split(' ').map(w => w.length)) * 6;
+        return { value: 1, label: { show: room >= word, formatter: data.words[s], width: room } };
+      }),
+    }],
+  } : { xAxis: [], yAxis: [], series: [] };
+  // What an axis tooltip says first about its month: why it is incomplete, if it is.
+  const reasonOf = (data, i) => data.reasons?.[i] ? `<p class="tip-reason">${html(data.reasons[i])}</p>` : '';
+  // An axis tooltip for a month: a Not tracked one says only why; the others open with the reason above their table.
+  const monthTip = (data, ps, tip) => {
+    ps = ps.filter(p => p.seriesId !== BANDS);
+    if (!ps.length) return '';
+    const i = ps[0].dataIndex;
+    if (stateOf(data, i) === 'not_tracked') return `<p class="tip-head">${html(ps[0].axisValue)}</p>${reasonOf(data, i)}`;
+    return tip(ps).replace('</p>', `</p>${reasonOf(data, i)}`);
+  };
   const dot = (colour, hatched) => `<i class="dot${hatched ? ' awaiting' : ''}" style="--hue: ${colour}"></i>`;
   // An axis tooltip: the month (or Bucket), then one row per series (dot, name, amount), and a Total under a hairline.
   const table = (title, rows, total) => `<p class="tip-head">${html(title)}</p><table class="tip">${rows.map(r =>
@@ -107,7 +157,9 @@
     },
 
     // Grouped Money in and Money out bars (Money out is Muted: spending as a whole is no Category), and Net as an Ink line.
-    cashflow: (data, { base, tooltip, pointer, legend, valueAxis, categoryAxis, focus, INK, INK2, MUTED, CARD, colour }, view) => {
+    cashflow: (data, look, view) => {
+      const { base, tooltip, pointer, legend, valueAxis, focus, INK, INK2, MUTED, CARD, colour } = look;
+      const band = bands(data, look, view);
       const IN = data.in_key ? standingOff(colour(data.in_key), CARD, INK) : INK2;
       const marks = (values, side) => values.map((value, i) => ({ value, key: side ? `${data.keys[i]}:${side}` : data.keys[i] }));
       const bar = (name, values, side, color) => ({
@@ -122,13 +174,14 @@
         ...base(view), legend,
         tooltip: {
           ...tooltip, trigger: 'axis', axisPointer: pointer.bar,
-          formatter: ps => table(ps[0].axisValue, ps.map(p => ({
+          formatter: ps => monthTip(data, ps, ps => table(ps[0].axisValue, ps.map(p => ({
             name: p.seriesName, colour: p.color, value: p.seriesType === 'line' ? moneySigned(p.value) : money(p.value),
-          }))),
+          })))),
         },
         grid: { left: 4, right: 8, top: 40, bottom: 4, containLabel: true },
-        xAxis: categoryAxis(data.months), yAxis: valueAxis,
+        xAxis: [monthAxis(data, look), ...band.xAxis], yAxis: [valueAxis, ...band.yAxis],
         series: [
+          ...band.series,
           bar(data.labels.in, data.in, 'in', IN),
           bar(data.labels.out, data.out, 'out', MUTED),
           line(data.labels.net, data.net, null, INK, 'solid'),
@@ -139,18 +192,27 @@
     },
 
     // One line per Category in its hue, points only on hover; Awaiting review dashed, as a line can't carry the hatch.
-    // Clicking a Category in the legend hides its line.
-    trends: (data, { base, tooltip, pointer, legend, valueAxis, categoryAxis, focus, colour }, view) => ({
-      ...base(view), legend,
-      tooltip: { ...tooltip, trigger: 'axis', axisPointer: pointer.line, formatter: ps => ranked(ps, data.words, p => data.lines[p.seriesIndex].key === AWAITING) },
-      grid: { left: 4, right: 32, top: 40, bottom: 4, containLabel: true },
-      xAxis: categoryAxis(data.months, { boundaryGap: false }), yAxis: valueAxis,
-      series: data.lines.map(line => ({
-        name: line.name, type: 'line', cursor: 'pointer', showSymbol: false, symbol: 'circle', symbolSize: 7, ...focus,
-        data: line.data.map((value, j) => ({ value, key: line.keys[j] })),
-        lineStyle: { width: 2, color: colour(line.key), type: line.key === AWAITING ? 'dashed' : 'solid' }, itemStyle: { color: colour(line.key) },
-      })),
-    }),
+    // Clicking a Category in the legend hides its line. Points sit at month centres, so that each month is a column a
+    // band can fill.
+    trends: (data, look, view) => {
+      const { base, tooltip, pointer, legend, valueAxis, focus, colour } = look;
+      const band = bands(data, look, view);
+      const lines = data.lines.map(line => line.key);
+      return {
+        ...base(view), legend,
+        tooltip: {
+          ...tooltip, trigger: 'axis', axisPointer: pointer.line,
+          formatter: ps => monthTip(data, ps, ps => ranked(ps, data.words, p => lines[p.seriesIndex - band.series.length] === AWAITING)),
+        },
+        grid: { left: 4, right: 32, top: 40, bottom: 4, containLabel: true },
+        xAxis: [monthAxis(data, look, { boundaryGap: true }), ...band.xAxis], yAxis: [valueAxis, ...band.yAxis],
+        series: [...band.series, ...data.lines.map(line => ({
+          name: line.name, type: 'line', cursor: 'pointer', showSymbol: false, symbol: 'circle', symbolSize: 7, ...focus,
+          data: line.data.map((value, j) => ({ value, key: line.keys[j] })),
+          lineStyle: { width: 2, color: colour(line.key), type: line.key === AWAITING ? 'dashed' : 'solid' }, itemStyle: { color: colour(line.key) },
+        }))],
+      };
+    },
 
     // A stacked bar per Bucket, segments in Category hues and Awaiting review hatched. A Category that nets to a
     // Refund draws its segment below zero.
@@ -214,7 +276,7 @@
   const dataOf = el => JSON.parse(document.getElementById(el.dataset.source).textContent);
   // ECharts has no live theme switch, and a narrow chart lays out differently: rebuild the options from the tokens.
   const build = (chart, el, animate = false) => chart.setOption(
-    options[el.dataset.chart](dataOf(el), theme(), { narrow: el.clientWidth < 420, open: el.dataset.open, animate, label: el.getAttribute('aria-label') }),
+    options[el.dataset.chart](dataOf(el), theme(), { narrow: el.clientWidth < 420, width: el.clientWidth, open: el.dataset.open, animate, label: el.getAttribute('aria-label') }),
     { notMerge: true },
   );
   // `quiet` for the numbers refetched after an outcome changed: the same view, so its donut doesn't sweep in again.
@@ -332,6 +394,15 @@
       light(row.dataset.key, on);
     });
   }
+  // The header line's "and 2 more" expands the rest of its Accounts in place, and focus moves on to the first of them.
+  document.addEventListener('click', e => {
+    const more = e.target.closest('.completeness [data-more]');
+    if (!more) return;
+    const wrap = more.parentElement, rest = wrap.nextElementSibling;
+    rest.hidden = false;
+    wrap.remove();
+    rest.querySelector('a')?.focus();
+  });
   document.addEventListener('keydown', e => {
     // From the drill-down, or from the list or table that opened it.
     const from = document.activeElement;

@@ -566,6 +566,7 @@ button.cat-open::after { content: ""; position: absolute; inset: 0; border-radiu
 .view-table td { padding: var(--s-2) var(--s-3); }
 /* A chart's tooltip (static/dashboard.js): the month, a row per series and a Total under a hairline. */
 .chart .tip-head { margin: 0 0 var(--s-1); font-weight: 600; }
+.chart .tip-reason { max-width: 16.25rem; margin: 0 0 var(--s-2); color: var(--muted); font-size: var(--text-label); white-space: normal; }
 .chart .tip { border-collapse: collapse; }
 .chart .tip td { padding: 2px 0; border: 0; }
 .chart .tip td:first-child { padding-right: var(--s-4); color: var(--ink-2); }
@@ -599,6 +600,45 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .drill-card th:last-child, .drill-card td:last-child { padding-right: var(--s-5); }
 .drill-card > p.muted { margin: 0; padding: var(--s-3) var(--s-5) 0; }
 .drill-card > p.foot { padding: var(--s-3) var(--s-5) var(--s-5); font-size: var(--text-sm); }
+.drill-card .card-head .qualifier { color: var(--muted); font-weight: 400; }
+
+/* Period completeness (docs/design/period-completeness.md). The header line: quiet Ink 2 with a muted info icon, no
+   fill, border or alert colour (the No Verdict Rule). On a phone it wraps, never truncated. */
+.completeness { display: flex; align-items: flex-start; gap: var(--s-2); margin: 0 0 var(--s-3); color: var(--ink-2); font-size: var(--text-sm); line-height: 1.25rem; }
+.completeness > .icon { margin-top: 2px; color: var(--muted); }
+.completeness a { color: var(--ink-2); text-decoration-color: var(--line-strong); }
+.completeness a:hover { color: var(--ink); text-decoration-color: currentColor; }
+.completeness .sep { color: var(--muted); }
+.completeness button.link { margin: 0; font-size: inherit; line-height: inherit; }
+/* A month's qualifier wraps under it, so that it never widens the table. */
+.view-table .qualifier { display: block; color: var(--muted); font-size: var(--text-label); font-weight: 400; white-space: normal; }
+.view-table button.mark-open:has(.qualifier) { flex-direction: column; align-items: flex-start; gap: 0; }
+/* A Not tracked month: no figures, not zeros. Muted rather than Faint, as text must stand 4.5:1 off the card. */
+.view-table .faint, .view-table td.faint { color: var(--muted); font-weight: 400; }
+
+/* The Not tracked card, in place of a view: why there are no numbers, the Coverage timeline and where to go. */
+.not-tracked { display: flex; flex-direction: column; align-items: center; gap: var(--s-3); padding: var(--s-8) var(--s-5); text-align: center; }
+.not-tracked-icon { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); }
+.not-tracked-icon .icon { width: 1.375rem; height: 1.375rem; }
+.not-tracked h2 { margin: 0; font-size: var(--text-wordmark); }
+.not-tracked > p.muted { max-width: 52ch; margin: 0; text-wrap: pretty; }
+.not-tracked > p.timeline-legend { max-width: none; }
+/* One row per Account, one column per month: a Muted pill where it has Statements, a Line Strong dash where not.
+   The shown period's columns take Indigo Wash. No Category hue: Coverage isn't data. */
+.timeline {
+  display: grid; grid-template-columns: minmax(0, max-content) repeat(var(--months), minmax(0, 1fr)); align-items: center;
+  column-gap: 2px; row-gap: var(--s-2); width: 100%; max-width: 47.5rem; margin-top: var(--s-3); text-align: left;
+}
+.timeline-shown { align-self: stretch; margin: calc(var(--s-1) * -1) 0; border-radius: var(--r-inner); background: var(--accent-soft); }
+.timeline-month { z-index: 1; overflow: visible; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.timeline-month.shown { color: var(--accent-text); font-weight: 600; }
+.timeline-account { z-index: 1; padding-right: var(--s-3); overflow: hidden; color: var(--ink); font-size: var(--text-sm); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.timeline .tracked, .timeline-legend .key.tracked { z-index: 1; height: 14px; border-radius: var(--r-pill); background: var(--muted); }
+.timeline .untracked, .timeline-legend .key.untracked { z-index: 1; height: 2px; margin: 0 3px; border-radius: 1px; background: var(--line-strong); }
+.timeline-legend { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--s-1) var(--s-2); margin: 0; font-size: var(--text-sm); }
+.timeline-legend > span { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
+.timeline-legend .key { display: inline-block; width: 1rem; margin: 0; }
+.not-tracked .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-2); margin-top: var(--s-3); }
 
 @media (max-width: 900px) {
   /* The stepper takes a full row; the unit, Member and Account controls share the next. */
@@ -629,6 +669,11 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
   .sub .amt { grid-column: 4; }
 
   #drill { scroll-margin-top: 7.5rem; }
+
+  /* The timeline keeps the quarters' labels, and the shown period's. */
+  .timeline-month:not(.quarter, .shown) { visibility: hidden; }
+  .timeline-account { max-width: 7.5rem; padding-right: var(--s-2); }
+  .not-tracked { padding: var(--s-6) var(--s-4); }
 }
 
 /* ---------- Swaps ---------- */

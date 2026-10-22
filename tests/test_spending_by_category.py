@@ -95,7 +95,7 @@ def test_dashboard_lands_on_spending_by_category_for_the_last_complete_month(
 
     assert '<a href="/spending/" aria-current="page"' in page
     assert "September 2026" in page
-    assert "so far" not in page
+    assert "so far, to" not in page
     assert list(spending_table(page)) == ["Food", "Shopping", "Awaiting review"]
 
 
