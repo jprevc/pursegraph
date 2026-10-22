@@ -1,0 +1,44 @@
+{% load i18n icons %}{# The facet rail's content, swapped out of band after every pick: each facet is a GET form whose options submit its parameter and carry the rest. On a phone the rail is the Filter sheet, with its head and its foot. #}
+<div id="facets">
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <h2 id="rail-h">{% translate "Filter" %}</h2>
+    {% if names %}<a class="clear-all" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear all" %}</a>{% endif %}
+  </div>
+  {% for group in groups %}
+  <form class="facet" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" aria-labelledby="facet-{{ group.param }}">
+    {% for name, value in group.carry %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <h3 class="facet-h"><span id="facet-{{ group.param }}">{{ group.label }}</span>{% if group.chosen %}<button type="submit" id="clear-{{ group.param }}" class="link" aria-label="{% blocktranslate with facet=group.label %}Clear {{ facet }}{% endblocktranslate %}">{% translate "Clear" %}</button>{% endif %}</h3>
+    {% for o in group.options %}
+    <button type="submit" id="f-{{ group.param }}-{{ o.key }}" class="fopt{% if o.sub %} sub{% endif %}{% if not o.count %} zero{% endif %}"{% if o.pick %} name="{{ group.param }}" value="{{ o.pick }}"{% endif %} aria-pressed="{% if o.chosen %}true{% else %}false{% endif %}">
+      {% if o.dot == "awaiting" or o.dot == "transfer" %}<i class="dot {{ o.dot }}" aria-hidden="true"></i>{% elif o.dot %}<i class="dot" style="--hue: var(--{{ o.dot }})" aria-hidden="true"></i>{% endif %}
+      <span class="t">{{ o.label }}{% if o.note %}<small>{{ o.note }}</small>{% endif %}</span>
+      <span class="n fig">{{ o.count }}</span>
+    </button>
+    {% endfor %}
+  </form>
+  {% endfor %}
+  <form class="facet amount" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" hx-trigger="submit, change[target.type==='radio'], input[target.type!=='radio'] delay:500ms" hx-sync="this:replace" aria-labelledby="facet-amount">
+    {% for name, value in amount_carry %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <h3 class="facet-h"><span id="facet-amount">{% translate "Amount" %}</span>{% if choice.direction or choice.least is not None or choice.most is not None %}<a class="link" id="clear-amount" href="{% url 'transactions' %}?{{ amount_clear_query }}" hx-get="{% url 'transactions' %}?{{ amount_clear_query }}" aria-label="{% translate 'Clear Amount' %}">{% translate "Clear" %}</a>{% endif %}</h3>
+    <fieldset class="seg">
+      <legend class="sr">{% translate "Money" %}</legend>
+      <label><input type="radio" id="f-dir-any" name="dir" value=""{% if not choice.direction %} checked{% endif %}>{% translate "Any" %}</label>
+      <label><input type="radio" id="f-dir-out" name="dir" value="out"{% if choice.direction == "out" %} checked{% endif %}>{% translate "Out" %}</label>
+      <label><input type="radio" id="f-dir-in" name="dir" value="in"{% if choice.direction == "in" %} checked{% endif %}>{% translate "In" %}</label>
+    </fieldset>
+    <div class="between">
+      <span id="between-h">{% translate "Amount between" %}</span>
+      <div class="pair">
+        <input type="text" id="f-min" name="min" value="{{ amount_least }}" inputmode="decimal" autocomplete="off" aria-labelledby="between-h" aria-describedby="f-min-d" placeholder="0">
+        <span id="f-min-d" class="sr">{% translate "at least" %}</span>
+        <span aria-hidden="true">{% translate "and" %}</span>
+        <input type="text" id="f-max" name="max" value="{{ amount_most }}" inputmode="decimal" autocomplete="off" aria-label="{% translate 'and at most' %}" placeholder="{% translate 'any' %}">
+      </div>
+    </div>
+    <noscript><button type="submit">{% translate "Apply" %}</button></noscript>
+  </form>
+  <div class="sheet-foot">
+    <button type="button" class="primary" popovertarget="rail" popovertargetaction="hide">{% blocktranslate count n=count %}Show {{ n }} Transaction{% plural %}Show {{ n }} Transactions{% endblocktranslate %}</button>
+  </div>
+</div>

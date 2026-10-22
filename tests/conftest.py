@@ -44,7 +44,7 @@ def outcome_shown(page, description):
     )
     assert row, f"no row for {description!r}"
     if label := re.search(
-        r'<span class="oc-label">(.*?)(?:<span class="cap">|</span>\s*<form)', row[0], re.S
+        r'<span class="oc-label">(.*?)(?:<span class="cap"[ >]|</span>\s*<form)', row[0], re.S
     ):
         words = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", label[1])).split())
         return words.replace(" › ", " → ")

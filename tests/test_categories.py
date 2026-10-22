@@ -135,8 +135,9 @@ def test_new_subcategories_are_offered_as_outcomes(admin_client):
 
     page = admin_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Corner Shop") == "Food → Snacks"
-    # Listed before the catch-all.
-    assert page.index(">Snacks<") < page.index(">Other<")
+    # Listed before the catch-all, in the rows' outcome picker.
+    table = page[page.index('<table class="rows">') :]
+    assert table.index(">Food › Snacks<") < table.index(">Food › Other<")
 
 
 def test_renaming_shows_everywhere(admin_client):

@@ -20,6 +20,13 @@ def announce(response: HttpResponse, message: str) -> HttpResponse:
     return response
 
 
+def wants_the_fragment_alone(request) -> bool:
+    """HTMX swapping a page's content in. Restoring history after a cache miss needs the whole page."""
+    return bool(
+        request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
+    )
+
+
 def _triggers(header: str) -> dict:
     """`HX-Trigger`'s events, from its JSON form or its comma-separated names."""
     if header.startswith("{"):

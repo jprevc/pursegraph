@@ -63,7 +63,7 @@ def test_a_transfer_can_be_categorized_again(logged_in_client):
 def test_changing_an_automatic_outcome_makes_it_manual(logged_in_client):
     upload(logged_in_client)
     page = logged_in_client.get("/transactions/").content.decode()
-    assert "by hand" not in page
+    assert ">by hand</span>" not in page
 
     logged_in_client.post(
         f"/transactions/{transaction_id('Fee: Corner Shop')}/outcome/",
@@ -72,7 +72,7 @@ def test_changing_an_automatic_outcome_makes_it_manual(logged_in_client):
 
     page = logged_in_client.get("/transactions/").content.decode()
     assert outcome_shown(page, "Fee: Corner Shop") == "Finance → Other"
-    assert page.count("by hand") == 1
+    assert page.count(">by hand</span>") == 1
 
 
 def test_an_unknown_outcome_is_refused(logged_in_client):

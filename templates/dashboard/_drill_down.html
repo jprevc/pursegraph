@@ -18,5 +18,8 @@
   {% else %}
   <p class="muted">{% translate "No Transactions here." %}</p>
   {% endif %}
-  <p class="muted foot">{% translate "Changing an outcome moves the amount between Categories at once." %}</p>
+  <div class="foot">
+    <p class="muted">{% translate "Changing an outcome moves the amount between Categories at once." %}</p>
+    {% if all_url %}<a class="all" href="{{ all_url }}" hx-get="{{ all_url }}" hx-target="main" hx-push-url="true">{% blocktranslate count n=transactions|length %}All {{ n }} in Transactions ›{% plural %}All {{ n }} in Transactions ›{% endblocktranslate %}</a>{% endif %}
+  </div>
 </section>

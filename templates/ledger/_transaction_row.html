@@ -19,7 +19,7 @@ to, and `saved` adds the line that says so, with Undo. {% endcomment %}
         {% elif t.is_transfer %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer" %}</span>
         {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "Awaiting review" %}</span>{% endif %}
         {% if t.ambiguous_pairing %}<span class="cap">{% translate "other side unknown" %}</span>
-        {% elif t.source_caption %}<span class="cap">{{ t.source_caption }}</span>{% endif %}
+        {% elif t.source_caption %}<span class="cap" title="{{ t.source_reason }}">{{ t.source_caption }}</span>{% endif %}
       </span>
       <form class="oc-form" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}" method="post" action="{{ outcome_url }}" hx-post="{{ outcome_url }}" hx-target="closest tr" hx-swap="outerHTML">
         {% csrf_token %}

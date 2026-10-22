@@ -126,3 +126,38 @@ def test_undo_is_refused_once_the_rule_that_had_set_it_is_deleted(logged_in_clie
 
     assert undo(logged_in_client, "Mercator").status_code == 400
     assert Transaction.objects.get(description="Mercator").is_transfer
+
+
+def test_the_source_caption_carries_the_specific_reason_as_its_title(db):
+    from datetime import date
+
+    from ledger.models import Account
+
+    account = Account.objects.create(name="Joint N26", bank="n26")
+    savings = Account.objects.create(name="Savings", bank="n26")
+    groceries = Subcategory.objects.get(category__name="Food", name="Groceries")
+    rule = Rule.objects.create(description_contains="HOFER", subcategory=groceries)
+
+    def made(**outcome):
+        return Transaction.objects.create(
+            account=account, date=date(2026, 9, 8), amount=-5, description="x", **outcome
+        )
+
+    by_rule = made(subcategory=groceries, source=Source.RULE, rule=rule)
+    by_lost_rule = made(subcategory=groceries, source=Source.RULE)
+    by_llm = made(
+        subcategory=groceries, source=Source.LLM, suggested_subcategory=groceries, confidence=0.92
+    )
+    by_iban = made(is_transfer=True, source=Source.IBAN, counterparty_iban="SI56 1234")
+    other_side = Transaction.objects.create(
+        account=savings, date=date(2026, 9, 9), amount=5, description="y", is_transfer=True
+    )
+    paired = made(is_transfer=True, source=Source.PAIRING, counterpart=other_side)
+
+    assert by_rule.source_reason == "Matched the Rule “HOFER” → Food › Groceries"
+    assert by_lost_rule.source_reason == "A Rule matched it; the Rule has since been deleted."
+    assert by_llm.source_reason == "The local model suggested it, 92 % sure."
+    assert by_iban.source_reason == "Its counterparty IBAN, SI56 1234, is one of the Household's."
+    assert paired.source_reason == "Paired with the other side in Savings on 9 Sep 2026."
+    assert made(subcategory=groceries, source=Source.MANUAL).source_reason == "A Member chose it."
+    assert made().source_reason == ""
