@@ -266,18 +266,34 @@ def _account_form(request, account):
 def _accounts_page(request, *, form=None, saved=None, focus=None):
     """The Accounts page, or its board alone for HTMX: with `form`'s Account open (a new one last), the Account
     `saved` just now, and the Account whose Edit takes the `focus`."""
+    context = {
+        "account_form": form,
+        "editing": (form.instance.pk or "new") if form else None,
+        "saved": saved,
+        "focus": focus,
+    }
+    if wants_the_fragment_alone(request):
+        return _board_alone(request, "accounts", **context)
     response = render(
         request,
-        "ledger/_board.html" if wants_the_fragment_alone(request) else "ledger/accounts.html",
+        "ledger/accounts.html",
+        {**_board(None, []), "board_page": "accounts", "page_title": _("Accounts"), **context},
+    )
+    patch_vary_headers(response, ["HX-Request"])
+    return response
+
+
+def _board_alone(request, page: str, **context):
+    """The board of `page`, Import or Accounts, swapped in alone with its page's title."""
+    response = render(
+        request,
+        "ledger/_board.html",
         {
             **_board(None, []),
-            "board_page": "accounts",
-            "account_form": form,
-            "editing": (form.instance.pk or "new") if form else None,
-            "saved": saved,
-            "focus": focus,
-            "page_title": _("Accounts"),
-            "alone": wants_the_fragment_alone(request),
+            "board_page": page,
+            "page_title": _("Accounts") if page == "accounts" else _("Import"),
+            "alone": True,
+            **context,
         },
     )
     patch_vary_headers(response, ["HX-Request"])
@@ -314,7 +330,8 @@ def delete_account(request, pk):
     with db_transaction.atomic():
         # Serialized with imports into the Account.
         account = get_object_or_404(Account.objects.select_for_update(), pk=pk)
-        if account.statements.exists():
+        refused = account.statements.exists()
+        if refused:
             said = _(
                 "%(account)s has Statements, so it can't be deleted. Delete its Statements first."
             ) % {"account": account.name}
@@ -323,7 +340,7 @@ def delete_account(request, pk):
             said = _("Deleted %(account)s.") % {"account": account.name}
     if wants_the_fragment_alone(request):
         return announce(_accounts_page(request), said)
-    messages.info(request, said)
+    (messages.error if refused else messages.success)(request, said)
     return redirect("accounts")
 
 
@@ -345,15 +362,9 @@ def delete_statement(request, pk):
         if not wants_the_fragment_alone(request):
             messages.success(request, said)
             return redirect("accounts" if on_accounts else "import")
-        if on_accounts:
-            return announce(_accounts_page(request), said)
-        response = render(
-            request,
-            "ledger/_board.html",
-            {**_board(None, []), "board_page": "import", "page_title": _("Import"), "alone": True},
+        return announce(
+            _accounts_page(request) if on_accounts else _board_alone(request, "import"), said
         )
-        patch_vary_headers(response, ["HX-Request"])
-        return announce(response, said)
     others = coverage(statement.account.statements.exclude(pk=statement.pk))
     shrink = removing(
         DateRange(statement.period_start, statement.period_end), others, until=timezone.localdate()

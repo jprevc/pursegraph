@@ -473,3 +473,12 @@ def test_payments_already_imported_to_an_added_iban_become_transfers(admin_clien
     assert payment.is_transfer
     assert payment.source == "iban"
     assert Transaction.objects.filter(is_transfer=True).count() == 1
+
+
+def test_without_js_a_refused_delete_reads_as_an_error(admin_client):
+    upload_csv(admin_client)
+    account = Account.objects.get()
+
+    page = admin_client.post(f"/accounts/{account.pk}/delete/", follow=True).content.decode()
+
+    assert '<p class="panel notice error">' in page

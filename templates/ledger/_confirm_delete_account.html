@@ -7,7 +7,7 @@
   <p>{% blocktranslate with name=account.name %}Delete “{{ name }}”?{% endblocktranslate %} {% if rule_count %}{% blocktranslate count n=rule_count %}{{ n }} Rule only for this Account goes with it.{% plural %}{{ n }} Rules only for this Account go with it.{% endblocktranslate %}{% else %}{% translate "No Rules are only for this Account." %}{% endif %}</p>
   {% endif %}
   <div class="form-actions">
-    {% if alone %}<button type="button" data-keep>{% translate "Keep it" %}</button>{% else %}<a class="button" href="{% url 'accounts' %}">{% translate "Keep it" %}</a>{% endif %}
+    {% if alone %}<button type="button" data-keep{% if statement_count %} data-focus{% endif %}>{% translate "Keep it" %}</button>{% else %}<a class="button" href="{% url 'accounts' %}">{% translate "Keep it" %}</a>{% endif %}
     {% if not statement_count %}<button type="submit" class="primary" data-focus>{% translate "Delete Account" %}</button>{% endif %}
   </div>
 </form>

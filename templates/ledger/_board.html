@@ -27,13 +27,13 @@
       <div class="track">
         {% for tick in ticks %}<i class="tick" style="left: {{ tick.left|stringformat:'.3f' }}%" aria-hidden="true"></i>{% endfor %}
         {% for s in row.stretches %}{% with period=s.range.start|date_range:s.range.end %}
-        {% if s.is_gap %}{% blocktranslate asvar gap_label with gap=s.said %}{{ gap }}: import a Statement{% endblocktranslate %}
+        {% if s.is_gap %}{% blocktranslate asvar gap_label with gap=s.said %}{{ gap }}: import a Statement{% endblocktranslate %}{% blocktranslate asvar notice with name=account.name bank=account.get_bank_display %}For {{ name }}: a Statement covering {{ period }}. Download it from {{ bank }} and drop it here.{% endblocktranslate %}
         {% if board_page == "accounts" %}
-        <a class="stretch gap" href="{% url 'import' %}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-label="{{ gap_label }}">{% if s.label_fits %}{{ s.label }}{% endif %}</a>
+        <a class="stretch gap" href="{% url 'import' %}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-label="{{ gap_label }}" data-notice="{{ notice }}">{% if s.label_fits %}{{ s.label }}{% endif %}</a>
         {% else %}
         <button type="button" class="stretch gap" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%"
           aria-label="{{ gap_label }}"
-          data-notice="{% blocktranslate with name=account.name bank=account.get_bank_display %}For {{ name }}: a Statement covering {{ period }}. Download it from {{ bank }} and drop it here.{% endblocktranslate %}">{% if s.label_fits %}{{ s.label }}{% endif %}</button>
+          data-notice="{{ notice }}">{% if s.label_fits %}{{ s.label }}{% endif %}</button>
         {% endif %}
         {% else %}
         <span class="stretch {{ s.kind }}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-hidden="true"></span>

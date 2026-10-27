@@ -21,7 +21,7 @@
     {% if statement_count %}
     <p class="reason">{% icon "info" %}<span>{% blocktranslate count n=statement_count %}Can't be deleted while it has {{ n }} Statement. Delete it first.{% plural %}Can't be deleted while it has {{ n }} Statements. Delete them first.{% endblocktranslate %}</span></p>
     {% else %}
-    <a class="button" href="{% url 'delete_account' account.pk %}" hx-get="{% url 'delete_account' account.pk %}" hx-target="#confirm-account-{{ account.pk }}" data-confirm-opener>{% translate "Delete Account" %}</a>
+    <a class="button ghost" href="{% url 'delete_account' account.pk %}" hx-get="{% url 'delete_account' account.pk %}" hx-target="#confirm-account-{{ account.pk }}" data-confirm-opener>{% translate "Delete Account" %}</a>
     <div id="confirm-account-{{ account.pk }}" data-confirm-slot></div>
     {% endif %}
   </div>

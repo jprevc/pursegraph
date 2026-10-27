@@ -2,7 +2,8 @@
 // posted at once by HTMX, which swaps the #import region in; swap.js then focuses and announces the result. Here:
 // - staging: the chosen files listed with their size and a remove button, kept in the form's file input;
 // - progress: the upload's share, then "Checking and importing", as the view checks every file before importing;
-// - a Gap's slot names the Statement it needs above the strip and sends focus to Choose files.
+// - a Gap's slot names the Statement it needs above the strip and sends focus to Choose files, as does a Gap followed
+//   here from Accounts (board.js).
 // The board's own behaviour is in board.js.
 (() => {
   let staged = [];
@@ -80,6 +81,21 @@
     render();
   };
 
+  const lookFor = text => {
+    const notice = document.querySelector('[data-gap-notice]');
+    notice.querySelector('span').textContent = text;
+    notice.hidden = false;
+    document.querySelector('[data-choose-files]').focus();
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    let text = null;
+    try {
+      text = sessionStorage.getItem('gap-notice');
+      sessionStorage.removeItem('gap-notice');
+    } catch (error) { /* No notice, then. */ }
+    if (text && form()) lookFor(text);
+  });
+
   document.addEventListener('click', e => {
     const target = e.target.closest('button');
     if (!target) return;
@@ -93,10 +109,7 @@
       render();
       document.querySelector('[data-choose-files]').focus();
     } else if (target.matches('.stretch.gap')) {
-      const notice = document.querySelector('[data-gap-notice]');
-      notice.querySelector('span').textContent = target.dataset.notice;
-      notice.hidden = false;
-      document.querySelector('[data-choose-files]').focus();
+      lookFor(target.dataset.notice);
     } else if (target.matches('[data-gap-dismiss]')) {
       target.closest('[data-gap-notice]').hidden = true;
       document.querySelector('[data-choose-files]').focus();
