@@ -1,0 +1,13 @@
+{% load i18n %}{# Deleting an Account, confirmed inline as every destructive action in Manage is (docs/design/rules.md); a page of its own without JS. #}
+<form class="confirm" method="post" action="{% url 'delete_account' account.pk %}" hx-post="{% url 'delete_account' account.pk %}" hx-target="#board" hx-swap="outerHTML" data-action>
+  {% csrf_token %}
+  {% if statement_count %}
+  <p>{% blocktranslate with name=account.name count n=statement_count %}“{{ name }}” can't be deleted while it has {{ n }} Statement. Delete it first.{% plural %}“{{ name }}” can't be deleted while it has {{ n }} Statements. Delete them first.{% endblocktranslate %}</p>
+  {% else %}
+  <p>{% blocktranslate with name=account.name %}Delete “{{ name }}”?{% endblocktranslate %} {% if rule_count %}{% blocktranslate count n=rule_count %}{{ n }} Rule only for this Account goes with it.{% plural %}{{ n }} Rules only for this Account go with it.{% endblocktranslate %}{% else %}{% translate "No Rules are only for this Account." %}{% endif %}</p>
+  {% endif %}
+  <div class="form-actions">
+    {% if alone %}<button type="button" data-keep>{% translate "Keep it" %}</button>{% else %}<a class="button" href="{% url 'accounts' %}">{% translate "Keep it" %}</a>{% endif %}
+    {% if not statement_count %}<button type="submit" class="primary" data-focus>{% translate "Delete Account" %}</button>{% endif %}
+  </div>
+</form>

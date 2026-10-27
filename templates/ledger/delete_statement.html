@@ -1,20 +1,7 @@
 {% extends "shell.html" %}
-{% load figures i18n %}
+{% load i18n %}
 {% block title %}{% translate "Delete Statement" %}{% endblock %}
 {% block main %}
 <h1 tabindex="-1">{% translate "Delete Statement" %}</h1>
-<form class="panel stack-form" method="post">
-  {% csrf_token %}
-  <p>{% blocktranslate with account=statement.account.name period=statement.period_start|date_range:statement.period_end %}{{ account }}: {{ period }}{% endblocktranslate %}</p>
-  <p>{% blocktranslate count n=transaction_count %}{{ n }} Transaction appears on no other Statement and will be deleted with it. The Account's Coverage shrinks to match.{% plural %}{{ n }} Transactions appear on no other Statement and will be deleted with it. The Account's Coverage shrinks to match.{% endblocktranslate %}</p>
-  {% if manual_outcome_count %}
-  <p class="warning">{% blocktranslate count n=manual_outcome_count %}{{ n }} manual outcome will be lost.{% plural %}{{ n }} manual outcomes will be lost.{% endblocktranslate %}</p>
-  {% else %}
-  <p class="muted">{% translate "No manual outcomes will be lost." %}</p>
-  {% endif %}
-  <div class="actions">
-    <button type="submit" class="danger">{% translate "Delete" %}</button>
-    <a href="{% url 'import' %}">{% translate "Cancel" %}</a>
-  </div>
-</form>
+{% include "ledger/_confirm_delete_statement.html" %}
 {% endblock %}

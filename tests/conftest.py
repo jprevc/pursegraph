@@ -43,9 +43,9 @@ def page_text(page):
 
 def board_row(page, account):
     """The words of the Accounts board's row of the Account named `account`, with what an import added to it."""
-    for row in page.split('<div class="board-row">')[1:]:
+    for row in page.split('<div class="board-row"')[1:]:
         if f"<h3>{html.escape(account)}</h3>" in row:
-            return page_text(row)
+            return page_text(row.split(">", 1)[1])
     raise AssertionError(f"no row for {account!r}")
 
 

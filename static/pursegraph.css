@@ -158,7 +158,8 @@ td.num, th.num { text-align: right; }
 td.num { font-weight: 600; white-space: nowrap; }
 tbody tr:last-child td { border-bottom: 0; }
 tr.muted td { color: var(--muted); }
-.scroll { overflow-x: auto; }
+/* Positioned, so that a visually hidden header inside scrolls with the table rather than widening the page. */
+.scroll { position: relative; overflow-x: auto; }
 
 /* ---------- Shell ---------- */
 [hidden] { display: none !important; }
@@ -982,11 +983,12 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .stretch { position: absolute; top: .25rem; height: 1.375rem; border-radius: 5px; }
 .stretch.covered { background: var(--coverage); }
 .stretch.new { background: var(--accent); }
-button.stretch.gap {
-  min-width: .5rem; padding: 0; overflow: hidden; background: var(--card); border: 1.5px solid var(--ink-2); box-shadow: none;
-  color: var(--ink); font-size: .6875rem; font-weight: 600; font-variant-numeric: tabular-nums;
+.stretch.gap {
+  display: grid; place-items: center; min-width: .5rem; padding: 0; overflow: hidden; background: var(--card);
+  border: 1.5px solid var(--ink-2); box-shadow: none; color: var(--ink); font-size: .6875rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-decoration: none; white-space: nowrap;
 }
-button.stretch.gap:hover { background: var(--hover); }
+.stretch.gap:hover { background: var(--hover); }
 .track .today { position: absolute; top: -.25rem; bottom: -.25rem; right: 0; border-left: 1.5px solid var(--ink); }
 .caption { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: .375rem 0 0; color: var(--muted); font-size: var(--text-sm); }
 .caption button.link.new { margin: 0; color: var(--accent-text); font-size: inherit; font-weight: 600; text-align: left; white-space: normal; }
@@ -1000,12 +1002,30 @@ button.stretch.gap:hover { background: var(--hover); }
 .statements th, .statements td { padding: var(--s-2) var(--s-3); }
 .board-empty { margin: 0; padding: var(--s-5); }
 
+/* Accounts (under Manage): the same board, a row opening in place on Raised to edit its Account. */
+.page-sub { margin: 0 0 var(--s-4); }
+.who-name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
+.board-row[data-open] { background: var(--raised); }
+.account-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-6); padding-top: var(--s-3); }
+.account-form { display: grid; gap: var(--s-3); max-width: 30rem; }
+.account-form select, .account-form textarea { width: 100%; }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+/* An action that can't run, replaced by its reason (docs/design/admin.md). */
+.reason { display: flex; gap: var(--s-2); max-width: 40ch; margin: 0; color: var(--muted); font-size: var(--text-label); }
+.reason .icon { flex: none; width: .875rem; height: .875rem; margin-top: .0625rem; color: var(--muted); }
+/* A destructive action, confirmed inline with what it moves or keeps (docs/design/rules.md). */
+.confirm { display: grid; gap: var(--s-2); max-width: 70ch; margin-top: var(--s-3); padding: var(--s-4); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--raised); }
+.confirm p { margin: 0; color: var(--ink-2); }
+.confirm b { color: var(--ink); font-weight: 600; }
+.account-delete:has(.confirm) > [data-confirm-opener] { display: none; }
+.account-delete .confirm { margin-top: 0; }
+
 @media (max-width: 900px) {
   .board-head { grid-template-columns: minmax(0, 1fr); }
   .board-head > span { display: none; }
   .board-row { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
   /* Too narrow for a Gap's label; the caption under the track names it. */
-  button.stretch.gap { font-size: 0; }
+  .stretch.gap { font-size: 0; }
   .board-head, .board-row { padding-left: var(--s-4); padding-right: var(--s-4); }
   .tray-item { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); padding: var(--s-4); }
   .tray h2 { padding: var(--s-4) var(--s-4) var(--s-2); }
@@ -1017,6 +1037,7 @@ button.stretch.gap:hover { background: var(--hover); }
   .staged-foot { flex-wrap: wrap; }
   .staged-foot p { flex-basis: 100%; }
   .new-account { grid-template-columns: minmax(0, 1fr); padding-left: 0; }
+  .account-edit { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
   .evidence dl { grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s-1) var(--s-3); }
 }
 

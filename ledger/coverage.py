@@ -44,3 +44,28 @@ def gaps(ranges: list[DateRange], until: date | None = None) -> list[DateRange]:
     if ranges and until and ranges[-1].end < until:
         missing.append(DateRange(ranges[-1].end + ONE_DAY, until))
     return missing
+
+
+@dataclass(frozen=True)
+class Shrink:
+    """What a Statement's days become once it is deleted: Gaps, or untracked, before the Account's first Coverage
+    day. Days other Statements still cover, and days after today, are neither."""
+
+    gaps: list[DateRange]
+    untracked: list[DateRange]
+
+
+def removing(period: DateRange, others: list[DateRange], until: date) -> Shrink:
+    """What deleting the Statement over `period` leaves, when the Account's other Statements cover `others`."""
+    first = others[0].start if others else None
+    shrink = Shrink([], [])
+    day = period.start
+    while day <= min(period.end, until):
+        if not any(day in r for r in others):
+            runs = shrink.gaps if first and day > first else shrink.untracked
+            if runs and runs[-1].end + ONE_DAY == day:
+                runs[-1] = DateRange(runs[-1].start, day)
+            else:
+                runs.append(DateRange(day, day))
+        day += ONE_DAY
+    return shrink

@@ -1,0 +1,16 @@
+{% load figures i18n %}{# Deleting a Statement, confirmed inline under its Account's Statements with what goes and what the Coverage becomes; a page of its own without JS. #}
+{% with period=statement.period_start|date_range:statement.period_end %}
+<form class="confirm" method="post" action="{% url 'delete_statement' statement.pk %}" hx-post="{% url 'delete_statement' statement.pk %}" hx-target="#board" hx-swap="outerHTML" data-action>
+  {% csrf_token %}<input type="hidden" name="board" value="{{ board }}">
+  <p><b>{% blocktranslate with account=statement.account.name %}Delete the {{ account }} Statement {{ period }}?{% endblocktranslate %}</b></p>
+  <p>{% if transaction_count %}{% blocktranslate count n=transaction_count %}{{ n }} Transaction appears on no other Statement and is deleted with it.{% plural %}{{ n }} Transactions appear on no other Statement and are deleted with it.{% endblocktranslate %}{% else %}{% translate "No Transactions are deleted with it: none appear on it alone." %}{% endif %}
+    {% if shrink.gaps %}{% blocktranslate with days=gaps_said count n=shrink.gaps|length %}The Coverage shrinks: {{ days }} becomes a Gap.{% plural %}The Coverage shrinks: {{ days }} become Gaps.{% endblocktranslate %}{% endif %}
+    {% if shrink.untracked %}{% blocktranslate with days=untracked_said %}{{ days }} is no longer tracked.{% endblocktranslate %}{% endif %}
+    {% if not shrink.gaps and not shrink.untracked %}{% translate "Other Statements still cover its days, so the Coverage stays as it is." %}{% endif %}</p>
+  <p>{% if manual_outcome_count %}<b>{% blocktranslate count n=manual_outcome_count %}{{ n }} outcome set by hand is lost.{% plural %}{{ n }} outcomes set by hand are lost.{% endblocktranslate %}</b>{% else %}{% translate "No outcomes set by hand are lost." %}{% endif %}</p>
+  <div class="form-actions">
+    {% if alone %}<button type="button" data-keep>{% translate "Keep it" %}</button>{% else %}<a class="button" href="{% if board == 'accounts' %}{% url 'accounts' %}{% else %}{% url 'import' %}{% endif %}">{% translate "Keep it" %}</a>{% endif %}
+    <button type="submit" class="primary" data-focus>{% translate "Delete Statement" %}</button>
+  </div>
+</form>
+{% endwith %}

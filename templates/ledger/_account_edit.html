@@ -1,0 +1,29 @@
+{% load i18n icons %}{# An Account's row opened on the Accounts board (docs/design/import.md): its form on the left, Delete or why it's missing on the right. #}
+<div class="expand account-edit" id="edit-{{ account.pk|default:'new' }}">
+  <form class="account-form" method="post" action="{% if account %}{% url 'edit_account' account.pk %}{% else %}{% url 'new_account' %}{% endif %}" hx-post="{% if account %}{% url 'edit_account' account.pk %}{% else %}{% url 'new_account' %}{% endif %}" hx-target="#board" hx-swap="outerHTML" data-action>
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="field"><label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>{{ form.name }}{{ form.name.errors }}</div>
+    <div class="field"><label for="{{ form.bank.id_for_label }}">{{ form.bank.label }}</label>{{ form.bank }}<p class="helptext">{{ form.bank.help_text }}</p>{{ form.bank.errors }}</div>
+    <fieldset class="field">
+      <legend>{{ form.owners.label }}</legend>
+      <div class="checks">{% for box in form.owners %}<label>{{ box.tag }} {{ box.data.value.instance.get_full_name|default:box.data.value.instance.get_username }}</label>{% endfor %}</div>
+      <p class="helptext">{{ form.owners.help_text }}</p>{{ form.owners.errors }}
+    </fieldset>
+    <div class="field"><label for="{{ form.ibans.id_for_label }}">{{ form.ibans.label }}</label>{{ form.ibans }}<p class="helptext">{{ form.ibans.help_text }}</p>{{ form.ibans.errors }}</div>
+    <div class="form-actions">
+      <button type="submit" class="primary">{% translate "Save Account" %}</button>
+      <a class="button" href="{% url 'accounts' %}" hx-get="{% url 'accounts' %}{% if account %}?closed={{ account.pk }}{% endif %}" hx-target="#board" hx-swap="outerHTML">{% translate "Cancel" %}</a>
+    </div>
+  </form>
+  {% if account %}
+  <div class="account-delete">
+    {% if statement_count %}
+    <p class="reason">{% icon "info" %}<span>{% blocktranslate count n=statement_count %}Can't be deleted while it has {{ n }} Statement. Delete it first.{% plural %}Can't be deleted while it has {{ n }} Statements. Delete them first.{% endblocktranslate %}</span></p>
+    {% else %}
+    <a class="button" href="{% url 'delete_account' account.pk %}" hx-get="{% url 'delete_account' account.pk %}" hx-target="#confirm-account-{{ account.pk }}" data-confirm-opener>{% translate "Delete Account" %}</a>
+    <div id="confirm-account-{{ account.pk }}" data-confirm-slot></div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

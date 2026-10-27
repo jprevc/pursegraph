@@ -1,5 +1,6 @@
-"""Account admin: admins list, create, edit and delete the Household's Accounts."""
+"""Account admin: the Accounts board, where admins create, edit and delete the Household's Accounts in place."""
 
+import json
 import re
 
 import pytest
@@ -24,11 +25,11 @@ def admin(django_user_model):
     return django_user_model.objects.get(username="bor")
 
 
-def save_account(client, url="/accounts/new/", **data):
+def save_account(client, url="/accounts/new/", follow=False, **data):
     data.setdefault("name", "Ana's savings")
     data.setdefault("bank", "other")
     data.setdefault("ibans", OTHER_IBAN)
-    return client.post(url, data)
+    return client.post(url, data, follow=follow)
 
 
 def ibans_of(account):
@@ -84,16 +85,37 @@ def test_the_sidebar_accounts_link_is_highlighted_on_the_account_pages(admin_cli
 # Listing
 
 
-def test_the_list_shows_each_account_with_its_bank_owners_and_ibans(admin_client, member, admin):
+def test_the_board_shows_each_account_with_its_bank_and_owners_by_name(admin_client, member, admin):
+    member.first_name, member.last_name = "Ana", "Novak"
+    member.save()
     joint = make_account("Joint Sparkasse", "sparkasse_si", member, [SPARKASSE_IBAN])
     joint.owners.add(admin)
 
+    row = board_row(admin_client.get("/accounts/").content.decode(), "Joint Sparkasse")
+
+    assert row.startswith("Joint Sparkasse Sparkasse SI · Ana Novak, bor Edit")
+    assert "No Statements yet." in row
+
+
+def test_the_board_reads_each_accounts_coverage_with_its_gaps(admin_client):
+    upload_csv(admin_client)
+
     page = admin_client.get("/accounts/").content.decode()
 
-    assert "Joint Sparkasse" in page
-    assert "Sparkasse SI" in page
-    assert "ana, bor" in page
-    assert SPARKASSE_IBAN in page
+    assert "Each Account with its Coverage, as on Import." in page_text(page)
+    assert "Tracked from" in board_row(page, "Ana's Revolut")
+    # A Gap leads to Import, where its Statement is dropped.
+    assert re.search(
+        r'<a class="stretch gap" href="/import/"[^>]*aria-label="Gap [^"]*: import a Statement"',
+        page,
+    )
+
+
+HTMX = {"HX-Request": "true"}
+
+
+def announced(response):
+    return json.loads(response["HX-Trigger"])["announce"]
 
 
 # Creating
@@ -207,6 +229,90 @@ def test_admin_renames_an_account_and_changes_its_owners_and_ibans(admin_client,
     assert ibans_of(account) == sorted([SPARKASSE_IBAN, OTHER_IBAN])
 
 
+def test_edit_opens_the_row_in_place_with_its_form_and_delete(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    response = admin_client.get(f"/accounts/{account.pk}/edit/", headers=HTMX)
+
+    page = response.content.decode()
+    assert page.lstrip().startswith("<title>Accounts · Pursegraph</title>")
+    assert re.search(
+        r'<div class="board-row" data-open>\s*<div class="who">\s*<div class="who-name"><h3>Ana&#x27;s savings',
+        page,
+    )
+    assert "Several owners make it a joint Account, shown in the Joint bucket." in page
+    assert f'hx-get="/accounts/{account.pk}/delete/"' in page
+
+
+def test_the_first_field_takes_the_focus_when_the_row_opens(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    page = admin_client.get(f"/accounts/{account.pk}/edit/", headers=HTMX).content.decode()
+
+    assert re.search(r'<input[^>]*name="name"[^>]*data-focus', page)
+
+
+def test_saving_closes_the_row_and_says_saved_beside_the_name(admin_client, member):
+    account = make_account("Sparkasse", "sparkasse_si", member, [SPARKASSE_IBAN])
+
+    response = admin_client.post(
+        f"/accounts/{account.pk}/edit/",
+        {
+            "name": "Joint Sparkasse",
+            "bank": "sparkasse_si",
+            "owners": [member.pk],
+            "ibans": SPARKASSE_IBAN,
+        },
+        headers=HTMX,
+    )
+
+    page = response.content.decode()
+    assert "data-open" not in page
+    assert board_row(page, "Joint Sparkasse").startswith("Joint Sparkasse Saved")
+    assert '<span class="status saved" role="status">' in page
+    assert re.search(rf'href="/accounts/{account.pk}/edit/"[^>]*data-focus>Edit</a>', page)
+    assert announced(response) == "Saved Joint Sparkasse."
+
+
+def test_without_js_a_save_goes_back_to_the_board_saying_so(admin_client, member):
+    response = save_account(admin_client, owners=[member.pk], follow=True)
+
+    assert "Saved Ana&#x27;s savings." in response.content.decode()
+
+
+def test_a_save_that_fails_keeps_the_row_open_and_focuses_what_to_fix(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    response = admin_client.post(
+        f"/accounts/{account.pk}/edit/",
+        {"name": "Ana's savings", "bank": "other", "ibans": OTHER_IBAN},
+        headers=HTMX,
+    )
+
+    page = response.content.decode()
+    assert '<div class="board-row" data-open>' in page
+    assert re.search(r'<input type="checkbox" name="owners"[^>]*data-focus', page)
+    assert announced(response) == "Choose at least one Member."
+
+
+def test_cancel_closes_the_row_and_gives_its_edit_the_focus(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    page = admin_client.get(f"/accounts/?closed={account.pk}", headers=HTMX).content.decode()
+
+    assert "data-open" not in page
+    assert re.search(rf'href="/accounts/{account.pk}/edit/"[^>]*data-focus>Edit</a>', page)
+
+
+def test_new_account_opens_a_row_of_its_own_last(admin_client, member):
+    make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    page = admin_client.get("/accounts/new/", headers=HTMX).content.decode()
+
+    assert page.index("Ana&#x27;s savings") < page.index("<h3>New Account</h3>")
+    assert 'hx-post="/accounts/new/"' in page
+
+
 def test_the_edit_page_shows_the_current_values(admin_client, member):
     account = make_account("Joint Sparkasse", "sparkasse_si", member, [SPARKASSE_IBAN])
 
@@ -306,9 +412,38 @@ def test_deleting_asks_first_and_names_the_rules_that_go_with_it(admin_client, m
 
     page = admin_client.get(f"/accounts/{account.pk}/delete/").content.decode()
 
-    assert "Delete Account" in page
-    assert "1 Rule only for this Account will be deleted with it." in page
+    assert "Delete “Ana's savings”? 1 Rule only for this Account goes with it." in page_text(page)
     assert Account.objects.exists()
+
+
+def test_deleting_confirms_inline_with_htmx(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    page = admin_client.get(f"/accounts/{account.pk}/delete/", headers=HTMX).content.decode()
+
+    assert "<html" not in page
+    assert "No Rules are only for this Account." in page
+    assert '<button type="button" data-keep>Keep it</button>' in page
+    assert '<button type="submit" class="primary" data-focus>Delete Account</button>' in page
+
+
+def test_deleting_with_htmx_swaps_in_the_board_without_it(admin_client, member):
+    account = make_account("Ana's savings", "other", member, [OTHER_IBAN])
+
+    response = admin_client.post(f"/accounts/{account.pk}/delete/", headers=HTMX)
+
+    assert "Ana&#x27;s savings" not in response.content.decode()
+    assert announced(response) == "Deleted Ana's savings."
+
+
+def test_an_account_with_statements_says_why_it_cant_be_deleted(admin_client):
+    upload_csv(admin_client)
+    account = Account.objects.get()
+
+    page = admin_client.get(f"/accounts/{account.pk}/edit/").content.decode()
+
+    assert "Can't be deleted while it has 1 Statement. Delete it first." in page_text(page)
+    assert f"/accounts/{account.pk}/delete/" not in page
 
 
 def test_deleting_an_account_is_refused_while_it_has_statements(admin_client):

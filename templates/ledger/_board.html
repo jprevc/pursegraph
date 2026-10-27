@@ -1,0 +1,92 @@
+{% load figures i18n icons %}{# The Accounts board (docs/design/import.md), on Import and on Accounts (board_page), where admins edit rows in place. Edits and deletes swap it in alone. #}
+{% if alone %}{% include "_title.html" %}{% endif %}
+<section id="board" class="panel board" aria-labelledby="board-h">
+  <h2 id="board-h" class="sr">{% translate "Accounts and their Coverage" %}</h2>
+  <div class="board-head" aria-hidden="true">
+    <span>{% translate "Account" %}</span>
+    <div class="axis">{% for tick in ticks %}<span class="{% if tick.is_year %}year{% endif %}" style="left: {{ tick.left|stringformat:'.3f' }}%">{{ tick.label }}</span>{% endfor %}</div>
+  </div>
+  {% for row in rows %}{% with account=row.account %}
+  <div class="board-row"{% if editing == account.pk %} data-open{% endif %}>
+    <div class="who">
+      <div class="who-name"><h3>{{ account.name }}</h3>{% if saved == account.pk %}<span class="status saved" role="status">{% icon "check" %}{% translate "Saved" %}</span>{% endif %}</div>
+      <p class="muted">{{ account.get_bank_display }}{% for o in account.owners.all %}{% if forloop.first %} · {% else %}, {% endif %}{{ o.get_full_name|default:o.get_username }}{% endfor %}</p>
+      {% if row.statements or user.is_admin %}<p class="who-links">
+        {% if row.statements %}<button type="button" class="link" aria-expanded="false" aria-controls="statements-{{ account.pk }}" data-disclose>{% blocktranslate count n=row.statements|length %}{{ n }} Statement{% plural %}{{ n }} Statements{% endblocktranslate %}</button>{% endif %}
+        {% if user.is_admin %}{% if board_page == "accounts" %}{% if editing == account.pk %}
+        <a class="link" href="{% url 'accounts' %}" hx-get="{% url 'accounts' %}?closed={{ account.pk }}" hx-target="#board" hx-swap="outerHTML" aria-expanded="true" aria-controls="edit-{{ account.pk }}">{% translate "Edit" %}</a>
+        {% else %}
+        <a class="link" href="{% url 'edit_account' account.pk %}" hx-get="{% url 'edit_account' account.pk %}" hx-target="#board" hx-swap="outerHTML" aria-expanded="false"{% if focus == account.pk %} data-focus{% endif %}>{% translate "Edit" %}</a>
+        {% endif %}{% else %}
+        <a class="link" href="{% url 'edit_account' account.pk %}">{% translate "Edit" %}</a>
+        {% endif %}{% endif %}
+      </p>{% endif %}
+    </div>
+    <div class="where">
+      {% if row.stretches %}
+      <div class="track">
+        {% for tick in ticks %}<i class="tick" style="left: {{ tick.left|stringformat:'.3f' }}%" aria-hidden="true"></i>{% endfor %}
+        {% for s in row.stretches %}{% with period=s.range.start|date_range:s.range.end %}
+        {% if s.is_gap %}{% blocktranslate asvar gap_label with gap=s.said %}{{ gap }}: import a Statement{% endblocktranslate %}
+        {% if board_page == "accounts" %}
+        <a class="stretch gap" href="{% url 'import' %}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-label="{{ gap_label }}">{% if s.label_fits %}{{ s.label }}{% endif %}</a>
+        {% else %}
+        <button type="button" class="stretch gap" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%"
+          aria-label="{{ gap_label }}"
+          data-notice="{% blocktranslate with name=account.name bank=account.get_bank_display %}For {{ name }}: a Statement covering {{ period }}. Download it from {{ bank }} and drop it here.{% endblocktranslate %}">{% if s.label_fits %}{{ s.label }}{% endif %}</button>
+        {% endif %}
+        {% else %}
+        <span class="stretch {{ s.kind }}" style="left: {{ s.left|stringformat:'.3f' }}%; width: {{ s.width|stringformat:'.3f' }}%" aria-hidden="true"></span>
+        {% endif %}
+        {% endwith %}{% endfor %}
+        <i class="today" aria-hidden="true"></i>
+      </div>
+      <ol class="sr">{% for s in row.stretches %}<li>{{ s.said }}</li>{% endfor %}</ol>
+      <p class="caption">
+        {% for result in row.results %}{% with s=result.summary %}<button type="button" class="link new" aria-expanded="false" aria-controls="counts-{{ account.pk }}-{{ forloop.counter }}" data-disclose>{% blocktranslate with period=s.period_start|date_range:s.period_end count n=s.imported_count %}New: {{ period }} · {{ n }} Transaction{% plural %}New: {{ period }} · {{ n }} Transactions{% endblocktranslate %}{% if s.awaiting_count %}, {% blocktranslate with n=s.awaiting_count %}{{ n }} to review{% endblocktranslate %}{% endif %}</button>{% endwith %}{% endfor %}
+        {% for gap in row.gaps %}<span>{{ gap.said }}</span>{% endfor %}
+        <span>{% blocktranslate with date=row.tracked_from|day %}Tracked from {{ date }}{% endblocktranslate %}</span>
+      </p>
+      {% elif not account.receives_statements %}
+      <p class="caption">{% translate "Takes no Statements: money moved to its IBAN counts as a Transfer." %}</p>
+      {% else %}
+      <p class="caption">{% translate "No Statements yet." %}</p>
+      {% endif %}
+    </div>
+    {% if editing == account.pk %}{% include "ledger/_account_edit.html" with form=account_form statement_count=row.statements|length %}{% endif %}
+    {% for result in row.results %}{% with s=result.summary %}
+    <div class="expand" id="counts-{{ account.pk }}-{{ forloop.counter }}" data-disclosed>
+      <ul class="counts">{% for c in result.counts %}<li{% if c.zero %} class="zero"{% endif %}><b>{{ c.figure }}</b><span>{{ c.text }}{% if c.links_review %} · <a href="{% url 'review_queue' %}">{% translate "Review queue" %}</a>{% endif %}</span></li>{% endfor %}</ul>
+    </div>
+    {% endwith %}{% endfor %}
+    {% if row.statements %}
+    <div class="expand" id="statements-{{ account.pk }}" data-disclosed>
+      <div class="scroll"><table class="statements">
+        <thead><tr><th>{% translate "Period" %}</th><th>{% translate "Format" %}</th><th class="num">{% translate "Transactions" %}</th><th>{% translate "Imported" %}</th><th><span class="sr">{% translate "Delete" %}</span></th></tr></thead>
+        <tbody>
+        {% for statement in row.statements %}
+          <tr>
+            <td class="fig">{{ statement.period_start|date_range:statement.period_end }}</td>
+            <td>{{ statement.get_format_display }}</td>
+            <td class="num">{{ statement.transaction_count }}</td>
+            <td><span class="fig">{{ statement.imported_at|day }}</span>, {{ statement.imported_by.get_full_name|default:statement.imported_by.get_username }}</td>
+            <td class="num">{% if user.is_admin or statement.imported_by_id == user.pk %}<a href="{% url 'delete_statement' statement.pk %}?board={{ board_page }}" hx-get="{% url 'delete_statement' statement.pk %}?board={{ board_page }}" hx-target="#confirm-statements-{{ account.pk }}" data-confirm-opener aria-label="{% blocktranslate with period=statement.period_start|date_range:statement.period_end %}Delete the Statement {{ period }}{% endblocktranslate %}">{% translate "Delete" %}</a>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      <div id="confirm-statements-{{ account.pk }}" data-confirm-slot></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endwith %}{% empty %}
+  {% if editing != "new" %}<p class="board-empty muted">{% translate "No Accounts yet. An import makes the first one." %}</p>{% endif %}
+  {% endfor %}
+  {% if editing == "new" %}
+  <div class="board-row" data-open>
+    <div class="who"><div class="who-name"><h3>{% translate "New Account" %}</h3></div></div>
+    <div class="where"></div>
+    {% include "ledger/_account_edit.html" with form=account_form account=None statement_count=0 %}
+  </div>
+  {% endif %}
+</section>

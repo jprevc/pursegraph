@@ -137,6 +137,13 @@ class AccountAdminForm(forms.ModelForm):
         model = Account
         fields = ["name", "bank", "owners"]
         widgets = {"owners": forms.CheckboxSelectMultiple}
+        help_texts = {
+            "bank": _(
+                "“Other” is for an Account whose Statements aren't imported, such as savings at another bank. "
+                "Money moved to its IBANs counts as a Transfer."
+            ),
+            "owners": _("Several owners make it a joint Account, shown in the Joint bucket."),
+        }
         error_messages = {"owners": {"required": _("Choose at least one Member.")}}
 
     def __init__(self, *args, **kwargs):

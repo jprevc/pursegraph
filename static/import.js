@@ -2,8 +2,8 @@
 // posted at once by HTMX, which swaps the #import region in; swap.js then focuses and announces the result. Here:
 // - staging: the chosen files listed with their size and a remove button, kept in the form's file input;
 // - progress: the upload's share, then "Checking and importing", as the view checks every file before importing;
-// - a Gap's slot names the Statement it needs above the strip and sends focus to Choose files;
-// - the board's disclosures (a row's Statements, an import's counts), which show open without JS.
+// - a Gap's slot names the Statement it needs above the strip and sends focus to Choose files.
+// The board's own behaviour is in board.js.
 (() => {
   let staged = [];
   const form = () => document.querySelector('[data-import]');
@@ -100,10 +100,6 @@
     } else if (target.matches('[data-gap-dismiss]')) {
       target.closest('[data-gap-notice]').hidden = true;
       document.querySelector('[data-choose-files]').focus();
-    } else if (target.matches('[data-disclose]')) {
-      const open = target.getAttribute('aria-expanded') !== 'true';
-      target.setAttribute('aria-expanded', open);
-      document.getElementById(target.getAttribute('aria-controls'))?.classList.toggle('open', open);
     }
   });
 
