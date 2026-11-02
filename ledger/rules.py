@@ -89,10 +89,10 @@ class Preview:
     shadowed: list[tuple[Rule, int]] = field(default_factory=list)
 
 
-def preview(rule: Rule, *, chosen: bool = True, source: Transaction | None = None) -> Preview:
+def preview(rule: Rule, *, chosen: bool = True, made_from: Transaction | None = None) -> Preview:
     """What saving `rule`, saved or not, and applying it would do: the matches that would change, those set by hand
     to another outcome, those already its outcome and those that keep theirs. Without an outcome `chosen` yet,
-    every match it may overwrite would change. `source` (Make a Rule's Transaction) comes first in its group."""
+    every match it may overwrite would change. `made_from` (Make a Rule's Transaction) comes first in its group."""
     if not rule.condition():
         return Preview(empty=True)
     p = Preview()
@@ -121,9 +121,9 @@ def preview(rule: Rule, *, chosen: bool = True, source: Transaction | None = Non
     p.taken_over = [(r, rules[r.pk]) for r in Rule.objects.filter(pk__in=rules)]
     if rule.pk:
         p.shadowed = taken_above(rule)
-    if source is not None:
+    if made_from is not None:
         for group in (p.change, p.set_by_hand, p.already, p.keep):
-            group.sort(key=lambda t: t.pk != source.pk)
+            group.sort(key=lambda t: t.pk != made_from.pk)
     return p
 
 
@@ -169,6 +169,9 @@ def merchant_words(description: str) -> tuple[list[str], tuple[int, int] | None]
     words = description.split()
     if not words:
         return words, None
+    head, star, tail = words[0].partition("*")
+    if star and head and tail and fold(head) in PROCESSORS:
+        words = [head, f"*{tail}", *words[1:]]
     bare = [fold(w).strip("*.,-") for w in words]
     first = 1 if len(words) > 1 and bare[0] in PROCESSORS else 0
     # At most two words, the second only while it is neither a number nor a town.
@@ -192,6 +195,18 @@ def run_of(words: list[str], text: str) -> tuple[int, int] | None:
             if fold(words_text(words, (first, last))) == wanted:
                 return first, last
     return None
+
+
+def word_chips(description: str, contains: str) -> list[tuple[str, bool]]:
+    """Make a Rule's word chips: the words of `description`, each with whether the condition `contains` uses it."""
+    words, _suggested = merchant_words(description)
+    run = run_of(words, contains)
+    return [(w, bool(run and run[0] <= i <= run[1])) for i, w in enumerate(words)]
+
+
+def places() -> dict[int, int]:
+    """Each Rule's place in the order, from 1, by its id."""
+    return {pk: place for place, pk in enumerate(Rule.objects.values_list("pk", flat=True), 1)}
 
 
 def place_at_top(rule: Rule) -> None:

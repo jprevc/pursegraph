@@ -959,14 +959,16 @@ def _rules_context(selected: int | None) -> dict:
         # An aggregate leaves out Meta.ordering.
         .order_by("position", "id")
     )
-    places = {r.pk: place for place, r in enumerate(rules, 1)}
+    places = rule_edits.places()
     for r in rules:
         r.place = places[r.pk]  # type: ignore[attr-defined]
     rule = next((r for r in rules if r.pk == selected), rules[0] if rules else None)
     if rule is None:
         return {"rules": rules, "rule": None}
+    # What it categorized, even those its conditions no longer match since an edit, then its other matches.
+    categorized = Q(rule=rule, source=Source.RULE)
     matches = list(
-        Transaction.objects.filter(rule.condition())
+        Transaction.objects.filter(rule.condition() | categorized)
         .select_related("account", "subcategory__category", "rule", "counterpart__account")
         .order_by("-date", "-pk")
     )
@@ -993,11 +995,11 @@ def _rules_context(selected: int | None) -> dict:
 
 def new_rule(request):
     """A new Rule; `?transaction=<pk>` pre-fills it from a corrected Transaction ("Make a Rule")."""
-    source = _source_transaction(request)
+    made_from = _made_from(request)
     if request.method == "POST":
-        return _rule_page(request, RuleForm(request.POST), source)
-    form = RuleForm.from_transaction(source) if source else RuleForm()
-    return _rule_page(request, form, source)
+        return _rule_page(request, RuleForm(request.POST), made_from)
+    form = RuleForm.from_transaction(made_from) if made_from else RuleForm()
+    return _rule_page(request, form, made_from)
 
 
 def edit_rule(request, pk):
@@ -1007,13 +1009,13 @@ def edit_rule(request, pk):
     return _rule_page(request, RuleForm(instance=rule))
 
 
-def _source_transaction(request) -> Transaction | None:
+def _made_from(request) -> Transaction | None:
     """Make a Rule's Transaction, carried through the Rule page's posts."""
     pk = _pk_or_none(request.POST.get("transaction") or request.GET.get("transaction"))
     return get_object_or_404(Transaction, pk=pk) if pk else None
 
 
-def _rule_page(request, form, source=None):
+def _rule_page(request, form, made_from=None):
     """The Rule page (New Rule, Edit Rule, Make a Rule) with its live preview. A valid post saves the Rule, and with
     `apply` applies it to the existing Transactions too, then opens it on the Rules page with a line saying what
     changed. `preview` asks only for the preview, without JS."""
@@ -1030,7 +1032,7 @@ def _rule_page(request, form, source=None):
                 _("Saved %(name)s. Future imports will use it.") % {"name": rule.name},
             )
         return redirect(f"{reverse('rules')}?rule={rule.pk}")
-    return render(request, "ledger/rule_form.html", _rule_page_context(form, source))
+    return render(request, "ledger/rule_form.html", _rule_page_context(form, made_from))
 
 
 def rule_preview(request):
@@ -1039,27 +1041,42 @@ def rule_preview(request):
         get_object_or_404(Rule, pk=pk) if (pk := _pk_or_none(request.GET.get("rule"))) else None
     )
     form = RuleForm(request.GET, instance=instance)
-    source = _source_transaction(request)
-    return render(
-        request, "ledger/_rule_preview.html", {**_rule_page_context(form, source), "swapped": True}
-    )
+    context = _rule_page_context(form, _made_from(request))
+    response = render(request, "ledger/_rule_preview.html", {**context, "swapped": True})
+    return announce(response, _preview_said(context["preview"]))
 
 
-def _rule_page_context(form, source) -> dict:
+def _preview_said(p: rule_edits.Preview) -> str:
+    """The preview's new state, read out as the conditions change."""
+    if p.empty:
+        return _("Set a condition to see what it matches.")
+    matched = len(p.change) + len(p.set_by_hand) + len(p.already) + len(p.keep)
+    return ngettext(
+        "%(count)d Transaction matches, %(changed)d would change.",
+        "%(count)d Transactions match, %(changed)d would change.",
+        matched,
+    ) % {"count": matched, "changed": len(p.change)}
+
+
+def _rule_page_context(form, made_from) -> dict:
     draft, chosen = form.draft()
-    p = rule_edits.preview(draft, chosen=chosen, source=source)
-    places = {pk: place for place, pk in enumerate(Rule.objects.values_list("pk", flat=True), 1)}
+    p = rule_edits.preview(draft, chosen=chosen, made_from=made_from)
+    places = rule_edits.places()
 
-    def named(rules):
+    def with_places(rules):
+        """(place, name, how many) for each of the other Rules a preview names."""
         return [(places[r.pk], r.name, n) for r, n in rules]
 
+    words = None
+    if made_from and not made_from.counterparty_iban:
+        words = rule_edits.word_chips(made_from.description, draft.description_contains)
     return {
         "form": form,
         "draft": draft,
         "chosen": chosen,
-        "source": source,
-        "words": merchant_chips(source, draft) if source and not source.counterparty_iban else None,
-        "p": p,
+        "made_from": made_from,
+        "words": words,
+        "preview": p,
         "groups": [
             (_("Will change"), p.change),
             (
@@ -1071,17 +1088,10 @@ def _rule_page_context(form, source) -> dict:
             (_("Already %(outcome)s") % {"outcome": draft.outcome_label}, p.already),
             (_("Keep their outcome"), p.keep),
         ],
-        "taken_over": named(p.taken_over),
-        "shadowed": named(p.shadowed),
+        "taken_over": with_places(p.taken_over),
+        "shadowed": with_places(p.shadowed),
         "place": places.get(draft.pk),
     }
-
-
-def merchant_chips(source: Transaction, draft: Rule) -> list[tuple[str, bool]]:
-    """Make a Rule's word chips: the description's words, each with whether the description condition uses it."""
-    words, _run = rule_edits.merchant_words(source.description)
-    run = rule_edits.run_of(words, draft.description_contains)
-    return [(w, bool(run and run[0] <= i <= run[1])) for i, w in enumerate(words)]
 
 
 def _applied_said(count: int, pairing) -> str:
@@ -1127,7 +1137,7 @@ def delete_rule(request, pk):
                 {"rule": rule, "categorized": rule.transactions.filter(source=Source.RULE).count()},
             )
         return _rules_page(request, selected=rule.pk, opened=True, confirm=True)
-    ids = list(Rule.objects.values_list("pk", flat=True))
+    ids = list(rule_edits.places())
     at = ids.index(rule.pk)
     rule.delete()
     said = _("Deleted %(name)s.") % {"name": rule.name}
@@ -1166,7 +1176,7 @@ def _moved(request, rule: Rule, *, focus: str):
     """After a move: the Rules page with `rule` selected, its new place announced."""
     if not wants_the_fragment_alone(request):
         return redirect(f"{reverse('rules')}?at={rule.pk}")
-    place = list(Rule.objects.values_list("pk", flat=True)).index(rule.pk) + 1
+    place = rule_edits.places()[rule.pk]
     return announce(
         _rules_page(request, selected=rule.pk, focus=focus),
         _("Moved %(name)s to %(place)s.") % {"name": rule.name, "place": ordinal(place)},

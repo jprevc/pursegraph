@@ -80,7 +80,7 @@ def test_the_source_transaction_comes_first_in_its_group():
     source.date = "2020-01-01"
     source.save()
 
-    p = preview(Rule(description_contains="shop"), chosen=False, source=source)
+    p = preview(Rule(description_contains="shop"), chosen=False, made_from=source)
 
     assert descriptions(p.change)[0] == "Shop source"
 

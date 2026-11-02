@@ -485,6 +485,7 @@ def test_only_a_transfer_rule_warns_that_pairing_may_convert_counterparts(
     [
         ("HOFER 2201 LJUBLJANA", "HOFER"),
         ("PAYPAL *STEAMGAMES", "STEAMGAMES"),
+        ("PAYPAL*STEAMGAMES", "STEAMGAMES"),
         ("Lekarna Ljubljana 12", "Lekarna"),
         ("Corner Shop", "Corner Shop"),
     ],
@@ -651,3 +652,34 @@ def test_previewing_without_js_saves_nothing(logged_in_client):
 
     assert response.status_code == 200
     assert not Rule.objects.exists()
+
+
+def test_a_rules_detail_lists_what_it_categorized_even_after_its_conditions_changed(
+    logged_in_client,
+):
+    make_rule(logged_in_client, groceries(), description_contains="corner")
+    make_transaction("Corner Shop")
+    apply_rule(logged_in_client, Rule.objects.get())
+    rule = Rule.objects.get()
+    apply_rule(logged_in_client, rule, description_contains="nowhere", apply="")
+
+    page = page_text(logged_in_client.get(f"/rules/?rule={rule.pk}").content.decode())
+
+    assert "Categorized 1 Transaction" in page
+    assert "Categorized by this Rule · 1" in page
+
+
+def test_saving_waits_for_an_outcome(logged_in_client):
+    make_transaction("Corner Shop")
+
+    response = hx(
+        logged_in_client,
+        "get",
+        "/rules/preview/",
+        {"description_contains": "corner", "outcome": ""},
+        target="preview",
+    )
+
+    assert re.search(
+        r'<button type="submit" class="primary"[^>]*disabled', response.content.decode()
+    )

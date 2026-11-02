@@ -32,13 +32,13 @@ in the Transaction row, grouped by whether it decided them. Swapped in alone whe
     <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome now" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
     {% if mine %}
     <tbody>
-      <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=mine|length %}Categorized by this Rule · {{ n }}{% plural %}Categorized by this Rule · {{ n }}{% endblocktranslate %}</th></tr>
+      <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=mine|length %}Categorized by this Rule · <span class="fig">{{ n }}</span>{% plural %}Categorized by this Rule · <span class="fig">{{ n }}</span>{% endblocktranslate %}</th></tr>
       {% for t in mine %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains next=request.get_full_path %}{% endfor %}
     </tbody>
     {% endif %}
     {% if others %}
     <tbody>
-      <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=others|length %}Also matches, decided otherwise · {{ n }}{% plural %}Also matches, decided otherwise · {{ n }}{% endblocktranslate %}</th></tr>
+      <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=others|length %}Also matches, decided otherwise · <span class="fig">{{ n }}</span>{% plural %}Also matches, decided otherwise · <span class="fig">{{ n }}</span>{% endblocktranslate %}</th></tr>
       {% for t in others %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains %}{% endfor %}
     </tbody>
     {% endif %}

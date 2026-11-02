@@ -1,17 +1,17 @@
 {% extends "shell.html" %}
 {% load i18n icons static %}
-{% block title %}{% if draft.pk %}{% translate "Edit Rule" %}{% elif source %}{% translate "Make a Rule" %}{% else %}{% translate "New Rule" %}{% endif %}{% endblock %}
+{% block title %}{% if draft.pk %}{% translate "Edit Rule" %}{% elif made_from %}{% translate "Make a Rule" %}{% else %}{% translate "New Rule" %}{% endif %}{% endblock %}
 {% block head %}<script src="{% static 'rules.js' %}" defer></script>{% endblock %}
 {% block main %}
 <div class="page-head">
-  <h1 tabindex="-1">{% if draft.pk %}{% blocktranslate %}Edit Rule {{ place }}{% endblocktranslate %}{% elif source %}{% translate "Make a Rule" %}{% else %}{% translate "New Rule" %}{% endif %}</h1>
+  <h1 tabindex="-1">{% if draft.pk %}{% blocktranslate %}Edit Rule {{ place }}{% endblocktranslate %}{% elif made_from %}{% translate "Make a Rule" %}{% else %}{% translate "New Rule" %}{% endif %}</h1>
   <a class="button ghost" href="{% url 'rules' %}{% if draft.pk %}?rule={{ draft.pk }}{% endif %}">{% icon "left" %}{% translate "Back" %}</a>
 </div>
 <p class="page-sub muted">{% translate "Narrow the filter until the list holds only the Transactions this Rule is for." %}{% if not draft.pk %} {% translate "A new Rule is checked before every other." %}{% endif %}</p>
-<form class="panel r-page" method="post" data-rule-form hx-get="{% url 'rule_preview' %}" hx-trigger="input delay:300ms, change" hx-params="not csrfmiddlewaretoken" hx-target="#preview" hx-swap="outerHTML" hx-sync="this:replace">
+<form class="panel r-page" method="post" novalidate data-rule-form hx-get="{% url 'rule_preview' %}" hx-trigger="input delay:300ms, change" hx-params="not csrfmiddlewaretoken" hx-target="#preview" hx-swap="outerHTML" hx-sync="this:replace">
   {% csrf_token %}
   {% if draft.pk %}<input type="hidden" name="rule" value="{{ draft.pk }}">{% endif %}
-  {% if source %}<input type="hidden" name="transaction" value="{{ source.pk }}">{% endif %}
+  {% if made_from %}<input type="hidden" name="transaction" value="{{ made_from.pk }}">{% endif %}
   {% if form.non_field_errors %}<div class="r-errors">{{ form.non_field_errors }}</div>{% endif %}
   <div class="r-filter">
     {% with f=form.description_contains %}<div class="field r-contains"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{{ f.errors }}</div>{% endwith %}

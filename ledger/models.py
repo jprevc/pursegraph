@@ -481,8 +481,9 @@ class Rule(models.Model):
     @property
     def iban_grouped(self) -> str:
         """Its counterparty IBAN in groups of four, as people read one."""
-        iban = self.counterparty_iban
-        return " ".join(iban[i : i + 4] for i in range(0, len(iban), 4))
+        from .parsers.iban import grouped_iban
+
+        return grouped_iban(self.counterparty_iban)
 
     @property
     def name(self) -> str:

@@ -13,7 +13,7 @@
 :root {
   color-scheme: light;
   --accent: #4f46e5; --accent-text: #4338ca; --accent-soft: #eef2ff; --accent-ink: #ffffff;
-  --focus: #6366f1; --mark-segment: #c7d2fe;
+  --focus: #6366f1; --mark-segment: #c7d2fe; --match: #fdecb3;
   --ground: #f4f5f7; --card: #ffffff; --raised: #f9fafb; --hover: #f3f4f6;
   --ink: #111827; --ink-2: #374151; --muted: #656c79; --faint: #838a97;
   --line: #e5e7eb; --line-strong: #d1d5db;
@@ -35,7 +35,7 @@
 /* Dark is the same world at night. Its block is repeated for the system scheme, as CSS can't share it. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --accent: #5850ec; --accent-text: #a5b4fc; --accent-soft: #1e1b4b; --focus: #818cf8;
+  --accent: #5850ec; --accent-text: #a5b4fc; --accent-soft: #1e1b4b; --focus: #818cf8; --match: #4d4120;
   --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
   --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
   --line: #262b34; --line-strong: #343a46;
@@ -50,7 +50,7 @@
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     color-scheme: dark;
-    --accent: #5850ec; --accent-text: #a5b4fc; --accent-soft: #1e1b4b; --focus: #818cf8;
+    --accent: #5850ec; --accent-text: #a5b4fc; --accent-soft: #1e1b4b; --focus: #818cf8; --match: #4d4120;
     --ground: #0e1014; --card: #171a20; --raised: #1d2128; --hover: #222731;
     --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9ca3af; --faint: #6b7280;
     --line: #262b34; --line-strong: #343a46;
@@ -119,6 +119,7 @@ button .icon, .button .icon { color: var(--muted); }
 button.link { height: auto; padding: 0; margin-left: var(--s-1); background: none; border: 0; box-shadow: none; color: var(--accent-text); font-weight: 500; }
 button.link:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
 button:disabled, button:disabled:hover { opacity: .35; cursor: default; background: var(--card); }
+.primary:disabled, .primary:disabled:hover { background: var(--ink); border-color: var(--ink); }
 a.danger { color: var(--accent-text); }
 
 /* ---------- Form fields ---------- */
@@ -1078,8 +1079,8 @@ kbd { font: 600 var(--text-label)/1 var(--font); color: var(--ink-2); }
 .r-matches th:last-child, .r-matches td:last-child { padding-right: var(--s-5); }
 .r-matches tr.grp th { padding-top: var(--s-2); padding-bottom: var(--s-2); background: var(--raised); color: var(--ink-2); font-size: var(--text-label); font-weight: 600; }
 .r-none { margin: 0; padding: var(--s-5); }
-/* The text a Rule matched, in a soft highlight. */
-mark { padding: 0 1px; border-radius: 3px; background: color-mix(in srgb, var(--cat-5) 38%, transparent); color: inherit; }
+/* The text a Rule matched, in a soft highlight: an interface colour, never a Category's hue. */
+mark { padding: 0 1px; border-radius: 3px; background: var(--match); color: inherit; }
 
 .r-page { padding: 0; }
 .r-errors { padding: var(--s-4) var(--s-5) 0; }
@@ -1131,10 +1132,27 @@ mark { padding: 0 1px; border-radius: 3px; background: color-mix(in srgb, var(--
   .r-save { flex: 1; }
   .r-save button { flex: 1; }
 }
+@media (max-width: 900px) {
+  /* Each preview row is a stacked card, as the Transaction row is on a phone: the description and amount, the date
+     and Account, then the outcome now and after saving. */
+  .r-pv thead { display: none; }
+  .r-pv tr.txn {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3);
+    padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line);
+  }
+  .r-pv tbody tr.txn:last-child { border-bottom: 0; }
+  .r-pv tr.txn > td { padding: 0; border: 0; width: auto; }
+  .r-pv .c-date, .r-pv .kind { display: none; }
+  .r-pv .m-meta { display: block; color: var(--muted); font-size: var(--text-label); }
+  .r-pv .amt { grid-column: 2; grid-row: 1; }
+  .r-pv .c-now, .r-pv .c-after { grid-column: 1 / -1; }
+  .r-pv .c-now { padding-top: var(--s-1); }
+  .r-pv .c-after { display: flex; align-items: baseline; gap: var(--s-1); }
+  .r-pv .c-after::before { content: "→"; color: var(--faint); }
+  .r-pv tr.grp th { display: block; padding: var(--s-2) var(--s-4); }
+}
 @media (max-width: 600px) {
   .r-matches th:first-child, .r-matches td:first-child { padding-left: var(--s-4); }
-  .r-pv .c-now, .r-pv .c-after { grid-column: 1 / -1; width: auto; }
-  .r-pv .c-after::before { content: "→ "; color: var(--faint); }
   .r-matches tr.grp th { display: block; padding: var(--s-2) var(--s-4); }
 }
 
