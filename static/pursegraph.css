@@ -246,7 +246,6 @@ button.account .icon { margin-left: auto; color: var(--faint); }
 
 .m-top, .tabbar, .sheet:not(:popover-open) { display: none; }
 main { min-width: 0; width: 100%; max-width: 85rem; padding: var(--s-6) var(--s-8) 6rem; }
-.empty { display: grid; place-items: center; gap: var(--s-3); padding: 6rem var(--s-4); text-align: center; color: var(--ink-2); }
 
 /* The Dashboard's view tabs, underlined. */
 .tabs { display: flex; gap: var(--s-5); margin-bottom: 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
@@ -305,6 +304,39 @@ main { min-width: 0; width: 100%; max-width: 85rem; padding: var(--s-6) var(--s-
 .login input:not([type="hidden"]) { width: 100%; height: 2.5rem; margin-bottom: var(--s-2); }
 .login button { height: 2.5rem; margin-top: var(--s-2); }
 .login .errorlist { color: var(--ink); }
+
+/* The pages outside the shell (docs/design/login.md): the Indigo Wash panel beside a 360px column on the ground. */
+.entry { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 100vh; }
+.entry-side { display: flex; flex-direction: column; gap: var(--s-6); padding: var(--s-8); background: var(--accent-soft); }
+.entry-side .brand img { width: 2rem; height: 2rem; }
+.entry-side .claim { max-width: 18ch; margin: auto 0 0; font-size: var(--text-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; text-wrap: balance; }
+.entry-side .facts { display: grid; gap: var(--s-3); max-width: 40ch; margin: 0 0 auto; padding: 0; list-style: none; color: var(--ink-2); }
+.entry-side .facts li { display: flex; gap: var(--s-3); }
+.entry-side .facts .icon { margin-top: .125rem; color: var(--accent-text); }
+main.entry-main { display: grid; place-items: center; max-width: none; padding: var(--s-8) var(--s-6) 7.5rem; }
+.entry-col { width: min(100%, 22.5rem); }
+.entry h1 { margin-bottom: var(--s-1); letter-spacing: -0.02em; }
+.entry-sub { margin: 0 0 var(--s-6); color: var(--muted); }
+.entry-note { margin-bottom: var(--s-4); }
+.login-form .field { margin-bottom: var(--s-4); gap: .375rem; }
+.login-form label { font-size: var(--text-sm); font-weight: 500; }
+.login-form input { width: 100%; height: 2.5rem; }
+.field-error { display: flex; align-items: flex-start; gap: .375rem; margin: 0; color: var(--ink); font-size: var(--text-sm); font-weight: 500; }
+.field-error .icon { margin-top: .125rem; }
+.entry .block { width: 100%; height: 2.5rem; }
+.entry .hint { margin: var(--s-4) 0 0; color: var(--muted); font-size: var(--text-sm); }
+.locked .muted { margin: 0; }
+.locked .count { margin: var(--s-2) 0; font-size: var(--text-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.locked .at { margin-bottom: var(--s-4); }
+.locked .right-away { margin: 0; font-weight: 600; }
+.locked ol { display: grid; gap: var(--s-3); margin: var(--s-4) 0 var(--s-5); padding-left: var(--s-5); color: var(--ink-2); }
+@media (max-width: 900px) {
+  .entry { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .entry-side { gap: var(--s-3); padding: var(--s-5) var(--s-4); }
+  .entry-side .claim { margin: 0; font-size: 1.25rem; }
+  .entry-side .facts { display: none; }
+  main.entry-main { place-items: start center; padding: var(--s-6) var(--s-4) 7.5rem; }
+}
 
 /* ---------- Pages (layouts stay until their slice rebuilds them) ---------- */
 .notice { margin-bottom: var(--s-4); }
@@ -996,7 +1028,6 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .counts .zero, .counts .zero b { color: var(--muted); font-weight: 500; }
 .statements { border-radius: var(--r-ctl); background: var(--raised); }
 .statements th, .statements td { padding: var(--s-2) var(--s-3); }
-.board-empty { margin: 0; padding: var(--s-5); }
 
 /* Accounts (under Manage): the same board, a row opening in place on Raised to edit its Account. */
 .page-sub { margin: 0 0 var(--s-4); }
@@ -1041,6 +1072,7 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 /* docs/design/rules.md: the Rules in order (a 300px listbox) beside the selected Rule's detail, and the Rule page: the
    filter bar, the live preview and a sticky save bar. */
 .md.rules { grid-template-columns: minmax(0, 18.75rem) minmax(0, 1fr); }
+.md.rules.alone { grid-template-columns: minmax(0, 1fr); }
 .rule-list { padding: var(--s-2); }
 .r-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .r-list li { border-radius: var(--r-row); }
@@ -1154,6 +1186,49 @@ mark { padding: 0 1px; border-radius: 3px; background: var(--match); color: inhe
 @media (max-width: 600px) {
   .r-matches th:first-child, .r-matches td:first-child { padding-left: var(--s-4); }
   .r-matches tr.grp th { display: block; padding: var(--s-2) var(--s-4); }
+}
+
+/* ---------- Empty states and first run ---------- */
+/* The empty block (docs/design/empty-states.md): one centred card, the same on every page. */
+.empty-block { display: grid; justify-items: center; gap: var(--s-2); padding: var(--s-8) var(--s-5); text-align: center; }
+.empty-ic { display: grid; place-items: center; width: 3rem; height: 3rem; margin-bottom: var(--s-2); border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); }
+.empty-ic .icon { width: 1.375rem; height: 1.375rem; vertical-align: 0; }
+.empty-block h2 { margin: 0; font-size: 1.0625rem; }
+.empty-block p { max-width: 52ch; margin: 0; color: var(--muted); }
+.empty-block .acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-2); margin-top: var(--s-3); }
+.scroll + .empty-block { margin-top: var(--s-4); }
+
+/* Get started and a Member's first steps: numbered step cards. */
+.setup-progress { display: flex; align-items: center; gap: var(--s-3); margin: 0 0 var(--s-4); color: var(--muted); font-size: var(--text-sm); }
+.setup-progress .progress { width: 10rem; background: var(--line); }
+.steps { display: grid; gap: var(--s-3); max-width: 47.5rem; margin: 0; padding: 0; list-style: none; }
+.step { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: start; gap: var(--s-4); padding: var(--s-5); border-radius: var(--r-card); background: var(--card); box-shadow: var(--shadow-card); }
+.step .n { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--ground); color: var(--ink-2); font-weight: 600; }
+.step .n .icon { vertical-align: 0; }
+.step h2, .step h3 { margin: 0; padding-top: .3125rem; font-size: var(--text-title); line-height: 1.375rem; }
+.step p { max-width: 62ch; margin: var(--s-1) 0 0; color: var(--ink-2); }
+.step .who { margin-top: var(--s-2); color: var(--muted); font-size: var(--text-label); }
+.step.done .n { background: var(--accent-soft); color: var(--accent-text); }
+.step.done h2 { color: var(--muted); font-weight: 500; }
+/* Not available yet: no fill or lift, a dashed border, muted. */
+.step.later { background: none; box-shadow: none; border: 1px dashed var(--line-strong); }
+.step.later .n { background: none; border: 1px dashed var(--line-strong); color: var(--muted); }
+.step.later h2, .step.later p { color: var(--muted); }
+.first-steps { margin-bottom: var(--s-4); }
+.first-steps-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
+.first-steps-head h2 { margin: 0 auto 0 0; font-size: var(--text-title); }
+.first-steps .step { padding: 0; background: none; box-shadow: none; }
+.first-steps-hidden .first-steps { display: none; }
+
+/* The shell in setup mode. */
+.sidebar .setup-note { margin: var(--s-3) var(--s-3) 0; font-size: var(--text-sm); }
+.sheet .setup-note { margin: var(--s-3) var(--s-2) 0; font-size: var(--text-sm); }
+@media (max-width: 900px) {
+  .tabbar.setup { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .step { grid-template-columns: 1.75rem minmax(0, 1fr); gap: var(--s-3); padding: var(--s-4); }
+  .step .n { width: 1.75rem; height: 1.75rem; }
+  .step h2, .step h3 { padding-top: .1875rem; }
+  .step > .button { grid-column: 2; justify-self: start; }
 }
 
 /* ---------- Swaps ---------- */

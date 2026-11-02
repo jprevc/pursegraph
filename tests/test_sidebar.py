@@ -4,6 +4,8 @@ from datetime import date
 
 import pytest
 
+from ledger.models import Transaction
+
 from .conftest import review_queue_count
 
 pytestmark = pytest.mark.django_db
@@ -97,7 +99,9 @@ def test_manage_is_open_on_its_pages(admin_client, household, url):
     assert " open" in manage(admin_client.get(url).content.decode())[1]
 
 
-def test_the_review_queue_badge_is_hidden_when_the_queue_is_empty(logged_in_client):
+def test_the_review_queue_badge_is_hidden_when_the_queue_is_empty(logged_in_client, household):
+    Transaction.objects.unresolved().update(is_transfer=True)
+
     page = logged_in_client.get("/transactions/").content.decode()
 
     badges = re.findall(r'<span class="badge review-count"([^>]*)>', page)
@@ -198,7 +202,7 @@ def test_the_favicon_is_the_mark(client):
 
 
 def tab_bar(page):
-    bar = re.search(r'<nav class="tabbar"[^>]*>(.*?)</nav>', page, re.S)
+    bar = re.search(r'<nav class="tabbar[^"]*"[^>]*>(.*?)</nav>', page, re.S)
     assert bar, "no tab bar"
     return bar[1]
 
@@ -265,11 +269,6 @@ def test_the_dashboard_offers_every_view_swapped_via_htmx(logged_in_client, hous
 
 def test_the_landing_page_is_spending(logged_in_client, household):
     assert view_tabs(logged_in_client.get("/").content.decode())["Spending"][1]
-
-
-@pytest.mark.parametrize("url", ["/cashflow/", "/trends/", "/per-member/", "/money-flow/"])
-def test_an_empty_installation_asks_for_the_first_statement_on_every_view(logged_in_client, url):
-    assert "Import your first Statement" in logged_in_client.get(url).content.decode()
 
 
 @pytest.mark.parametrize("url", ["/cashflow/", "/trends/", "/per-member/", "/money-flow/"])

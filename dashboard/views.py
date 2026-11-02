@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
 from ledger import outcomes
-from ledger.models import Statement, Transaction
+from ledger.setup import in_setup_mode, others_invited
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import completeness, queries
@@ -113,11 +113,31 @@ def _announcement(v: View, period: Period, filters: queries.Filters, members, ac
     return str(_(", ")).join(parts)
 
 
+def get_started(request):
+    """Until the first Statement, the Dashboard sets up the Household: four steps, the invite step for admins only."""
+    invite = request.user.is_admin
+    invited = invite and others_invited()
+    shown = 4 if invite else 3
+    # Installed is always done; importing ends setup mode, and the Review queue waits for it.
+    done = 1 + invited
+    return render(
+        request,
+        "dashboard/get_started.html",
+        {
+            "invite": invite,
+            "invited": invited,
+            "shown": shown,
+            "done": done,
+            "done_percent": round(100 * done / shown),
+        },
+    )
+
+
 def show(request, view: str):
     """A dashboard view, or where to start on an empty installation."""
     v = _view(view)
-    if not Statement.objects.exists() and not Transaction.objects.exists():
-        return render(request, "dashboard/empty.html")
+    if in_setup_mode():
+        return get_started(request)
     period = Period.from_query(request.GET, v.default_period)
     filters = queries.Filters.from_query(request.GET)
     filter_query = _filter_query(filters)
@@ -175,6 +195,8 @@ def show(request, view: str):
         "completeness": period_completeness,
         "not_tracked": not_tracked,
         "awaiting_review": queries.awaiting_review(period, heeded),
+        # A Member who owns no Account alone has no Bucket yet: their first steps lead to one.
+        "first_steps": str(request.user.pk) not in dict(members),
         "chart": chart,
         "views": VIEWS.values(),
         "view_template": view_template,

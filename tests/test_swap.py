@@ -135,7 +135,7 @@ def test_every_page_has_one_h1_that_a_swap_can_focus(logged_in_client, household
 
 
 @pytest.mark.django_db
-def test_an_empty_dashboard_still_has_an_h1(logged_in_client):
+def test_get_started_still_has_an_h1(logged_in_client):
     page = logged_in_client.get("/").content.decode()
 
-    assert re.search(r'<h1 [^>]*tabindex="-1"[^>]*>Dashboard</h1>', page)
+    assert re.search(r'<h1 [^>]*tabindex="-1"[^>]*>Set up the Household</h1>', page)

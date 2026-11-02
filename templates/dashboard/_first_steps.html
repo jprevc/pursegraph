@@ -1,0 +1,28 @@
+{% load i18n icons %}{% comment %} A Member's first steps (docs/design/empty-states.md): for a Member with no Bucket, above the tiles. Hide is
+remembered per browser (static/first_steps.js); base.html hides the card before first paint. {% endcomment %}
+<section class="panel first-steps" aria-labelledby="first-steps-h" data-member="{{ user.pk }}">
+  <div class="first-steps-head">
+    <h2 id="first-steps-h">{% blocktranslate with name=user.get_short_name|default:user.get_username %}Your first steps, {{ name }}{% endblocktranslate %}</h2>
+    <button type="button" class="ghost js-only" data-hide-first-steps>{% translate "Hide" %}</button>
+  </div>
+  <ol class="steps">
+    <li class="step">
+      <span class="n" aria-hidden="true">1</span>
+      <div>
+        <h3>{% translate "Import your own Statements" %}</h3>
+        <p>{% translate "Sparkasse, N26 or Revolut. Each adds its Account, and you get your own bucket in Per Member." %}</p>
+      </div>
+      <a class="button primary" href="{% url 'import' %}">{% icon "upload" %}{% translate "Import" %}</a>
+    </li>
+    {% if review_queue_count %}
+    <li class="step">
+      <span class="n" aria-hidden="true">2</span>
+      <div>
+        <h3>{% translate "Help with the Review queue" %}</h3>
+        <p>{% blocktranslate count n=review_queue_count %}{{ n }} Transaction waits for a Member to decide.{% plural %}{{ n }} Transactions wait for a Member to decide.{% endblocktranslate %}</p>
+      </div>
+      <a class="button" href="{% url 'review_queue' %}">{% translate "Open" %}</a>
+    </li>
+    {% endif %}
+  </ol>
+</section>

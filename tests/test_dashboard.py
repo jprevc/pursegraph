@@ -9,15 +9,7 @@ from ledger.models import Account, Transaction
 pytestmark = pytest.mark.django_db
 
 
-def test_empty_dashboard_asks_for_the_first_statement(logged_in_client):
-    response = logged_in_client.get("/")
-
-    assert response.status_code == 200
-    assert b"Import your first Statement" in response.content
-    assert b'href="/import/"' in response.content
-
-
-def test_sidebar_links_to_import_and_review_queue(logged_in_client):
+def test_sidebar_links_to_import_and_review_queue(logged_in_client, household):
     content = logged_in_client.get("/").content
 
     assert b'href="/import/"' in content

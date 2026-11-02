@@ -1,21 +1,27 @@
-{% extends "base.html" %}
-{% load i18n %}
+{% extends "registration/_entry.html" %}
+{% load i18n icons %}
 {% block title %}{% translate "Log in" %}{% endblock %}
-{% block body %}
-<main class="login">
-  <h1>Pursegraph</h1>
-  <form method="post" action="{% url 'login' %}" class="panel">
-    {% csrf_token %}
-    {% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}
-    {% if form.errors %}
-      <p class="error">{% translate "Your username and password didn't match. Please try again." %}</p>
-    {% endif %}
-    <label for="{{ form.username.id_for_label }}">{% translate "Username" %}</label>
-    {{ form.username }}
-    <label for="{{ form.password.id_for_label }}">{% translate "Password" %}</label>
-    {{ form.password }}
-    <input type="hidden" name="next" value="{{ next }}">
-    <button type="submit" class="primary">{% translate "Log in" %}</button>
-  </form>
-</main>
+{% block entry %}
+{% with u=form.username p=form.password wrong=form.non_field_errors %}
+<form method="post" action="{% url 'login' %}" class="login-form" novalidate>
+  {% csrf_token %}
+  <h1>{% translate "Welcome back" %}</h1>
+  <p class="entry-sub">{% translate "Log in with the username your admin gave you." %}</p>
+  {% for message in messages %}<p class="entry-note {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
+  <div class="field">
+    <label for="{{ u.id_for_label }}">{% translate "Username" %}</label>
+    <input type="text" name="username" id="{{ u.id_for_label }}" value="{{ u.value|default:'' }}" autocomplete="username" autocapitalize="none" maxlength="150"{% if u.errors %} aria-invalid="true" aria-describedby="err-username" autofocus{% elif wrong %} aria-invalid="true" aria-describedby="err-form"{% elif not p.errors %} autofocus{% endif %}>
+    {% if u.errors %}<p class="field-error" id="err-username">{% icon "alert" %}<span>{{ u.errors.0 }}</span></p>{% endif %}
+  </div>
+  <div class="field">
+    <label for="{{ p.id_for_label }}">{% translate "Password" %}</label>
+    <input type="password" name="password" id="{{ p.id_for_label }}" autocomplete="current-password"{% if p.errors %} aria-invalid="true" aria-describedby="err-password"{% if not u.errors %} autofocus{% endif %}{% elif wrong %} aria-invalid="true" aria-describedby="err-form" autofocus{% endif %}>
+    {% if p.errors %}<p class="field-error" id="err-password">{% icon "alert" %}<span>{{ p.errors.0 }}</span></p>{% endif %}
+    {% if wrong %}<p class="field-error" id="err-form">{% icon "alert" %}<span>{{ wrong.0 }}{% if tries_left %} {% blocktranslate count n=tries_left with username=attempted %}{{ n }} more try before <b>{{ username }}</b> is locked for an hour on this device.{% plural %}{{ n }} more tries before <b>{{ username }}</b> is locked for an hour on this device.{% endblocktranslate %}{% endif %}</span></p>{% endif %}
+  </div>
+  <input type="hidden" name="next" value="{{ next }}">
+  <button type="submit" class="primary block">{% translate "Log in" %}</button>
+  <p class="hint">{% translate "Forgot your password? There is no email here: ask an admin of the Household for a reset link." %}</p>
+</form>
+{% endwith %}
 {% endblock %}

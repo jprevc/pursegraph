@@ -10,6 +10,7 @@
 {% if view == "per_member" and filters.member %}<p class="muted filter-note">{% translate "Per Member compares every Member, so it ignores the Member filter." %}</p>{% endif %}
 {# Refetched alone after an outcome is changed in the drill-down. #}
 <div id="numbers">
+{% if first_steps %}{% include "dashboard/_first_steps.html" %}{% endif %}
 {% if not_tracked %}
 {% include "dashboard/_not_tracked.html" %}
 {% else %}

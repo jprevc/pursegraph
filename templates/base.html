@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
 {# The theme chosen in this browser, applied before the stylesheet so that the first paint is already in it. #}
-<script>document.documentElement.classList.add("js"); try { const theme = localStorage.getItem("theme"); if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme; } catch (e) {}</script>
+<script>document.documentElement.classList.add("js"); try { const theme = localStorage.getItem("theme"); if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme; if (localStorage.getItem("first-steps-hidden:{{ user.pk }}")) document.documentElement.classList.add("first-steps-hidden"); } catch (e) {}</script>
 <title>{% block title %}{{ page_title }}{% endblock %} · Pursegraph</title>
 <link rel="icon" href="{% static 'mark.svg' %}" type="image/svg+xml">
 <link rel="preload" href="{% static 'fonts/InterVariable.woff2' %}" as="font" type="font/woff2" crossorigin>
@@ -17,6 +17,7 @@
 <script src="{% static 'transactions.js' %}" defer></script>
 <script src="{% static 'outcome.js' %}" defer></script>
 <script src="{% static 'theme.js' %}" defer></script>
+<script src="{% static 'first_steps.js' %}" defer></script>
 {% block head %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>

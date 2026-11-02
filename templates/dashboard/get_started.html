@@ -1,0 +1,43 @@
+{% extends "shell.html" %}
+{% load i18n icons %}{% comment %} Get started (docs/design/empty-states.md): the Dashboard until the Household's first Statement. Importing ends
+it, so that step is never done here; the invite step is for admins only. {% endcomment %}
+{% block title %}{% translate "Get started" %}{% endblock %}
+{% block main %}
+<div class="page-head"><h1 tabindex="-1">{% translate "Set up the Household" %}</h1></div>
+<p class="page-sub muted">{% if invite %}{% translate "Four steps to the first Dashboard. This page becomes the Dashboard after the first import." %}{% else %}{% translate "Three steps to the first Dashboard. This page becomes the Dashboard after the first import." %}{% endif %}</p>
+<p class="setup-progress"><span class="progress" aria-hidden="true"><i style="--done: {{ done_percent }}%"></i></span>{% blocktranslate %}{{ done }} of {{ shown }} done{% endblocktranslate %}</p>
+<ol class="steps">
+  <li class="step done">
+    <span class="n">{% icon "tick" %}<span class="sr">{% translate "Done:" %}</span></span>
+    <div><h2>{% if invite %}{% translate "Pursegraph is installed and you are its first admin" %}{% else %}{% translate "Pursegraph is installed and you are a Member" %}{% endif %}</h2></div>
+  </li>
+  <li class="step">
+    <span class="n" aria-hidden="true">2</span>
+    <div>
+      <h2>{% translate "Import a Statement" %}</h2>
+      <p>{% translate "Upload a bank Statement: a Sparkasse or N26 PDF, or a Revolut PDF or CSV. Its Account is created from the IBAN on it, so there's nothing to set up first." %}</p>
+      <p class="who">{% translate "Any Member · usually their own bank" %}</p>
+    </div>
+    <a class="button primary" href="{% url 'import' %}">{% icon "upload" %}{% translate "Import" %}</a>
+  </li>
+  {% if invite %}
+  <li class="step{% if invited %} done{% endif %}">
+    <span class="n">{% if invited %}{% icon "tick" %}<span class="sr">{% translate "Done:" %}</span>{% else %}<span aria-hidden="true">3</span>{% endif %}</span>
+    <div>
+      <h2>{% translate "Invite the other Members" %}</h2>
+      <p>{% translate "Each gets a one-time link to choose their password, then imports their own Statements." %}</p>
+      <p class="who">{% translate "Admins" %}</p>
+    </div>
+    {% if not invited %}<a class="button" href="{% url 'members' %}">{% translate "Invite" %}</a>{% endif %}
+  </li>
+  {% endif %}
+  <li class="step later">
+    <span class="n" aria-hidden="true">{% if invite %}4{% else %}3{% endif %}</span>
+    <div>
+      <h2>{% translate "Sort the Review queue" %}</h2>
+      <p>{% translate "What no Rule or LLM suggestion could categorize waits for a Member to decide. Available after the first import." %}</p>
+      <p class="who">{% translate "Any Member" %}</p>
+    </div>
+  </li>
+</ol>
+{% endblock %}

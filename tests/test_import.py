@@ -73,6 +73,8 @@ def test_the_import_page_names_every_supported_format(logged_in_client):
 
 
 def test_sidebar_links_to_transactions(logged_in_client):
+    upload(logged_in_client)
+
     assert b'href="/transactions/"' in logged_in_client.get("/").content
 
 
@@ -218,7 +220,7 @@ def test_a_new_account_needs_a_name(logged_in_client, statement_files):
 def test_dashboard_stops_asking_for_the_first_statement_after_an_import(logged_in_client):
     upload(logged_in_client)
 
-    assert b"Import your first Statement" not in logged_in_client.get("/").content
+    assert b"Set up the Household" not in logged_in_client.get("/").content
 
 
 def test_an_htmx_import_swaps_in_the_region_and_announces_the_result(logged_in_client):

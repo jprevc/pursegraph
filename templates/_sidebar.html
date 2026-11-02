@@ -5,6 +5,15 @@
 <aside class="sidebar">
   <a class="brand" href="{{ dashboard_url }}{{ carried_query }}"><img src="{% static 'mark.svg' %}" alt="" width="28" height="28">Purse<span>graph</span></a>
   <nav aria-label="{% translate 'Main' %}">
+    {% if setup_mode %}
+    <a class="nav" href="{{ dashboard_url }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Get started" %}</a>
+    {% include "_nav_item.html" with href=import_url item="import" icon="upload" label=_("Import") %}
+    {% if user.is_admin %}<details class="manage" open>
+      <summary>{% icon "right" %}{% translate "Manage" %}</summary>
+      {% include "_manage_links.html" %}
+    </details>{% endif %}
+    <p class="muted setup-note">{% translate "Transactions, the Review queue and Rules appear after the first import." %}</p>
+    {% else %}
     <a class="nav" href="{{ dashboard_url }}{{ carried_query }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Dashboard" %}</a>
     <a class="nav" href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true"{% if nav == 'transactions' %} aria-current="page"{% endif %}>{% icon "list" %}{% translate "Transactions" %}</a>
     <a class="nav" href="{{ review_url }}{{ carried_page_query }}"{% if nav == 'review_queue' %} aria-current="page"{% endif %}>{% icon "check" %}{% translate "Review queue" %}{% include "_review_count.html" %}</a>
@@ -14,6 +23,7 @@
       <summary>{% icon "right" %}{% translate "Manage" %}</summary>
       {% include "_manage_links.html" %}
     </details>
+    {% endif %}
   </nav>
   <div class="sidebar-foot">
     <button class="account" type="button" popovertarget="account">
@@ -31,17 +41,29 @@
 <header class="m-top">
   <a class="brand" href="{{ dashboard_url }}{{ carried_query }}"><img src="{% static 'mark.svg' %}" alt="" width="26" height="26">Purse<span>graph</span></a>
 </header>
-<nav class="tabbar" aria-label="{% translate 'Main' %}">
+<nav class="tabbar{% if setup_mode %} setup{% endif %}" aria-label="{% translate 'Main' %}">
+  {% if setup_mode %}
+  <a href="{{ dashboard_url }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Get started" %}</a>
+  <a href="{{ import_url }}"{% if nav == 'import' %} aria-current="page"{% endif %}>{% icon "upload" %}{% translate "Import" %}</a>
+  <button type="button" popovertarget="more"{% if manage_open %} aria-current="true"{% endif %}>{% icon "more" %}{% translate "More" %}</button>
+  {% else %}
   <a href="{{ dashboard_url }}{{ carried_query }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Dashboard" %}</a>
   <a href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true"{% if nav == 'transactions' %} aria-current="page"{% endif %}>{% icon "list" %}{% translate "Transactions" %}</a>
   <a href="{{ review_url }}{{ carried_page_query }}"{% if nav == 'review_queue' %} aria-current="page"{% endif %}>{% icon "check" %}{% translate "Review" %}{% include "_review_count.html" %}</a>
   <button type="button" popovertarget="more"{% if manage_open or nav == 'import' %} aria-current="true"{% endif %}>{% icon "more" %}{% translate "More" %}</button>
+  {% endif %}
 </nav>
 <div id="more" class="sheet" popover role="dialog" aria-label="{% translate 'More' %}">
   <div class="grip" aria-hidden="true"></div>
+  {% if setup_mode %}
+  {% if user.is_admin %}<p class="sheet-h">{% translate "Manage" %}</p>
+  {% include "_manage_links.html" %}{% endif %}
+  <p class="muted setup-note">{% translate "Transactions, the Review queue and Rules appear after the first import." %}</p>
+  {% else %}
   {% include "_nav_item.html" with href=import_url item="import" icon="upload" label=_("Import") %}
   <p class="sheet-h">{% translate "Manage" %}</p>
   {% include "_manage_links.html" %}
+  {% endif %}
   {% include "_theme_switch.html" with name="theme-sheet" %}
   <p class="sheet-h">{{ user.get_username }} · {{ role }}</p>
   <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="nav">{% icon "logout" %}{% translate "Log out" %}</button></form>

@@ -253,7 +253,7 @@ def test_a_period_with_no_spending_says_so(logged_in_client, household):
     page = logged_in_client.get("/spending/", {"period": "2024-01"}).content.decode()
 
     assert "No spending in this period." in page
-    assert "Import your first Statement" not in page
+    assert "Set up the Household" not in page
 
 
 def test_an_htmx_request_gets_the_view_alone(logged_in_client, household):
@@ -356,12 +356,6 @@ def test_periods_at_the_edge_of_the_calendar_fall_back_to_the_default(
 
     assert response.status_code == 200
     assert "September 2026" in response.content.decode()
-
-
-def test_an_empty_installation_asks_for_the_first_statement_on_every_view(logged_in_client):
-    page = logged_in_client.get("/spending/").content.decode()
-
-    assert "Import your first Statement" in page
 
 
 def test_drill_down_rows_go_back_to_the_view_without_htmx(logged_in_client, household):
