@@ -1,0 +1,25 @@
+{% load i18n %}{# Making a Member an admin or deactivating them, confirmed inline under their row (docs/design/admin.md). #}
+{% with name=m.get_full_name|default:m.get_username %}
+{% if kind == "admin" %}
+<form class="confirm" method="post" action="{% url 'member_admin' m.pk %}" hx-post="{% url 'member_admin' m.pk %}" hx-target="#roles" hx-swap="outerHTML" data-action>
+  {% csrf_token %}<input type="hidden" name="admin" value="1">
+  <p>{% blocktranslate %}Make <b>{{ name }}</b> an admin? Admins manage Members, Accounts, Categories and the LLM suggestions, and can remove another admin's rights.{% endblocktranslate %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'members' %}" data-keep>{% translate "Cancel" %}</a>
+    <button type="submit" class="primary" data-focus>{% translate "Make admin" %}</button>
+  </div>
+</form>
+{% else %}
+<form class="confirm" method="post" action="{% url 'member_active' m.pk %}" hx-post="{% url 'member_active' m.pk %}" hx-target="#roles" hx-swap="outerHTML" data-action>
+  {% csrf_token %}<input type="hidden" name="active" value="0">
+  <p>{% blocktranslate %}Deactivate <b>{{ name }}</b>?{% endblocktranslate %}
+    {% if m.pk == user.pk %}{% translate "You're logged out at once and can't log in." %}{% else %}{% translate "They're logged out at once and can't log in." %}{% endif %}
+    {% with accounts=m.accounts.count %}{% if accounts %}{% blocktranslate count n=accounts %}Their {{ n }} Account, Statements and Transactions stay.{% plural %}Their {{ n }} Accounts, Statements and Transactions stay.{% endblocktranslate %}{% else %}{% translate "Nothing they imported or decided is removed." %}{% endif %}{% endwith %}
+    {% if m.pk == user.pk %}{% translate "Another admin can reactivate you later." %}{% else %}{% translate "You can reactivate them later." %}{% endif %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'members' %}" data-keep>{% translate "Keep active" %}</a>
+    <button type="submit" class="primary" data-focus>{% translate "Deactivate" %}</button>
+  </div>
+</form>
+{% endif %}
+{% endwith %}

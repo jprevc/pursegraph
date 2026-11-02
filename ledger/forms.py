@@ -263,15 +263,10 @@ class NameForm(forms.Form):
 
 
 class ThresholdForm(forms.Form):
-    threshold = forms.DecimalField(
-        label=_("Auto-accept threshold"),
-        help_text=_(
-            "A suggestion at least this confident (0 to 1) categorizes its Transaction by itself."
-        ),
-        min_value=0,
-        max_value=1,
-        decimal_places=2,
-        widget=forms.NumberInput(attrs={"step": "0.01"}),
+    """The auto-accept threshold in % sure, the Review queue's unit, in the LLM suggestions page's steps."""
+
+    threshold = forms.IntegerField(
+        label=_("Auto-accept at"), min_value=50, max_value=100, step_size=5
     )
 
 

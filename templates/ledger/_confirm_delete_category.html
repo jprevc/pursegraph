@@ -1,0 +1,9 @@
+{% load i18n %}{# Deleting a Category nothing uses, confirmed inline under its editing card's foot (docs/design/admin.md). #}
+<form class="confirm" method="post" action="{% url 'delete_category' category.pk %}" hx-post="{% url 'delete_category' category.pk %}" hx-target="#categories" hx-swap="outerHTML" data-action>
+  {% csrf_token %}
+  <p>{% blocktranslate with name=category.name catch_all=category.catch_all.name %}Delete <b>{{ name }}</b> and its catch-all {{ catch_all }}? Nothing uses it.{% endblocktranslate %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'categories' %}?edit={{ category.pk }}" data-keep>{% translate "Keep it" %}</a>
+    <button type="submit" class="primary" data-focus>{% translate "Delete Category" %}</button>
+  </div>
+</form>

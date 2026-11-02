@@ -1,0 +1,58 @@
+{% load i18n icons hues %}{% comment %} One Category opened for editing on the Categories page (docs/design/admin.md). Save changes saves the names;
+moves, adds and deletes apply at once, carrying the names typed so far along (`hx-include`). {% endcomment %}
+{% url 'categories' as categories_url %}
+{% with save=category.save_form catch_all=category.catch_all %}
+<section class="panel cat-card editing" style="--hue: var(--{{ category.pk|hue }})" aria-labelledby="cat-{{ category.pk }}">
+  <div class="cat-head">
+    <h2 id="cat-{{ category.pk }}" tabindex="-1"{% if focus == "heading" %} data-focus{% endif %}><span class="dot" aria-hidden="true"></span>{% blocktranslate with name=category.name %}Editing {{ name }}{% endblocktranslate %}</h2>
+    <span class="kind">{% blocktranslate with kind=category.get_kind_display place=category.place count=categories|length %}{{ kind }} · place {{ place }} of {{ count }}{% endblocktranslate %}</span>
+    <form method="post" action="{% url 'move_category' category.pk %}" hx-post="{% url 'move_category' category.pk %}" hx-target="#categories" hx-swap="outerHTML" hx-include="[form='{{ save }}']">
+      {% csrf_token %}
+      <button type="submit" class="icon-button sm" name="direction" value="up" aria-label="{% blocktranslate with name=category.name %}Move {{ name }} earlier{% endblocktranslate %}"{% if category.place == 1 %} disabled{% endif %}{% if focus == "category-up" %} data-focus{% endif %}>{% icon "left" %}</button>
+      <button type="submit" class="icon-button sm" name="direction" value="down" aria-label="{% blocktranslate with name=category.name %}Move {{ name }} later{% endblocktranslate %}"{% if category.place == categories|length %} disabled{% endif %}{% if focus == "category-down" %} data-focus{% endif %}>{% icon "right" %}</button>
+    </form>
+  </div>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <input class="cat-name" form="{{ save }}" name="name" value="{{ category.draft }}" maxlength="100" required aria-label="{% translate 'Category name' %}">
+  <ul class="cat-rows">
+    {% for s in category.subcategories.all %}
+    <li>
+      <div class="ed-row">
+        <input form="{{ save }}" name="sub-{{ s.pk }}" value="{{ s.draft }}" maxlength="100" required aria-label="{% blocktranslate with name=s.name %}Name of {{ name }}{% endblocktranslate %}">
+        <span class="ed-counts fig">{% blocktranslate count n=s.transaction_count %}{{ n }} Transaction{% plural %}{{ n }} Transactions{% endblocktranslate %}{% if s.rule_count %} · {% blocktranslate count n=s.rule_count %}{{ n }} Rule{% plural %}{{ n }} Rules{% endblocktranslate %}{% endif %}</span>
+        {% if s.is_catch_all %}
+        <span class="tag quiet">{% translate "catch-all · last" %}</span>
+        {% else %}
+        <form class="row-acts" method="post" action="{% url 'move_subcategory' s.pk %}" hx-post="{% url 'move_subcategory' s.pk %}" hx-target="#categories" hx-swap="outerHTML" hx-include="[form='{{ save }}']">
+          {% csrf_token %}
+          <button type="submit" class="icon-button sm" name="direction" value="up" aria-label="{% blocktranslate with name=s.name %}Move {{ name }} up{% endblocktranslate %}"{% if forloop.first %} disabled{% endif %}{% if s.focus == "up" %} data-focus{% endif %}>{% icon "up" %}</button>
+          <button type="submit" class="icon-button sm" name="direction" value="down" aria-label="{% blocktranslate with name=s.name %}Move {{ name }} down{% endblocktranslate %}"{% if forloop.revcounter == 2 %} disabled{% endif %}{% if s.focus == "down" %} data-focus{% endif %}>{% icon "down" %}</button>
+          <a class="button ghost icon-button sm" href="{% url 'delete_subcategory' s.pk %}" hx-get="{% url 'delete_subcategory' s.pk %}" hx-target="#confirm-sub-{{ s.pk }}" hx-swap="innerHTML" data-confirm-opener aria-label="{% blocktranslate with name=s.name %}Delete {{ name }}{% endblocktranslate %}">{% icon "trash" %}</a>
+        </form>
+        {% endif %}
+      </div>
+      <div id="confirm-sub-{{ s.pk }}" data-confirm-slot>{% if confirm == s.pk %}{% include "ledger/_confirm_delete_subcategory.html" with subcategory=s %}{% endif %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  <form class="cat-add" method="post" action="{% url 'add_subcategory' category.pk %}" hx-post="{% url 'add_subcategory' category.pk %}" hx-target="#categories" hx-swap="outerHTML" hx-include="[form='{{ save }}']">
+    {% csrf_token %}
+    <input name="new-name" maxlength="100" required placeholder="{% blocktranslate with name=catch_all.name %}New Subcategory, goes above {{ name }}{% endblocktranslate %}" aria-label="{% blocktranslate with name=category.name %}New Subcategory in {{ name }}{% endblocktranslate %}"{% if focus == "add" %} data-focus{% endif %}>
+    <button type="submit">{% icon "plus" %}{% translate "Add" %}</button>
+  </form>
+  <div class="cat-foot">
+    {% if category.refusal %}
+    <button type="button" class="ghost" disabled>{% icon "trash" %}{% blocktranslate with name=category.name %}Delete {{ name }}{% endblocktranslate %}</button>
+    <p class="reason">{% icon "info" %}<span>{{ category.refusal }}</span></p>
+    {% else %}
+    <a class="button ghost" href="{% url 'delete_category' category.pk %}" hx-get="{% url 'delete_category' category.pk %}" hx-target="#confirm-category" hx-swap="innerHTML" data-confirm-opener>{% icon "trash" %}{% blocktranslate with name=category.name %}Delete {{ name }}{% endblocktranslate %}</a>
+    {% endif %}
+    <form id="{{ save }}" class="form-actions" method="post" action="{% url 'save_category' category.pk %}" hx-post="{% url 'save_category' category.pk %}" hx-target="#categories" hx-swap="outerHTML" data-action>
+      {% csrf_token %}
+      <a class="button ghost" href="{{ categories_url }}" hx-get="{{ categories_url }}?closed={{ category.pk }}" hx-target="#categories" hx-swap="outerHTML">{% translate "Cancel" %}</a>
+      <button type="submit" class="primary">{% translate "Save changes" %}</button>
+    </form>
+  </div>
+  <div id="confirm-category" data-confirm-slot>{% if confirm == "category" %}{% include "ledger/_confirm_delete_category.html" %}{% endif %}</div>
+</section>
+{% endwith %}

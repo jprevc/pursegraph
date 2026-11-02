@@ -1,0 +1,13 @@
+{% load i18n %}{# Deleting a Subcategory, confirmed inline under its row while its Category is edited (docs/design/admin.md). #}
+{% with category=subcategory.category catch_all=subcategory.category.catch_all %}
+<form class="confirm" method="post" action="{% url 'delete_subcategory' subcategory.pk %}" hx-post="{% url 'delete_subcategory' subcategory.pk %}" hx-target="#categories" hx-swap="outerHTML" hx-include="[form='save-{{ category.pk }}']" data-action>
+  {% csrf_token %}
+  <p>{% blocktranslate with category=category.name name=subcategory.name %}Delete <b>{{ category }} › {{ name }}</b>?{% endblocktranslate %}
+    {% if subcategory.transaction_count or subcategory.rule_count %}{% blocktranslate count n=subcategory.transaction_count %}Its {{ n }} Transaction{% plural %}Its {{ n }} Transactions{% endblocktranslate %}{% if subcategory.rule_count %} {% blocktranslate count n=subcategory.rule_count %}and {{ n }} Rule{% plural %}and {{ n }} Rules{% endblocktranslate %}{% endif %} {% blocktranslate with category=category.name name=catch_all.name %}move to <b>{{ category }} › {{ name }}</b>.{% endblocktranslate %}{% endif %}
+    {% translate "Queued suggestions for it are asked again." %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'categories' %}?edit={{ category.pk }}" data-keep>{% translate "Keep it" %}</a>
+    <button type="submit" class="primary" data-focus>{% translate "Delete and move" %}</button>
+  </div>
+</form>
+{% endwith %}

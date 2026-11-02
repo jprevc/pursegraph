@@ -1,30 +1,72 @@
 {% extends "shell.html" %}
-{% load i18n %}
+{% load i18n icons static %}
 {% block title %}{% translate "LLM suggestions" %}{% endblock %}
+{% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
-<h1 tabindex="-1">{% translate "LLM suggestions" %}</h1>
-{% for message in messages %}<p class="panel notice">{{ message }}</p>{% endfor %}
+<div class="page-head"><h1 tabindex="-1">{% translate "LLM suggestions" %}</h1></div>
+<p class="page-sub muted">{% translate "What no Rule decides is sent to the LLM on this network, which suggests a Subcategory and how sure it is. A suggestion sure enough categorizes its Transaction by itself; the rest wait in the Review queue with the suggestion first." %}</p>
+{% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 
 {% if offered %}
-<form class="panel notice stack-form" method="post" action="{% url 'accept_clearing_suggestions' %}">{% csrf_token %}
+<form class="offer" method="post" action="{% url 'accept_clearing_suggestions' %}">
+  {% csrf_token %}
   {% for pk in offered %}<input type="hidden" name="accept" value="{{ pk }}">{% endfor %}
-  <p>{% blocktranslate count n=offered|length %}{{ n }} queued Transaction now clears the threshold, accept it?{% plural %}{{ n }} queued Transactions now clear the threshold, accept them?{% endblocktranslate %}</p>
-  <div class="actions">
-    <button type="submit">{% translate "Accept" %}</button>
-    <span class="muted">{% translate "Or leave them in the Review queue with the suggestion preselected." %}</span>
+  <p>{% blocktranslate count n=offered|length %}{{ n }} Transaction in the Review queue is now at least {{ threshold }} % sure. Accept it now, or leave it in the queue with the suggestion first.{% plural %}{{ n }} Transactions in the Review queue are now at least {{ threshold }} % sure. Accept them now, or leave them in the queue with the suggestion first.{% endblocktranslate %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'suggestion_settings' %}">{% translate "Leave in the queue" %}</a>
+    <button type="submit" class="primary">{% blocktranslate count n=offered|length %}Accept {{ n }}{% plural %}Accept {{ n }}{% endblocktranslate %}</button>
   </div>
 </form>
 {% endif %}
 
-<form class="panel stack-form" method="post">{% csrf_token %}
-  {{ form.as_div }}
-  <p class="muted">{% translate "Outcomes the LLM already set stay when you raise it." %}</p>
-  <div class="actions"><button type="submit" class="primary">{% translate "Save" %}</button></div>
-</form>
+<div class="llm">
+  <section class="panel llm-strip" aria-label="{% translate 'Status' %}">
+    <span class="status-dot {{ status.state }}" aria-hidden="true"></span>
+    <p class="llm-state"><b>{{ status.title }}</b> <span>{{ status.caption }}</span></p>
+    <dl class="stats">
+      <div><dt>{% translate "Model" %}</dt><dd>{{ model }}</dd></div>
+      <div><dt>{% translate "With a suggestion" %}</dt><dd>{{ overview.with_suggestion }}</dd></div>
+      <div><dt>{% translate "Waiting to be asked" %}</dt><dd>{{ overview.waiting }}</dd></div>
+      <div><dt>{% translate "By the LLM this month" %}</dt><dd>{{ overview.by_llm_this_month }}</dd></div>
+    </dl>
+    {% if status.state != "off" %}
+    <form method="post" action="{% url 'check_llm' %}">{% csrf_token %}<button type="submit">{% icon "refresh" %}{% translate "Check now" %}</button></form>
+    {% endif %}
+  </section>
+  {% if status.line %}<p class="llm-line muted">{{ status.line }}</p>{% endif %}
 
-<form class="panel stack-form" method="post" action="{% url 'resuggest_queue' %}">{% csrf_token %}
-  <h3>{% translate "Re-suggest" %}</h3>
-  <p class="muted">{% translate "After changing the model or the prompt: clears the suggestions of the Transactions in the Review queue, so the LLM is asked about them again. Outcomes already set stay." %}</p>
-  <div class="actions"><button type="submit">{% translate "Re-suggest the Review queue" %}</button></div>
-</form>
+  <section class="panel llm-chart" aria-labelledby="chart-heading">
+    <div class="chart-head">
+      <h2 id="chart-heading">{% translate "How sure the waiting suggestions are" %}</h2>
+      <span class="muted">{% blocktranslate count n=overview.with_suggestion %}{{ n }} suggestion in the Review queue, by % sure{% plural %}{{ n }} suggestions in the Review queue, by % sure{% endblocktranslate %}</span>
+    </div>
+    <div class="hist" role="img" aria-label="{{ chart_label }}" data-hist>
+      {% for b in bins %}<div class="hbar{% if b.over %} over{% endif %}" style="--h: {{ b.height }}%" data-start="{{ b.start }}">{% if b.count %}<span class="fig">{{ b.count }}</span>{% endif %}</div>{% endfor %}
+      <div class="line" style="--at: {{ threshold }}%" data-line><span>{% translate "Auto-accept" %} · <span class="fig" data-line-label>{{ threshold }} %</span></span></div>
+    </div>
+    <div class="ticks fig" aria-hidden="true">{% for t in ticks %}<span>{{ t }} %</span>{% endfor %}</div>
+    <p class="legend muted"><span><i class="below"></i>{% translate "Below the line: wait for a Member" %}</span><span><i class="past"></i>{% translate "Past the line: would categorize by itself" %}</span></p>
+    <form class="thr" method="post" action="{% url 'suggestion_settings' %}" data-threshold="{{ threshold }}" data-clearing="{{ clearing }}" data-save-label="{% translate 'Save %(percent)s %%' %}" data-review-label="{% translate 'Save, then review %(count)s' %}" data-said="{% translate '%(percent)s %% sure' %}">
+      {% csrf_token %}
+      <label for="threshold-range">{% translate "Auto-accept at" %}</label>
+      <input type="range" id="threshold-range" min="50" max="100" step="5" value="{{ form.threshold.value }}" aria-valuetext="{% blocktranslate with percent=form.threshold.value %}{{ percent }} % sure{% endblocktranslate %}" data-range>
+      <span class="pct"><input type="number" name="threshold" value="{{ form.threshold.value|default_if_none:'' }}" min="50" max="100" step="5" required aria-label="{% translate 'Auto-accept at, in % sure' %}"{% if form.threshold.errors %} aria-invalid="true" aria-describedby="threshold-error"{% endif %} data-number> <span>{% translate "% sure" %}</span></span>
+      <button type="button" class="ghost" hidden data-keep-threshold>{% blocktranslate %}Keep {{ threshold }} %{% endblocktranslate %}</button>
+      <button type="submit" class="primary" data-save>{% blocktranslate with percent=form.threshold.value %}Save {{ percent }} %{% endblocktranslate %}</button>
+    </form>
+    {% if form.threshold.errors %}<p class="error" id="threshold-error">{{ form.threshold.errors|join:" " }}</p>{% endif %}
+    <p class="muted thr-note">{% translate "Raising it never undoes what the LLM already set. Lowering it offers the queued suggestions past the line." %}</p>
+  </section>
+
+  <section class="panel llm-again" aria-labelledby="again-heading">
+    <h2 id="again-heading">{% translate "Ask again" %}</h2>
+    <p class="muted">{% translate "After the model or the prompt changes, clear the queued suggestions so the LLM answers again." %}</p>
+    {% if overview.askable_again %}
+    <a class="button" href="{% url 'resuggest_queue' %}" hx-get="{% url 'resuggest_queue' %}" hx-target="#confirm-again" hx-swap="innerHTML" data-confirm-opener>{% icon "refresh" %}{% blocktranslate count n=overview.askable_again %}Ask again about {{ n }} suggestion{% plural %}Ask again about {{ n }} suggestions{% endblocktranslate %}</a>
+    <div id="confirm-again" data-confirm-slot>{% if confirm %}{% include "ledger/_confirm_resuggest.html" with count=overview.askable_again %}{% endif %}</div>
+    {% else %}
+    <p class="reason">{% icon "info" %}<span>{% translate "Nothing in the Review queue has a suggestion yet." %}</span></p>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}

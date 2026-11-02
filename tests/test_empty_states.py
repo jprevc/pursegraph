@@ -64,7 +64,7 @@ def test_members_with_only_the_first_admin_asks_to_invite_the_rest(admin_client)
     assert heading == "Invite the rest of the Household"
     assert sentence.startswith("You're the only Member so far.")
     assert actions == [("Invite a Member", "/members/new/", True)]
-    assert "<td>bor</td>" in page  # the one row stays
+    assert '<li class="member-row">' in page  # the one row stays
 
 
 def test_members_with_a_second_member_has_no_empty_block(admin_client, django_user_model):

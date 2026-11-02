@@ -1,0 +1,9 @@
+{% load i18n %}{# Ask again, confirmed inline on the LLM suggestions page (docs/design/admin.md). #}
+<form class="confirm" method="post" action="{% url 'resuggest_queue' %}">
+  {% csrf_token %}
+  <p>{% blocktranslate count n=count %}Ask the LLM again about the <b>{{ n }} suggestion</b> in the Review queue? It's cleared and comes back as the LLM answers. Outcomes already set stay.{% plural %}Ask the LLM again about the <b>{{ n }} suggestions</b> in the Review queue? They're cleared and come back as the LLM answers. Outcomes already set stay.{% endblocktranslate %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'suggestion_settings' %}" data-keep>{% translate "Keep them" %}</a>
+    <button type="submit" class="primary" data-focus>{% translate "Clear and ask again" %}</button>
+  </div>
+</form>

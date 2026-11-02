@@ -1,5 +1,11 @@
 import base64
+import json
+from dataclasses import dataclass
+from decimal import Decimal
+from functools import wraps
+from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.humanize.templatetags.humanize import ordinal
@@ -13,7 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
-from django.utils.formats import number_format
+from django.utils.formats import date_format, number_format
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
@@ -50,13 +56,10 @@ from .importer import (
     commit_statement,
 )
 from .models import Account, Bank, Category, Rule, Source, Statement, Subcategory, Transaction
+from .ollama import MODEL as OLLAMA_MODEL
+from .ollama import OllamaSuggester
 
 TRANSACTIONS_PER_PAGE = 25
-
-
-def categories_with_subcategories():
-    """The Categories with their Subcategories prefetched, for outcome dropdowns and the Categories page."""
-    return list(Category.objects.prefetch_related("subcategories"))
 
 
 def import_statements(request):
@@ -779,106 +782,353 @@ def _transaction_row(request, transaction, *, saved=False):
 
 @admin_required
 def categories(request):
-    return render(
+    """The Categories page (docs/design/admin.md): read-only cards; `edit=<pk>` opens one Category for editing and
+    `new` the New Category form. Asked for by HTMX, the grid alone; `closed=<pk>` names the card just closed."""
+    return _categories_page(
         request,
-        "ledger/categories.html",
-        {
-            "categories": categories_with_subcategories(),
-            "kinds": Category.Kind.choices,
-        },
+        editing=_pk_or_none(request.GET.get("edit")),
+        new="new" in request.GET,
+        focus=_pk_or_none(request.GET.get("closed")),
     )
 
 
-def _category_edit(view):
-    """An admin-only POST that edits the Category list, then goes back to the Categories page with any refusal
-    or form error shown."""
+def _categories_page(
+    request, *, editing=None, new=False, confirm=None, drafts=None, error="", focus=None, moved=None
+):
+    """The Categories page, or its grid alone for HTMX: the `editing` Category opened with the names typed so far
+    (`drafts`, as posted), a delete `confirm`ed inline (a Subcategory's id, or "category"), the `error` of the last
+    step, and `focus` naming what takes focus after a swap; `moved` is a (Subcategory id, direction) just moved."""
+    context = {
+        "categories": _categories(editing, drafts or {}, moved),
+        "editing": editing,
+        "new": new and not editing,
+        "confirm": confirm,
+        "error": error,
+        "focus": focus,
+        "kinds": Category.Kind.choices,
+        "page_title": _("Categories"),
+    }
+    if wants_the_fragment_alone(request):
+        response = render(request, "ledger/_categories.html", {**context, "alone": True})
+    else:
+        response = render(request, "ledger/categories.html", context)
+    patch_vary_headers(response, ["HX-Request"])
+    return response
+
+
+def _categories(editing: int | None, drafts, moved: tuple[int, str] | None) -> list[Category]:
+    """The Categories with their counts, each with its `place` and `catch_all`; the `editing` one also with its
+    names as typed (`draft`), why it can't be deleted (`refusal`), and which Move button keeps the focus."""
+    categories = category_edits.with_counts()
+    for place, category in enumerate(categories, 1):
+        subcategories = list(category.subcategories.all())
+        category.place = place  # type: ignore[attr-defined]
+        category.catch_all = subcategories[-1]  # type: ignore[attr-defined]
+        if category.pk != editing:
+            continue
+        category.save_form = f"save-{category.pk}"  # type: ignore[attr-defined]
+        category.draft = drafts.get("name", category.name)  # type: ignore[attr-defined]
+        category.refusal = category_edits.deletion_refused(category)  # type: ignore[attr-defined]
+        movable = [s for s in subcategories if not s.is_catch_all]
+        for s in subcategories:
+            s.draft = drafts.get(f"sub-{s.pk}", s.name)  # type: ignore[attr-defined]
+        if moved:
+            at = next((i for i, s in enumerate(movable) if s.pk == moved[0]), None)
+            if at is not None:
+                # Moved to the end, its button in that direction is disabled: the other one keeps the focus.
+                at_end = at == 0 if moved[1] == "up" else at == len(movable) - 1
+                movable[at].focus = {"up": "down", "down": "up"}[moved[1]] if at_end else moved[1]  # type: ignore[attr-defined]
+    return categories
+
+
+@dataclass(frozen=True)
+class _CategoryStep:
+    """What a step of editing the Categories leads to: the Category still `editing`, if any (else the `new` form,
+    or none), what happened in words (`said`) or why it didn't (`error`), and what takes the focus."""
+
+    editing: int | None = None
+    new: bool = False
+    said: str = ""
+    error: str = ""
+    focus: object = None
+    moved: tuple[int, str] | None = None
+
+
+def _category_step(view):
+    """An admin-only POST that edits the Categories and returns a _CategoryStep: with HTMX, the grid swapped in as
+    the step left it, the names typed so far kept and the step announced; without, the page again by redirect."""
 
     @admin_required
     @require_POST
+    @wraps(view)
     def wrapper(request, *args, **kwargs):
-        try:
-            view(request, *args, **kwargs)
-        except category_edits.CategoryEditRefused as refusal:
-            messages.error(request, str(refusal))
-        return redirect("categories")
+        step = view(request, *args, **kwargs)
+        if not wants_the_fragment_alone(request):
+            if step.error:
+                messages.error(request, step.error)
+            query = f"?edit={step.editing}" if step.editing else "?new" if step.new else ""
+            return redirect(reverse("categories") + query)
+        response = _categories_page(
+            request,
+            editing=step.editing,
+            new=step.new,
+            drafts=request.POST,
+            error=step.error,
+            focus=step.focus,
+            moved=step.moved,
+        )
+        return announce(response, step.said) if step.said else response
 
     return wrapper
 
 
-def _cleaned_data_or_errors(request, form):
-    if not form.is_valid():
-        for errors in form.errors.values():
-            for error in errors:
-                messages.error(request, error)
-        return None
-    return form.cleaned_data
+def _form_error(form) -> str:
+    return " ".join(str(error) for errors in form.errors.values() for error in errors)
 
 
-@_category_edit
+@_category_step
 def add_category(request):
-    if data := _cleaned_data_or_errors(request, CategoryForm(request.POST)):
-        category_edits.add_category(data["name"].strip(), data["kind"])
+    form = CategoryForm(request.POST)
+    if not form.is_valid():
+        return _CategoryStep(new=True, error=_form_error(form))
+    category = category_edits.add_category(
+        form.cleaned_data["name"].strip(), form.cleaned_data["kind"]
+    )
+    return _CategoryStep(said=_("Added %(name)s.") % {"name": category.name}, focus=category.pk)
 
 
-@_category_edit
-def rename_category(request, pk):
+@_category_step
+def save_category(request, pk):
+    """Saves the names of a Category and its Subcategories (`name`, and `sub-<id>` for each), then closes it."""
     category = get_object_or_404(Category, pk=pk)
-    if data := _cleaned_data_or_errors(request, NameForm(request.POST)):
-        category_edits.rename(category, data["name"].strip())
+    names: dict[str, Category | Subcategory] = {"name": category}
+    names |= {f"sub-{s.pk}": s for s in category.subcategories.all()}
+    forms = {
+        key: NameForm({"name": request.POST.get(key, item.name)}) for key, item in names.items()
+    }
+    if errors := [_form_error(form) for form in forms.values() if not form.is_valid()]:
+        return _CategoryStep(editing=pk, error=errors[0])
+    with db_transaction.atomic():
+        for key, item in names.items():
+            category_edits.rename(item, forms[key].cleaned_data["name"].strip())
+    return _CategoryStep(said=_("Saved %(name)s.") % {"name": category.name}, focus=pk)
 
 
-@_category_edit
+@_category_step
 def move_category(request, pk):
-    category_edits.move_category(get_object_or_404(Category, pk=pk), request.POST.get("direction"))
-
-
-@_category_edit
-def delete_category(request, pk):
-    category_edits.delete_category(get_object_or_404(Category, pk=pk))
-
-
-@_category_edit
-def add_subcategory(request, pk):
     category = get_object_or_404(Category, pk=pk)
-    if data := _cleaned_data_or_errors(request, NameForm(request.POST)):
-        category_edits.add_subcategory(category, data["name"].strip())
-
-
-@_category_edit
-def rename_subcategory(request, pk):
-    subcategory = get_object_or_404(Subcategory, pk=pk)
-    if data := _cleaned_data_or_errors(request, NameForm(request.POST)):
-        category_edits.rename(subcategory, data["name"].strip())
-
-
-@_category_edit
-def move_subcategory(request, pk):
-    category_edits.move_subcategory(
-        get_object_or_404(Subcategory, pk=pk), request.POST.get("direction")
+    direction = request.POST.get("direction", "")
+    category_edits.move_category(category, direction)
+    place = list(Category.objects.values_list("pk", flat=True)).index(pk) + 1
+    last = Category.objects.count()
+    at_end = place == 1 if direction == "up" else place == last
+    return _CategoryStep(
+        editing=pk,
+        said=_("Moved %(name)s to %(place)s.") % {"name": category.name, "place": ordinal(place)},
+        focus="category-"
+        + ({"up": "down", "down": "up"}.get(direction, "") if at_end else direction),
     )
 
 
-@_category_edit
+@admin_required
+@require_http_methods(["GET", "POST"])
+def delete_category(request, pk):
+    """Deletes a Category nothing uses, after an inline confirmation."""
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == "GET":
+        return _confirm_category_delete(request, category.pk, "category")
+    return _delete_category(request, category)
+
+
+@_category_step
+def _delete_category(request, category):
+    try:
+        category_edits.delete_category(category)
+    except category_edits.CategoryEditRefused as refusal:
+        return _CategoryStep(editing=category.pk, error=str(refusal))
+    return _CategoryStep(said=_("Deleted %(name)s.") % {"name": category.name})
+
+
+@_category_step
+def add_subcategory(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    form = NameForm(request.POST, prefix="new")
+    if not form.is_valid():
+        return _CategoryStep(editing=pk, error=_form_error(form), focus="add")
+    subcategory = category_edits.add_subcategory(category, form.cleaned_data["name"].strip())
+    return _CategoryStep(
+        editing=pk,
+        said=_("Added %(name)s to %(category)s.")
+        % {"name": subcategory.name, "category": category.name},
+        focus="add",
+    )
+
+
+@_category_step
+def move_subcategory(request, pk):
+    subcategory = get_object_or_404(Subcategory, pk=pk)
+    direction = request.POST.get("direction", "")
+    category_edits.move_subcategory(subcategory, direction)
+    said = (_("Moved %(name)s up.") if direction == "up" else _("Moved %(name)s down.")) % {
+        "name": subcategory.name
+    }
+    return _CategoryStep(editing=subcategory.category_id, said=said, moved=(pk, direction))
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
 def delete_subcategory(request, pk):
-    category_edits.delete_subcategory(get_object_or_404(Subcategory, pk=pk))
+    """Deletes a Subcategory after an inline confirmation, moving what uses it to its Category's catch-all."""
+    subcategory = get_object_or_404(Subcategory, pk=pk)
+    if request.method == "GET":
+        return _confirm_category_delete(request, subcategory.category_id, subcategory.pk)
+    return _delete_subcategory(request, subcategory)
+
+
+@_category_step
+def _delete_subcategory(request, subcategory):
+    category = subcategory.category
+    try:
+        catch_all = category_edits.delete_subcategory(subcategory)
+    except category_edits.CategoryEditRefused as refusal:
+        return _CategoryStep(editing=category.pk, error=str(refusal))
+    return _CategoryStep(
+        editing=category.pk,
+        said=_(
+            "Deleted %(category)s › %(name)s; what used it moved to %(category)s › %(catch_all)s."
+        )
+        % {"category": category.name, "name": subcategory.name, "catch_all": catch_all.name},
+        focus="heading",
+    )
+
+
+@admin_required
+def _confirm_category_delete(request, editing: int, confirm):
+    """The inline confirmation of deleting the `editing` Category (`confirm` "category") or one of its
+    Subcategories (its id): alone for HTMX, else the page with that Category open and the confirmation in it."""
+    if not wants_the_fragment_alone(request):
+        return _categories_page(request, editing=editing, confirm=confirm)
+    category = next(c for c in _categories(editing, {}, None) if c.pk == editing)
+    if confirm == "category":
+        return render(request, "ledger/_confirm_delete_category.html", {"category": category})
+    subcategory = next(s for s in category.subcategories.all() if s.pk == confirm)
+    subcategory.category = category  # with its catch_all
+    return render(request, "ledger/_confirm_delete_subcategory.html", {"subcategory": subcategory})
 
 
 @admin_required
 @require_http_methods(["GET", "POST"])
 def suggestion_settings(request):
-    """The auto-accept threshold and re-suggesting. Right after lowering the threshold (`?lowered`), it offers
-    the queued suggestions that now clear it."""
-    form = ThresholdForm(request.POST or None, initial={"threshold": suggestions.threshold()})
+    """The LLM suggestions page (docs/design/admin.md): the LLM's status, how sure the queued suggestions are with the
+    auto-accept threshold, and Ask again. Right after lowering the threshold (`?lowered`), it offers the queued
+    suggestions that now clear it."""
+    current = round(suggestions.threshold() * 100)
+    form = ThresholdForm(request.POST or None, initial={"threshold": current})
     if form.is_valid():
-        lowered = form.cleaned_data["threshold"] < suggestions.threshold()
-        suggestions.set_threshold(form.cleaned_data["threshold"])
-        return redirect(reverse("suggestion_settings") + ("?lowered" if lowered else ""))
+        percent = form.cleaned_data["threshold"]
+        suggestions.set_threshold((Decimal(percent) / 100).quantize(Decimal("0.01")))
+        return redirect(reverse("suggestion_settings") + ("?lowered" if percent < current else ""))
+    return _suggestions_page(request, form=form, lowered="lowered" in request.GET)
+
+
+def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
+    threshold = round(suggestions.threshold() * 100)
+    overview = suggestions.overview()
     offered = (
         list(suggestions.suggestions_clearing_threshold().values_list("pk", flat=True))
-        if "lowered" in request.GET
+        if lowered
         else []
     )
-    return render(request, "ledger/suggestion_settings.html", {"form": form, "offered": offered})
+    bins = [
+        {"start": i * suggestions.BIN_WIDTH, "end": (i + 1) * suggestions.BIN_WIDTH, "count": n}
+        for i, n in enumerate(overview.bins)
+    ]
+    tallest = max(3, *overview.bins)
+    for b in bins:
+        b["height"] = round(b["count"] / tallest * 100)
+        b["over"] = b["start"] >= threshold
+    chart_said = ngettext(
+        "How sure the %(count)d queued suggestion is",
+        "How sure the %(count)d queued suggestions are",
+        overview.with_suggestion,
+    ) % {"count": overview.with_suggestion}
+    filled = ", ".join(_("%(start)d to %(end)d %%: %(count)d") % b for b in bins if b["count"])
+    return render(
+        request,
+        "ledger/suggestion_settings.html",
+        {
+            "form": form or ThresholdForm(initial={"threshold": threshold}),
+            "threshold": threshold,
+            "offered": offered,
+            "status": _llm_status(),
+            "model": OLLAMA_MODEL,
+            "overview": overview,
+            "bins": bins,
+            "ticks": range(0, 100, 10),
+            "chart_label": f"{chart_said}: {filled}" if filled else chart_said,
+            "clearing": json.dumps(overview.clearing),
+            "confirm": confirm,
+        },
+    )
+
+
+def _llm_status() -> dict:
+    """The status strip's state ("working", "unreachable" or "off"), its caption and the line under it."""
+    host = urlsplit(settings.OLLAMA_URL).netloc or settings.OLLAMA_URL
+    if not settings.OLLAMA_URL:
+        return {
+            "state": "off",
+            "title": _("Not set up"),
+            "caption": _("OLLAMA_URL is empty"),
+            "line": _(
+                "No LLM server is configured (OLLAMA_URL is empty), so the Review queue fills without suggestions. "
+                "Set it in the server's environment and restart."
+            ),
+        }
+    status = suggestions.status()
+    if status.unavailable:
+        failed = _clock(status.failed_at)
+        return {
+            "state": "unreachable",
+            "title": _("Can't reach the LLM"),
+            "caption": _("failed at %(time)s · retrying") % {"time": failed},
+            "line": _(
+                "The last call to %(host)s failed at %(time)s. It retries at least every 5 minutes; until then new "
+                "Transactions wait for review without a suggestion."
+            )
+            % {"host": host, "time": failed},
+        }
+    return {
+        "state": "working",
+        "title": _("Working"),
+        "caption": _("last answer %(time)s") % {"time": _clock(status.answered_at)}
+        if status.answered_at
+        else _("no answer yet"),
+        "line": "",
+    }
+
+
+def _clock(moment) -> str:
+    """A moment as the status strip says it: the time today, else the date and time."""
+    if moment is None:
+        return "?"
+    local = timezone.localtime(moment)
+    if local.date() == timezone.localdate():
+        return date_format(local, "H:i")
+    return date_format(local, "j M H:i")
+
+
+@admin_required
+@require_POST
+def check_llm(request):
+    """Check now: asks the LLM server whether it can be reached, and the page shows what it found."""
+    if settings.OLLAMA_URL:
+        host = urlsplit(settings.OLLAMA_URL).netloc or settings.OLLAMA_URL
+        if suggestions.check_now(OllamaSuggester(settings.OLLAMA_URL)):
+            messages.success(request, _("The LLM at %(host)s answered.") % {"host": host})
+        else:
+            messages.error(request, _("Couldn't reach the LLM at %(host)s.") % {"host": host})
+    return redirect("suggestion_settings")
 
 
 @admin_required
@@ -893,8 +1143,17 @@ def accept_clearing_suggestions(request):
 
 
 @admin_required
-@require_POST
+@require_http_methods(["GET", "POST"])
 def resuggest_queue(request):
+    """Ask again: clears the queued suggestions after an inline confirmation, so the LLM is asked about them again."""
+    if request.method == "GET":
+        if wants_the_fragment_alone(request):
+            return render(
+                request,
+                "ledger/_confirm_resuggest.html",
+                {"count": suggestions.overview().askable_again},
+            )
+        return _suggestions_page(request, confirm=True)
     count = suggestions.resuggest_queue()
     messages.success(
         request,

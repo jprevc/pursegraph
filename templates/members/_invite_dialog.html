@@ -1,0 +1,24 @@
+{% load i18n %}{# Invite a Member (docs/design/admin.md): a modal dialog over the Members page; open without JS. #}
+<dialog class="dialog" aria-labelledby="dialog-heading" data-modal{% if open %} open{% endif %}>
+  <h2 id="dialog-heading">{% translate "Invite a Member" %}</h2>
+  <form class="dialog-form" method="post" action="{% url 'new_member' %}" hx-post="{% url 'new_member' %}" hx-target="#dialog-slot" data-action>
+    {% csrf_token %}
+    <div class="field">
+      <label for="invite-name">{% translate "Name" %}</label>
+      <input id="invite-name" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="150" required autocomplete="off" aria-describedby="invite-name-help"{% if form.name.errors %} aria-invalid="true"{% endif %} data-focus>
+      <p class="helptext" id="invite-name-help">{% translate "As the Dashboard shows it, e.g. in Per Member." %}</p>
+      {{ form.name.errors }}
+    </div>
+    <div class="field">
+      <label for="invite-username">{% translate "Username" %}</label>
+      <input id="invite-username" name="username" value="{{ form.username.value|default_if_none:'' }}" maxlength="150" required autocomplete="off" autocapitalize="none" aria-describedby="invite-username-help"{% if form.username.errors %} aria-invalid="true"{% endif %}>
+      <p class="helptext" id="invite-username-help">{% translate "What they log in with." %}</p>
+      {{ form.username.errors }}
+    </div>
+    <p class="muted">{% translate "You'll get a one-time link to give them. They choose their own password through it. New Members aren't admins." %}</p>
+    <div class="form-actions">
+      <a class="button ghost" href="{% url 'members' %}" data-close-dialog>{% translate "Cancel" %}</a>
+      <button type="submit" class="primary">{% translate "Create and get the link" %}</button>
+    </div>
+  </form>
+</dialog>

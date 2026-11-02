@@ -1,12 +1,15 @@
+import json
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from html import unescape
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.test import Client
+from django.utils import timezone
 
-from tests.conftest import PASSWORD, log_in
+from tests.conftest import PASSWORD, log_in, make_account
 
 pytestmark = pytest.mark.django_db
 
@@ -301,3 +304,122 @@ def test_admin_pages_are_forbidden_to_non_admins(logged_in_client, member, metho
     member.refresh_from_db()
     assert member.is_active
     assert not member.is_admin
+
+
+# The Members page grouped by role, its confirms and the link dialog (docs/design/admin.md)
+
+HTMX = {"HTTP_HX_REQUEST": "true"}
+
+
+def prose(html):
+    """Text as it reads: tags dropped without spacing words apart, runs of whitespace undone."""
+    return " ".join(unescape(re.sub(r"<[^>]+>", "", html)).split())
+
+
+def groups(client):
+    """Each role card's heading and its rows as they read (without the avatar's initial)."""
+    page = re.sub(
+        r'<span class="avatar"[^>]*>.</span>', "", client.get("/members/").content.decode()
+    )
+    return {
+        prose(heading): [
+            prose(row) for row in re.findall(r'<li class="member-row".*?</li>', body, re.S)
+        ]
+        for heading, body in re.findall(
+            r'<section class="panel role".*?<h2[^>]*>(.*?)</h2>(.*?)</section>', page, re.S
+        )
+    }
+
+
+def test_members_are_grouped_by_role(admin_client, admin, member, django_user_model):
+    django_user_model.objects.create_user(username="rok", first_name="Rok Novak", is_active=False)
+
+    shown = groups(admin_client)
+
+    assert list(shown) == ["Admins · 1", "Members · 1", "Deactivated · 1"]
+    assert shown["Admins · 1"][0].startswith("boris You boris · no Accounts of their own")
+    assert shown["Members · 1"][0].startswith(
+        "ana ana · no Accounts of their own Make admin Reset link Deactivate"
+    )
+    assert shown["Deactivated · 1"][0].startswith(
+        "Rok Novak rok · no Accounts of their own Reactivate"
+    )
+
+
+def test_a_row_names_the_accounts_its_member_owns(admin_client, member):
+    make_account("Revolut", "revolut", owner=member)
+    make_account("Joint", "sparkasse", owner=member)
+
+    assert groups(admin_client)["Members · 1"][0].startswith("ana ana · Joint, Revolut")
+
+
+def test_the_last_active_admin_says_why_they_cant_step_down(admin_client, admin, member):
+    [row] = groups(admin_client)["Admins · 1"]
+
+    assert "Make Member" not in row
+    assert "Deactivate" not in row
+    assert row.endswith("You are the only active admin. Make someone else an admin first.")
+
+
+def test_an_unused_invite_shows_on_its_row(admin_client, django_user_model):
+    create_member(admin_client)
+    get_user_model().objects.filter(username="cene").update(
+        date_joined=datetime(2026, 10, 18, 9, tzinfo=UTC)
+    )
+
+    row = groups(admin_client)["Members · 1"][0]
+
+    assert "Hasn't set a password · invited 18 Oct" in row
+    assert "New invite link" in row
+
+
+def test_making_an_admin_is_confirmed_inline(admin_client, member):
+    member.first_name = "Vera Novak"
+    member.save()
+
+    confirm = prose(admin_client.get(f"/members/{member.pk}/admin/", **HTMX).content.decode())
+
+    assert confirm == (
+        "Make Vera Novak an admin? Admins manage Members, Accounts, Categories and the LLM suggestions, and can "
+        "remove another admin's rights. Cancel Make admin"
+    )
+    member.refresh_from_db()
+    assert not member.is_admin
+
+
+def test_deactivating_is_confirmed_inline_with_what_stays(admin_client, member):
+    member.first_name = "Luka Novak"
+    member.save()
+    make_account("Revolut", "revolut", owner=member)
+    make_account("Joint", "sparkasse", owner=member)
+
+    confirm = prose(admin_client.get(f"/members/{member.pk}/active/", **HTMX).content.decode())
+
+    assert confirm.startswith(
+        "Deactivate Luka Novak? They're logged out at once and can't log in. Their 2 Accounts, Statements and "
+        "Transactions stay. You can reactivate them later."
+    )
+
+
+def test_a_step_on_the_members_page_swaps_the_groups_and_says_what_happened(admin_client, member):
+    response = admin_client.post(f"/members/{member.pk}/admin/", {"admin": "1"}, **HTMX)
+
+    assert json.loads(response["HX-Trigger"])["announce"] == "ana is now an admin."
+    assert 'id="roles"' in response.content.decode()
+
+
+def test_the_link_dialog_says_until_when_it_works(admin_client, monkeypatch):
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 20, 13, 5, tzinfo=UTC))
+
+    text = prose(create_member(admin_client).content.decode())
+
+    assert "Invite link for Cene Novak" in text
+    assert (
+        "Give this link to Cene Novak. They choose their own password through it, then log in as cene."
+        in text
+    )
+    assert (
+        "Shown only now. Once you close this you can't see it again; make a new one from Members if it's lost."
+        in text
+    )
+    assert "Works once, until Tuesday 27 October 2026 at 14:05." in text

@@ -1,0 +1,15 @@
+{% load i18n icons %}{# An invite or password-reset link, shown once in a modal dialog over the Members page (docs/design/admin.md). #}
+<dialog class="dialog wide" aria-labelledby="dialog-heading" data-modal{% if open %} open{% endif %}>
+  <h2 id="dialog-heading">{% if invite %}{% blocktranslate %}Invite link for {{ name }}{% endblocktranslate %}{% else %}{% blocktranslate %}Password-reset link for {{ name }}{% endblocktranslate %}{% endif %}</h2>
+  <p>{% if invite %}{% blocktranslate with username=member.get_username %}Give this link to <b>{{ name }}</b>. They choose their own password through it, then log in as <b>{{ username }}</b>.{% endblocktranslate %}{% else %}{% blocktranslate %}Give this link to <b>{{ name }}</b>. They choose a new password through it, which also unlocks them if they were locked out.{% endblocktranslate %}{% endif %}</p>
+  <div class="link-box">
+    <input id="set-password-link" type="text" readonly value="{{ link }}" aria-label="{% if invite %}{% translate 'Invite link' %}{% else %}{% translate 'Password-reset link' %}{% endif %}">
+    <button type="button" class="primary" data-copy="set-password-link" data-copied="{% translate 'Copied' %}" data-focus>{% icon "copy" %}<span>{% translate "Copy link" %}</span></button>
+  </div>
+  <ul class="facts">
+    <li>{% icon "eye" %}<span>{% blocktranslate %}<b>Shown only now.</b> Once you close this you can't see it again; make a new one from Members if it's lost.{% endblocktranslate %}</span></li>
+    <li>{% icon "clock" %}<span>{% blocktranslate with day=expires|date:"l j F Y" time=expires|date:"H:i" %}Works once, until <b>{{ day }} at {{ time }}</b>.{% endblocktranslate %}</span></li>
+    <li>{% icon "send" %}<span>{% translate "There is no email here. Pass it on yourself, in a message or in person." %}</span></li>
+  </ul>
+  <form method="dialog" class="form-actions dialog-foot"><button type="submit">{% translate "Done" %}</button></form>
+</dialog>

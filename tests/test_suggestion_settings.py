@@ -1,12 +1,14 @@
 import re
+from datetime import UTC, date, datetime
 
 import pytest
+from django.utils import timezone
 
 from ledger.models import Setting, Source, Subcategory, Transaction
-from ledger.suggestions import run_once
-from tests.conftest import group_caption, subcategory_id, transaction_id
+from ledger.suggestions import SuggestionsUnavailable, check_now, run_once
+from tests.conftest import group_caption, page_text, subcategory_id, transaction_id
 from tests.test_rules import make_transaction
-from tests.test_suggestions import FakeSuggester
+from tests.test_suggestions import DownSuggester, FakeSuggester
 
 pytestmark = pytest.mark.django_db
 
@@ -40,17 +42,17 @@ def accept_offer(client, page):
 
 
 def test_an_admin_edits_the_threshold(admin_client):
-    assert 'value="0.90"' in settings_page(admin_client)
+    assert 'name="threshold" value="90"' in settings_page(admin_client)
 
-    response = admin_client.post("/suggestions/", {"threshold": "0.80"})
+    response = admin_client.post("/suggestions/", {"threshold": "80"})
 
     assert response.status_code == 302
     assert Setting.get(Setting.AUTO_ACCEPT_THRESHOLD) == "0.80"
-    assert 'value="0.80"' in settings_page(admin_client)
+    assert 'name="threshold" value="80"' in settings_page(admin_client)
 
 
-@pytest.mark.parametrize("threshold", ["1.5", "-0.1", "high", ""])
-def test_the_threshold_is_a_probability(admin_client, threshold):
+@pytest.mark.parametrize("threshold", ["105", "45", "72", "high", ""])
+def test_the_threshold_is_a_percentage_in_steps_of_5(admin_client, threshold):
     response = admin_client.post("/suggestions/", {"threshold": threshold})
 
     assert response.status_code == 200
@@ -60,9 +62,12 @@ def test_the_threshold_is_a_probability(admin_client, threshold):
 def test_lowering_the_threshold_offers_the_suggestions_that_now_clear_it(admin_client):
     suggest("Corner Shop", "Hiša kave", "Čevljar")
 
-    page = lower_threshold(admin_client, "0.70")
+    page = lower_threshold(admin_client, "70")
 
-    assert "2 queued Transactions now clear the threshold" in page
+    assert (
+        "2 Transactions in the Review queue are now at least 70 % sure. Accept them now, or leave them in the "
+        "queue with the suggestion first." in page_text(page)
+    )
     assert Transaction.objects.unresolved().count() == 3  # nothing accepted yet
 
     response = accept_offer(admin_client, page)
@@ -80,7 +85,7 @@ def test_lowering_the_threshold_offers_the_suggestions_that_now_clear_it(admin_c
         Source.LLM,
     )
     assert (cevljar.subcategory, cevljar.source) == (None, "")
-    assert "now clear" not in settings_page(admin_client)
+    assert "now at least" not in settings_page(admin_client)
 
 
 def test_the_offer_comes_only_with_lowering(admin_client):
@@ -88,16 +93,16 @@ def test_the_offer_comes_only_with_lowering(admin_client):
     suggest("Corner Shop")
     Setting.put(Setting.AUTO_ACCEPT_THRESHOLD, "0.70")
 
-    assert "now clears" not in settings_page(admin_client)
-    assert "now clears" not in lower_threshold(admin_client, "0.75")  # raised
-    assert "now clears" not in lower_threshold(admin_client, "0.75")  # unchanged
-    assert "now clears" in lower_threshold(admin_client, "0.60")
+    assert "now at least" not in settings_page(admin_client)
+    assert "now at least" not in lower_threshold(admin_client, "75")  # raised
+    assert "now at least" not in lower_threshold(admin_client, "75")  # unchanged
+    assert "now at least" in lower_threshold(admin_client, "60")
 
 
 def test_accepting_takes_only_the_transactions_offered(admin_client):
     suggest("Corner Shop", "Hiša kave")
-    page = lower_threshold(admin_client, "0.80")
-    lower_threshold(admin_client, "0.70")  # in another tab
+    page = lower_threshold(admin_client, "80")
+    lower_threshold(admin_client, "70")  # in another tab
 
     accept_offer(admin_client, page)
 
@@ -107,7 +112,7 @@ def test_accepting_takes_only_the_transactions_offered(admin_client):
 
 def test_accepting_respects_a_threshold_raised_meanwhile(admin_client):
     suggest("Corner Shop", "Hiša kave")
-    page = lower_threshold(admin_client, "0.70")
+    page = lower_threshold(admin_client, "70")
     Setting.put(Setting.AUTO_ACCEPT_THRESHOLD, "0.80")
 
     accept_offer(admin_client, page)
@@ -119,7 +124,7 @@ def test_accepting_respects_a_threshold_raised_meanwhile(admin_client):
 def test_declining_the_offer_leaves_the_review_queue_as_it_is(admin_client):
     suggest("Corner Shop")
 
-    admin_client.post("/suggestions/", {"threshold": "0.70"})
+    admin_client.post("/suggestions/", {"threshold": "70"})
 
     assert Transaction.objects.get(description="Corner Shop").is_unresolved
     review = admin_client.get("/review/").content.decode()
@@ -128,7 +133,7 @@ def test_declining_the_offer_leaves_the_review_queue_as_it_is(admin_client):
 
 def test_accepting_leaves_transactions_decided_meanwhile_alone(admin_client, logged_in_client):
     suggest("Corner Shop")
-    page = lower_threshold(admin_client, "0.70")
+    page = lower_threshold(admin_client, "70")
     logged_in_client.post(
         f"/transactions/{transaction_id('Corner Shop')}/outcome/", {"outcome": "transfer"}
     )
@@ -143,7 +148,7 @@ def test_raising_the_threshold_keeps_existing_llm_outcomes(admin_client):
     Setting.put(Setting.AUTO_ACCEPT_THRESHOLD, "0.80")
     suggest("Corner Shop")
 
-    admin_client.post("/suggestions/", {"threshold": "0.95"})
+    admin_client.post("/suggestions/", {"threshold": "95"})
 
     corner = Transaction.objects.get(description="Corner Shop")
     assert (corner.subcategory_id, corner.source) == (
@@ -187,7 +192,7 @@ def test_non_admins_are_forbidden(logged_in_client):
 
     for url, data in [
         ("/suggestions/", None),
-        ("/suggestions/", {"threshold": "0.10"}),
+        ("/suggestions/", {"threshold": "10"}),
         ("/suggestions/accept/", {"accept": [transaction_id("Corner Shop")]}),
         ("/suggestions/resuggest/", {}),
     ]:
@@ -211,7 +216,7 @@ def test_raising_the_threshold_applies_to_a_batch_already_running(admin_client):
     class RaisedMeanwhile(FakeSuggester):
         def suggest(self, query):
             if query.description == "Corner Shop":
-                admin_client.post("/suggestions/", {"threshold": "0.99"})
+                admin_client.post("/suggestions/", {"threshold": "100"})
             return super().suggest(query)
 
     run_once(RaisedMeanwhile(default=("Food", "Groceries", 0.95)))
@@ -256,3 +261,129 @@ def test_an_llm_outcome_in_a_deleted_subcategory_moves_to_the_catch_all(admin_cl
     hisa = Transaction.objects.get(description="Hiša kave")
     assert hisa.subcategory == Subcategory.objects.get(category__name="Food", is_catch_all=True)
     assert hisa.source == Source.LLM
+
+
+# The status strip, the chart and Ask again (docs/design/admin.md)
+
+LLM_URL = "http://192.168.1.10:11434"
+
+
+@pytest.fixture
+def at_1402(monkeypatch):
+    """The clock at 14:02 in Ljubljana on 27 October 2026."""
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 27, 13, 2, tzinfo=UTC))
+
+
+@pytest.fixture
+def llm_set_up(settings):
+    settings.OLLAMA_URL = LLM_URL
+
+
+def strip(client):
+    """The status strip's text, and the line under it."""
+    page = settings_page(client)
+    return page_text(page[page.index('<section class="panel llm-strip"') : page.index("llm-chart")])
+
+
+class UpProbe:
+    def check(self):
+        pass
+
+
+class DownProbe:
+    def check(self):
+        raise SuggestionsUnavailable("connection refused")
+
+
+def test_the_strip_says_when_the_llm_last_answered(admin_client, llm_set_up, at_1402):
+    suggest("Corner Shop")
+
+    assert strip(admin_client).startswith("Working last answer 14:02")
+
+
+def test_the_strip_says_when_the_llm_failed_and_what_that_means(admin_client, llm_set_up, at_1402):
+    make_transaction("Corner Shop")
+    run_once(DownSuggester())
+
+    text = strip(admin_client)
+
+    assert text.startswith("Can't reach the LLM failed at 14:02 · retrying")
+    assert (
+        "The last call to 192.168.1.10:11434 failed at 14:02. It retries at least every 5 minutes; until then new "
+        "Transactions wait for review without a suggestion." in text
+    )
+
+
+def test_without_an_llm_server_the_strip_says_it_isnt_set_up(admin_client, settings):
+    settings.OLLAMA_URL = ""
+
+    text = strip(admin_client)
+
+    assert text.startswith("Not set up OLLAMA_URL is empty")
+    assert "Set it in the server's environment and restart." in text
+    assert "Check now" not in text
+
+
+def test_check_now_asks_the_llm_server(admin_client, llm_set_up, at_1402):
+    check_now(DownProbe())
+    assert strip(admin_client).startswith("Can't reach the LLM")
+
+    check_now(UpProbe())
+    assert strip(admin_client).startswith("Working last answer 14:02")
+
+
+def test_check_now_from_the_page_reports_an_unreachable_server(admin_client, settings):
+    settings.OLLAMA_URL = "http://127.0.0.1:9"  # nothing listens on the discard port
+
+    response = admin_client.post("/suggestions/check/", follow=True)
+
+    assert "Can't reach the LLM" in strip(admin_client)
+    assert "Couldn't reach the LLM at 127.0.0.1:9." in page_text(response.content.decode())
+
+
+def test_the_strip_counts_the_suggestions(admin_client, llm_set_up, at_1402):
+    suggest("Corner Shop", "Hiša kave", "Čevljar")  # all below 90 %, so all queued
+    Transaction.objects.update(date=date(2026, 10, 5))
+    make_transaction("Kiosk")  # not asked yet
+    Transaction.objects.filter(description="Corner Shop").update(
+        subcategory=subcategory_id("Food", "Groceries"), source=Source.LLM
+    )
+
+    text = strip(admin_client)
+
+    assert "With a suggestion 2 Waiting to be asked 1 By the LLM this month 1" in text
+
+
+def test_the_chart_lists_how_sure_the_queued_suggestions_are(admin_client):
+    suggest("Corner Shop", "Hiša kave", "Čevljar")
+
+    page = settings_page(admin_client)
+
+    assert (
+        'aria-label="How sure the 3 queued suggestions are: 40 to 45 %: 1, 75 to 80 %: 1, 85 to 90 %: 1"'
+        in page
+    )
+    assert "Auto-accept · 90 %" in page_text(page)
+
+
+def test_ask_again_is_confirmed_inline(admin_client):
+    suggest("Corner Shop", "Hiša kave")
+
+    page = page_text(settings_page(admin_client))
+    confirm = page_text(
+        admin_client.get("/suggestions/resuggest/", HTTP_HX_REQUEST="true").content.decode()
+    )
+
+    assert "Ask again about 2 suggestions" in page
+    assert confirm.startswith(
+        "Ask the LLM again about the 2 suggestions in the Review queue? They're cleared and come back as the LLM "
+        "answers. Outcomes already set stay."
+    )
+    assert Transaction.objects.filter(confidence__isnull=False).count() == 2
+
+
+def test_with_nothing_suggested_ask_again_says_why_it_cant(admin_client):
+    page = page_text(settings_page(admin_client))
+
+    assert "Ask again about" not in page
+    assert "Nothing in the Review queue has a suggestion yet." in page
