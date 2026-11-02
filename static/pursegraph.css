@@ -324,12 +324,7 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 .edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .edit-row form { display: flex; align-items: center; gap: .375rem; }
 .subcategories { list-style: none; margin: var(--s-3) 0 0; padding: 0 0 0 var(--s-4); display: flex; flex-direction: column; gap: .375rem; }
-.rules tr[draggable] { cursor: grab; }
-.rules tr.dragging { opacity: .4; }
-.rules .handle { color: var(--faint); user-select: none; }
-.rules .actions, td.actions { white-space: nowrap; }
-.rules .actions { display: flex; align-items: center; gap: .375rem; }
-.rules .actions form { display: flex; gap: var(--s-1); }
+td.actions { white-space: nowrap; }
 
 /* ---------- Transaction row ---------- */
 /* docs/design/transaction-row.md: Date, Transaction, Account, Outcome and Amount, with a Raised hover. The outcome is
@@ -1039,6 +1034,108 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
   .new-account { grid-template-columns: minmax(0, 1fr); padding-left: 0; }
   .account-edit { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
   .evidence dl { grid-template-columns: minmax(0, 1fr) max-content; gap: var(--s-1) var(--s-3); }
+}
+
+/* ---------- Rules ---------- */
+/* docs/design/rules.md: the Rules in order (a 300px listbox) beside the selected Rule's detail, and the Rule page: the
+   filter bar, the live preview and a sticky save bar. */
+.md.rules { grid-template-columns: minmax(0, 18.75rem) minmax(0, 1fr); }
+.rule-list { padding: var(--s-2); }
+.r-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.r-list li { border-radius: var(--r-row); }
+.r-list li[draggable="true"] { cursor: grab; }
+.r-list li.dragging { opacity: .4; }
+.r-list li:hover { background: var(--raised); }
+.r-list li:focus-visible { outline-offset: -2px; }
+.r-list li.selected { background: var(--accent-soft); }
+.r-list a {
+  display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) auto; gap: 2px var(--s-2); padding: .625rem var(--s-3);
+  color: var(--ink); text-decoration: none;
+}
+.r-place { color: var(--faint); font-size: var(--text-label); line-height: 1.5rem; }
+.r-name { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.r-count { color: var(--muted); font-size: var(--text-label); line-height: 1.5rem; }
+.r-list .r-out { grid-column: 2 / -1; font-size: var(--text-label); }
+.r-hint { margin: 0; padding: var(--s-3); color: var(--muted); font-size: var(--text-label); }
+kbd { font: 600 var(--text-label)/1 var(--font); color: var(--ink-2); }
+
+.r-detail { gap: var(--s-4); }
+.r-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.r-head h2 { flex: 1 1 16rem; margin: 0; font-size: 1.125rem; overflow-wrap: anywhere; }
+.r-head h2 .oc-label { display: inline-flex; font-weight: 500; }
+.r-arrow { color: var(--muted); font-weight: 400; }
+.r-acts, .r-acts form { display: flex; align-items: center; gap: var(--s-2); }
+.r-detail .confirm { max-width: none; margin: 0; }
+#confirm-slot:empty { display: none; }
+.conds { display: flex; flex-wrap: wrap; gap: .375rem; margin: 0; padding: 0; list-style: none; }
+.conds li { padding: .125rem .625rem; border: 1px solid var(--line-strong); border-radius: var(--r-pill); color: var(--ink-2); font-size: var(--text-label); }
+.conds b { color: var(--ink); font-weight: 600; }
+.r-effect { margin: 0; color: var(--ink-2); }
+.r-effect b { color: var(--ink); font-weight: 600; }
+/* The matches run edge to edge under the card's head. */
+.r-detail > .scroll { margin: 0 calc(var(--s-5) * -1) calc(var(--s-5) * -1); }
+.r-matches th:first-child, .r-matches td:first-child { padding-left: var(--s-5); }
+.r-matches th:last-child, .r-matches td:last-child { padding-right: var(--s-5); }
+.r-matches tr.grp th { padding-top: var(--s-2); padding-bottom: var(--s-2); background: var(--raised); color: var(--ink-2); font-size: var(--text-label); font-weight: 600; }
+.r-none { margin: 0; padding: var(--s-5); }
+/* The text a Rule matched, in a soft highlight. */
+mark { padding: 0 1px; border-radius: 3px; background: color-mix(in srgb, var(--cat-5) 38%, transparent); color: inherit; }
+
+.r-page { padding: 0; }
+.r-errors { padding: var(--s-4) var(--s-5) 0; }
+.r-filter { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-3); padding: var(--s-5); }
+.r-filter .field { display: grid; gap: var(--s-1); flex: 1 1 10rem; min-width: 0; }
+.r-filter .r-contains { flex: 2 1 16rem; }
+.r-filter .r-iban { flex: 1.5 1 14rem; }
+.r-filter input, .r-filter select { width: 100%; }
+.r-help { flex-basis: 100%; margin: 0; }
+.r-words { display: none; flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: .375rem; }
+.js .r-words { display: flex; }
+.r-words-k { color: var(--muted); font-size: var(--text-label); }
+.r-words button {
+  height: 2rem; padding: 0 .75rem; border: 1px dashed var(--line-strong); border-radius: var(--r-pill); box-shadow: none;
+  color: var(--ink-2); font-size: var(--text-sm);
+}
+.r-words button[aria-pressed="true"] { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.r-preview { border-top: 1px solid var(--line); }
+.r-notes { display: grid; gap: var(--s-1); margin: 0; padding: var(--s-4) var(--s-5) var(--s-1); list-style: none; color: var(--muted); font-size: var(--text-sm); }
+.r-notes li { display: flex; gap: var(--s-2); }
+.r-notes .icon { margin-top: .1875rem; width: .875rem; height: .875rem; }
+.r-pv .c-now, .r-pv .c-after { width: 24%; }
+.r-pv tr.r-source > td { background: var(--accent-soft); }
+.r-savebar {
+  position: sticky; bottom: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2);
+  padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line); border-radius: 0 0 var(--r-card) var(--r-card);
+  background: var(--card);
+}
+.r-savebar label { font-size: var(--text-body); color: var(--ink-2); }
+.r-savebar select { max-width: 22rem; min-width: 0; }
+.r-savebar .grow { flex: 1; }
+.r-save { display: flex; gap: var(--s-2); }
+
+@media (max-width: 900px) {
+  /* The list shows first; a Rule's detail opens over it, with "All Rules" back. */
+  .md.rules { grid-template-columns: minmax(0, 1fr); }
+  .r-list a { padding: .75rem var(--s-3); }
+  .r-detail { padding: var(--s-4); }
+  .r-detail > .scroll { margin: 0 calc(var(--s-4) * -1) calc(var(--s-4) * -1); }
+  .r-acts { flex-wrap: wrap; }
+  .r-filter { padding: var(--s-4); }
+  .r-filter .field, .r-filter .r-contains, .r-filter .r-iban { flex-basis: 100%; }
+  /* Above the tab bar, with 44px buttons. */
+  .r-savebar { bottom: calc(4rem + env(safe-area-inset-bottom)); padding: var(--s-3) var(--s-4); }
+  .r-savebar select { flex: 1 1 100%; max-width: none; order: -1; }
+  .r-savebar label { flex-basis: 100%; order: -2; }
+  .r-savebar .grow { display: none; }
+  .r-savebar .button, .r-savebar button { height: 2.75rem; }
+  .r-save { flex: 1; }
+  .r-save button { flex: 1; }
+}
+@media (max-width: 600px) {
+  .r-matches th:first-child, .r-matches td:first-child { padding-left: var(--s-4); }
+  .r-pv .c-now, .r-pv .c-after { grid-column: 1 / -1; width: auto; }
+  .r-pv .c-after::before { content: "→ "; color: var(--faint); }
+  .r-matches tr.grp th { display: block; padding: var(--s-2) var(--s-4); }
 }
 
 /* ---------- Swaps ---------- */

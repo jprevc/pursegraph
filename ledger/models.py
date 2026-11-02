@@ -469,3 +469,31 @@ class Rule(models.Model):
         if self.account_id:
             q &= models.Q(account_id=self.account_id)
         return q
+
+    @property
+    def outcome_label(self) -> str:
+        """Its outcome in words, as the Transaction row names one: "Category › Subcategory" or "Transfer"."""
+        if self.subcategory_id:
+            assert self.subcategory is not None
+            return f"{self.subcategory.category.name} › {self.subcategory.name}"
+        return str(_("Transfer"))
+
+    @property
+    def iban_grouped(self) -> str:
+        """Its counterparty IBAN in groups of four, as people read one."""
+        iban = self.counterparty_iban
+        return " ".join(iban[i : i + 4] for i in range(0, len(iban), 4))
+
+    @property
+    def name(self) -> str:
+        """What the Rules page calls it: its description text in quotes, else its IBAN, else its other conditions."""
+        if self.description_contains:
+            return f"“{self.description_contains}”"
+        if self.counterparty_iban:
+            return self.iban_grouped
+        on = self.account.name if self.account_id and self.account else ""
+        if self.direction == self.Direction.IN:
+            return _("Money in on %(account)s") % {"account": on} if on else str(_("Money in"))
+        if self.direction == self.Direction.OUT:
+            return _("Money out on %(account)s") % {"account": on} if on else str(_("Money out"))
+        return _("Anything on %(account)s") % {"account": on}

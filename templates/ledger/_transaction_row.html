@@ -1,26 +1,20 @@
-{% load figures hues i18n icons %}{% comment %} The Transaction row (docs/design/transaction-row.md), shared by Transactions and the drill-down. The outcome is text;
+{% load figures hues i18n icons matched %}{% comment %} The Transaction row (docs/design/transaction-row.md), shared by Transactions and the drill-down. The outcome is text;
 only Change changes it: with a fine pointer it opens the chip panel (static/outcome.js, from the table's
 _outcome_chips.html), with a coarse one it is a native select laid over the button, and without JS the select and a
 Save button. Needs `t`, `categories`, `most_used` and `request`; `next` overrides where a plain form post goes back
-to, and `saved` adds the line that says so, with Undo. {% endcomment %}
+to, `saved` adds the line that says so, with Undo, and `contains` highlights the text a Rule matched. {% endcomment %}
 {% url 'transaction_outcome' t.pk as outcome_url %}
 <tr id="transaction-{{ t.pk }}" class="txn" data-outcome="{% if t.subcategory_id %}{{ t.subcategory_id }}{% elif t.is_transfer and not t.ambiguous_pairing %}transfer{% endif %}">
   <td class="c-date fig">{{ t.date|day }}</td>
   <td class="c-desc">
-    <span class="desc">{{ t.description }}</span>
+    <span class="desc">{% if contains %}{{ t.description|matched:contains }}{% else %}{{ t.description }}{% endif %}</span>
     {% if t.is_fee %}<small class="kind">{% translate "Bank fee" %}</small>{% endif %}
     <small class="m-meta"><span class="fig">{{ t.date|day }}</span>{% if t.is_fee %} · {% translate "Bank fee" %}{% endif %} · {{ t.account.name }}</small>
   </td>
   <td class="c-acct"><span class="pill">{{ t.account.name }}</span></td>
   <td class="c-out">
     <div class="oc">
-      <span class="oc-label">
-        {% if t.subcategory_id %}<i class="dot" style="--hue: var(--{{ t.subcategory.category_id|hue }})" aria-hidden="true"></i><span><span class="cat-name">{{ t.subcategory.category.name }}</span> <span class="sep">›</span> <span class="sub-name">{{ t.subcategory.name }}</span></span>
-        {% elif t.is_transfer %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer" %}</span>
-        {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "Awaiting review" %}</span>{% endif %}
-        {% if t.ambiguous_pairing %}<span class="cap">{% translate "other side unknown" %}</span>
-        {% elif t.source_caption %}<span class="cap" title="{{ t.source_reason }}">{{ t.source_caption }}</span>{% endif %}
-      </span>
+      {% include "ledger/_transaction_outcome.html" %}
       <form class="oc-form" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}" method="post" action="{{ outcome_url }}" hx-post="{{ outcome_url }}" hx-target="closest tr" hx-swap="outerHTML">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">

@@ -6,6 +6,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db import transaction as db_transaction
 from django.db.models import Q
+from django.forms.models import model_to_dict
 from django.utils.translation import gettext_lazy as _
 
 from .importer import CheckedStatement, NewAccount
@@ -20,7 +21,7 @@ from .models import (
     Transaction,
 )
 from .parsers.iban import tidy_iban, valid_iban
-from .rules import place_at_top
+from .rules import merchant_words, place_at_top, words_text
 from .transfers import pair_by_hand, recognise_transfers_to
 
 NEW = "new"
@@ -294,28 +295,64 @@ class RuleForm(forms.ModelForm):
         cast(forms.ChoiceField, self.fields["outcome"]).choices = [
             ("", _("Choose an outcome")),
             *(
-                (category.name, [(str(s.pk), s.name) for s in category.subcategories.all()])
+                (
+                    category.name,
+                    [
+                        (str(s.pk), f"{category.name} › {s.name}")
+                        for s in category.subcategories.all()
+                    ],
+                )
                 for category in Category.objects.prefetch_related("subcategories")
             ),
-            (TRANSFER, _("Transfer")),
+            (_("Transfer"), [(TRANSFER, _("Transfer"))]),
         ]
         if self.instance.pk:
             self.initial.setdefault("outcome", self.instance.subcategory_id or TRANSFER)
 
     @classmethod
     def from_transaction(cls, transaction: Transaction) -> "RuleForm":
-        """A new Rule for Transactions like `transaction`: its counterparty IBAN if it has one, otherwise its
-        description, with its outcome."""
+        """A new Rule for Transactions like `transaction`: its counterparty IBAN if it has one, otherwise the
+        merchant word from its description, with its outcome."""
         initial: dict = (
             {"counterparty_iban": transaction.counterparty_iban}
             if transaction.counterparty_iban
             else {
-                "description_contains": transaction.description.strip()[: Rule.DESCRIPTION_LENGTH]
+                "description_contains": words_text(*merchant_words(transaction.description))[
+                    : Rule.DESCRIPTION_LENGTH
+                ]
             }
         )
         if transaction.subcategory_id or transaction.is_transfer:
             initial["outcome"] = transaction.subcategory_id or TRANSFER
         return cls(initial=initial)
+
+    def draft(self) -> tuple[Rule, bool]:
+        """The Rule this form describes so far, valid or not, unsaved, for the Rule page's preview; and whether
+        its outcome is chosen."""
+        if self.is_bound:
+            self.is_valid()
+            data = self.cleaned_data
+        else:
+            data = {**model_to_dict(self.instance), **self.initial}
+        account = data.get("account")
+        if isinstance(account, int):
+            account = Account.objects.filter(pk=account).first()
+        outcome = str(data.get("outcome") or "")
+        subcategory = (
+            Subcategory.objects.select_related("category").filter(pk=outcome).first()
+            if outcome.isdigit()
+            else None
+        )
+        draft = Rule(
+            pk=self.instance.pk,
+            position=self.instance.position,
+            description_contains=(data.get("description_contains") or "").strip(),
+            counterparty_iban=tidy_iban(data.get("counterparty_iban") or ""),
+            direction=data.get("direction") or "",
+            account=account,
+            subcategory=subcategory,
+        )
+        return draft, bool(subcategory) or outcome == TRANSFER
 
     def clean_description_contains(self):
         return self.cleaned_data["description_contains"].strip()

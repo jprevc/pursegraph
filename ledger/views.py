@@ -2,11 +2,12 @@ import base64
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.humanize.templatetags.humanize import ordinal
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db import transaction as db_transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -48,7 +49,7 @@ from .importer import (
     check_statement,
     commit_statement,
 )
-from .models import Account, Bank, Category, Rule, Statement, Subcategory, Transaction
+from .models import Account, Bank, Category, Rule, Source, Statement, Subcategory, Transaction
 
 TRANSACTIONS_PER_PAGE = 25
 
@@ -916,99 +917,257 @@ def _suggestions_accepted(request, count: int) -> None:
 
 
 def rules(request):
-    return render(
-        request,
-        "ledger/rules.html",
-        {"rules": Rule.objects.select_related("account", "subcategory__category")},
+    """The Rules page (docs/design/rules.md): the Rules in order beside the selected one's detail. `rule` opens a
+    Rule (on a phone, over the list) and `at` only selects it. Asked for the detail alone (`HX-Target:
+    rule-detail`), it swaps in just that."""
+    opened = request.GET.get("rule", "")
+    selected = _pk_or_none(opened or request.GET.get("at"))
+    if wants_the_fragment_alone(request) and request.headers.get("HX-Target") == "rule-detail":
+        context = _rules_context(selected)
+        response = render(request, "ledger/_rule_detail.html", {**context, "alone": True})
+        patch_vary_headers(response, ["HX-Request", "HX-Target"])
+        return response
+    return _rules_page(request, selected=selected, opened=bool(opened))
+
+
+def _rules_page(request, *, selected=None, opened=False, confirm=False, focus=""):
+    """The Rules page, or its region alone for HTMX: `selected` Rule's detail (else the first's), `opened` over the
+    list on a phone, with its delete `confirm`ed inline, and `focus` naming what takes focus after a swap: its
+    "option" in the list, its Move "up" or "down" button, or the detail's "heading"."""
+    context = {
+        **_rules_context(selected),
+        "opened": opened,
+        "confirm": confirm,
+        "focus": focus,
+        "page_title": _("Rules"),
+    }
+    if wants_the_fragment_alone(request):
+        response = render(request, "ledger/_rules.html", {**context, "alone": True})
+    else:
+        response = render(request, "ledger/rules.html", context)
+    patch_vary_headers(response, ["HX-Request", "HX-Target"])
+    return response
+
+
+def _rules_context(selected: int | None) -> dict:
+    """The Rules in order, each with its `place` and how many Transactions it `categorized`, and the `rule` shown:
+    `selected`, else the first. Its detail: what it categorized, its other matches, and the earlier Rules that take
+    some of its matches."""
+    rules = list(
+        Rule.objects.select_related("account", "subcategory__category")
+        .annotate(categorized=Count("transactions", filter=Q(transactions__source=Source.RULE)))
+        # An aggregate leaves out Meta.ordering.
+        .order_by("position", "id")
     )
+    places = {r.pk: place for place, r in enumerate(rules, 1)}
+    for r in rules:
+        r.place = places[r.pk]  # type: ignore[attr-defined]
+    rule = next((r for r in rules if r.pk == selected), rules[0] if rules else None)
+    if rule is None:
+        return {"rules": rules, "rule": None}
+    matches = list(
+        Transaction.objects.filter(rule.condition())
+        .select_related("account", "subcategory__category", "rule", "counterpart__account")
+        .order_by("-date", "-pk")
+    )
+    mine = [t for t in matches if t.rule_id == rule.pk and t.source == Source.RULE]
+    taken = [
+        ngettext(
+            "%(count)d of its matches goes to Rule %(place)d (%(name)s) above",
+            "%(count)d of its matches go to Rule %(place)d (%(name)s) above",
+            n,
+        )
+        % {"count": n, "place": places[earlier.pk], "name": earlier.name}
+        for earlier, n in rule_edits.taken_above(rule)
+    ]
+    return {
+        "rules": rules,
+        "rule": rule,
+        "last_place": len(rules),
+        "mine": mine,
+        "others": [t for t in matches if t not in mine],
+        "taken": "; ".join(taken),
+        **outcomes.picker(),
+    }
 
 
 def new_rule(request):
     """A new Rule; `?transaction=<pk>` pre-fills it from a corrected Transaction ("Make a Rule")."""
+    source = _source_transaction(request)
     if request.method == "POST":
-        return _save_rule(request, RuleForm(request.POST))
-    transaction_pk = request.GET.get("transaction", "")
-    if transaction_pk.isdigit():
-        form = RuleForm.from_transaction(get_object_or_404(Transaction, pk=transaction_pk))
-    else:
-        form = RuleForm()
-    return render(request, "ledger/rule_form.html", {"form": form})
+        return _rule_page(request, RuleForm(request.POST), source)
+    form = RuleForm.from_transaction(source) if source else RuleForm()
+    return _rule_page(request, form, source)
 
 
 def edit_rule(request, pk):
     rule = get_object_or_404(Rule, pk=pk)
     if request.method == "POST":
-        return _save_rule(request, RuleForm(request.POST, instance=rule))
-    return render(request, "ledger/rule_form.html", {"form": RuleForm(instance=rule)})
+        return _rule_page(request, RuleForm(request.POST, instance=rule))
+    return _rule_page(request, RuleForm(instance=rule))
 
 
-def _save_rule(request, form):
-    """Saves the Rule, then offers to apply it to the existing Transactions it matches, if any."""
-    if not form.is_valid():
-        return render(request, "ledger/rule_form.html", {"form": form})
-    rule = form.save()
-    if rule_edits.overwritable_matches(rule).exists():
-        return redirect("apply_rule", rule.pk)
-    return redirect("rules")
+def _source_transaction(request) -> Transaction | None:
+    """Make a Rule's Transaction, carried through the Rule page's posts."""
+    pk = _pk_or_none(request.POST.get("transaction") or request.GET.get("transaction"))
+    return get_object_or_404(Transaction, pk=pk) if pk else None
 
 
-def apply_rule(request, pk):
-    """GET offers to apply the Rule to the existing Transactions it matches; POST applies it."""
-    rule = get_object_or_404(Rule.objects.select_related("account", "subcategory__category"), pk=pk)
-    if request.method == "POST":
-        count, pairing = rule_edits.apply_to_existing(rule)
-        sentences = [
-            ngettext(
-                "%(count)d Transaction categorized by the Rule.",
-                "%(count)d Transactions categorized by the Rule.",
-                count,
+def _rule_page(request, form, source=None):
+    """The Rule page (New Rule, Edit Rule, Make a Rule) with its live preview. A valid post saves the Rule, and with
+    `apply` applies it to the existing Transactions too, then opens it on the Rules page with a line saying what
+    changed. `preview` asks only for the preview, without JS."""
+    if request.method == "POST" and "preview" not in request.POST and form.is_valid():
+        rule = form.save()
+        if request.POST.get("apply"):
+            # Saying what changed: the matches already its outcome are counted as kept.
+            changed = len(rule_edits.preview(rule).change)
+            _count, pairing = rule_edits.apply_to_existing(rule)
+            messages.success(request, _applied_said(changed, pairing))
+        else:
+            messages.success(
+                request,
+                _("Saved %(name)s. Future imports will use it.") % {"name": rule.name},
             )
-            % {"count": count}
-        ]
-        if pairing.converted_count:
-            sentences.append(
-                ngettext(
-                    "%(count)d categorized Transaction converted to a Transfer.",
-                    "%(count)d categorized Transactions converted to Transfers.",
-                    pairing.converted_count,
-                )
-                % {"count": pairing.converted_count}
-            )
-        if pairing.ambiguous_count:
-            sentences.append(
-                ngettext(
-                    "%(count)d Transfer with several possible counterparts waits in the Review queue.",
-                    "%(count)d Transfers with several possible counterparts wait in the Review queue.",
-                    pairing.ambiguous_count,
-                )
-                % {"count": pairing.ambiguous_count}
-            )
-        messages.success(request, " ".join(sentences))
-        return redirect("rules")
+        return redirect(f"{reverse('rules')}?rule={rule.pk}")
+    return render(request, "ledger/rule_form.html", _rule_page_context(form, source))
+
+
+def rule_preview(request):
+    """The Rule page's preview for the conditions and outcome typed so far, swapped in as they change."""
+    instance = (
+        get_object_or_404(Rule, pk=pk) if (pk := _pk_or_none(request.GET.get("rule"))) else None
+    )
+    form = RuleForm(request.GET, instance=instance)
+    source = _source_transaction(request)
     return render(
-        request,
-        "ledger/apply_rule.html",
-        {"rule": rule, "count": rule_edits.overwritable_matches(rule).count()},
+        request, "ledger/_rule_preview.html", {**_rule_page_context(form, source), "swapped": True}
     )
 
 
-@require_POST
+def _rule_page_context(form, source) -> dict:
+    draft, chosen = form.draft()
+    p = rule_edits.preview(draft, chosen=chosen, source=source)
+    places = {pk: place for place, pk in enumerate(Rule.objects.values_list("pk", flat=True), 1)}
+
+    def named(rules):
+        return [(places[r.pk], r.name, n) for r, n in rules]
+
+    return {
+        "form": form,
+        "draft": draft,
+        "chosen": chosen,
+        "source": source,
+        "words": merchant_chips(source, draft) if source and not source.counterparty_iban else None,
+        "p": p,
+        "groups": [
+            (_("Will change"), p.change),
+            (
+                _(
+                    "Set by hand to something else: kept now, but new ones like them would follow this Rule"
+                ),
+                p.set_by_hand,
+            ),
+            (_("Already %(outcome)s") % {"outcome": draft.outcome_label}, p.already),
+            (_("Keep their outcome"), p.keep),
+        ],
+        "taken_over": named(p.taken_over),
+        "shadowed": named(p.shadowed),
+        "place": places.get(draft.pk),
+    }
+
+
+def merchant_chips(source: Transaction, draft: Rule) -> list[tuple[str, bool]]:
+    """Make a Rule's word chips: the description's words, each with whether the description condition uses it."""
+    words, _run = rule_edits.merchant_words(source.description)
+    run = rule_edits.run_of(words, draft.description_contains)
+    return [(w, bool(run and run[0] <= i <= run[1])) for i, w in enumerate(words)]
+
+
+def _applied_said(count: int, pairing) -> str:
+    sentences = [
+        ngettext(
+            "%(count)d Transaction categorized by the Rule.",
+            "%(count)d Transactions categorized by the Rule.",
+            count,
+        )
+        % {"count": count}
+    ]
+    if pairing.converted_count:
+        sentences.append(
+            ngettext(
+                "%(count)d categorized Transaction converted to a Transfer.",
+                "%(count)d categorized Transactions converted to Transfers.",
+                pairing.converted_count,
+            )
+            % {"count": pairing.converted_count}
+        )
+    if pairing.ambiguous_count:
+        sentences.append(
+            ngettext(
+                "%(count)d Transfer with several possible counterparts waits in the Review queue.",
+                "%(count)d Transfers with several possible counterparts wait in the Review queue.",
+                pairing.ambiguous_count,
+            )
+            % {"count": pairing.ambiguous_count}
+        )
+    return " ".join(sentences)
+
+
+@require_http_methods(["GET", "POST"])
 def delete_rule(request, pk):
-    get_object_or_404(Rule, pk=pk).delete()
-    return redirect("rules")
+    """Deletes a Rule after an inline confirmation; its Transactions keep their outcome. Then the Rule now in its
+    place is selected."""
+    rule = get_object_or_404(Rule, pk=pk)
+    if request.method == "GET":
+        if wants_the_fragment_alone(request):
+            return render(
+                request,
+                "ledger/_confirm_delete_rule.html",
+                {"rule": rule, "categorized": rule.transactions.filter(source=Source.RULE).count()},
+            )
+        return _rules_page(request, selected=rule.pk, opened=True, confirm=True)
+    ids = list(Rule.objects.values_list("pk", flat=True))
+    at = ids.index(rule.pk)
+    rule.delete()
+    said = _("Deleted %(name)s.") % {"name": rule.name}
+    rest = ids[:at] + ids[at + 1 :]
+    following = rest[min(at, len(rest) - 1)] if rest else None
+    if not wants_the_fragment_alone(request):
+        messages.success(request, said)
+        return redirect(f"{reverse('rules')}?at={following}" if following else reverse("rules"))
+    return announce(_rules_page(request, selected=following, focus="option"), said)
 
 
 @require_POST
 def move_rule(request, pk):
-    rule_edits.move(get_object_or_404(Rule, pk=pk), request.POST.get("direction", ""))
-    return redirect("rules")
+    """Moves a Rule one place `up` or `down`, from the detail's Move buttons or Alt+↑/↓ in the list."""
+    rule = get_object_or_404(Rule, pk=pk)
+    direction = request.POST.get("direction", "")
+    rule_edits.move(rule, direction)
+    return _moved(request, rule, focus=request.POST.get("focus") or direction)
 
 
 @require_POST
 def reorder_rules(request):
-    """The order after a drag: every Rule's id, top first."""
+    """The order after a drag: every Rule's id, top first, and the one `moved`."""
     ids = request.POST.getlist("rule")
     if not all(pk.isdigit() for pk in ids):
         return HttpResponseBadRequest()
     rule_edits.reorder([int(pk) for pk in ids])
-    return redirect("rules")
+    moved_pk = _pk_or_none(request.POST.get("moved"))
+    moved = Rule.objects.filter(pk=moved_pk).first() if moved_pk else None
+    if moved is None:
+        return redirect("rules")
+    return _moved(request, moved, focus="option")
+
+
+def _moved(request, rule: Rule, *, focus: str):
+    """After a move: the Rules page with `rule` selected, its new place announced."""
+    if not wants_the_fragment_alone(request):
+        return redirect(f"{reverse('rules')}?at={rule.pk}")
+    place = list(Rule.objects.values_list("pk", flat=True)).index(rule.pk) + 1
+    return announce(
+        _rules_page(request, selected=rule.pk, focus=focus),
+        _("Moved %(name)s to %(place)s.") % {"name": rule.name, "place": ordinal(place)},
+    )

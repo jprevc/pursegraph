@@ -1,0 +1,8 @@
+{% load hues i18n %}{# A Transaction's outcome as its row reads it: the hue dot, "Category › Subcategory", and the source caption. #}
+<span class="oc-label">
+  {% if t.subcategory_id %}<i class="dot" style="--hue: var(--{{ t.subcategory.category_id|hue }})" aria-hidden="true"></i><span><span class="cat-name">{{ t.subcategory.category.name }}</span> <span class="sep">›</span> <span class="sub-name">{{ t.subcategory.name }}</span></span>
+  {% elif t.is_transfer %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer" %}</span>
+  {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "Awaiting review" %}</span>{% endif %}
+  {% if t.ambiguous_pairing %}<span class="cap">{% translate "other side unknown" %}</span>
+  {% elif t.source_caption %}<span class="cap" title="{{ t.source_reason }}">{{ t.source_caption }}</span>{% endif %}
+</span>

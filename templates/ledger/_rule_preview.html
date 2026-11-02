@@ -1,0 +1,42 @@
+{% load figures i18n icons matched %}{% comment %} The Rule page's preview (docs/design/rules.md): the Transactions the conditions match, grouped by what saving does
+to them, with notes on the other Rules involved. Swapped in as the conditions change, with the save buttons. {% endcomment %}
+<div id="preview" class="r-preview" aria-labelledby="preview-h">
+  <h2 id="preview-h" class="sr">{% translate "What it matches" %}</h2>
+  {% if p.empty %}
+  <p class="r-none muted">{% translate "Set a condition to see what it matches." %}</p>
+  {% else %}
+  {% if taken_over or shadowed or chosen and not draft.subcategory and p.change %}
+  <ul class="r-notes">
+    {% for place, name, n in taken_over %}<li>{% icon "info" %}<span>{% blocktranslate count n=n %}Takes {{ n }} over from Rule {{ place }} ({{ name }}).{% plural %}Takes {{ n }} over from Rule {{ place }} ({{ name }}).{% endblocktranslate %}</span></li>{% endfor %}
+    {% for place, name, n in shadowed %}<li>{% icon "info" %}<span>{% blocktranslate count n=n %}At import, Rule {{ place }} ({{ name }}) above wins on {{ n }} of these.{% plural %}At import, Rule {{ place }} ({{ name }}) above wins on {{ n }} of these.{% endblocktranslate %}</span></li>{% endfor %}
+    {% if chosen and not draft.subcategory and p.change %}<li>{% icon "info" %}<span>{% translate "Pairing the Transfers may also convert a counterpart categorized by the LLM or a Rule into a Transfer." %}</span></li>{% endif %}
+  </ul>
+  {% endif %}
+  {% if p.change or p.set_by_hand or p.already or p.keep %}
+  <div class="scroll">
+  <table class="rows r-matches r-pv">
+    <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th class="num">{% translate "Amount" %}</th><th>{% translate "Now" %}</th><th>{% translate "After saving" %}</th></tr></thead>
+    {% for heading, group in groups %}{% if group %}
+    <tbody>
+      <tr class="grp"><th colspan="5" scope="colgroup">{{ heading }} · <span class="fig">{{ group|length }}</span></th></tr>
+      {% for t in group %}
+      <tr class="txn{% if t.pk == source.pk %} r-source{% endif %}">
+        <td class="c-date fig">{{ t.date|day }}</td>
+        <td class="c-desc"><span class="desc">{{ t.description|matched:draft.description_contains }}</span><small class="kind">{{ t.account.name }}{% if t.pk == source.pk %} · {% translate "the one you just saved" %}{% endif %}</small><small class="m-meta"><span class="fig">{{ t.date|day }}</span> · {{ t.account.name }}{% if t.pk == source.pk %} · {% translate "the one you just saved" %}{% endif %}</small></td>
+        <td class="num amt">{{ t.amount|money }}</td>
+        <td class="c-now">{% include "ledger/_transaction_outcome.html" %}</td>
+        <td class="c-after">{% if group is p.change %}<span class="oc-label">{% if chosen %}{% include "ledger/_outcome_label.html" with subcategory=draft.subcategory %}{% else %}<span class="muted">{% translate "the outcome you choose" %}</span>{% endif %}</span>
+          {% elif group is p.already %}<span class="muted">{% translate "no change" %}</span>
+          {% else %}<span class="muted">{% blocktranslate with source=t.source_caption %}keeps it · {{ source }}{% endblocktranslate %}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endif %}{% endfor %}
+  </table>
+  </div>
+  {% else %}
+  <p class="r-none muted">{% translate "Matches no existing Transaction. It will still categorize matching ones at future imports." %}</p>
+  {% endif %}
+  {% endif %}
+</div>
+{% if swapped %}{% include "ledger/_rule_save.html" with oob=True %}{% endif %}

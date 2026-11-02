@@ -1,0 +1,9 @@
+{% load i18n %}{# Deleting a Rule, confirmed inline under its detail's head (docs/design/rules.md); on the Rules page without JS. #}
+<form class="confirm r-confirm" method="post" action="{% url 'delete_rule' rule.pk %}" hx-post="{% url 'delete_rule' rule.pk %}" hx-target="#rules" hx-swap="outerHTML" data-action>
+  {% csrf_token %}
+  <p>{% blocktranslate with name=rule.name %}Delete {{ name }}?{% endblocktranslate %} {% if categorized %}{% blocktranslate count n=categorized %}Its {{ n }} Transaction keeps its outcome; future imports won't use it.{% plural %}Its {{ n }} Transactions keep their outcome; future imports won't use it.{% endblocktranslate %}{% else %}{% translate "Future imports won't use it." %}{% endif %}</p>
+  <div class="form-actions">
+    <a class="button" href="{% url 'rules' %}?rule={{ rule.pk }}" data-keep-link>{% translate "Keep it" %}</a>
+    <button type="submit" class="primary" data-focus>{% translate "Delete Rule" %}</button>
+  </div>
+</form>
