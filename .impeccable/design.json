@@ -94,6 +94,21 @@
           "#e9eeff"
         ]
       },
+      "match": {
+        "role": "primary",
+        "displayName": "Match Straw",
+        "canonical": "oklch(94.3% 0.075 93.5)",
+        "tonalRamp": [
+          "#100b00",
+          "#2e2400",
+          "#4f4104",
+          "#70602b",
+          "#91824c",
+          "#b5a56e",
+          "#d9c991",
+          "#ffeeb7"
+        ]
+      },
       "ground": {
         "role": "neutral",
         "displayName": "Cool Ground",
@@ -482,6 +497,21 @@
           "#8f9bfd",
           "#bbc5fe",
           "#eaedff"
+        ]
+      },
+      "match-dark": {
+        "role": "primary",
+        "displayName": "Match Straw (dark)",
+        "canonical": "oklch(38.0% 0.052 89.9)",
+        "tonalRamp": [
+          "#100a00",
+          "#2f2402",
+          "#4d4120",
+          "#6d603e",
+          "#8e815f",
+          "#b2a480",
+          "#d6c8a3",
+          "#fceec8"
         ]
       },
       "ground-dark": {
@@ -1043,6 +1073,30 @@
       "confirm": "every destructive action confirms inline, as Rules does: a box on Raised with a 1px Line Strong border, 8px radius, 16px padding, max 70ch, 12px below the table (in place of 'Delete Account', hidden while it shows); Ink 2 sentences naming what goes and what stays, then a bordered 'Keep it' (closes it, focus back to the control that opened it) and the primary 'Delete Statement' / 'Delete Account', which takes the focus. Account: 'Delete “Ana's savings”? 2 Rules only for this Account go with it.' or '… No Rules are only for this Account.' Statement: Ink 600 'Delete the Luka's N26 Statement 1–30 Sep 2026?', then '64 Transactions appear on no other Statement and are deleted with it.' (or 'No Transactions are deleted with it: none appear on it alone.'), what the Coverage becomes: 'The Coverage shrinks: 1–30 Sep 2026 becomes a Gap.', '1–7 Jun 2026 is no longer tracked.' (before the Account's other Statements) or 'Other Statements still cover its days, so the Coverage stays as it is.', and '2 outcomes set by hand are lost.' (Ink 600) or 'No outcomes set by hand are lost.'; a delete swaps in the board it was asked from, Import's or Accounts', and is announced 'Deleted Ana's savings.' / 'Deleted the Luka's N26 Statement 1–30 Sep 2026.'",
       "noJs": "Edit and New Account are links to the Accounts page with that row open; Save posts and comes back to the board with a 'Saved Ana's savings.' notice; Delete links open the confirmation as a page of its own, whose 'Keep it' links back to the board it came from",
       "phone": "≤900px: as Import's board; the open row's form and Delete stack, 16px apart; tables scroll inside their box, never the page"
+    },
+    "rulesPage": {
+      "source": "Make a Rule pre-fills the counterparty IBAN, else the merchant word ('HOFER 2201 LJUBLJANA' gives 'HOFER'; after a payment processor the word after '*'), never a direction, and the outcome just given; its Transaction's row is tinted Indigo Wash with the caption 'the one you just saved'",
+      "purpose": "a Rule is a saved filter over the Household's Transactions; every Rule page shows which Transactions it catches and what it does to them, so a Rule is never saved blind",
+      "header": "page-head row: h1 'Rules' (24px, tabindex -1) and the primary 'New Rule' with the plus icon; under it a Muted line 'The first Rule a Transaction matches at import decides it. Select one to see what it caught.'; a saved or applied Rule's status line ('Saved “SPAR”. Future imports will use it.', '13 Transactions categorized by the Rule.') shows as a notice panel above the cards",
+      "layout": "the master-detail grid (.md) with a 300px list column (18.75rem) and the detail, 16px apart, aligned to the top; with no Rules a single panel 'No Rules yet. Make one from any correction in the Review queue or the Transactions view, or with New Rule.'",
+      "list": "card with 8px padding; a visually hidden h2 'Rules, in order'; an ordered list, 2px apart, each item 10px radius, a grid of 24px place | name | count, 2px 8px gap, 10px 12px padding: the place in Faint 12px tabular, the name 600 Ink with ellipsis (a description in quotes, '“HOFER”', else the IBAN in groups of four), the count of Transactions it categorized in Muted 12px tabular (title 'Categorized 13 Transactions'), and under name and count the outcome as Transaction-row text at 12px (hue dot, Muted Category › Ink Subcategory; a hollow ring for Transfer); Raised hover; the selected item takes Indigo Wash, no inset edge; under the list a Muted 12px hint 'Drag, or Alt+↑ / ↓, to reorder.' with 600 Ink 2 kbd keys, 12px padding",
+      "keyboard": "with JS the list becomes a listbox (role=option items, aria-selected, one roving tabindex, the links untabbable): ↑/↓, Home/End select a Rule and swap in its detail after 150ms (the URL keeps it as 'at'); Enter, Space or a click opens it (the URL becomes 'rule', the detail heading takes focus); Alt+↑/↓ move the focused Rule one place; the focus ring sits inside the item (offset -2px)",
+      "drag": "items are draggable (grab cursor); the dragged item fades to 40% and the list reorders live at each item's midpoint; dropping posts the new order and which Rule moved; a new Rule goes to the top",
+      "detail": "card, 20px padding, its parts 16px apart; head a wrapping row, 12px gap: h2 18px (tabindex -1, breaks anywhere) '7. “SPAR” → Food › Groceries', the place tabular, the arrow Muted 400, the outcome label at 500; then the actions, 8px apart: Move up and Move down 36px icon buttons (disabled at the ends), a bordered 'Edit' and a ghost 'Delete'",
+      "conditions": "pills in a wrapping row, 6px apart: 2px 10px, 1px Line Strong border, full radius, Ink 2 12px, the value Ink 600: 'contains SPAR', 'IBAN SI56 …', 'money out' / 'money in', 'on Maja · N26'",
+      "effect": "Ink 2 line, the count Ink 600: 'Categorized 13 Transactions.', and when earlier Rules take some of its matches '6 of its matches go to Rule 3 (“HOFER”) above.', which is how a Rule that categorizes nothing explains itself; with no matches a Muted 'Matches no Transaction yet. It will still categorize matching ones at future imports.'",
+      "matches": "edge to edge under the head (first and last cells 20px in), the Transaction row reused: Date, Transaction, Account, Outcome now, Amount; grouped in tbodies under Raised header rows, Ink 2 12px 600, 8px tall padding: 'Categorized by this Rule · 13', then 'Also matches, decided otherwise · 6'; the outcome control works in place as on Transactions",
+      "highlight": "the text a Rule matched, folded for case and accents, wrapped in mark: Match Straw ground, 0 1px padding, 3px radius, the text colour inherited; an interface colour, never a Category's hue",
+      "confirm": "Delete swaps the Inline Confirm in under the head, full width: 'Delete “SPAR”? Its 13 Transactions keep their outcome; future imports won't use it.' (or 'Future imports won't use it.' when it categorized none), a bordered 'Keep it' (clears it, focus back to Delete) and the primary 'Delete Rule', which takes the focus; deleting never changes an outcome; afterwards the next Rule is selected and its item takes the focus",
+      "announce": "via the announce event: 'Moved “SPAR” to 6th.' (focus stays on the item, or on the Move button pressed, or its twin at an end), 'Deleted “SPAR”.', and on the Rule page each preview '5 Transactions match, 3 would change.' or 'Set a condition to see what it matches.'",
+      "rulePage": "New Rule, Edit Rule 7, Make a Rule: page-head with h1 and a ghost 'Back' with the left icon; a Muted line 'Narrow the filter until the list holds only the Transactions this Rule is for.' (new Rules add 'A new Rule is checked before every other.'); then one card with no padding: the filter bar, the preview over a Line hairline, the save bar",
+      "filterBar": "a wrapping row, 20px padding, 12px gap, labelled fields 4px over their 36px controls: Description contains (grows 2), Counterparty IBAN (1.5), Direction, Account (1 each, 10rem basis); under them, full width, the help 'Every condition you set must hold. Description contains ignores case and accents.'; the preview refreshes 300ms after typing",
+      "wordChips": "Make a Rule only, with JS: Muted 12px 'Words from it:' then the description's words as 32px pill toggles (aria-pressed), 0 12px, Ink 2 13px, a dashed Line Strong border, no shadow; the words in use take Indigo Wash, a solid Indigo border and Indigo Ink; a tap widens or narrows the match and it stays one run of words (a leading '*' dropped); typing in the field updates them",
+      "notes": "Muted 13px lines above the table, each a 14px info icon then the text, 4px apart, 16px 20px 4px padding, never an alert colour: 'Takes 2 over from Rule 7 (“SPAR”).', 'At import, Rule 3 (“HOFER”) above wins on 4 of these.', and for a Transfer outcome 'Pairing the Transfers may also convert a counterpart categorized by the LLM or a Rule into a Transfer.'",
+      "preview": "the Transaction rows with Date, Transaction (the matched text highlighted, the Account as the caption), Amount, Now and After saving (24% each), grouped under Raised header rows: 'Will change · N', 'Set by hand to something else: kept now, but new ones like them would follow this Rule · N', 'Already Food › Groceries · N', 'Keep their outcome · N'; After saving reads the outcome label, Muted 'the outcome you choose' before one is picked, 'no change', or 'keeps it · by hand'; outcomes set by hand, by IBAN, by pairing or by the parser are never overwritten; empty: 'Set a condition to see what it matches.' or 'Matches no existing Transaction. It will still categorize matching ones at future imports.'",
+      "saveBar": "sticky at the card's foot, a wrapping row, 8px gap, 12px 20px padding, a Line hairline above, the card's bottom radius, Card fill: 'Categorize as' (Ink 2) with the outcome select (max 22rem, 'Category › Subcategory' options), a spacer, a ghost 'Cancel', then 'Future imports only' and the primary 'Save and change 3' when saving would change some, else the primary 'Save Rule' (disabled until a condition and an outcome are set); the buttons swap with the preview; Enter in a field never saves",
+      "noJs": "the list is links ('?rule=' opens one, '?at=' selects it); Move buttons and Delete post as forms, Delete opens the confirm on the Rules page and 'Keep it' links back; the word chips hide; the Rule page shows a 'Show matches' button that posts for the preview",
+      "phone": "≤900px: one column; the list shows first (items 12px tall padding) and opening a Rule shows its detail in place of the list, with an 'All Rules' back link (44px, left icon) that returns focus to the item; detail padding 16px, the matches 16px in; the Rule page's fields go full width, 16px padding; each preview row a stacked card (description and amount, then Muted 12px 'date · Account', then Now, then '→' in Faint before After saving), group headers as blocks; the save bar sits above the tab bar, label and select full width on top, 44px buttons, the save buttons sharing the row. ≤600px: the detail's matches and group headers 16px in, as the Transaction row is on a phone"
     }
   },
   "components": [
@@ -1242,6 +1296,14 @@
       "description": "How every destructive action in Manage confirms, in place under what it deletes: a Raised box with a 1px Line Strong border, an 8px radius and 16px padding, max 70ch. Ink 2 sentences name what goes and what stays, the question first in Ink 600; then a bordered 'Keep it', which closes it and gives the focus back to its opener, and the primary delete action, which takes the focus as it opens. No red: the wording carries the weight.",
       "html": "<form class=\"ds-confirm\"><p><b>Delete the Luka's N26 Statement 1–30 Sep 2026?</b></p><p>64 Transactions appear on no other Statement and are deleted with it. The Coverage shrinks: 1–30 Sep 2026 becomes a Gap.</p><p>No outcomes set by hand are lost.</p><div class=\"ds-actions\"><button type=\"button\" class=\"ds-btn\">Keep it</button><button type=\"submit\" class=\"ds-btn ds-primary\">Delete Statement</button></div></form>",
       "css": ".ds-confirm { display: grid; gap: 8px; max-width: 70ch; padding: 16px; background: var(--raised, #f9fafb); border: 1px solid var(--line-strong, #d1d5db); border-radius: 8px; font: 400 14px/1.5 Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif; color: var(--ink-2, #374151); } .ds-confirm p { margin: 0; } .ds-confirm b { color: var(--ink, #111827); font-weight: 600; } .ds-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .ds-btn { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; font: 500 14px/1 Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif; color: var(--ink, #111827); background: var(--card, #ffffff); border: 1px solid var(--line-strong, #d1d5db); border-radius: 8px; box-shadow: var(--shadow-ctl, 0 1px 2px rgb(16 24 40 / .04)); cursor: pointer; } .ds-btn:hover { background: var(--hover, #f3f4f6); } .ds-btn.ds-primary { background: var(--ink, #111827); border-color: var(--ink, #111827); color: var(--card, #ffffff); } .ds-btn.ds-primary:hover { background: var(--ink-2, #374151); border-color: var(--ink-2, #374151); } .ds-btn:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: 2px; }"
+    },
+    {
+      "name": "Rule List",
+      "kind": "custom",
+      "refersTo": "list-item",
+      "description": "The Rules page's list, 300px, in the order Rules are checked at import: a card with 8px padding and items 2px apart on a 10px radius, each a grid of the place (Faint 12px tabular), the name (600, a description in quotes or a grouped IBAN, ellipsis) and the count it categorized (Muted 12px tabular), with the outcome as Transaction-row text at 12px under name and count. Raised hover; the selected item takes Indigo Wash with no edge, the focus ring drawn inside it. With JS it is a listbox: ↑/↓ and Home/End select, Enter opens, Alt+↑/↓ and a drag reorder, each move announced ('Moved “SPAR” to 6th.'). A Muted hint with kbd keys closes it.",
+      "html": "<section class=\"ds-rule-list\" aria-label=\"Rules, in order\"><ol role=\"listbox\" aria-label=\"Rules, in order\"><li role=\"option\" aria-selected=\"false\" tabindex=\"-1\" draggable=\"true\"><span class=\"ds-r-place\">1</span><span class=\"ds-r-name\">“HOFER”</span><span class=\"ds-r-count\" title=\"Categorized 41 Transactions\">41</span><span class=\"ds-oc\"><i class=\"ds-dot\" style=\"--hue: var(--cat-1, #59a14f)\" aria-hidden=\"true\"></i><span><span class=\"ds-cat\">Food</span> <span class=\"ds-sep\">›</span> Groceries</span></span></li><li role=\"option\" aria-selected=\"true\" tabindex=\"0\" draggable=\"true\"><span class=\"ds-r-place\">2</span><span class=\"ds-r-name\">“SPAR”</span><span class=\"ds-r-count\" title=\"Categorized 13 Transactions\">13</span><span class=\"ds-oc\"><i class=\"ds-dot\" style=\"--hue: var(--cat-1, #59a14f)\" aria-hidden=\"true\"></i><span><span class=\"ds-cat\">Food</span> <span class=\"ds-sep\">›</span> Groceries</span></span></li><li role=\"option\" aria-selected=\"false\" tabindex=\"-1\" draggable=\"true\"><span class=\"ds-r-place\">3</span><span class=\"ds-r-name\">“PETROL”</span><span class=\"ds-r-count\" title=\"Categorized 9 Transactions\">9</span><span class=\"ds-oc\"><i class=\"ds-dot\" style=\"--hue: var(--cat-2, #f28e2b)\" aria-hidden=\"true\"></i><span><span class=\"ds-cat\">Transport</span> <span class=\"ds-sep\">›</span> Fuel</span></span></li><li role=\"option\" aria-selected=\"false\" tabindex=\"-1\" draggable=\"true\"><span class=\"ds-r-place\">4</span><span class=\"ds-r-name\">SI56 0201 0001 2345 678</span><span class=\"ds-r-count\" title=\"Categorized 0 Transactions\">0</span><span class=\"ds-oc\"><i class=\"ds-dot ds-transfer\" aria-hidden=\"true\"></i><span>Transfer</span></span></li></ol><p class=\"ds-r-hint\">Drag, or <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd>, to reorder.</p></section>",
+      "css": ".ds-rule-list { width: 300px; padding: 8px; background: var(--card, #ffffff); border-radius: 14px; box-shadow: var(--shadow-card, 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06)); font: 400 14px/1.5 Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif; color: var(--ink, #111827); } .ds-rule-list ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; } .ds-rule-list li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 2px 8px; padding: 10px 12px; border-radius: 10px; cursor: grab; } .ds-rule-list li:hover { background: var(--raised, #f9fafb); } .ds-rule-list li[aria-selected=\"true\"] { background: var(--accent-soft, #eef2ff); } .ds-rule-list li:focus-visible { outline: 2px solid var(--focus, #6366f1); outline-offset: -2px; } .ds-r-place { color: var(--faint, #838a97); font-size: 12px; line-height: 24px; font-variant-numeric: tabular-nums; } .ds-r-name { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; } .ds-r-count { color: var(--muted, #656c79); font-size: 12px; line-height: 24px; font-variant-numeric: tabular-nums; } .ds-oc { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-width: 0; font-size: 12px; font-weight: 500; } .ds-oc .ds-dot { align-self: center; margin-right: -4px; } .ds-cat { color: var(--muted, #656c79); font-weight: 400; } .ds-sep { color: var(--faint, #838a97); } .ds-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--hue); } .ds-dot.ds-transfer { background: none; box-shadow: inset 0 0 0 1.5px var(--muted, #656c79); } .ds-r-hint { margin: 0; padding: 12px; color: var(--muted, #656c79); font-size: 12px; } .ds-r-hint kbd { font: 600 12px/1 Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif; color: var(--ink-2, #374151); }"
     },
     {
       "name": "Theme Switch",

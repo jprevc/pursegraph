@@ -53,3 +53,8 @@ def valid_iban(iban: str) -> bool:
         return False
     digits = "".join(str(int(char, 36)) for char in iban[4:] + iban[:4])
     return int(digits) % 97 == 1
+
+
+def grouped_iban(iban: str) -> str:
+    """`iban` in groups of four, as people read one."""
+    return " ".join(iban[i : i + 4] for i in range(0, len(iban), 4))

@@ -8,7 +8,16 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from ledger.models import Account, Bank, Category, Source, Statement, Subcategory, Transaction
+from ledger.models import (
+    Account,
+    Bank,
+    Category,
+    Rule,
+    Source,
+    Statement,
+    Subcategory,
+    Transaction,
+)
 
 # Synthetic, so it may sit in scripts and docs; the demo database is thrown away after use.
 PASSWORD = "demo-pass-123"
@@ -121,6 +130,21 @@ class Command(BaseCommand):
                     subcategory=Subcategory.objects.get(category__name="Transport", name="Other"),
                     source=Source.MANUAL,
                 )
+
+        # Rules, top first, each with the Transactions it categorized; the others it matches were decided otherwise.
+        for position, name in enumerate(
+            ["Groceries", "Fuel", "Utilities", "Pharmacy", "Parking & tolls"]
+        ):
+            outcome = Subcategory.objects.get(name=name)
+            rule = Rule.objects.create(
+                description_contains=name, subcategory=outcome, position=position
+            )
+            Transaction.objects.filter(
+                description__startswith=f"{name} ", subcategory=outcome, source=Source.RULE
+            ).update(rule=rule)
+        Rule.objects.create(
+            direction=Rule.Direction.IN, account=n26, position=5, subcategory=salary
+        )
 
         # Coverage that shows every state of Period completeness: the Joint Revolut is tracked two months later
         # than the others, and Luka's N26 lacks a month and has nothing yet since the end of last month.

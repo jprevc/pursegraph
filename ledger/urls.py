@@ -31,9 +31,9 @@ urlpatterns = [
     path("suggestions/resuggest/", views.resuggest_queue, name="resuggest_queue"),
     path("rules/", views.rules, name="rules"),
     path("rules/new/", views.new_rule, name="new_rule"),
+    path("rules/preview/", views.rule_preview, name="rule_preview"),
     path("rules/reorder/", views.reorder_rules, name="reorder_rules"),
     path("rules/<int:pk>/edit/", views.edit_rule, name="edit_rule"),
-    path("rules/<int:pk>/apply/", views.apply_rule, name="apply_rule"),
     path("rules/<int:pk>/move/", views.move_rule, name="move_rule"),
     path("rules/<int:pk>/delete/", views.delete_rule, name="delete_rule"),
 ]

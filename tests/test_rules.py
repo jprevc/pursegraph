@@ -1,3 +1,4 @@
+import json
 import re
 from decimal import Decimal
 
@@ -16,10 +17,23 @@ def make_rule(client, outcome, **conditions):
     return client.post("/rules/new/", {**data, **conditions, "outcome": outcome})
 
 
+def apply_rule(client, rule, follow=False, **posted):
+    """Saves `rule` again on its Rule page with "Save and change N", which applies it to the existing Transactions."""
+    data = {
+        "description_contains": rule.description_contains,
+        "counterparty_iban": rule.counterparty_iban,
+        "direction": rule.direction,
+        "account": rule.account_id or "",
+        "outcome": rule.subcategory_id or "transfer",
+        "apply": "1",
+    }
+    return client.post(f"/rules/{rule.pk}/edit/", {**data, **posted}, follow=follow)
+
+
 def rule_order(client):
     """The Rules page's Rules, top first, by their description-contains condition."""
     page = client.get("/rules/").content.decode()
-    return re.findall(r'<td class="contains">([^<]*)</td>', page)
+    return re.findall(r'<span class="r-name">“([^<]*)”</span>', page)
 
 
 def rule_id(description_contains):
@@ -129,7 +143,7 @@ def test_counterparty_iban_rule_matches_with_spaces_ignored(logged_in_client):
     match = make_transaction("Rent", counterparty_iban="SI56340001234567864")
     other = make_transaction("Rent", counterparty_iban="SI56340001234567000")
 
-    logged_in_client.post(f"/rules/{Rule.objects.get().pk}/apply/")
+    apply_rule(logged_in_client, Rule.objects.get())
 
     match.refresh_from_db()
     other.refresh_from_db()
@@ -150,8 +164,8 @@ def test_the_rules_page_lists_rules_for_any_member(logged_in_client):
 
     page = logged_in_client.get("/rules/").content.decode()
 
-    assert "mercator" in page
-    assert "Food → Groceries" in page
+    assert "“mercator”" in page
+    assert "Food › Groceries" in page_text(page)
     assert 'href="/rules/"' in page  # in the sidebar
 
 
@@ -225,25 +239,28 @@ def test_a_new_rule_goes_to_the_top(logged_in_client):
     assert rule_order(logged_in_client) == ["third", "second", "first"]
 
 
-def test_saving_a_rule_offers_to_apply_it_to_existing_transactions(logged_in_client):
+def test_saving_a_rule_without_applying_changes_nothing_yet(logged_in_client):
     upload(logged_in_client)
 
     response = make_rule(logged_in_client, groceries(), description_contains="o")
 
     pk = Rule.objects.get().pk
     assert response.status_code == 302
-    assert response.url == f"/rules/{pk}/apply/"
-    offer = logged_in_client.get(response.url).content.decode()
-    # Corner Shop, Payment from Ana Novak, To Janez Kranjc, Mercator; not the fees (parser)
-    assert "4 existing Transactions match" in offer
+    assert response.url == f"/rules/?rule={pk}"
     page = logged_in_client.get("/transactions/").content.decode()
-    assert outcome_shown(page, "Corner Shop") == "Awaiting review"  # nothing applied yet
+    assert outcome_shown(page, "Corner Shop") == "Awaiting review"
 
 
-def test_saving_a_rule_nothing_matches_goes_back_to_the_rules(logged_in_client):
-    response = make_rule(logged_in_client, groceries(), description_contains="nothing like it")
+def test_saving_and_changing_applies_the_rule_and_says_so(logged_in_client):
+    upload(logged_in_client)
+    make_rule(logged_in_client, groceries(), description_contains="o")
 
-    assert response.url == "/rules/"
+    response = apply_rule(logged_in_client, Rule.objects.get(), follow=True)
+
+    # Corner Shop, Payment from Ana Novak, To Janez Kranjc, Mercator; not the fees (parser)
+    assert "4 Transactions categorized by the Rule." in page_text(response.content.decode())
+    page = logged_in_client.get("/transactions/").content.decode()
+    assert outcome_shown(page, "Corner Shop") == "Food → Groceries"
 
 
 def test_applying_overwrites_only_unresolved_llm_and_rule_outcomes(logged_in_client):
@@ -259,7 +276,7 @@ def test_applying_overwrites_only_unresolved_llm_and_rule_outcomes(logged_in_cli
     ]
     make_rule(logged_in_client, groceries(), description_contains="shop")
 
-    response = logged_in_client.post(f"/rules/{rule_id('shop')}/apply/")
+    response = apply_rule(logged_in_client, Rule.objects.get(description_contains="shop"))
 
     assert response.status_code == 302
     rule = Rule.objects.get()
@@ -275,7 +292,7 @@ def test_applying_a_transfer_rule(logged_in_client):
     t = make_transaction("Savings", subcategory_id=groceries(), source=Source.LLM)
     make_rule(logged_in_client, "transfer", description_contains="savings")
 
-    logged_in_client.post(f"/rules/{rule_id('savings')}/apply/")
+    apply_rule(logged_in_client, Rule.objects.get(description_contains="savings"))
 
     t.refresh_from_db()
     assert t.is_transfer and t.subcategory is None
@@ -330,7 +347,7 @@ def test_applying_a_subcategory_rule_unpairs_a_transfer(logged_in_client):
     b.save()
     make_rule(logged_in_client, groceries(), description_contains="savings")
 
-    logged_in_client.post(f"/rules/{rule_id('savings')}/apply/")
+    apply_rule(logged_in_client, Rule.objects.get(description_contains="savings"))
 
     a.refresh_from_db()
     b.refresh_from_db()
@@ -348,7 +365,7 @@ def test_applying_a_transfer_rule_pairs_the_other_side(logged_in_client):
     )
     make_rule(logged_in_client, "transfer", description_contains="to savings")
 
-    logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/")
+    apply_rule(logged_in_client, Rule.objects.get(description_contains="to savings"))
 
     out.refresh_from_db()
     into.refresh_from_db()
@@ -368,7 +385,7 @@ def test_applying_a_transfer_rule_never_pairs_with_a_manual_outcome(logged_in_cl
     )
     make_rule(logged_in_client, "transfer", description_contains="to savings")
 
-    logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/")
+    apply_rule(logged_in_client, Rule.objects.get(description_contains="to savings"))
 
     out.refresh_from_db()
     into.refresh_from_db()
@@ -392,11 +409,13 @@ def test_applying_a_transfer_rule_reports_the_counterparts_pairing_converted(log
     )
     make_rule(logged_in_client, "transfer", description_contains="to savings")
 
-    response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
+    response = apply_rule(
+        logged_in_client, Rule.objects.get(description_contains="to savings"), follow=True
+    )
 
-    assert [str(m) for m in response.context["messages"]] == [
+    assert [str(m) for m in response.context["messages"]][-1] == (
         "1 Transaction categorized by the Rule. 1 categorized Transaction converted to a Transfer."
-    ]
+    )
 
 
 def test_applying_a_transfer_rule_reports_a_tie_left_for_review(logged_in_client):
@@ -410,7 +429,9 @@ def test_applying_a_transfer_rule_reports_a_tie_left_for_review(logged_in_client
         )
     make_rule(logged_in_client, "transfer", description_contains="to savings")
 
-    response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
+    response = apply_rule(
+        logged_in_client, Rule.objects.get(description_contains="to savings"), follow=True
+    )
 
     page = response.content.decode()
     assert "1 Transaction categorized by the Rule." in page
@@ -435,10 +456,12 @@ def test_applying_a_rule_whose_pairing_changes_nothing_reports_only_the_rule(
         description_contains="to savings",
     )
 
-    response = logged_in_client.post(f"/rules/{rule_id('to savings')}/apply/", follow=True)
+    response = apply_rule(
+        logged_in_client, Rule.objects.get(description_contains="to savings"), follow=True
+    )
 
     messages = [str(m) for m in response.context["messages"]]
-    assert messages == ["1 Transaction categorized by the Rule."]
+    assert messages[-1] == "1 Transaction categorized by the Rule."
 
 
 @pytest.mark.parametrize(("outcome", "noted"), [("transfer", True), ("groceries", False)])
@@ -452,6 +475,211 @@ def test_only_a_transfer_rule_warns_that_pairing_may_convert_counterparts(
         description_contains="to savings",
     )
 
-    offer = logged_in_client.get(f"/rules/{rule_id('to savings')}/apply/").content.decode()
+    page = logged_in_client.get(f"/rules/{rule_id('to savings')}/edit/").content.decode()
 
-    assert ("may also convert a counterpart" in offer) == noted
+    assert ("may also convert a counterpart" in page) == noted
+
+
+@pytest.mark.parametrize(
+    ("description", "prefilled"),
+    [
+        ("HOFER 2201 LJUBLJANA", "HOFER"),
+        ("PAYPAL *STEAMGAMES", "STEAMGAMES"),
+        ("PAYPAL*STEAMGAMES", "STEAMGAMES"),
+        ("Lekarna Ljubljana 12", "Lekarna"),
+        ("Corner Shop", "Corner Shop"),
+    ],
+)
+def test_make_a_rule_prefills_the_merchant_word(logged_in_client, description, prefilled):
+    t = make_transaction(description)
+    t.set_outcome(None, source=Source.MANUAL)
+
+    form = logged_in_client.get(f"/rules/new/?transaction={t.pk}").content.decode()
+
+    assert re.search(rf'name="description_contains"[^>]*value="{re.escape(prefilled)}"', form)
+
+
+def hx(client, method, url, data=None, target="rules"):
+    """An HTMX request, as the Rules page sends it."""
+    return getattr(client, method)(url, data or {}, HTTP_HX_REQUEST="true", HTTP_HX_TARGET=target)
+
+
+def announced(response):
+    return json.loads(response["HX-Trigger"])["announce"]
+
+
+def test_the_rules_page_shows_the_selected_rules_matches(logged_in_client):
+    mine = make_transaction("SPAR Bežigrad", subcategory_id=groceries(), source=Source.RULE)
+    make_transaction("SPAR by hand", subcategory_id=groceries(), source=Source.MANUAL)
+    make_rule(logged_in_client, groceries(), description_contains="spar", direction="out")
+    mine.rule = Rule.objects.get()
+    mine.save()
+
+    page = page_text(logged_in_client.get(f"/rules/?rule={mine.rule.pk}").content.decode())
+
+    assert "The first Rule a Transaction matches at import decides it" in page
+    assert "1. “spar” → Food › Groceries" in page
+    assert "contains spar" in page and "money out" in page
+    assert "Categorized 1 Transaction" in page
+    assert "Categorized by this Rule · 1" in page
+    assert "Also matches, decided otherwise · 1" in page
+
+
+def test_the_effect_line_names_the_rules_above_that_take_its_matches(logged_in_client):
+    make_transaction("SPAR Bežigrad")
+    make_rule(logged_in_client, groceries(), description_contains="s")
+    make_rule(logged_in_client, groceries(), description_contains="spar")  # goes to the top
+
+    page = page_text(logged_in_client.get(f"/rules/?rule={rule_id('s')}").content.decode())
+
+    assert "Categorized 0 Transactions" in page
+    assert "1 of its matches goes to Rule 1 (“spar”) above." in page
+
+
+def test_selecting_a_rule_swaps_in_its_detail_alone(logged_in_client):
+    make_rule(logged_in_client, groceries(), description_contains="corner")
+    make_rule(logged_in_client, groceries(), description_contains="shop")
+
+    response = hx(
+        logged_in_client, "get", f"/rules/?rule={rule_id('corner')}", target="rule-detail"
+    )
+
+    page = response.content.decode()
+    assert "<title>" in page
+    assert "2. “corner”" in page_text(page)
+    assert 'role="listbox"' not in page
+
+
+def test_moving_a_rule_is_announced_and_keeps_it_selected(logged_in_client):
+    make_rule(logged_in_client, groceries(), description_contains="corner")
+    make_rule(logged_in_client, "transfer", description_contains="shop")
+
+    response = hx(
+        logged_in_client, "post", f"/rules/{rule_id('shop')}/move/", {"direction": "down"}
+    )
+
+    assert announced(response) == "Moved “shop” to 2nd."
+    assert "2. “shop”" in page_text(response.content.decode())
+    assert rule_order(logged_in_client) == ["corner", "shop"]
+
+
+def test_dragging_a_rule_is_announced(logged_in_client):
+    make_rule(logged_in_client, groceries(), description_contains="corner")
+    make_rule(logged_in_client, "transfer", description_contains="shop")
+
+    response = hx(
+        logged_in_client,
+        "post",
+        "/rules/reorder/",
+        {"rule": [rule_id("corner"), rule_id("shop")], "moved": rule_id("shop")},
+    )
+
+    assert announced(response) == "Moved “shop” to 2nd."
+    assert rule_order(logged_in_client) == ["corner", "shop"]
+
+
+def test_deleting_a_rule_confirms_inline_and_keeps_the_outcomes(logged_in_client):
+    make_rule(logged_in_client, groceries(), description_contains="mercator")
+    upload(logged_in_client)
+    pk = rule_id("mercator")
+
+    confirm = hx(logged_in_client, "get", f"/rules/{pk}/delete/", target="confirm-slot")
+    assert (
+        "Delete “mercator”? Its 1 Transaction keeps its outcome; future imports won't use it."
+        in page_text(confirm.content.decode())
+    )
+    response = hx(logged_in_client, "post", f"/rules/{pk}/delete/")
+
+    assert announced(response) == "Deleted “mercator”."
+    assert not Rule.objects.exists()
+    assert Transaction.objects.get(description="Mercator Žalec").subcategory_id == groceries()
+
+
+def test_deleting_without_js_confirms_on_the_rules_page(logged_in_client):
+    make_rule(logged_in_client, groceries(), description_contains="mercator")
+
+    page = logged_in_client.get(f"/rules/{rule_id('mercator')}/delete/").content.decode()
+
+    assert "Delete “mercator”? Future imports won't use it." in page_text(page)
+    assert "Delete Rule" in page
+
+
+def test_the_rule_page_previews_what_saving_changes(logged_in_client):
+    upload(logged_in_client)
+
+    response = hx(
+        logged_in_client,
+        "get",
+        "/rules/preview/",
+        {"description_contains": "o", "direction": "", "account": "", "outcome": groceries()},
+        target="preview",
+    )
+
+    page = page_text(response.content.decode())
+    assert "Will change · 4" in page
+    assert "Save and change 4" in page
+
+
+def test_the_rule_page_warns_of_rules_it_takes_over_from(logged_in_client):
+    make_rule(logged_in_client, groceries(), description_contains="corner")
+    make_transaction("Corner Shop")
+    apply_rule(logged_in_client, Rule.objects.get())
+
+    response = hx(
+        logged_in_client,
+        "get",
+        "/rules/preview/",
+        {"description_contains": "shop", "outcome": "transfer"},
+        target="preview",
+    )
+
+    assert "Takes 1 over from Rule 1 (“corner”)" in page_text(response.content.decode())
+
+
+def test_make_a_rule_pins_the_transaction_just_saved(logged_in_client):
+    t = make_transaction("HOFER 2201 LJUBLJANA", subcategory_id=groceries(), source=Source.MANUAL)
+
+    page = logged_in_client.get(f"/rules/new/?transaction={t.pk}").content.decode()
+
+    assert "<h1" in page and "Make a Rule" in page_text(page)
+    assert "the one you just saved" in page_text(page)
+    assert re.search(r'<button[^>]*aria-pressed="true"[^>]*>HOFER</button>', page)
+    assert re.search(r'<button[^>]*aria-pressed="false"[^>]*>2201</button>', page)
+
+
+def test_previewing_without_js_saves_nothing(logged_in_client):
+    response = make_rule(logged_in_client, groceries(), description_contains="shop", preview="1")
+
+    assert response.status_code == 200
+    assert not Rule.objects.exists()
+
+
+def test_a_rules_detail_lists_what_it_categorized_even_after_its_conditions_changed(
+    logged_in_client,
+):
+    make_rule(logged_in_client, groceries(), description_contains="corner")
+    make_transaction("Corner Shop")
+    apply_rule(logged_in_client, Rule.objects.get())
+    rule = Rule.objects.get()
+    apply_rule(logged_in_client, rule, description_contains="nowhere", apply="")
+
+    page = page_text(logged_in_client.get(f"/rules/?rule={rule.pk}").content.decode())
+
+    assert "Categorized 1 Transaction" in page
+    assert "Categorized by this Rule · 1" in page
+
+
+def test_saving_waits_for_an_outcome(logged_in_client):
+    make_transaction("Corner Shop")
+
+    response = hx(
+        logged_in_client,
+        "get",
+        "/rules/preview/",
+        {"description_contains": "corner", "outcome": ""},
+        target="preview",
+    )
+
+    assert re.search(
+        r'<button type="submit" class="primary"[^>]*disabled', response.content.decode()
+    )

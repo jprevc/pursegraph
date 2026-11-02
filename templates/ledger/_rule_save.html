@@ -1,0 +1,6 @@
+{% load i18n %}{# The Rule page's save buttons, which name how many Transactions saving changes; swapped with the preview. #}
+<span id="rule-save" class="r-save"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if preview.change and chosen %}<button type="submit">{% translate "Future imports only" %}</button>
+  <button type="submit" class="primary" name="apply" value="1">{% blocktranslate count n=preview.change|length %}Save and change <span class="fig">{{ n }}</span>{% plural %}Save and change <span class="fig">{{ n }}</span>{% endblocktranslate %}</button>
+  {% else %}<button type="submit" class="primary"{% if preview.empty or not chosen %} disabled{% endif %}>{% translate "Save Rule" %}</button>{% endif %}
+</span>

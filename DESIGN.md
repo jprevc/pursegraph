@@ -8,6 +8,7 @@ colors:
   accent-ink: "#ffffff"
   focus: "#6366f1"
   mark-segment: "#c7d2fe"
+  match: "#fdecb3"
   ground: "#f4f5f7"
   card: "#ffffff"
   raised: "#f9fafb"
@@ -34,6 +35,7 @@ colors:
   accent-text-dark: "#a5b4fc"
   accent-soft-dark: "#1e1b4b"
   focus-dark: "#818cf8"
+  match-dark: "#4d4120"
   ground-dark: "#0e1014"
   card-dark: "#171a20"
   raised-dark: "#1d2128"
@@ -262,6 +264,7 @@ A neutral cool-grey interface carrying one indigo accent for chrome, plus a sepa
 - **Indigo Wash** (accent-soft / accent-soft-dark): the selected-state ground for the active nav item, the open Category row and the avatar. (The active view tab is an Indigo Ink label over a 2px Household Indigo underline, not a wash.)
 - **Focus Indigo** (focus / focus-dark): the 2px focus ring only.
 - **Mark Periwinkle** (mark-segment): the smaller segment of the donut mark. It is used in the mark only.
+- **Match Straw** (match / match-dark): the soft highlight behind the text a Rule matched, on the Rules pages. An interface colour, not a Category's hue.
 
 ### Neutral
 - **Cool Ground** (ground / ground-dark): the page background behind cards. It is also the track of bar meters and of the theme switch.

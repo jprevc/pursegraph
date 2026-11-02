@@ -1,0 +1,51 @@
+{% load i18n icons %}{% comment %} The selected Rule's detail on the Rules page: its conditions, what it categorized, and every Transaction it matches
+in the Transaction row, grouped by whether it decided them. Swapped in alone when the selection changes. {% endcomment %}
+{% if alone %}{% include "_title.html" with page_title=_("Rules") %}{% endif %}
+{% url 'rules' as rules_url %}
+<section id="rule-detail" class="panel md-detail r-detail" aria-labelledby="rule-heading" data-rule="{{ rule.pk }}">
+  <a class="back" href="{{ rules_url }}?at={{ rule.pk }}" data-rule-back>{% icon "left" %}{% translate "All Rules" %}</a>
+  <div class="r-head">
+    <h2 id="rule-heading" tabindex="-1"{% if focus == "heading" %} data-focus{% endif %}>
+      <span class="fig">{{ rule.place }}.</span> {{ rule.name }} <span class="r-arrow">→</span> <span class="oc-label">{% include "ledger/_outcome_label.html" with subcategory=rule.subcategory %}</span>
+    </h2>
+    <div class="r-acts">
+      <form method="post" action="{% url 'move_rule' rule.pk %}" hx-post="{% url 'move_rule' rule.pk %}" hx-target="#rules" hx-swap="outerHTML">
+        {% csrf_token %}
+        <button type="submit" class="icon-button" name="direction" value="up" aria-label="{% translate 'Move up' %}"{% if rule.place == 1 %} disabled{% endif %}{% if focus == "up" and rule.place != 1 or focus == "down" and rule.place == last_place %} data-focus{% endif %}>{% icon "up" %}</button>
+        <button type="submit" class="icon-button" name="direction" value="down" aria-label="{% translate 'Move down' %}"{% if rule.place == last_place %} disabled{% endif %}{% if focus == "down" and rule.place != last_place or focus == "up" and rule.place == 1 %} data-focus{% endif %}>{% icon "down" %}</button>
+      </form>
+      <a class="button" href="{% url 'edit_rule' rule.pk %}">{% translate "Edit" %}</a>
+      <a class="button ghost" href="{% url 'delete_rule' rule.pk %}" hx-get="{% url 'delete_rule' rule.pk %}" hx-target="#confirm-slot" data-confirm-opener>{% translate "Delete" %}</a>
+    </div>
+  </div>
+  <div id="confirm-slot" data-confirm-slot>{% if confirm %}{% include "ledger/_confirm_delete_rule.html" with categorized=rule.categorized %}{% endif %}</div>
+  <ul class="conds" aria-label="{% translate 'Conditions' %}">
+    {% if rule.description_contains %}<li>{% blocktranslate with text=rule.description_contains %}contains <b>{{ text }}</b>{% endblocktranslate %}</li>{% endif %}
+    {% if rule.counterparty_iban %}<li>{% blocktranslate with iban=rule.iban_grouped %}IBAN <b>{{ iban }}</b>{% endblocktranslate %}</li>{% endif %}
+    {% if rule.direction == "in" %}<li>{% blocktranslate %}money <b>in</b>{% endblocktranslate %}</li>{% elif rule.direction == "out" %}<li>{% blocktranslate %}money <b>out</b>{% endblocktranslate %}</li>{% endif %}
+    {% if rule.account %}<li>{% blocktranslate with account=rule.account.name %}on <b>{{ account }}</b>{% endblocktranslate %}</li>{% endif %}
+  </ul>
+  <p class="r-effect">{% blocktranslate count n=rule.categorized %}Categorized <b>{{ n }} Transaction</b>.{% plural %}Categorized <b>{{ n }} Transactions</b>.{% endblocktranslate %}{% if taken %} {{ taken }}.{% endif %}</p>
+  {% if mine or others %}
+  <div class="scroll">
+  <table class="rows r-matches">
+    <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome now" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
+    {% if mine %}
+    <tbody>
+      <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=mine|length %}Categorized by this Rule · <span class="fig">{{ n }}</span>{% plural %}Categorized by this Rule · <span class="fig">{{ n }}</span>{% endblocktranslate %}</th></tr>
+      {% for t in mine %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains next=request.get_full_path %}{% endfor %}
+    </tbody>
+    {% endif %}
+    {% if others %}
+    <tbody>
+      <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=others|length %}Also matches, decided otherwise · <span class="fig">{{ n }}</span>{% plural %}Also matches, decided otherwise · <span class="fig">{{ n }}</span>{% endblocktranslate %}</th></tr>
+      {% for t in others %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains %}{% endfor %}
+    </tbody>
+    {% endif %}
+  </table>
+  {% include "ledger/_outcome_chips.html" %}
+  </div>
+  {% else %}
+  <p class="r-none muted">{% translate "Matches no Transaction yet. It will still categorize matching ones at future imports." %}</p>
+  {% endif %}
+</section>

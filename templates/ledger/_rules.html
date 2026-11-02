@@ -1,0 +1,32 @@
+{% load i18n %}{% comment %} The Rules page's region (docs/design/rules.md): the list of Rules as a listbox (static/rules.js) beside the selected
+Rule's detail. A move, a drag or a delete swaps it whole, and `data-focus` names what takes focus (swap.js). Without
+JS the list is links. {% endcomment %}
+{% if alone %}{% include "_title.html" %}{% endif %}
+{% url 'rules' as rules_url %}
+<div id="rules" class="md rules{% if opened %} opened{% endif %}{% if not rules %} alone{% endif %}">
+{% if rules %}
+<section class="panel md-list rule-list" aria-labelledby="rule-list-h">
+  <h2 id="rule-list-h" class="sr">{% translate "Rules, in order" %}</h2>
+  <form id="rule-order" method="post" action="{% url 'reorder_rules' %}" hx-post="{% url 'reorder_rules' %}" hx-target="#rules" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="moved" value=""></form>
+  <ol class="r-list" data-rule-list aria-labelledby="rule-list-h" data-move-url="{% url 'move_rule' 0 %}">
+    {% for r in rules %}
+    <li id="rule-{{ r.pk }}" data-rule="{{ r.pk }}"{% if r.pk == rule.pk %} class="selected"{% if focus == "option" %} data-focus{% endif %}{% endif %}>
+      <input type="hidden" name="rule" value="{{ r.pk }}" form="rule-order">
+      <a href="{{ rules_url }}?rule={{ r.pk }}"{% if r.pk == rule.pk %} aria-current="true"{% endif %}>
+        <span class="r-place fig">{{ r.place }}</span>
+        <span class="r-name">{{ r.name }}</span>
+        <span class="r-count fig" title="{% blocktranslate count n=r.categorized %}Categorized {{ n }} Transaction{% plural %}Categorized {{ n }} Transactions{% endblocktranslate %}">{{ r.categorized }}</span>
+        <span class="r-out oc-label">{% include "ledger/_outcome_label.html" with subcategory=r.subcategory %}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="r-hint">{% blocktranslate %}Drag, or <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd>, to reorder.{% endblocktranslate %}</p>
+</section>
+{% include "ledger/_rule_detail.html" %}
+{% else %}
+<section class="panel empty">
+  <p>{% translate "No Rules yet. Make one from any correction in the Review queue or the Transactions view, or with New Rule." %}</p>
+</section>
+{% endif %}
+</div>
