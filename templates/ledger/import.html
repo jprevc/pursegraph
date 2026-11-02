@@ -1,7 +1,7 @@
 {% extends "shell.html" %}
 {% load i18n icons static %}
 {% block title %}{% translate "Import" %}{% endblock %}
-{% block head %}<script src="{% static 'import.js' %}" defer></script>{% endblock %}
+{% block head %}<script src="{% static 'board.js' %}" defer></script><script src="{% static 'import.js' %}" defer></script>{% endblock %}
 {% block main %}
 <div class="page-head">
   <h1 tabindex="-1">{% translate "Import" %}</h1>

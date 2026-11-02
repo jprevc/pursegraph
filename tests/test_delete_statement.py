@@ -1,10 +1,14 @@
-"""Deleting a Statement: only its own Transactions go, and the Coverage shrinks."""
+"""Deleting a Statement: only its own Transactions go, and the Coverage shrinks. It confirms inline on the board it
+was asked from, Import's or Accounts', and that board comes back without it."""
+
+import json
+import re
 
 import pytest
 from django.test import Client
 
 from ledger.models import Bank, Source, Statement, Transaction
-from tests.conftest import PASSWORD, make_account, page_text
+from tests.conftest import PASSWORD, board_row, make_account, page_text
 from tests.test_duplicates import (
     JUNE_1_TO_10,
     import_page,
@@ -54,12 +58,57 @@ def test_import_page_links_to_deleting_a_statement(logged_in_client, june):
     assert delete_url(june) in import_page(logged_in_client)
 
 
-def test_confirmation_names_the_statement(logged_in_client, june):
-    page = logged_in_client.get(delete_url(june)).content.decode()
+HTMX = {"HX-Request": "true"}
 
-    assert "Delete Statement" in page
-    assert "1–10 Jun 2026" in page
-    assert "No manual outcomes will be lost" in page
+
+def test_confirmation_names_the_statement(logged_in_client, june):
+    page = page_text(logged_in_client.get(delete_url(june)).content.decode())
+
+    assert "Delete the Ana's Revolut Statement 1–10 Jun 2026?" in page
+    assert "No outcomes set by hand are lost." in page
+    assert "Keep it" in page
+
+
+def test_the_confirmation_says_what_the_coverage_becomes(logged_in_client, june, overlap):
+    def said(statement):
+        return page_text(logged_in_client.get(delete_url(statement)).content.decode())
+
+    assert "The Coverage shrinks: 11–12 Jun 2026 becomes a Gap." in said(overlap)
+    assert "1–7 Jun 2026 is no longer tracked." in said(june)
+
+
+def test_the_confirmation_is_inline_with_htmx(logged_in_client, june):
+    response = logged_in_client.get(delete_url(june) + "?board=import", headers=HTMX)
+
+    page = response.content.decode()
+    assert "<html" not in page
+    assert re.search(r'<button type="button" data-keep>Keep it</button>', page)
+    assert re.search(
+        r'<button type="submit" class="primary" data-focus>Delete Statement</button>', page
+    )
+    assert '<input type="hidden" name="board" value="import">' in page
+
+
+def test_deleting_with_htmx_swaps_in_the_board_it_was_asked_from(logged_in_client, june, overlap):
+    response = logged_in_client.post(delete_url(overlap), {"board": "import"}, headers=HTMX)
+
+    page = response.content.decode()
+    assert page.lstrip().startswith("<title>Import · Pursegraph</title>")
+    assert 'id="board"' in page
+    assert "Gap 11 Jun" in board_row(page, "Ana's Revolut")
+    assert json.loads(response["HX-Trigger"])["announce"] == (
+        "Deleted the Ana's Revolut Statement 8–12 Jun 2026."
+    )
+
+
+def test_an_admin_deleting_from_accounts_gets_the_accounts_board_back(admin_client, june):
+    response = admin_client.post(delete_url(june), {"board": "accounts"}, headers=HTMX)
+    assert response.content.decode().lstrip().startswith("<title>Accounts · Pursegraph</title>")
+
+
+def test_without_js_deleting_goes_back_to_the_page_it_was_asked_from(admin_client, june, overlap):
+    assert admin_client.post(delete_url(june), {"board": "accounts"}).url == "/accounts/"
+    assert admin_client.post(delete_url(overlap), {"board": "import"}).url == "/import/"
 
 
 def test_deleting_removes_the_statement_its_transactions_and_its_file(
@@ -117,7 +166,7 @@ def test_confirmation_counts_the_manual_outcomes_that_will_be_lost(logged_in_cli
 
     page = logged_in_client.get(delete_url(june)).content.decode()
 
-    assert "2 manual outcomes will be lost" in page
+    assert "2 outcomes set by hand are lost." in page
 
 
 def test_a_surviving_transfer_side_loses_its_counterpart(logged_in_client, june):

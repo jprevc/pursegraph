@@ -28,7 +28,7 @@ from . import categories as category_edits
 from . import facets, outcomes, review, suggestions
 from . import rules as rule_edits
 from .board import Axis, track
-from .coverage import DateRange, coverage
+from .coverage import DateRange, coverage, removing
 from .forms import (
     AccountAdminForm,
     AccountForm,
@@ -133,6 +133,7 @@ def import_statements(request):
             "already": [r for r in results if r.rejection and r.rejection.already_imported],
             "tray_count": len(pending) + len(rejected),
             **_board(before, [r.summary for r in results if r.summary]),
+            "board_page": "import",
             "page_title": _("Import"),
             "alone": wants_the_fragment_alone(request),
         },
@@ -217,15 +218,9 @@ def _account_step(statement: CheckedStatement, account_form: AccountForm) -> dic
 
 @admin_required
 def accounts(request):
-    return render(
-        request,
-        "ledger/accounts.html",
-        {
-            "accounts": Account.objects.prefetch_related(
-                Prefetch("owners", queryset=get_user_model().objects.order_by("username")), "ibans"
-            ).annotate(statement_count=Count("statements"))
-        },
-    )
+    """The Accounts board (docs/design/import.md), where admins edit each Account in place. `closed` names the
+    Account whose edit was just cancelled, so that its Edit takes the focus back."""
+    return _accounts_page(request, focus=_pk_or_none(request.GET.get("closed")))
 
 
 @admin_required
@@ -239,9 +234,11 @@ def edit_account(request, pk):
 
 
 def _account_form(request, account):
+    """An Account's row opened on the board with its form; a save closes it, saying "Saved" beside its name."""
     if request.method != "POST":
         form = AccountAdminForm(instance=account)
-        return render(request, "ledger/account_form.html", {"form": form})
+        form.fields["name"].widget.attrs["data-focus"] = ""
+        return _accounts_page(request, form=form)
     try:
         with db_transaction.atomic():
             if account.pk:
@@ -249,71 +246,143 @@ def _account_form(request, account):
                 account = Account.objects.select_for_update().get(pk=account.pk)
             form = AccountAdminForm(request.POST, instance=account)
             if form.is_valid():
-                form.save()
-                return redirect("accounts")
+                saved = form.save()
+                said = _("Saved %(account)s.") % {"account": saved.name}
+                if not wants_the_fragment_alone(request):
+                    messages.success(request, said)
+                    return redirect("accounts")
+                return announce(_accounts_page(request, saved=saved.pk, focus=saved.pk), said)
     except IntegrityError:
         # Another admin gave one of the IBANs to an Account in the meantime.
         form.add_error("ibans", _("One of these IBANs was just added to another Account."))
-    return render(request, "ledger/account_form.html", {"form": form})
+    # The first field to fix takes the focus.
+    form.fields[next(iter(form.errors))].widget.attrs["data-focus"] = ""
+    return announce(
+        _accounts_page(request, form=form),
+        " ".join(str(error) for errors in form.errors.values() for error in errors),
+    )
+
+
+def _accounts_page(request, *, form=None, saved=None, focus=None):
+    """The Accounts page, or its board alone for HTMX: with `form`'s Account open (a new one last), the Account
+    `saved` just now, and the Account whose Edit takes the `focus`."""
+    context = {
+        "account_form": form,
+        "editing": (form.instance.pk or "new") if form else None,
+        "saved": saved,
+        "focus": focus,
+    }
+    if wants_the_fragment_alone(request):
+        return _board_alone(request, "accounts", **context)
+    response = render(
+        request,
+        "ledger/accounts.html",
+        {**_board(None, []), "board_page": "accounts", "page_title": _("Accounts"), **context},
+    )
+    patch_vary_headers(response, ["HX-Request"])
+    return response
+
+
+def _board_alone(request, page: str, **context):
+    """The board of `page`, Import or Accounts, swapped in alone with its page's title."""
+    response = render(
+        request,
+        "ledger/_board.html",
+        {
+            **_board(None, []),
+            "board_page": page,
+            "page_title": _("Accounts") if page == "accounts" else _("Import"),
+            "alone": True,
+            **context,
+        },
+    )
+    patch_vary_headers(response, ["HX-Request"])
+    return response
+
+
+def _ranges_said(ranges: list[DateRange]) -> str:
+    return ", ".join(figures.date_range(r.start, r.end) for r in ranges)
+
+
+def _pk_or_none(value: str | None) -> int | None:
+    return int(value) if value and value.isdigit() else None
 
 
 @admin_required
 @require_http_methods(["GET", "POST"])
 def delete_account(request, pk):
-    """Deletes an Account after a confirmation, with the Rules only for it; refused while it has Statements,
-    whose Transactions would go with it."""
+    """Deletes an Account after an inline confirmation, with the Rules only for it; refused while it has
+    Statements, whose Transactions would go with it."""
     if request.method == "GET":
         account = get_object_or_404(Account, pk=pk)
         return render(
             request,
-            "ledger/delete_account.html",
+            "ledger/_confirm_delete_account.html"
+            if wants_the_fragment_alone(request)
+            else "ledger/delete_account.html",
             {
                 "account": account,
-                "has_statements": account.statements.exists(),
+                "statement_count": account.statements.count(),
                 "rule_count": account.rules.count(),
+                "alone": wants_the_fragment_alone(request),
             },
         )
     with db_transaction.atomic():
         # Serialized with imports into the Account.
         account = get_object_or_404(Account.objects.select_for_update(), pk=pk)
-        if account.statements.exists():
-            messages.error(
-                request,
-                _(
-                    "%(account)s has Statements, so it can't be deleted. Delete its Statements first."
-                )
-                % {"account": account.name},
-            )
+        refused = account.statements.exists()
+        if refused:
+            said = _(
+                "%(account)s has Statements, so it can't be deleted. Delete its Statements first."
+            ) % {"account": account.name}
         else:
             account.delete()
-            messages.success(request, _("Deleted %(account)s.") % {"account": account.name})
+            said = _("Deleted %(account)s.") % {"account": account.name}
+    if wants_the_fragment_alone(request):
+        return announce(_accounts_page(request), said)
+    (messages.error if refused else messages.success)(request, said)
     return redirect("accounts")
 
 
 @require_http_methods(["GET", "POST"])
 def delete_statement(request, pk):
-    """Deletes a Statement after a confirmation; only its importer or an admin may."""
+    """Deletes a Statement after an inline confirmation; only its importer or an admin may. `board` names the
+    page whose board asked, Import or Accounts, which is shown again."""
     statement = get_object_or_404(Statement.objects.select_related("account"), pk=pk)
     if not statement.can_be_deleted_by(request.user):
         raise PermissionDenied
+    board = request.POST.get("board") or request.GET.get("board")
+    on_accounts = board == "accounts" and request.user.is_admin
     if request.method == "POST":
         statement.delete_with_transactions()
-        messages.success(
-            request,
-            _("Deleted the %(account)s Statement %(period)s.")
-            % {
-                "account": statement.account.name,
-                "period": figures.date_range(statement.period_start, statement.period_end),
-            },
+        said = _("Deleted the %(account)s Statement %(period)s.") % {
+            "account": statement.account.name,
+            "period": figures.date_range(statement.period_start, statement.period_end),
+        }
+        if not wants_the_fragment_alone(request):
+            messages.success(request, said)
+            return redirect("accounts" if on_accounts else "import")
+        return announce(
+            _accounts_page(request) if on_accounts else _board_alone(request, "import"), said
         )
-        return redirect("import")
+    others = coverage(statement.account.statements.exclude(pk=statement.pk))
+    shrink = removing(
+        DateRange(statement.period_start, statement.period_end), others, until=timezone.localdate()
+    )
     return render(
         request,
-        "ledger/delete_statement.html",
+        "ledger/_confirm_delete_statement.html"
+        if wants_the_fragment_alone(request)
+        else "ledger/delete_statement.html",
         {
             "statement": statement,
+            "board": "accounts" if on_accounts else "import",
             "transaction_count": statement.own_transactions().count(),
             "manual_outcome_count": statement.lost_manual_outcome_count(),
+            "shrink": shrink,
+            "gaps_said": _ranges_said(shrink.gaps),
+            "untracked_said": _ranges_said(shrink.untracked),
+            "alone": wants_the_fragment_alone(request),
         },
     )
 
