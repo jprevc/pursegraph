@@ -106,3 +106,13 @@ def test_an_empty_page_keeps_its_title_row(admin_client, url):
     page = admin_client.get(url).content.decode()
 
     assert re.search(r'<h1 tabindex="-1">[^<]+</h1>', page)
+
+
+def test_a_deactivated_member_doesnt_count_as_the_rest_of_the_household(
+    admin_client, django_user_model
+):
+    django_user_model.objects.create_user(username="luka", password=PASSWORD, is_active=False)
+
+    heading, _sentence, _actions = empty_block(admin_client.get("/members/").content.decode())
+
+    assert heading == "Invite the rest of the Household"

@@ -1,9 +1,9 @@
 {% load icons %}{% comment %} The empty block (docs/design/empty-states.md), the same on every page: why it is empty and what fills it.
 `icon`, `heading` and `text`; optionally a primary action (`primary_href`, `primary_label`, `primary_icon`), a ghost
 one (`ghost_href`, `ghost_label`, and `ghost_hx` to open it in place over the block), and the block's `id`. {% endcomment %}
-<section{% if id %} id="{{ id }}"{% endif %} class="panel empty-block" aria-labelledby="empty-h">
+<section{% if id %} id="{{ id }}"{% endif %} class="panel empty-block" aria-labelledby="{{ id|default:'empty' }}-h">
   <span class="empty-ic" aria-hidden="true">{% icon icon %}</span>
-  <h2 id="empty-h">{{ heading }}</h2>
+  <h2 id="{{ id|default:'empty' }}-h">{{ heading }}</h2>
   <p>{{ text }}</p>
   {% if primary_href or ghost_href %}<div class="acts">
     {% if primary_href %}<a class="button primary" href="{{ primary_href }}">{% if primary_icon %}{% icon primary_icon %}{% endif %}{{ primary_label }}</a>{% endif %}
