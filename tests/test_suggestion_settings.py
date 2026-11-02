@@ -199,7 +199,7 @@ def test_non_admins_are_forbidden(logged_in_client):
     assert corner.confidence is not None
 
 
-def test_only_admins_see_the_suggestions_link(logged_in_client, admin_client):
+def test_only_admins_see_the_suggestions_link(logged_in_client, admin_client, household):
     assert b'href="/suggestions/"' in admin_client.get("/").content
     assert b'href="/suggestions/"' not in logged_in_client.get("/").content
 

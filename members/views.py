@@ -8,6 +8,8 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
+from ledger.setup import others_invited
+
 from .forms import NewMemberForm
 from .links import set_password_link
 from .permissions import admin_required
@@ -16,7 +18,10 @@ from .permissions import admin_required
 @admin_required
 def member_list(request):
     members = get_user_model().objects.order_by("-is_active", "username")
-    return render(request, "members/members.html", {"members": members})
+    # Only the first admin is active so far: the page asks to invite the rest of the Household.
+    return render(
+        request, "members/members.html", {"members": members, "alone": not others_invited()}
+    )
 
 
 @admin_required

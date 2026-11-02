@@ -310,7 +310,6 @@ def test_there_is_no_queue_wide_bulk_accept(logged_in_client, queue):
 
 
 def test_the_sidebar_shows_the_review_queue_count(logged_in_client):
-    assert review_queue_count(logged_in_client.get("/").content.decode()) == 0
     upload(logged_in_client)
     assert review_queue_count(logged_in_client.get("/").content.decode()) == 6
 

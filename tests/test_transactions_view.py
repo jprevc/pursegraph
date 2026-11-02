@@ -92,7 +92,7 @@ def test_no_matches_says_so(logged_in_client):
     page = logged_in_client.get("/transactions/", {"q": "nothing like this"}).content.decode()
 
     assert "No Transactions match." in page
-    assert "Import your first Statement" not in page
+    assert "Set up the Household" not in page
 
 
 def test_long_lists_are_paged_25_at_a_time_newest_first(logged_in_client):

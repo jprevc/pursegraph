@@ -57,9 +57,7 @@
   </section>
 </div>
 {% else %}
-<div class="empty">
-  <p>{% translate "No Transactions yet." %}</p>
-  <a class="button primary" href="{% url 'import' %}">{% translate "Import your first Statement" %}</a>
-</div>
+{% url 'import' as import_url %}{% translate "No Transactions yet" as heading %}{% translate "Every Transaction on an imported Statement is listed here, to search, filter and correct." as text %}{% translate "Import Statements" as primary_label %}
+{% include "_empty.html" with icon="list" primary_href=import_url primary_icon="upload" %}
 {% endif %}
 {% if swap_nav %}{% include "_sidebar.html" %}{% endif %}

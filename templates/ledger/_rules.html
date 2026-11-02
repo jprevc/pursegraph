@@ -25,8 +25,7 @@ JS the list is links. {% endcomment %}
 </section>
 {% include "ledger/_rule_detail.html" %}
 {% else %}
-<section class="panel empty">
-  <p>{% translate "No Rules yet. Make one from any correction in the Review queue or the Transactions view, or with New Rule." %}</p>
-</section>
+{% url 'new_rule' as new_rule_url %}{% translate "No Rules yet" as heading %}{% translate "A Rule categorizes matching Transactions at import, or marks them Transfers. The quickest way to make one is “Make a Rule” after you correct a Transaction in the Review queue." as text %}{% translate "Write a Rule" as primary_label %}
+{% include "_empty.html" with icon="wand" primary_href=new_rule_url primary_icon="plus" %}
 {% endif %}
 </div>

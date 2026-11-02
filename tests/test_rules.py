@@ -159,7 +159,7 @@ def test_a_rule_needs_a_condition(logged_in_client):
     assert not Rule.objects.exists()
 
 
-def test_the_rules_page_lists_rules_for_any_member(logged_in_client):
+def test_the_rules_page_lists_rules_for_any_member(logged_in_client, household):
     make_rule(logged_in_client, groceries(), description_contains="mercator", direction="out")
 
     page = logged_in_client.get("/rules/").content.decode()

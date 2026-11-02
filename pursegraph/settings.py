@@ -107,7 +107,8 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(hours=1)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
-AXES_LOCKOUT_TEMPLATE = "registration/locked_out.html"
+# The locked-out page, with the minutes until the lock lifts.
+AXES_LOCKOUT_CALLABLE = "members.login.locked_out"
 
 # Internationalization: English only in v1, but every UI string is marked for translation.
 

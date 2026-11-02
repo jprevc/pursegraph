@@ -1,6 +1,7 @@
 from django.utils.functional import SimpleLazyObject
 
 from .models import Transaction
+from .setup import in_setup_mode
 from .suggestions import suggestions_unavailable
 
 
@@ -11,4 +12,6 @@ def review_queue(request):
             lambda: Transaction.objects.in_review_queue().count()
         ),
         "suggestions_unavailable": suggestions_unavailable,
+        # Until the first Statement the shell offers only what works yet; asked once, by the navigation.
+        "setup_mode": SimpleLazyObject(in_setup_mode),
     }

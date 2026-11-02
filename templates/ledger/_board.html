@@ -1,5 +1,15 @@
 {% load figures i18n icons %}{# The Accounts board (docs/design/import.md), on Import and on Accounts (board_page), where admins edit rows in place. Edits and deletes swap it in alone. #}
 {% if alone %}{% include "_title.html" %}{% endif %}
+{% if not rows and editing != "new" %}
+{% url 'import' as import_url %}{% url 'new_account' as new_account_url %}
+{% if board_page == "accounts" %}
+{% translate "No Accounts yet" as heading %}{% translate "There's nothing to add first: importing a Statement creates its Account from the IBAN printed on it. Add one here only for an Account that never gets Statements, such as savings at another bank, so that money moved there counts as a Transfer." as text %}{% translate "Import Statements" as primary_label %}{% translate "Add an Account without Statements" as ghost_label %}
+{% include "_empty.html" with id="board" icon="bank" primary_href=import_url primary_icon="upload" ghost_href=new_account_url ghost_hx=True %}
+{% else %}
+{% translate "No Accounts yet" as heading %}{% translate "Each Statement adds its Account the first time, from the IBAN printed on it. A Revolut CSV has no IBAN, so you'll be asked which Account it goes into, or to name a new one. Each Member usually imports their own bank's Statements." as text %}
+{% include "_empty.html" with id="board" icon="bank" %}
+{% endif %}
+{% else %}
 <section id="board" class="panel board" aria-labelledby="board-h">
   <h2 id="board-h" class="sr">{% translate "Accounts and their Coverage" %}</h2>
   <div class="board-head" aria-hidden="true">
@@ -79,9 +89,7 @@
     </div>
     {% endif %}
   </div>
-  {% endwith %}{% empty %}
-  {% if editing != "new" %}<p class="board-empty muted">{% translate "No Accounts yet. An import makes the first one." %}</p>{% endif %}
-  {% endfor %}
+  {% endwith %}{% endfor %}
   {% if editing == "new" %}
   <div class="board-row" data-open>
     <div class="who"><div class="who-name"><h3>{% translate "New Account" %}</h3></div></div>
@@ -90,3 +98,4 @@
   </div>
   {% endif %}
 </section>
+{% endif %}

@@ -1,11 +1,18 @@
-{% extends "base.html" %}
+{% extends "registration/_entry.html" %}
 {% load i18n %}
 {% block title %}{% translate "Locked out" %}{% endblock %}
-{% block body %}
-<main class="login">
-  <h1>Pursegraph</h1>
-  <div class="panel">
-    <p class="error">{% translate "Too many failed login attempts. Try again in an hour." %}</p>
-  </div>
-</main>
+{% block entry %}
+<div class="locked" role="alert">
+  <h1>{% translate "Too many wrong passwords" %}</h1>
+  <p class="entry-sub">{% blocktranslate %}for <b>{{ username }}</b> on this device{% endblocktranslate %}</p>
+  <p class="muted">{% translate "You can try again in" %}</p>
+  <p class="count fig">{% blocktranslate with n=minutes_left %}{{ n }} min{% endblocktranslate %}</p>
+  <p class="muted at">{% blocktranslate with time=lifts_at|time:"H:i" %}at {{ time }}{% endblocktranslate %}</p>
+  <p class="right-away">{% translate "Or, right away:" %}</p>
+  <ol>
+    <li>{% translate "Ask an admin for a password-reset link." %}</li>
+    <li>{% blocktranslate %}Open it and choose a new password. That also unlocks <b>{{ username }}</b>.{% endblocktranslate %}</li>
+  </ol>
+  <a class="button block" href="{% url 'login' %}">{% translate "Log in as someone else" %}</a>
+</div>
 {% endblock %}

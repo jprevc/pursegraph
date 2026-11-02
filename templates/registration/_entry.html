@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n icons static %}{% comment %} The pages outside the shell (docs/design/login.md): the Indigo Wash panel with the claim beside a 360px
+column. A phone keeps the wordmark and the claim as a band above it. They honour the saved theme, with no switch. {% endcomment %}
+{% block body %}
+<div class="entry">
+  <section class="entry-side" aria-label="{% translate 'About Pursegraph' %}">
+    <span class="brand"><img src="{% static 'mark.svg' %}" alt="" width="32" height="32">Purse<span>graph</span></span>
+    <p class="claim">{% translate "The whole Household's money in one private picture." %}</p>
+    <ul class="facts">
+      <li>{% icon "shield" %}<span>{% translate "Runs on your own network. Statements never leave the house." %}</span></li>
+      <li>{% icon "upload" %}<span>{% translate "Each Member imports their own bank Statements." %}</span></li>
+      <li>{% icon "tag" %}<span>{% translate "Every Transaction is categorized, and the rest wait for a Member to decide." %}</span></li>
+    </ul>
+  </section>
+  <main class="entry-main" id="main">
+    <div class="entry-col">{% block entry %}{% endblock %}</div>
+  </main>
+</div>
+{% endblock %}

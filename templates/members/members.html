@@ -46,4 +46,8 @@
   </tbody>
 </table>
 </div>
+{% if alone %}
+{% url 'new_member' as new_member_url %}{% translate "Invite the rest of the Household" as heading %}{% translate "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." as text %}{% translate "Invite a Member" as primary_label %}
+{% include "_empty.html" with icon="people" primary_href=new_member_url primary_icon="plus" %}
+{% endif %}
 {% endblock %}
