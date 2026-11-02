@@ -1259,7 +1259,11 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .hist .line { position: absolute; top: -.75rem; bottom: -.375rem; left: calc(var(--at) - 1px); width: 2px; background: var(--accent); pointer-events: none; }
 /* Left of the line, which never sits left of 50 %. */
 .hist .line > span { position: absolute; top: -.875rem; right: .375rem; color: var(--accent-text); font-size: var(--text-label); font-weight: 600; white-space: nowrap; }
-.ticks { display: grid; grid-template-columns: repeat(10, 1fr); color: var(--muted); font-size: .6875rem; }
+/* 0 to 100 %, each label centred on its place, the first and last kept inside the axis. */
+.ticks { position: relative; height: 1rem; color: var(--muted); font-size: .6875rem; }
+.ticks span { position: absolute; left: var(--at); transform: translateX(-50%); white-space: nowrap; }
+.ticks span:first-child { transform: none; }
+.ticks span:last-child { transform: translateX(-100%); }
 .legend { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-3) 0 0; font-size: var(--text-label); }
 .legend i { display: inline-block; width: .625rem; height: .625rem; margin-right: .375rem; border-radius: 2px; vertical-align: -.0625rem; }
 .legend .below { background: var(--line-strong); }

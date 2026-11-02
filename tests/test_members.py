@@ -396,7 +396,7 @@ def test_deactivating_is_confirmed_inline_with_what_stays(admin_client, member):
     confirm = prose(admin_client.get(f"/members/{member.pk}/active/", **HTMX).content.decode())
 
     assert confirm.startswith(
-        "Deactivate Luka Novak? They're logged out at once and can't log in. Their 2 Accounts, Statements and "
+        "Deactivate Luka Novak? Luka Novak is logged out at once and can't log in. Their 2 Accounts, Statements and "
         "Transactions stay. You can reactivate them later."
     )
 

@@ -13,7 +13,7 @@
 <form class="confirm" method="post" action="{% url 'member_active' m.pk %}" hx-post="{% url 'member_active' m.pk %}" hx-target="#roles" hx-swap="outerHTML" data-action>
   {% csrf_token %}<input type="hidden" name="active" value="0">
   <p>{% blocktranslate %}Deactivate <b>{{ name }}</b>?{% endblocktranslate %}
-    {% if m.pk == user.pk %}{% translate "You're logged out at once and can't log in." %}{% else %}{% translate "They're logged out at once and can't log in." %}{% endif %}
+    {% if m.pk == user.pk %}{% translate "You're logged out at once and can't log in." %}{% else %}{% blocktranslate %}{{ name }} is logged out at once and can't log in.{% endblocktranslate %}{% endif %}
     {% with accounts=m.accounts.count %}{% if accounts %}{% blocktranslate count n=accounts %}Their {{ n }} Account, Statements and Transactions stay.{% plural %}Their {{ n }} Accounts, Statements and Transactions stay.{% endblocktranslate %}{% else %}{% translate "Nothing they imported or decided is removed." %}{% endif %}{% endwith %}
     {% if m.pk == user.pk %}{% translate "Another admin can reactivate you later." %}{% else %}{% translate "You can reactivate them later." %}{% endif %}</p>
   <div class="form-actions">

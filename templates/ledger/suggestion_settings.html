@@ -44,7 +44,7 @@
       {% for b in bins %}<div class="hbar{% if b.over %} over{% endif %}" style="--h: {{ b.height }}%" data-start="{{ b.start }}">{% if b.count %}<span class="fig">{{ b.count }}</span>{% endif %}</div>{% endfor %}
       <div class="line" style="--at: {{ threshold }}%" data-line><span>{% translate "Auto-accept" %} · <span class="fig" data-line-label>{{ threshold }} %</span></span></div>
     </div>
-    <div class="ticks fig" aria-hidden="true">{% for t in ticks %}<span>{{ t }} %</span>{% endfor %}</div>
+    <div class="ticks fig" aria-hidden="true">{% for t in ticks %}<span style="--at: {{ t }}%">{{ t }} %</span>{% endfor %}</div>
     <p class="legend muted"><span><i class="below"></i>{% translate "Below the line: wait for a Member" %}</span><span><i class="past"></i>{% translate "Past the line: would categorize by itself" %}</span></p>
     <form class="thr" method="post" action="{% url 'suggestion_settings' %}" data-threshold="{{ threshold }}" data-clearing="{{ clearing }}" data-save-label="{% translate 'Save %(percent)s %%' %}" data-review-label="{% translate 'Save, then review %(count)s' %}" data-said="{% translate '%(percent)s %% sure' %}">
       {% csrf_token %}

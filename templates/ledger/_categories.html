@@ -29,7 +29,7 @@ across two columns, and the New Category tile. Swapped in alone for every step o
     <h2 id="new-category" tabindex="-1">{% translate "New Category" %}</h2>
     <form method="post" action="{% url 'add_category' %}" hx-post="{% url 'add_category' %}" hx-target="#categories" hx-swap="outerHTML" data-action>
       {% csrf_token %}
-      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
       <div class="field"><label for="new-category-name">{% translate "Name" %}</label><input id="new-category-name" name="name" maxlength="100" required data-focus></div>
       <div class="field"><label for="new-category-kind">{% translate "Kind" %}</label><select id="new-category-kind" name="kind">{% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
       <p class="helptext">{% translate "It starts with one catch-all, Other (Other income for an income Category)." %}</p>

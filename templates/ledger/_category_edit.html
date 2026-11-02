@@ -12,7 +12,7 @@ moves, adds and deletes apply at once, carrying the names typed so far along (`h
       <button type="submit" class="icon-button sm" name="direction" value="down" aria-label="{% blocktranslate with name=category.name %}Move {{ name }} later{% endblocktranslate %}"{% if category.place == categories|length %} disabled{% endif %}{% if focus == "category-down" %} data-focus{% endif %}>{% icon "right" %}</button>
     </form>
   </div>
-  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
   <input class="cat-name" form="{{ save }}" name="name" value="{{ category.draft }}" maxlength="100" required aria-label="{% translate 'Category name' %}">
   <ul class="cat-rows">
     {% for s in category.subcategories.all %}

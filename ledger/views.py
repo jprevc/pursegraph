@@ -812,7 +812,7 @@ def _categories_page(
         response = render(request, "ledger/_categories.html", {**context, "alone": True})
     else:
         response = render(request, "ledger/categories.html", context)
-    patch_vary_headers(response, ["HX-Request"])
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response
 
 
@@ -835,9 +835,7 @@ def _categories(editing: int | None, drafts, moved: tuple[int, str] | None) -> l
         if moved:
             at = next((i for i, s in enumerate(movable) if s.pk == moved[0]), None)
             if at is not None:
-                # Moved to the end, its button in that direction is disabled: the other one keeps the focus.
-                at_end = at == 0 if moved[1] == "up" else at == len(movable) - 1
-                movable[at].focus = {"up": "down", "down": "up"}[moved[1]] if at_end else moved[1]  # type: ignore[attr-defined]
+                movable[at].focus = _focused_move(moved[1], at + 1, len(movable))  # type: ignore[attr-defined]
     return categories
 
 
@@ -877,7 +875,8 @@ def _category_step(view):
             focus=step.focus,
             moved=step.moved,
         )
-        return announce(response, step.said) if step.said else response
+        said = step.error or step.said
+        return announce(response, said) if said else response
 
     return wrapper
 
@@ -919,15 +918,22 @@ def move_category(request, pk):
     category = get_object_or_404(Category, pk=pk)
     direction = request.POST.get("direction", "")
     category_edits.move_category(category, direction)
-    place = list(Category.objects.values_list("pk", flat=True)).index(pk) + 1
-    last = Category.objects.count()
-    at_end = place == 1 if direction == "up" else place == last
+    order = list(Category.objects.values_list("pk", flat=True))
+    place = order.index(pk) + 1
     return _CategoryStep(
         editing=pk,
         said=_("Moved %(name)s to %(place)s.") % {"name": category.name, "place": ordinal(place)},
-        focus="category-"
-        + ({"up": "down", "down": "up"}.get(direction, "") if at_end else direction),
+        focus="category-" + _focused_move(direction, place, len(order)),
     )
+
+
+def _focused_move(direction: str, place: int, last: int) -> str:
+    """Which Move button keeps the focus after a move `direction` to `place` of `last`: the one used, unless the
+    move reached the end and disabled it, then the other one."""
+    at_end = place == 1 if direction == "up" else place == last
+    if not at_end:
+        return direction
+    return "down" if direction == "up" else "up"
 
 
 @admin_required
@@ -1002,7 +1008,6 @@ def _delete_subcategory(request, subcategory):
     )
 
 
-@admin_required
 def _confirm_category_delete(request, editing: int, confirm):
     """The inline confirmation of deleting the `editing` Category (`confirm` "category") or one of its
     Subcategories (its id): alone for HTMX, else the page with that Category open and the confirmation in it."""
@@ -1022,7 +1027,7 @@ def suggestion_settings(request):
     """The LLM suggestions page (docs/design/admin.md): the LLM's status, how sure the queued suggestions are with the
     auto-accept threshold, and Ask again. Right after lowering the threshold (`?lowered`), it offers the queued
     suggestions that now clear it."""
-    current = round(suggestions.threshold() * 100)
+    current = _threshold_percent()
     form = ThresholdForm(request.POST or None, initial={"threshold": current})
     if form.is_valid():
         percent = form.cleaned_data["threshold"]
@@ -1032,7 +1037,7 @@ def suggestion_settings(request):
 
 
 def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
-    threshold = round(suggestions.threshold() * 100)
+    threshold = _threshold_percent()
     overview = suggestions.overview()
     offered = (
         list(suggestions.suggestions_clearing_threshold().values_list("pk", flat=True))
@@ -1064,7 +1069,7 @@ def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
             "model": OLLAMA_MODEL,
             "overview": overview,
             "bins": bins,
-            "ticks": range(0, 100, 10),
+            "ticks": range(0, 101, 10),
             "chart_label": f"{chart_said}: {filled}" if filled else chart_said,
             "clearing": json.dumps(overview.clearing),
             "confirm": confirm,
@@ -1072,9 +1077,19 @@ def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
     )
 
 
+def _threshold_percent() -> int:
+    """The auto-accept threshold in % sure, as the LLM suggestions page shows and takes it."""
+    return round(suggestions.threshold() * 100)
+
+
+def _llm_host() -> str:
+    """Where the LLM server is, as the LLM suggestions page names it: OLLAMA_URL's host and port."""
+    return urlsplit(settings.OLLAMA_URL).netloc or settings.OLLAMA_URL
+
+
 def _llm_status() -> dict:
     """The status strip's state ("working", "unreachable" or "off"), its caption and the line under it."""
-    host = urlsplit(settings.OLLAMA_URL).netloc or settings.OLLAMA_URL
+    host = _llm_host()
     if not settings.OLLAMA_URL:
         return {
             "state": "off",
@@ -1115,7 +1130,7 @@ def _clock(moment) -> str:
     local = timezone.localtime(moment)
     if local.date() == timezone.localdate():
         return date_format(local, "H:i")
-    return date_format(local, "j M H:i")
+    return date_format(local, "j M Y H:i")
 
 
 @admin_required
@@ -1123,7 +1138,7 @@ def _clock(moment) -> str:
 def check_llm(request):
     """Check now: asks the LLM server whether it can be reached, and the page shows what it found."""
     if settings.OLLAMA_URL:
-        host = urlsplit(settings.OLLAMA_URL).netloc or settings.OLLAMA_URL
+        host = _llm_host()
         if suggestions.check_now(OllamaSuggester(settings.OLLAMA_URL)):
             messages.success(request, _("The LLM at %(host)s answered.") % {"host": host})
         else:

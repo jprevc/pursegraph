@@ -350,8 +350,10 @@ def test_a_step_while_editing_keeps_the_names_typed_so_far(admin_client):
 def test_saving_a_blank_name_keeps_the_category_open(admin_client):
     food = category_id("Food")
 
-    page = admin_client.post(f"/categories/{food}/save/", {"name": " "}, **HTMX).content.decode()
+    response = admin_client.post(f"/categories/{food}/save/", {"name": " "}, **HTMX)
+    page = response.content.decode()
 
     assert "Give it a name." in page
+    assert json.loads(response["HX-Trigger"])["announce"] == "Give it a name."
     assert "Editing Food" in page_text(page)
     assert Category.objects.get(pk=food).name == "Food"

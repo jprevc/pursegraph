@@ -41,7 +41,7 @@ def _members_page(request, *, confirm=None, dialog=None):
         # Only the first admin is active so far: the page asks to invite the rest of the Household.
         context |= {"alone": False, "only_admin": not others_invited()}
         response = render(request, "members/members.html", context)
-    patch_vary_headers(response, ["HX-Request"])
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response
 
 

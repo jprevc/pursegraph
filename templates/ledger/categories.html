@@ -4,7 +4,7 @@
 {% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
 <div class="page-head"><h1 tabindex="-1">{% translate "Categories" %}</h1></div>
-<p class="page-sub muted">{% translate "Every Transaction gets a Subcategory. Each Category ends with a catch-all, which takes the Transactions and Rules of any Subcategory you delete. A Category keeps its colour wherever you move it. Numbers are Transactions." %}</p>
+<p class="page-sub muted">{% translate "Every Transaction gets a Subcategory. Each Category ends with a catch-all, which takes the Transactions and Rules of any Subcategory you delete. A Category keeps its colour wherever you move it." %}</p>
 {% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 {% include "ledger/_categories.html" with alone=False %}
 {% endblock %}
