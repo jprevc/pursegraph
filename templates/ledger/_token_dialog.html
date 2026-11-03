@@ -1,6 +1,6 @@
 {% load i18n icons %}{# A new Categorizer token, shown once in a modal dialog over the Categorizers page (docs/design/admin.md). #}
 <dialog class="dialog wide" aria-labelledby="dialog-heading" data-modal{% if open %} open{% endif %}>
-  <h2 id="dialog-heading">{% blocktranslate with name=token.name %}Token for {{ name }}{% endblocktranslate %}</h2>
+  <h2 id="dialog-heading">{% blocktranslate %}Token for {{ name }}{% endblocktranslate %}</h2>
   <p>{% translate "Give it to the Categorizer, which sends it with each call as <code>Authorization: Bearer</code>." %}</p>
   <div class="link-box">
     <input id="categorizer-token" type="text" readonly value="{{ secret }}" aria-label="{% translate 'Token' %}">

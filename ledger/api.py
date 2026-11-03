@@ -1,4 +1,4 @@
-"""The Categorizer API (docs/adr/0001-categorizers-pull-suggestions-through-an-api.md).
+"""The Categorizer API: how Categorizers fetch the Transactions waiting for a Suggestion and send Suggestions back.
 
 A Categorizer authenticates with `Authorization: Bearer <token>`, a token an admin created on the Categorizers page.
 It has two calls:
@@ -9,7 +9,11 @@ It has two calls:
 - `POST /api/categorizer/v1/transactions/<id>/suggestion/` with a JSON body `{"subcategory": <id>, "confidence":
   <0 to 1>}`, or `{"subcategory": null}` for no suggestion.
 
-A missing, wrong or revoked token gets a 401, a malformed request a 400. Errors are `{"error": "<why>"}`.
+It answers `{"stored": <bool>, "accepted": <bool>}`: not stored when the Transaction already had an outcome or a
+Suggestion (the first one wins), accepted when it cleared the auto-accept threshold and set the outcome.
+
+A missing, wrong or revoked token gets a 401, a malformed request or an unknown Subcategory a 400, an unknown
+Transaction a 404 and a wrong method a 405. Errors other than 405 are `{"error": "<why>"}`.
 """
 
 import json
@@ -55,7 +59,8 @@ def categorizer_token_required(view):
 @require_GET
 def waiting(request):
     limit = request.GET.get("limit", str(DEFAULT_LIMIT))
-    if not limit.isdigit() or not 1 <= int(limit) <= MAX_LIMIT:
+    # isdigit() alone takes "²", which int() doesn't.
+    if not (limit.isascii() and limit.isdigit()) or not 1 <= int(limit) <= MAX_LIMIT:
         return _error(400, f"limit must be a whole number from 1 to {MAX_LIMIT}.")
     subcategories, batch = suggestions.waiting(int(limit))
     return JsonResponse(

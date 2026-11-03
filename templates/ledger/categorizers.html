@@ -4,7 +4,7 @@
 {% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
 <div class="page-head"><h1 tabindex="-1">{% translate "Categorizers" %}</h1></div>
-<p class="page-sub muted">{% translate "A Categorizer is a program, such as the Ollama one that comes with Pursegraph, that fetches the Transactions no Rule decides and sends back a suggested Subcategory with how sure it is. Each connects with a token of its own, which can do nothing else." %}</p>
+<p class="page-sub muted">{% translate "A Categorizer is a program, such as one that asks an LLM, that fetches the Transactions no Rule decides and sends back a suggested Subcategory with how sure it is. Each connects with a token of its own, which can do nothing else." %}</p>
 {% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 
 <div class="tokens">
@@ -42,5 +42,5 @@
     {% if form.name.errors %}<p class="error" id="token-name-error">{{ form.name.errors|join:" " }}</p>{% endif %}
   </section>
 </div>
-<div id="dialog-slot">{% if created %}{% include "ledger/_token_dialog.html" with token=created.0 secret=created.1 open=True %}{% endif %}</div>
+<div id="dialog-slot">{% if created %}{% include "ledger/_token_dialog.html" with name=created.0 secret=created.1 open=True %}{% endif %}</div>
 {% endblock %}

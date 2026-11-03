@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 
 from .models import Subcategory
-from .suggestions import NoSuggestion, Query, Suggestion, SuggestionsUnavailable
+from .suggestions import NoSuggestion, Query, Suggestion, SuggestionsUnavailable, label
 
 MODEL = "qwen3-vl:8b"
 
@@ -30,11 +30,6 @@ Conventions of this Household:
   otherwise "Other > Payments to people".
 - Cash withdrawals count as spending: "Other > Cash withdrawal".
 Answer with JSON only."""
-
-
-def label(subcategory: Subcategory) -> str:
-    """How the model sees a Subcategory: "Category > Subcategory"."""
-    return f"{subcategory.category.name} > {subcategory.name}"
 
 
 class OllamaSuggester:

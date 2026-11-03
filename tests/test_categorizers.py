@@ -33,13 +33,27 @@ def test_the_page_says_where_transaction_text_may_go(admin_client):
 
 
 def test_a_new_token_is_shown_once(admin_client):
-    page = admin_client.post("/categorizers/", {"name": "Ollama on the NAS"}).content.decode()
+    page = admin_client.post(
+        "/categorizers/", {"name": "Ollama on the NAS"}, follow=True
+    ).content.decode()
 
     assert "Token for Ollama on the NAS" in page_text(page)
     assert "Shown only now." in page_text(page)
     secret = re.search(r'value="(pgc_[^"]+)"', page)
     assert secret
     assert secret[1] not in admin_client.get("/categorizers/").content.decode()
+
+
+def test_refreshing_after_creating_doesnt_create_another(admin_client):
+    created = admin_client.post("/categorizers/", {"name": "Ollama on the NAS"})
+    assert created.status_code == 302
+
+    page = admin_client.get(created["Location"]).content.decode()
+    refreshed = admin_client.get(created["Location"]).content.decode()
+
+    assert "pgc_" in page
+    assert "pgc_" not in refreshed
+    assert len(tokens_shown(admin_client)) == 1
 
 
 def test_a_token_needs_a_name(admin_client):

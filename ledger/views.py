@@ -30,7 +30,7 @@ from pursegraph import figures
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import categories as category_edits
-from . import categorizers as tokens
+from . import categorizers as categorizer_tokens
 from . import facets, outcomes, review, suggestions
 from . import rules as rule_edits
 from .board import Axis, track
@@ -1063,10 +1063,10 @@ def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
             "form": form or ThresholdForm(initial={"threshold": threshold}),
             "threshold": threshold,
             "offered": offered,
-            "waiting_since": _when(overview.waiting_since) if overview.waiting_since else "",
-            "last_suggestion_at": _when(overview.last_suggestion.last_suggestion_at)
-            if overview.last_suggestion
-            else "",
+            "waiting_since": _when(overview.waiting_since),
+            "last_suggestion_at": _when(
+                overview.last_suggestion.last_suggestion_at if overview.last_suggestion else None
+            ),
             "overview": overview,
             "bins": bins,
             "ticks": range(0, 101, 10),
@@ -1083,7 +1083,9 @@ def _threshold_percent() -> int:
 
 
 def _when(moment) -> str:
-    """A moment as the status strip says it: the time today, else the date and time."""
+    """A moment as the status strip says it: the time today, else the date and time; "" for None."""
+    if moment is None:
+        return ""
     local = timezone.localtime(moment)
     if local.date() == timezone.localdate():
         return date_format(local, "H:i")
@@ -1129,13 +1131,18 @@ def resuggest_queue(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def categorizers(request):
-    """The Categorizers page (docs/design/admin.md): the tokens Categorizers connect with. Creating one shows its
-    secret once, in a dialog over the page."""
+    """The Categorizers page (docs/design/admin.md): the tokens Categorizers connect with. Creating one redirects, so
+    a refresh doesn't create another, and the page after it shows the secret once, in a dialog over the page."""
     form = CategorizerTokenForm(request.POST or None)
     if form.is_valid():
-        token, secret = tokens.create(form.cleaned_data["name"], request.user)
-        return _categorizers_page(request, form=CategorizerTokenForm(), created=(token, secret))
-    return _categorizers_page(request, form=form)
+        token, secret = categorizer_tokens.create(form.cleaned_data["name"], request.user)
+        request.session[_NEW_TOKEN] = [token.name, secret]
+        return redirect("categorizers")
+    return _categorizers_page(request, form=form, created=request.session.pop(_NEW_TOKEN, None))
+
+
+# The session key holding a new token's name and secret until the page after creating it shows them.
+_NEW_TOKEN = "new_categorizer_token"
 
 
 def _categorizers_page(request, *, form, created=None, confirm=None):
@@ -1144,7 +1151,7 @@ def _categorizers_page(request, *, form, created=None, confirm=None):
         "ledger/categorizers.html",
         {
             "form": form,
-            "tokens": tokens.active().select_related("created_by"),
+            "tokens": categorizer_tokens.active().select_related("created_by"),
             "created": created,
             "confirm": confirm,
         },
@@ -1157,12 +1164,12 @@ def _categorizers_page(request, *, form, created=None, confirm=None):
 @require_http_methods(["GET", "POST"])
 def revoke_categorizer(request, pk):
     """Revoke, confirmed inline under the token's row."""
-    token = get_object_or_404(tokens.active(), pk=pk)
+    token = get_object_or_404(categorizer_tokens.active(), pk=pk)
     if request.method == "GET":
         if wants_the_fragment_alone(request):
             return render(request, "ledger/_confirm_revoke.html", {"token": token})
         return _categorizers_page(request, form=CategorizerTokenForm(), confirm=token.pk)
-    tokens.revoke(token.pk)
+    categorizer_tokens.revoke(token.pk)
     messages.success(
         request,
         _("“%(name)s” is revoked: its Categorizer can't connect any more.") % {"name": token.name},

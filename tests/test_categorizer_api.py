@@ -19,7 +19,7 @@ def suggestion_url(description):
 
 def create_token(admin_client, name="Ollama on the NAS"):
     """Creates a token on the Categorizers page, as an admin would, and returns its secret as the page shows it once."""
-    page = admin_client.post("/categorizers/", {"name": name}).content.decode()
+    page = admin_client.post("/categorizers/", {"name": name}, follow=True).content.decode()
     secret = re.search(r'value="(pgc_[^"]+)"', page)
     assert secret, "no token shown"
     return secret[1]
@@ -122,7 +122,7 @@ def test_fetching_claims_nothing_and_stops_at_the_limit(api):
     assert again == first
 
 
-@pytest.mark.parametrize("limit", ["0", "201", "ten", "-1"])
+@pytest.mark.parametrize("limit", ["0", "201", "ten", "-1", "²"])
 def test_a_bad_limit_is_a_400(api, limit):
     assert api.fetch(limit=limit).status_code == 400
 
