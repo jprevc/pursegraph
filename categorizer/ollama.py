@@ -26,7 +26,7 @@ BATCH_SIZE = 50
 IDLE_POLL = 10
 
 # The household's conventions, from Pursegraph's default Category list.
-SYSTEM = """You categorize one household bank Transaction (a Household in Slovenia; merchant names and
+SYSTEM_PROMPT = """You categorize one household bank Transaction (a Household in Slovenia; merchant names and
 purposes are often Slovenian) into exactly one Subcategory from this list:
 {options}
 
@@ -43,6 +43,10 @@ class Unavailable(Exception):
     """Pursegraph or Ollama can't answer at all, such as when it is unreachable or refuses the token."""
 
 
+class Rejected(Exception):
+    """Pursegraph turned down one Suggestion, such as for a Transaction or Subcategory deleted since the fetch."""
+
+
 class Pursegraph:
     """The Categorizer API of the Pursegraph at `base_url`, called with the Categorizer token `token`."""
 
@@ -55,12 +59,13 @@ class Pursegraph:
         """The Subcategories to choose from and up to `limit` Transactions waiting for a Suggestion."""
         return self._call(f"/api/categorizer/v1/transactions/?limit={limit}")
 
-    def send(self, transaction: int, suggestion: tuple[int, float] | None) -> dict:
-        """Sends the Suggestion (Subcategory id, confidence) for the Transaction `transaction`, or None for none."""
+    def send(self, transaction_id: int, suggestion: tuple[int, float] | None) -> dict:
+        """Sends the Suggestion (Subcategory id, confidence) for the Transaction `transaction_id`, or None for none.
+        Raises Rejected when Pursegraph turns it down."""
         body: dict[str, int | float | None] = {"subcategory": None}
         if suggestion:
             body["subcategory"], body["confidence"] = suggestion
-        return self._call(f"/api/categorizer/v1/transactions/{transaction}/suggestion/", body)
+        return self._call(f"/api/categorizer/v1/transactions/{transaction_id}/suggestion/", body)
 
     def _call(self, path: str, body: dict | None = None) -> dict:
         request = urllib.request.Request(
@@ -76,7 +81,10 @@ class Pursegraph:
                 raise Unavailable(
                     f"Pursegraph at {self.base_url} refused CATEGORIZER_TOKEN; is it revoked?"
                 ) from err
-            raise Unavailable(f"Pursegraph at {self.base_url}: {err}: {err.read()!r:.200}") from err
+            why = f"Pursegraph at {self.base_url}: {err}: {err.read()!r:.200}"
+            if err.code in (400, 404) and body is not None:
+                raise Rejected(why) from err
+            raise Unavailable(why) from err
         except (OSError, ValueError) as err:  # URLError and timeouts are OSErrors
             raise Unavailable(f"Pursegraph at {self.base_url}: {err}") from err
 
@@ -107,7 +115,7 @@ class Ollama:
             "think": False,
             "keep_alive": "15m",
             "messages": [
-                {"role": "system", "content": SYSTEM.format(options="\n".join(by_label))},
+                {"role": "system", "content": SYSTEM_PROMPT.format(options="\n".join(by_label))},
                 {"role": "user", "content": _prompt(transaction, labels)},
             ],
             "format": {
@@ -186,12 +194,18 @@ def _prompt(transaction: dict, labels: dict[int, str]) -> str:
     return "\n".join(lines)
 
 
-def run_once(pursegraph: Pursegraph, ollama) -> int:
+def run_once(pursegraph: Pursegraph, ollama, *, log=print) -> int:
     """Asks `ollama` about a batch of the waiting Transactions and sends each answer to `pursegraph`. Returns how
-    many it asked about; stops at the first failure, raising Unavailable."""
+    many it asked about; stops at the first failure, raising Unavailable. A Suggestion Pursegraph rejects is logged
+    and skipped: the next fetch hands out that Transaction again if it still waits."""
     waiting = pursegraph.waiting()
     for transaction in waiting["transactions"]:
-        pursegraph.send(transaction["id"], ollama.suggest(waiting["subcategories"], transaction))
+        try:
+            pursegraph.send(
+                transaction["id"], ollama.suggest(waiting["subcategories"], transaction)
+            )
+        except Rejected as error:
+            log(f"Suggestion for Transaction {transaction['id']} rejected: {error}")
     return len(waiting["transactions"])
 
 
@@ -223,7 +237,7 @@ def main(
     failures = 0
     while True:
         try:
-            asked = run_once(pursegraph, ollama)
+            asked = run_once(pursegraph, ollama, log=log)
         except Unavailable as error:
             failures += 1
             delay = backoff(failures)

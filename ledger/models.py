@@ -380,7 +380,7 @@ class Subcategory(models.Model):
 class Setting(models.Model):
     """An installation-wide value. There is no Household table: the installation is the Household."""
 
-    # An LLM suggestion at least this confident sets the outcome by itself.
+    # A Suggestion at least this confident sets the outcome by itself.
     AUTO_ACCEPT_THRESHOLD = "auto_accept_threshold"
 
     DEFAULTS = {

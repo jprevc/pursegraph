@@ -19,7 +19,7 @@ from categorizer.ollama import (
 )
 from ledger import categorizers
 from ledger.models import Source, Transaction
-from tests.conftest import subcategory_id
+from tests.conftest import subcategory_id, transaction_id
 from tests.test_rules import make_transaction
 
 # Pursegraph serves the API from another thread, so its data must be committed.
@@ -70,6 +70,27 @@ def test_a_run_sends_a_suggestion_for_each_waiting_transaction(pursegraph):
         None,
     )
     assert run_once(pursegraph, FakeOllama()) == 0
+
+
+@live
+def test_a_rejected_suggestion_is_skipped_and_the_batch_goes_on(pursegraph):
+    make_transaction("Corner Shop")
+    make_transaction("Hiša kave")
+
+    class DeletedSubcategory(FakeOllama):
+        def suggest(self, subcategories, transaction):
+            if transaction["description"] == "Corner Shop":
+                return 999_999, 0.95
+            return super().suggest(subcategories, transaction)
+
+    logged: list[str] = []
+    assert run_once(pursegraph, DeletedSubcategory(), log=logged.append) == 2
+
+    assert [line.split(":")[0] for line in logged] == [
+        f"Suggestion for Transaction {transaction_id('Corner Shop')} rejected"
+    ]
+    assert Transaction.objects.get(description="Corner Shop").confidence is None
+    assert Transaction.objects.get(description="Hiša kave").suggested_subcategory_id
 
 
 def test_it_runs_on_its_own_without_django_or_pursegraphs_code():

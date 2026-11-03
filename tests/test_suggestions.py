@@ -13,6 +13,7 @@ from tests.conftest import (
     subcategory_id,
     transaction_id,
 )
+from tests.test_categorizer_api import WAITING
 from tests.test_import import upload
 from tests.test_rules import make_rule, make_transaction
 
@@ -27,17 +28,13 @@ class FakeCategorizer:
     def __init__(self, answers=None, default=("Other", "Miscellaneous", 0.5)):
         self.answers = answers or {}
         self.default = default
-        self.client = Client(headers={"Authorization": f"Bearer {self.secret()}"})
+        _token, secret = categorizers.create("Fake Categorizer", None)
+        self.client = Client(headers={"Authorization": f"Bearer {secret}"})
         self.fetched: list[dict] = []
         self.subcategories: list[dict] = []
 
-    @staticmethod
-    def secret():
-        _token, secret = categorizers.create("Fake Categorizer", None)
-        return secret
-
     def run(self):
-        waiting = self.client.get("/api/categorizer/v1/transactions/").json()
+        waiting = self.client.get(WAITING).json()
         self.subcategories = waiting["subcategories"]
         for transaction in waiting["transactions"]:
             self.fetched.append(transaction)
@@ -49,7 +46,7 @@ class FakeCategorizer:
                 category, name, confidence = answer
                 body = {"subcategory": subcategory_id(category, name), "confidence": confidence}
             sent = self.client.post(
-                f"/api/categorizer/v1/transactions/{transaction['id']}/suggestion/",
+                f"{WAITING}{transaction['id']}/suggestion/",
                 json.dumps(body),
                 content_type="application/json",
             )
@@ -136,7 +133,7 @@ def test_only_unresolved_transactions_without_a_suggestion_are_asked_about(logge
     assert again.asked() == []
 
 
-def test_a_decision_made_while_the_llm_was_asked_is_kept(logged_in_client):
+def test_a_decision_made_while_a_categorizer_was_asked_is_kept(logged_in_client):
     upload(logged_in_client)
     corner_shop = transaction_id("Corner Shop")
 
