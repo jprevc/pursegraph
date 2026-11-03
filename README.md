@@ -13,7 +13,7 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 The screenshots show a synthetic Household from `manage.py seed_demo`; `scripts/readme-shots` retakes them.
 
 - **Statement import:** parsers for Sparkasse SI, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
-- **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then Categorizers for the rest: programs that fetch the remaining Transactions through an API and suggest Subcategories. By default that is the bundled Categorizer for a local LLM (Ollama). Transaction text leaves the LAN only if your Categorizer sends it elsewhere. Low-confidence suggestions wait in a Review queue.
+- **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then Categorizers for the rest: programs that fetch the remaining Transactions through an API and suggest Subcategories. By default that is the bundled Categorizer for a local LLM (Ollama). Transaction text leaves the LAN only if your Categorizer sends it elsewhere. Low-confidence Suggestions wait in a Review queue.
 - **Dashboard:** spending by Category, cashflow, Category trends, per-Member and money-flow views, with drill-down to the Transactions and warnings for gaps in the imported periods.
 
 Built with Django 5.2, PostgreSQL, HTMX and ECharts, and deployed with Docker Compose. Tested with pytest against a real PostgreSQL, and checked with ruff and mypy.

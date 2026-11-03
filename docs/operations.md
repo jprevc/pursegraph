@@ -29,7 +29,7 @@ Installing Pursegraph and keeping it running: Categorizers, backups, restores, r
 
 ## Categorizers
 
-Transactions that no Rule categorizes wait for a Suggestion. A Categorizer is a program that fetches them through the [Categorizer API](#the-categorizer-api) and sends back a Subcategory with how sure it is. Pursegraph itself calls no LLM (see [ADR 0001](adr/0001-categorizers-pull-suggestions-through-an-api.md)). A Suggestion at least as sure as the auto-accept threshold on the LLM suggestions page sets the outcome; the rest wait in the Review queue, preselected. That threshold applies to every Categorizer alike, so a Categorizer must report a confidence that means something. Without a Categorizer the Review queue fills without suggestions.
+Transactions that no Rule categorizes wait for a Suggestion. A Categorizer is a program that fetches them through the [Categorizer API](#the-categorizer-api) and sends back a Subcategory with how sure it is. Pursegraph itself calls no LLM (see [ADR 0001](adr/0001-categorizers-pull-suggestions-through-an-api.md)). A Suggestion at least as sure as the auto-accept threshold on the LLM suggestions page sets the outcome; the rest wait in the Review queue, preselected. That threshold applies to every Categorizer alike, so a Categorizer must report a confidence that means something. Without a Categorizer the Review queue fills without Suggestions.
 
 Transaction text leaves the LAN only if a Categorizer sends it elsewhere. The bundled Ollama Categorizer sends it only to your Ollama server, but one that asks a cloud service sends it there. That choice is made when an admin creates a token for it.
 
@@ -115,7 +115,7 @@ Content-Type: application/json
 {"subcategory": 2, "confidence": 0.93}
 ```
 
-`subcategory` is an `id` from the last fetch, and `confidence` is a number from 0 to 1: how sure the Categorizer is. To say it has no suggestion, so the Transaction waits in the Review queue without one and isn't fetched again, send `{"subcategory": null}`. The answer:
+`subcategory` is an `id` from the last fetch, and `confidence` is a number from 0 to 1: how sure the Categorizer is. To say it has no Suggestion, so the Transaction waits in the Review queue without one and isn't fetched again, send `{"subcategory": null}`. The answer:
 
 ```json
 {"stored": true, "accepted": true}
@@ -128,10 +128,12 @@ Content-Type: application/json
 
 | Status | When |
 | --- | --- |
-| 400 | A malformed request: `limit` out of range, a body that isn't a JSON object with `"subcategory"`, a `subcategory` that isn't an id or `null`, or a missing or out-of-range `confidence`. Also an unknown Subcategory; fetch again for the current ones. |
+| 400 | A malformed request: a `limit` that isn't a whole number from 1 to 200, a body that isn't a JSON object with `"subcategory"`, a `subcategory` that isn't an id or `null`, or a missing or out-of-range `confidence`. Also an unknown Subcategory; fetch again for the current ones. |
 | 401 | A missing, wrong or revoked token. The answer has `WWW-Authenticate: Bearer`. |
 | 404 | No Transaction with that id. |
 | 405 | The wrong method, with an empty body and an `Allow` header. |
+
+The token is checked first, so a request without a valid one gets a 401 whatever else is wrong with it, even the method.
 
 All but the 405 answer `{"error": "<why>"}`, such as `{"error": "limit must be a whole number from 1 to 200."}`.
 
@@ -139,7 +141,7 @@ All but the 405 answer `{"error": "<why>"}`, such as `{"error": "limit must be a
 
 If Ollama runs on a machine that sleeps until it is woken with Wake-on-LAN, the Categorizer should poll from an always-on machine instead, such as the Pursegraph host or a NAS. When Transactions are waiting and Ollama doesn't answer, it wakes the machine. The sample below does that. It is documentation, not part of Pursegraph: copy it, then fit it to your machine. It needs only Python 3 and the same three variables as the bundled Categorizer, plus `OLLAMA_MAC`, the MAC address of the Ollama machine's network card. Wake-on-LAN must be enabled in that machine's firmware and network settings. If the always-on machine is on another subnet, set `BROADCAST` to that subnet's broadcast address, such as `192.168.1.255`.
 
-Its prompt is minimal and it reports a fixed confidence of 0.5, so its Suggestions never clear the default auto-accept threshold of 0.90. Before letting it auto-accept, give it a real confidence, as the bundled Categorizer does with Ollama's `logprobs`.
+Its prompt is minimal and it reports a fixed confidence of 0.5, so its Suggestions stay below the default auto-accept threshold of 0.90; an admin can lower the threshold to 0.50, and then they would clear it. Before letting it auto-accept, give it a real confidence, as the bundled Categorizer does with Ollama's `logprobs`.
 
 ```python
 """A Categorizer that wakes the sleeping Ollama machine with Wake-on-LAN when Transactions are waiting."""
@@ -238,7 +240,7 @@ while True:
             except (KeyError, ValueError):  # an unusable answer: no Suggestion
                 body = {"subcategory": None}
             pursegraph(f"/api/categorizer/v1/transactions/{transaction['id']}/suggestion/", body)
-    except OSError as error:  # Pursegraph or Ollama unreachable, or an HTTP error
+    except (OSError, ValueError) as error:  # unreachable, an HTTP error, or not JSON
         print(error, flush=True)
         time.sleep(POLL)
 ```
