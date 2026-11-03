@@ -104,7 +104,7 @@ MERCHANTS = [
     ], (6, 45)),
 ]  # fmt: skip
 CARD_PAYMENTS = 22  # a month, across the three Accounts
-# Every month: the day, the Account (by owner), the description, the counterparty, the amount's range
+# Every month: the day, the Account ("ana", "luka" or "joint"), the description, the counterparty, the amount's range
 # and the Subcategory.
 FIXED = [
     (1, "joint", "Najemnina stanovanje", "Marko Novak", (850, 850), ("Home", "Rent / mortgage")),
@@ -173,12 +173,12 @@ class Command(BaseCommand):
         savings = Account.objects.create(name="Ana's savings", bank=Bank.OTHER)
         savings.owners.add(ana)
         accounts = {"ana": sparkasse, "luka": n26, "joint": joint}
-        # Fictional, with valid check digits.
+        # Fictional: valid check digits, but a bank code of zeros, so none is anyone's real account.
         iban = {
-            sparkasse: "SI02194000012345678",
-            n26: "DE60100110012627182818",
-            joint: "LT833250000314159265",
-            savings: "SI41194000087654321",
+            sparkasse: "SI02000000012345678",
+            n26: "DE79000000001234567890",
+            joint: "LT590000001234567890",
+            savings: "SI41000000087654321",
         }
         for account, number in iban.items():
             AccountIBAN.objects.create(account=account, iban=number)
@@ -232,27 +232,12 @@ class Command(BaseCommand):
         def subcategory(category, name):
             return Subcategory.objects.get(category__name=category, name=name)
 
-        rules = [
-            Rule.objects.create(
-                description_contains=contains, subcategory=subcategory(*outcome), position=position
-            )
-            for position, (contains, outcome) in enumerate(RULES)
-        ]
         salary = subcategory("Income", "Salary")
-        salary_rule = Rule.objects.create(
-            direction=Rule.Direction.IN, account=n26, position=len(rules), subcategory=salary
-        )
 
-        def spend(account, day, low, high, description, counterparty, outcome, back):
-            """A payment out, by the first Rule that matches it once the Rules existed, else by hand or the
-            LLM."""
+        def spend(account, day, low, high, description, counterparty, outcome):
+            """A payment out, categorized by hand or by the LLM; the Rules take theirs at the end."""
             amount = -Decimal(rng.randint(round(low * 100), round(high * 100))) / 100
-            matching = next(
-                (r for r in rules if r.description_contains.lower() in description.lower()), None
-            )
-            if matching and back < MONTHS - 1:
-                how = {"source": Source.RULE, "rule": matching}
-            elif rng.random() < 0.5:
+            if rng.random() < 0.5:
                 confidence = rng.randint(90, 99) / 100
                 how = {
                     "source": Source.LLM,
@@ -271,22 +256,23 @@ class Command(BaseCommand):
                 **how,
             )
 
-        def side(account, other, day, amount, name):
-            """One side of a Transfer between `account` and `other`, a Transfer by its IBAN, not yet paired."""
+        def side(account, other, day, amount, counterparty):
+            """One side of a Transfer between `account` and `other`, a Transfer by its IBAN, not yet paired.
+            The paying side names the Account paid into; the paid one, as banks do, the person who paid."""
             book(
                 account,
                 day,
                 amount,
-                f"Transfer to {other.name}" if amount < 0 else f"Transfer from {name}",
-                counterparty_name=name,
+                f"Transfer to {other.name}" if amount < 0 else f"Transfer from {counterparty}",
+                counterparty_name=counterparty,
                 counterparty_iban=iban[other],
                 is_transfer=True,
                 source=Source.IBAN,
             )
 
-        def transfer(source, to, day, amount, name):
-            side(source, to, day, -amount, name)
-            side(to, source, day, amount, name)
+        def transfer(payer, payee, day, amount, counterparty):
+            side(payer, payee, day, -amount, counterparty)
+            side(payee, payer, day, amount, counterparty)
 
         def suggestion(suggested):
             if not suggested:
@@ -300,32 +286,22 @@ class Command(BaseCommand):
         waiting = count()
 
         for back in range(MONTHS, -1, -1):
-            year, month = divmod(today.year * 12 + today.month - 1 - back, 12)
-            month += 1
+            start = month_start(back)
             # The running month only up to today.
             last_day = today.day if back == 0 else 28
 
-            def on(day, year=year, month=month):
-                return date(year, month, day)
+            def on(day, start=start):
+                return start.replace(day=day)
 
-            for (day, owner, description, counterparty, (low, high), _), outcome in zip(
+            for (day, whose, description, counterparty, (low, high), _), outcome in zip(
                 FIXED, fixed, strict=True
             ):
                 if day <= last_day:
-                    spend(
-                        accounts[owner],
-                        on(day),
-                        low,
-                        high,
-                        description,
-                        counterparty,
-                        outcome,
-                        back,
-                    )
+                    spend(accounts[whose], on(day), low, high, description, counterparty, outcome)
             if last_day >= 15:
-                for account, amount, employer, rule in (
-                    (sparkasse, "2410.00", "Kres Engineering d.o.o.", None),
-                    (n26, "1980.00", "Lipa Software d.o.o.", salary_rule),
+                for account, amount, employer in (
+                    (sparkasse, "2410.00", "Kres Engineering d.o.o."),
+                    (n26, "1980.00", "Lipa Software d.o.o."),
                 ):
                     book(
                         account,
@@ -334,19 +310,18 @@ class Command(BaseCommand):
                         "Salary",
                         counterparty_name=employer,
                         subcategory=salary,
-                        source=Source.RULE if rule else Source.MANUAL,
-                        rule=rule,
+                        source=Source.MANUAL,
                     )
             if last_day >= 16:
                 # Each pays into the Joint Revolut the day after payday; pairing links the two sides.
-                for account, owner, amount in (
+                for account, member, amount in (
                     (sparkasse, "Ana Zupan", "900.00"),
                     (n26, "Luka Zupan", "700.00"),
                 ):
-                    transfer(account, joint, on(16), Decimal(amount), owner)
+                    transfer(account, joint, on(16), Decimal(amount), member)
             if last_day >= 17:
                 side(sparkasse, savings, on(17), Decimal("-300.00"), "Ana Zupan")
-            for _i in range(CARD_PAYMENTS):
+            for _payment in range(CARD_PAYMENTS):
                 [i] = rng.choices(range(len(MERCHANTS)), weights)
                 _, _, names, (low, high) = MERCHANTS[i]
                 description, counterparty = rng.choice(names)
@@ -358,7 +333,6 @@ class Command(BaseCommand):
                     description,
                     counterparty,
                     merchants[i],
-                    back,
                 )
             if back in REFUNDS:
                 day, description, counterparty, amount, outcome = REFUNDS[back]
@@ -395,10 +369,25 @@ class Command(BaseCommand):
 
         # An ambiguous pairing: Ana's two equal payments into the Joint Revolut, two days either side of the
         # one it shows, so pairing can't tell which is its other side.
-        recent = Decimal("150.00")
-        side(joint, sparkasse, today - timedelta(days=4), recent, "Ana Zupan")
+        top_up = Decimal("150.00")
+        side(joint, sparkasse, today - timedelta(days=4), top_up, "Ana Zupan")
         for days in (6, 2):
-            side(sparkasse, joint, today - timedelta(days=days), -recent, "Ana Zupan")
+            side(sparkasse, joint, today - timedelta(days=days), -top_up, "Ana Zupan")
         pair(Transaction.objects.filter(is_transfer=True))
+
+        # The Rules, top first. Made a month into the demo, each categorized what it matches from then on, where
+        # a Member would have chosen the same; what came before keeps the outcome a Member or the LLM gave it.
+        made = month_start(MONTHS - 1)
+        rules = [
+            Rule(description_contains=contains, subcategory=subcategory(*outcome))
+            for contains, outcome in RULES
+        ]
+        rules.append(Rule(direction=Rule.Direction.IN, account=n26, subcategory=salary))
+        for position, rule in enumerate(rules):
+            rule.position = position
+            rule.save()
+            Transaction.objects.filter(
+                rule.condition(), subcategory=rule.subcategory, rule=None, date__gte=made
+            ).update(source=Source.RULE, rule=rule, suggested_subcategory=None, confidence=None)
 
         self.stdout.write(f"Seeded the demo Household: {Transaction.objects.count()} Transactions.")
