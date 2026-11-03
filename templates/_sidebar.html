@@ -17,7 +17,6 @@
     <a class="nav" href="{{ dashboard_url }}{{ carried_query }}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>{% icon "home" %}{% translate "Dashboard" %}</a>
     <a class="nav" href="{{ transactions_url }}{{ carried_page_query }}" hx-get="{{ transactions_url }}{{ carried_page_query }}" hx-target="main" hx-push-url="true"{% if nav == 'transactions' %} aria-current="page"{% endif %}>{% icon "list" %}{% translate "Transactions" %}</a>
     <a class="nav" href="{{ review_url }}{{ carried_page_query }}"{% if nav == 'review_queue' %} aria-current="page"{% endif %}>{% icon "check" %}{% translate "Review queue" %}{% include "_review_count.html" %}</a>
-    {% if suggestions_unavailable %}<p class="muted suggestions-status">{% translate "Suggestions unavailable" %}</p>{% endif %}
     {% include "_nav_item.html" with href=import_url item="import" icon="upload" label=_("Import") %}
     <details class="manage"{% if manage_open %} open{% endif %}>
       <summary>{% icon "right" %}{% translate "Manage" %}</summary>

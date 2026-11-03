@@ -203,8 +203,8 @@ class Transaction(models.Model):
         related_name="transactions",
         verbose_name=_("rule"),
     )
-    # The local LLM's suggestion, kept apart from the outcome. The worker asks for one while both are None;
-    # confidence 0 with no Subcategory means the LLM's answer was unusable.
+    # A Categorizer's Suggestion, kept apart from the outcome. Categorizers are asked for one while both are None;
+    # confidence 0 with no Subcategory means the Categorizer had none.
     suggested_subcategory = models.ForeignKey(
         "Subcategory",
         on_delete=models.SET_NULL,
@@ -382,12 +382,9 @@ class Setting(models.Model):
 
     # An LLM suggestion at least this confident sets the outcome by itself.
     AUTO_ACCEPT_THRESHOLD = "auto_accept_threshold"
-    # "1" while the last call to the LLM failed.
-    SUGGESTIONS_UNAVAILABLE = "suggestions_unavailable"
 
     DEFAULTS = {
         AUTO_ACCEPT_THRESHOLD: "0.90",
-        SUGGESTIONS_UNAVAILABLE: "",
     }
 
     key = models.CharField(_("key"), max_length=50, primary_key=True)

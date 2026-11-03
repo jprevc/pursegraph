@@ -8,6 +8,8 @@ services:
     environment:
       POSTGRES_HOST: postgres
       PURSEGRAPH_STATEMENT_FILES: /data/statement-files
+      # The Categorizer below reaches it as http://web:8000.
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1},web
     volumes:
       # The original Statement files, kept so they can be re-parsed after a parser fix.
       - ${PURSEGRAPH_DATA:-./data}/statement-files:/data/statement-files
@@ -17,19 +19,18 @@ services:
       postgres:
         condition: service_healthy
 
-  # Suggests Subcategories with the local Ollama in the background; imports never wait for it.
+  # The Ollama Categorizer (categorizer/ollama.py): suggests Subcategories with OLLAMA_URL through the Categorizer
+  # API, with CATEGORIZER_TOKEN; imports never wait for it.
   categorize_worker:
     build: .
     restart: unless-stopped
-    env_file: .env
     environment:
-      POSTGRES_HOST: postgres
-    # The web service runs the migrations.
-    entrypoint: ["python", "manage.py"]
-    command: ["categorize_worker"]
+      PURSEGRAPH_URL: http://web:8000
+      CATEGORIZER_TOKEN: ${CATEGORIZER_TOKEN:-}
+      OLLAMA_URL: ${OLLAMA_URL:-}
+    entrypoint: ["python", "categorizer/ollama.py"]
+    command: []
     depends_on:
-      postgres:
-        condition: service_healthy
       web:
         condition: service_started
 
