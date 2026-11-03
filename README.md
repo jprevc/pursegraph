@@ -4,13 +4,13 @@ A self-hosted family finance overview. Household Members import their bank State
 
 Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it to the internet.
 
-![Spending by Category](docs/screenshots/spending.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/spending-dark.png"><img alt="Spending by Category" src="docs/screenshots/spending-light.png"></picture>
 
-| Cashflow | Money flow |
-| --- | --- |
-| ![Cashflow](docs/screenshots/cashflow.png) | ![Money flow](docs/screenshots/money-flow.png) |
+| Cash flow | Money flow | Review queue |
+| --- | --- | --- |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/cashflow-dark.png"><img alt="Cash flow over the last 12 months" src="docs/screenshots/cashflow-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/money-flow-dark.png"><img alt="Money flow" src="docs/screenshots/money-flow-light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/review-dark.png"><img alt="Review queue" src="docs/screenshots/review-light.png"></picture> |
 
-The screenshots show a synthetic Household.
+The screenshots show a synthetic Household from `manage.py seed_demo`; `scripts/readme-shots` retakes them.
 
 - **Statement import:** parsers for Sparkasse SI, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
 - **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then a local LLM (Ollama) for the rest. Low-confidence suggestions wait in a Review queue.

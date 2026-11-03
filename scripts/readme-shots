@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# readme-shots — the README's screenshots: Spending, Cash flow, Money flow and the Review queue, each in
+# light and dark at desktop size (1440x1000), as docs/screenshots/<page>-<light|dark>.png, shot on a
+# fresh scripts/demo-server.
+#
+#   scripts/readme-shots [PORT]      PORT for the demo-server, default 8800
+#
+# Re-run it after a visual change and commit the shots that changed.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+port="${1:-8800}" out="$here/../docs/screenshots"
+log="$(mktemp)"
+
+"$here/demo-server" "$port" >"$log" 2>&1 & server=$!
+cleanup() { kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; rm -f "$log"; }
+trap cleanup EXIT
+
+for _ in $(seq 120); do
+    curl -sf -o /dev/null "http://127.0.0.1:$port/login/" && break
+    if ! kill -0 "$server" 2>/dev/null; then cat "$log" >&2; exit 1; fi
+    sleep 0.5
+done
+"$here/playwright" "$here/readme-shots.js" "http://127.0.0.1:$port" "$out"
