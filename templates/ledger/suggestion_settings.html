@@ -4,7 +4,7 @@
 {% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
 <div class="page-head"><h1 tabindex="-1">{% translate "LLM suggestions" %}</h1></div>
-<p class="page-sub muted">{% translate "What no Rule decides is sent to the LLM on this network, which suggests a Subcategory and how sure it is. A suggestion sure enough categorizes its Transaction by itself; the rest wait in the Review queue with the suggestion first." %}</p>
+<p class="page-sub muted">{% translate "What no Rule decides waits for a Categorizer, which suggests a Subcategory and how sure it is. A suggestion sure enough categorizes its Transaction by itself; the rest wait in the Review queue with the suggestion first." %}</p>
 {% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 
 {% if offered %}
@@ -21,19 +21,14 @@
 
 <div class="llm">
   <section class="panel llm-strip" aria-label="{% translate 'Status' %}">
-    <span class="status-dot {{ status.state }}" aria-hidden="true"></span>
-    <p class="llm-state"><b>{{ status.title }}</b> <span>{{ status.caption }}</span></p>
     <dl class="stats">
-      <div><dt>{% translate "Model" %}</dt><dd>{{ model }}</dd></div>
+      <div><dt>{% translate "Waiting for a suggestion" %}</dt><dd>{{ overview.waiting }} <span class="muted">{% if not overview.waiting %}{% translate "nothing waits" %}{% elif waiting_since %}{% blocktranslate %}since {{ waiting_since }}{% endblocktranslate %}{% endif %}</span></dd></div>
+      <div><dt>{% translate "Last suggestion" %}</dt><dd>{% if overview.last_suggestion %}{{ last_suggestion_at }} <span class="muted">{% blocktranslate with name=overview.last_suggestion.name %}from {{ name }}{% endblocktranslate %}</span>{% else %}<span class="muted">{% translate "none yet" %}</span>{% endif %}</dd></div>
       <div><dt>{% translate "With a suggestion" %}</dt><dd>{{ overview.with_suggestion }}</dd></div>
-      <div><dt>{% translate "Waiting to be asked" %}</dt><dd>{{ overview.waiting }}</dd></div>
       <div><dt>{% translate "By the LLM this month" %}</dt><dd>{{ overview.by_llm_this_month }}</dd></div>
     </dl>
-    {% if status.state != "off" %}
-    <form method="post" action="{% url 'check_llm' %}">{% csrf_token %}<button type="submit">{% icon "refresh" %}{% translate "Check now" %}</button></form>
-    {% endif %}
+    <a class="button" href="{% url 'categorizers' %}">{% icon "key" %}{% translate "Categorizers" %}</a>
   </section>
-  {% if status.line %}<p class="llm-line muted">{{ status.line }}</p>{% endif %}
 
   <section class="panel llm-chart" aria-labelledby="chart-heading">
     <div class="chart-head">

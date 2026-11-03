@@ -3,9 +3,7 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import wraps
-from urllib.parse import urlsplit
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.humanize.templatetags.humanize import ordinal
@@ -32,6 +30,7 @@ from pursegraph import figures
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import categories as category_edits
+from . import categorizers as tokens
 from . import facets, outcomes, review, suggestions
 from . import rules as rule_edits
 from .board import Axis, track
@@ -39,6 +38,7 @@ from .coverage import DateRange, coverage, removing
 from .forms import (
     AccountAdminForm,
     AccountForm,
+    CategorizerTokenForm,
     CategoryForm,
     NameForm,
     OutcomeForm,
@@ -56,8 +56,6 @@ from .importer import (
     commit_statement,
 )
 from .models import Account, Bank, Category, Rule, Source, Statement, Subcategory, Transaction
-from .ollama import MODEL as OLLAMA_MODEL
-from .ollama import OllamaSuggester
 
 TRANSACTIONS_PER_PAGE = 25
 
@@ -1065,8 +1063,10 @@ def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
             "form": form or ThresholdForm(initial={"threshold": threshold}),
             "threshold": threshold,
             "offered": offered,
-            "status": _llm_status(),
-            "model": OLLAMA_MODEL,
+            "waiting_since": _when(overview.waiting_since) if overview.waiting_since else "",
+            "last_suggestion_at": _when(overview.last_suggestion.last_suggestion_at)
+            if overview.last_suggestion
+            else "",
             "overview": overview,
             "bins": bins,
             "ticks": range(0, 101, 10),
@@ -1082,68 +1082,12 @@ def _threshold_percent() -> int:
     return round(suggestions.threshold() * 100)
 
 
-def _llm_host() -> str:
-    """Where the LLM server is, as the LLM suggestions page names it: OLLAMA_URL's host and port."""
-    return urlsplit(settings.OLLAMA_URL).netloc or settings.OLLAMA_URL
-
-
-def _llm_status() -> dict:
-    """The status strip's state ("working", "unreachable" or "off"), its caption and the line under it."""
-    host = _llm_host()
-    if not settings.OLLAMA_URL:
-        return {
-            "state": "off",
-            "title": _("Not set up"),
-            "caption": _("OLLAMA_URL is empty"),
-            "line": _(
-                "No LLM server is configured (OLLAMA_URL is empty), so the Review queue fills without suggestions. "
-                "Set it in the server's environment and restart."
-            ),
-        }
-    status = suggestions.status()
-    if status.unavailable:
-        failed = _clock(status.failed_at)
-        return {
-            "state": "unreachable",
-            "title": _("Can't reach the LLM"),
-            "caption": _("failed at %(time)s · retrying") % {"time": failed},
-            "line": _(
-                "The last call to %(host)s failed at %(time)s. It retries at least every 5 minutes; until then new "
-                "Transactions wait for review without a suggestion."
-            )
-            % {"host": host, "time": failed},
-        }
-    return {
-        "state": "working",
-        "title": _("Working"),
-        "caption": _("last answer %(time)s") % {"time": _clock(status.answered_at)}
-        if status.answered_at
-        else _("no answer yet"),
-        "line": "",
-    }
-
-
-def _clock(moment) -> str:
+def _when(moment) -> str:
     """A moment as the status strip says it: the time today, else the date and time."""
-    if moment is None:
-        return "?"
     local = timezone.localtime(moment)
     if local.date() == timezone.localdate():
         return date_format(local, "H:i")
     return date_format(local, "j M Y H:i")
-
-
-@admin_required
-@require_POST
-def check_llm(request):
-    """Check now: asks the LLM server whether it can be reached, and the page shows what it found."""
-    if settings.OLLAMA_URL:
-        host = _llm_host()
-        if suggestions.check_now(OllamaSuggester(settings.OLLAMA_URL)):
-            messages.success(request, _("The LLM at %(host)s answered.") % {"host": host})
-        else:
-            messages.error(request, _("Couldn't reach the LLM at %(host)s.") % {"host": host})
-    return redirect("suggestion_settings")
 
 
 @admin_required
@@ -1180,6 +1124,50 @@ def resuggest_queue(request):
         % {"count": count},
     )
     return redirect("suggestion_settings")
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def categorizers(request):
+    """The Categorizers page (docs/design/admin.md): the tokens Categorizers connect with. Creating one shows its
+    secret once, in a dialog over the page."""
+    form = CategorizerTokenForm(request.POST or None)
+    if form.is_valid():
+        token, secret = tokens.create(form.cleaned_data["name"], request.user)
+        return _categorizers_page(request, form=CategorizerTokenForm(), created=(token, secret))
+    return _categorizers_page(request, form=form)
+
+
+def _categorizers_page(request, *, form, created=None, confirm=None):
+    response = render(
+        request,
+        "ledger/categorizers.html",
+        {
+            "form": form,
+            "tokens": tokens.active().select_related("created_by"),
+            "created": created,
+            "confirm": confirm,
+        },
+    )
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
+    return response
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def revoke_categorizer(request, pk):
+    """Revoke, confirmed inline under the token's row."""
+    token = get_object_or_404(tokens.active(), pk=pk)
+    if request.method == "GET":
+        if wants_the_fragment_alone(request):
+            return render(request, "ledger/_confirm_revoke.html", {"token": token})
+        return _categorizers_page(request, form=CategorizerTokenForm(), confirm=token.pk)
+    tokens.revoke(token.pk)
+    messages.success(
+        request,
+        _("“%(name)s” is revoked: its Categorizer can't connect any more.") % {"name": token.name},
+    )
+    return redirect("categorizers")
 
 
 def _suggestions_accepted(request, count: int) -> None:

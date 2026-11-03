@@ -2,7 +2,8 @@
 {% if not setup_mode %}{% url 'rules' as href %}{% include "_nav_item.html" with item="rules" icon="wand" label=_("Rules") %}{% endif %}
 {% if user.is_admin %}
 {% url 'categories' as href %}{% include "_nav_item.html" with item="categories" icon="tag" label=_("Categories") %}
-{% if not setup_mode %}{% url 'suggestion_settings' as href %}{% include "_nav_item.html" with item="suggestion_settings" icon="spark" label=_("LLM suggestions") %}{% endif %}
+{% if not setup_mode %}{% url 'suggestion_settings' as href %}{% include "_nav_item.html" with item="suggestion_settings" icon="spark" label=_("LLM suggestions") %}
+{% url 'categorizers' as href %}{% include "_nav_item.html" with item="categorizers" icon="key" label=_("Categorizers") %}{% endif %}
 {% url 'accounts' as href %}{% include "_nav_item.html" with item="accounts" icon="bank" label=_("Accounts") %}
 {% url 'members' as href %}{% include "_nav_item.html" with item="members" icon="people" label=_("Members") %}
 {% endif %}

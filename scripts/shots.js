@@ -5,7 +5,7 @@ const PAGES = {
   login: '/login/', spending: '/spending/', cashflow: '/cashflow/', trends: '/trends/',
   'per-member': '/per-member/', 'money-flow': '/money-flow/', transactions: '/transactions/',
   review: '/review/', import: '/import/', accounts: '/accounts/', categories: '/categories/',
-  rules: '/rules/', 'new-rule': '/rules/new/', suggestions: '/suggestions/', members: '/members/',
+  rules: '/rules/', 'new-rule': '/rules/new/', suggestions: '/suggestions/', categorizers: '/categorizers/', members: '/members/',
 };
 const [base, out, ...only] = process.argv.slice(2);
 const unknown = only.filter(name => !(name in PAGES));

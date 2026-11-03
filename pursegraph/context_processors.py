@@ -14,6 +14,8 @@ ITEMS = {
     "apply_rule": "rules",
     "categories": "categories",
     "suggestion_settings": "suggestion_settings",
+    "categorizers": "categorizers",
+    "revoke_categorizer": "categorizers",
     "accounts": "accounts",
     "new_account": "accounts",
     "edit_account": "accounts",
@@ -22,7 +24,7 @@ ITEMS = {
     "new_member": "members",
 }
 # The items under Manage, which opens on their pages.
-MANAGE = {"rules", "categories", "suggestion_settings", "accounts", "members"}
+MANAGE = {"rules", "categories", "suggestion_settings", "categorizers", "accounts", "members"}
 
 
 def navigation(request):
