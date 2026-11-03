@@ -1,5 +1,5 @@
 """The Categorizer API: how Categorizers fetch the Transactions waiting for a Suggestion and send Suggestions back
-(docs/adr/0001-categorizers-pull-suggestions-through-an-api.md).
+(docs/adr/0002-no-bundled-categorizer-webhooks-say-when-transactions-wait.md).
 
 A Categorizer authenticates with `Authorization: Bearer <token>`, a token an admin created on the Categorizers page.
 It has two calls:

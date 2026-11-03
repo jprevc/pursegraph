@@ -65,8 +65,12 @@ A Subcategory proposed for a Transaction in the Review queue, with how sure its 
 _Avoid_: Guess, prediction
 
 **Categorizer**:
-A program, outside Pursegraph's own logic, that fetches the Transactions waiting for a Suggestion and sends Suggestions back. The Ollama one that ships with Pursegraph is one of them; an admin chooses which ones may connect.
+A program outside Pursegraph, such as one that asks an LLM, that fetches the Transactions waiting for a Suggestion and sends Suggestions back. Pursegraph ships none; an admin chooses which ones may connect.
 _Avoid_: Suggester, LLM, worker, client
+
+**Webhook**:
+A URL Pursegraph calls when Transactions are waiting for a Suggestion, so a Categorizer can fetch them. The call says only how many are waiting.
+_Avoid_: Wake hook, callback, notification
 
 **Refund**:
 A Transaction that reverses an earlier purchase: money coming in, placed in a spending Subcategory, which reduces spending there. It is not income and is not linked to the purchase.

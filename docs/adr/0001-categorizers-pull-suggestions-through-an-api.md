@@ -1,4 +1,10 @@
+---
+status: superseded by ADR-0002
+---
+
 # Categorizers pull work through an API; the core has no LLM code
+
+_Superseded by [ADR 0002](0002-no-bundled-categorizer-webhooks-say-when-transactions-wait.md): Pursegraph ships no Categorizer, and the outgoing webhook rejected below returns._
 
 Some operators run Ollama on a separate machine that sleeps until it is woken, for example with Wake-on-LAN, and some want a different categorization service entirely. Pursegraph's core therefore no longer calls any LLM. It offers an API through which a Categorizer fetches the Transactions waiting for a Suggestion, with the context a prompt needs (the Subcategories and the Household's earlier manual corrections as examples), and sends back Suggestions with how sure it is. Admins give each Categorizer its own token, which can only do this. The core keeps the auto-accept threshold and the Review queue. The Ollama Categorizer that ships with Pursegraph uses only this API, and it does not wake anything.
 
