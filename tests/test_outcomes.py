@@ -101,10 +101,8 @@ def test_fees_follow_the_bank_fees_subcategory_when_an_admin_renames_it(
     logged_in_client, admin_client
 ):
     admin_client.post(
-        f"/categories/{Category.objects.get(name='Finance').pk}/rename/", {"name": "Money"}
-    )
-    admin_client.post(
-        f"/subcategories/{subcategory_id('Money', 'Bank fees')}/rename/", {"name": "Fees"}
+        f"/categories/{Category.objects.get(name='Finance').pk}/save/",
+        {"name": "Money", f"sub-{subcategory_id('Finance', 'Bank fees')}": "Fees"},
     )
 
     upload(logged_in_client)

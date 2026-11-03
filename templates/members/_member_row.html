@@ -1,0 +1,28 @@
+{% load i18n icons %}{# One Member's row in their role card: who they are, then what can be done to them. #}
+<li class="member-row">
+  <div class="m-row">
+    <span class="avatar" aria-hidden="true">{{ m.get_full_name|default:m.get_username|first|upper }}</span>
+    <div class="m-who">
+      <span class="m-name">{{ m.get_full_name|default:m.get_username }}{% if m.pk == user.pk %} <span class="tag you">{% translate "You" %}</span>{% endif %}</span>
+      <span class="m-sub">{{ m.get_username }} · {% for a in m.accounts.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}{% translate "no Accounts of their own" %}{% endfor %}</span>
+    </div>
+    {% if m.is_active and not m.has_usable_password %}<span class="tag quiet">{% blocktranslate with date=m.date_joined|date:"j M" %}Hasn't set a password · invited {{ date }}{% endblocktranslate %}</span>{% endif %}
+    <div class="m-acts">
+      {% if not m.is_active %}
+      <form method="post" action="{% url 'member_active' m.pk %}" hx-post="{% url 'member_active' m.pk %}" hx-target="#roles" hx-swap="outerHTML" data-action>{% csrf_token %}<input type="hidden" name="active" value="1"><button type="submit" class="sm">{% translate "Reactivate" %}</button></form>
+      {% else %}
+      {% if not m.is_admin %}
+      <a class="button sm" href="{% url 'member_admin' m.pk %}" hx-get="{% url 'member_admin' m.pk %}" hx-target="#confirm-member-{{ m.pk }}" hx-swap="innerHTML" data-confirm-opener>{% icon "up" %}{% translate "Make admin" %}</a>
+      {% elif not m.last_admin %}
+      <form method="post" action="{% url 'member_admin' m.pk %}" hx-post="{% url 'member_admin' m.pk %}" hx-target="#roles" hx-swap="outerHTML" data-action>{% csrf_token %}<input type="hidden" name="admin" value="0"><button type="submit" class="sm">{% icon "down" %}{% translate "Make Member" %}</button></form>
+      {% endif %}
+      <form method="post" action="{% url 'member_reset_link' m.pk %}" hx-post="{% url 'member_reset_link' m.pk %}" hx-target="#dialog-slot" data-action>{% csrf_token %}<button type="submit" class="sm">{% icon "key" %}{% if m.has_usable_password %}{% translate "Reset link" %}{% else %}{% translate "New invite link" %}{% endif %}</button></form>
+      {% if not m.last_admin %}
+      <a class="button ghost sm" href="{% url 'member_active' m.pk %}" hx-get="{% url 'member_active' m.pk %}" hx-target="#confirm-member-{{ m.pk }}" hx-swap="innerHTML" data-confirm-opener>{% translate "Deactivate" %}</a>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% if m.last_admin %}<p class="reason">{% icon "info" %}<span>{% if m.pk == user.pk %}{% translate "You are the only active admin. Make someone else an admin first." %}{% else %}{% blocktranslate with name=m.get_full_name|default:m.get_username %}{{ name }} is the only active admin. Make someone else an admin first.{% endblocktranslate %}{% endif %}</span></p>{% endif %}
+  <div id="confirm-member-{{ m.pk }}" data-confirm-slot>{% if confirm.1 == m.pk %}{% include "members/_confirm_member.html" with kind=confirm.0 %}{% endif %}</div>
+</li>

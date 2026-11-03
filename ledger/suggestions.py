@@ -13,12 +13,14 @@ they are asked again, such as after a model or prompt change.
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Protocol
 
 from django.db import transaction
 from django.db.models import QuerySet
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 from .models import Setting, Source, Subcategory, Transaction
 
@@ -80,6 +82,12 @@ class Suggester(Protocol):
         ...
 
 
+class Probe(Protocol):
+    def check(self) -> None:
+        """Raises SuggestionsUnavailable when the LLM can't be reached."""
+        ...
+
+
 @dataclass(frozen=True)
 class Run:
     """What one `run_once` did."""
@@ -99,11 +107,11 @@ def run_once(suggester: Suggester) -> Run:
         try:
             suggestion: Suggestion | None = suggester.suggest(_query(candidate))
         except SuggestionsUnavailable as error:
-            Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "1")
+            _failed()
             return Run(done, error)
         except NoSuggestion:
             suggestion = None
-        Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
+        _answered()
         _store(candidate.pk, suggestion)
     return Run(len(pending))
 
@@ -146,6 +154,97 @@ def resuggest_queue() -> int:
 def suggestions_unavailable() -> bool:
     """Whether the last call to the Suggester failed."""
     return Setting.get(Setting.SUGGESTIONS_UNAVAILABLE) == "1"
+
+
+def check_now(probe: Probe) -> bool:
+    """Asks the LLM whether it can be reached, as the worker's next call would find out, and records the answer like
+    one of its calls. Returns whether it answered."""
+    try:
+        probe.check()
+    except SuggestionsUnavailable:
+        _failed()
+        return False
+    _answered()
+    return True
+
+
+@dataclass(frozen=True)
+class Status:
+    """What the last call to the LLM found."""
+
+    unavailable: bool
+    answered_at: datetime | None
+    failed_at: datetime | None
+
+
+def status() -> Status:
+    return Status(
+        suggestions_unavailable(),
+        _time(Setting.LLM_ANSWERED_AT),
+        _time(Setting.LLM_FAILED_AT),
+    )
+
+
+# The threshold's steps on the LLM suggestions page, in % sure; the chart's bins are as wide, so each bin is wholly on
+# one side of the line.
+STEPS = range(50, 101, 5)
+BIN_WIDTH = 5
+
+
+@dataclass(frozen=True)
+class Overview:
+    """The LLM suggestions page's figures."""
+
+    with_suggestion: int
+    """Queued Transactions with a suggestion."""
+    waiting: int
+    """Unresolved Transactions the LLM hasn't been asked about yet."""
+    by_llm_this_month: int
+    """Transactions dated this month whose outcome the LLM set."""
+    askable_again: int
+    """Queued Transactions with an answer, usable or not, that `resuggest_queue` would clear."""
+    bins: list[int]
+    """The queued suggestions by how sure they are, in BIN_WIDTH % bins from 0 to 100 %."""
+    clearing: dict[int, int]
+    """For each of the threshold's STEPS, how many queued suggestions are at least that sure."""
+
+
+def overview() -> Overview:
+    queued = Transaction.objects.unresolved()
+    sureness = list(
+        queued.filter(suggested_subcategory__isnull=False, confidence__isnull=False).values_list(
+            "confidence", flat=True
+        )
+    )
+    bins = [0] * (100 // BIN_WIDTH)
+    for confidence in sureness:
+        bins[min(int(confidence * 100 + 1e-9) // BIN_WIDTH, len(bins) - 1)] += 1
+    today = timezone.localdate()
+    return Overview(
+        with_suggestion=len(sureness),
+        waiting=_awaiting_suggestion().count(),
+        by_llm_this_month=Transaction.objects.filter(
+            source=Source.LLM, date__year=today.year, date__month=today.month
+        ).count(),
+        askable_again=queued.filter(confidence__isnull=False).count(),
+        bins=bins,
+        clearing={step: sum(c * 100 + 1e-9 >= step for c in sureness) for step in STEPS},
+    )
+
+
+def _answered() -> None:
+    Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
+    Setting.put(Setting.LLM_ANSWERED_AT, timezone.now().isoformat())
+
+
+def _failed() -> None:
+    Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "1")
+    Setting.put(Setting.LLM_FAILED_AT, timezone.now().isoformat())
+
+
+def _time(key: str) -> datetime | None:
+    value = Setting.get(key)
+    return datetime.fromisoformat(value) if value else None
 
 
 def backoff(attempt: int) -> int:

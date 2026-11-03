@@ -342,22 +342,8 @@ main.entry-main { display: grid; place-items: center; max-width: none; padding: 
 .notice { margin-bottom: var(--s-4); }
 .notice h3 { margin-top: 0; }
 .notice ul { margin: 0 0 var(--s-3); padding-left: var(--s-5); }
-.stack-form { display: flex; flex-direction: column; gap: var(--s-3); max-width: 30rem; }
-.stack-form div { display: flex; flex-direction: column; gap: var(--s-1); }
-.stack-form button { align-self: flex-start; }
-.stack-form .actions { flex-direction: row; align-items: center; gap: var(--s-4); }
-.stack-form h3 { margin-top: 0; }
-.stack-form div:has(> input[type="checkbox"]) { flex-direction: row; align-items: center; gap: var(--s-2); }
-.stack-form select[multiple] { height: auto; padding: var(--s-1); background-image: none; }
-form.inline { display: inline; }
 .iban { margin: 0 0 .375rem; font-size: var(--text-sm); }
 details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin-bottom: .375rem; }
-.category-edit { margin-bottom: var(--s-3); }
-.category-edit h3 { margin-top: 0; }
-.edit-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.edit-row form { display: flex; align-items: center; gap: .375rem; }
-.subcategories { list-style: none; margin: var(--s-3) 0 0; padding: 0 0 0 var(--s-4); display: flex; flex-direction: column; gap: .375rem; }
-td.actions { white-space: nowrap; }
 
 /* ---------- Transaction row ---------- */
 /* docs/design/transaction-row.md: Date, Transaction, Account, Outcome and Amount, with a Raised hover. The outcome is
@@ -1030,7 +1016,7 @@ button.mark-open::after { content: ""; position: absolute; inset: 0; }
 .statements th, .statements td { padding: var(--s-2) var(--s-3); }
 
 /* Accounts (under Manage): the same board, a row opening in place on Raised to edit its Account. */
-.page-sub { margin: 0 0 var(--s-4); }
+.page-sub { max-width: 76ch; margin: 0 0 var(--s-4); }
 .who-name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
 .board-row[data-open] { background: var(--raised); }
 .account-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-6); padding-top: var(--s-3); }
@@ -1186,6 +1172,162 @@ mark { padding: 0 1px; border-radius: 3px; background: var(--match); color: inhe
 @media (max-width: 600px) {
   .r-matches th:first-child, .r-matches td:first-child { padding-left: var(--s-4); }
   .r-matches tr.grp th { display: block; padding: var(--s-2) var(--s-4); }
+}
+
+/* ---------- Admin pages ---------- */
+/* Categories, LLM suggestions and Members (docs/design/admin.md): each reads first, and editing is a step taken on
+   purpose. Small 30px buttons sit in their rows. */
+button.sm, .button.sm { height: 1.875rem; padding: 0 .625rem; font-size: var(--text-sm); }
+.icon-button.sm { width: 1.875rem; padding: 0; }
+.tag {
+  display: inline-flex; align-items: center; padding: 0 .4375rem; border: 1px solid var(--line-strong); border-radius: var(--r-pill);
+  color: var(--ink-2); font-size: .6875rem; font-weight: 600; line-height: 1.125rem; white-space: nowrap; vertical-align: .0625rem;
+}
+.tag.quiet { border-style: dashed; color: var(--muted); }
+.tag.you { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+
+/* Categories: read-only cards in Category order, each under a 4px band of its hue; one opens across two columns. */
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr)); gap: var(--s-4); align-items: start; }
+.cat-card { position: relative; overflow: hidden; padding: var(--s-4) var(--s-5) var(--s-5); }
+.cat-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--hue, var(--line-strong)); }
+.cat-head { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) 0 var(--s-2); }
+.cat-head h2, .cat-new-form h2 { display: flex; align-items: center; gap: var(--s-2); min-width: 0; margin: 0 auto 0 0; font-size: var(--text-title); }
+.cat-head .dot { flex: none; width: .625rem; height: .625rem; border-radius: 50%; background: var(--hue); }
+.cat-head .kind { color: var(--muted); font-size: var(--text-label); font-weight: 500; white-space: nowrap; }
+.cat-head form { display: flex; gap: var(--s-1); }
+.cat-subs { margin: 0; padding: 0; list-style: none; }
+.cat-subs li { display: flex; justify-content: space-between; gap: var(--s-3); padding: .3125rem 0; border-top: 1px solid var(--line); color: var(--ink-2); font-size: var(--text-sm); }
+.cat-subs li:first-child { border-top: 0; }
+.cat-subs .fig { color: var(--muted); }
+.cat-card.editing { box-shadow: 0 0 0 2px var(--accent), var(--shadow-pop); }
+.cat-card .error { margin: 0 0 var(--s-2); }
+.cat-name { width: 100%; margin-bottom: var(--s-3); }
+input.cat-name { height: 2.375rem; font-size: var(--text-title); font-weight: 600; }
+.cat-rows { display: grid; gap: var(--s-1); margin: 0; padding: 0; list-style: none; }
+.ed-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--s-2); align-items: center; }
+.cat-rows input, .cat-add input { width: 100%; }
+input:is(.ed-row *, .cat-add *) { height: 2.125rem; }
+.ed-counts { color: var(--muted); font-size: var(--text-label); white-space: nowrap; }
+.row-acts { display: flex; gap: var(--s-1); }
+.cat-rows .confirm, .cat-card > [data-confirm-slot] .confirm { max-width: none; margin: var(--s-2) 0; }
+.cat-add { display: flex; gap: var(--s-2); margin-top: var(--s-2); }
+.cat-add button { height: 2.125rem; }
+.cat-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.cat-foot form { margin-left: auto; }
+.cat-new {
+  display: grid; place-content: center; justify-items: center; gap: var(--s-2); min-height: 10rem; height: auto; padding: var(--s-4);
+  border: 1.5px dashed var(--line-strong); border-radius: var(--r-card); background: none; box-shadow: none;
+  color: var(--muted); font: 500 var(--text-body)/1.5 var(--font); text-decoration: none;
+}
+.cat-new:hover { background: var(--card); color: var(--ink); }
+.cat-new .icon { width: 1.375rem; height: 1.375rem; color: inherit; }
+button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
+.cat-new-form form { display: grid; gap: var(--s-3); margin-top: var(--s-3); }
+.cat-new-form select { width: 100%; }
+.cat-new-form .helptext { margin: 0; }
+@media (min-width: 1000px) {
+  .cat-card.editing { grid-column: span 2; }
+}
+
+/* LLM suggestions: the status strip, the chart of how sure the queued suggestions are with the threshold's line, and
+   Ask again. The states never use red or green. */
+.llm { display: grid; gap: var(--s-4); max-width: 61.25rem; }
+.llm h2 { margin: 0; font-size: var(--text-title); }
+.offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); max-width: 61.25rem; margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--ink); }
+.offer p { flex: 1 1 18rem; margin: 0; }
+.llm-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-5); padding: var(--s-4) var(--s-5); }
+.status-dot { flex: none; width: .625rem; height: .625rem; border-radius: 50%; }
+.status-dot.working { background: var(--ink-2); }
+.status-dot.unreachable { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+.status-dot.off { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.llm-state { display: grid; margin: 0; }
+.llm-state b { font-size: var(--text-title); font-weight: 600; }
+.llm-state span { color: var(--muted); font-size: var(--text-label); }
+.stats { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin: 0; }
+.stats dt { color: var(--muted); font-size: var(--text-label); font-weight: 500; }
+.stats dd { margin: 0; font-size: var(--text-title); font-weight: 600; }
+.llm-strip form { margin-left: auto; }
+.llm-line { max-width: 76ch; margin: calc(var(--s-1) * -1) var(--s-1) 0; font-size: var(--text-sm); }
+.chart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); }
+.chart-head h2 { margin-right: auto; }
+.chart-head span { font-size: var(--text-label); }
+/* 5 % bins edge to edge, so the threshold's line, at its % of the width, falls between two bins. */
+.hist { position: relative; display: grid; grid-template-columns: repeat(20, 1fr); align-items: end; height: 11.25rem; margin: var(--s-8) 0 var(--s-2); border-bottom: 1px solid var(--line-strong); }
+.hbar { position: relative; height: var(--h); min-height: 2px; margin: 0 2px; border-radius: 4px 4px 0 0; background: var(--line-strong); }
+.hbar.over { background: var(--ink-2); }
+.hbar span { position: absolute; bottom: 100%; left: 0; right: 0; padding-bottom: .125rem; color: var(--muted); font-size: var(--text-label); text-align: center; }
+.hist .line { position: absolute; top: -.75rem; bottom: -.375rem; left: calc(var(--at) - 1px); width: 2px; background: var(--accent); pointer-events: none; }
+/* Left of the line, which never sits left of 50 %. */
+.hist .line > span { position: absolute; top: -.875rem; right: .375rem; color: var(--accent-text); font-size: var(--text-label); font-weight: 600; white-space: nowrap; }
+/* 0 to 100 %, each label centred on its place, the first and last kept inside the axis. */
+.ticks { position: relative; height: 1rem; color: var(--muted); font-size: .6875rem; }
+.ticks span { position: absolute; left: var(--at); transform: translateX(-50%); white-space: nowrap; }
+.ticks span:first-child { transform: none; }
+.ticks span:last-child { transform: translateX(-100%); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-3) 0 0; font-size: var(--text-label); }
+.legend i { display: inline-block; width: .625rem; height: .625rem; margin-right: .375rem; border-radius: 2px; vertical-align: -.0625rem; }
+.legend .below { background: var(--line-strong); }
+.legend .past { background: var(--ink-2); }
+.thr { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-top: var(--s-4); }
+.thr label { font-size: var(--text-body); }
+.thr input[type="range"] { flex: 1 1 12rem; min-width: 0; accent-color: var(--accent); }
+.thr .pct { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
+.thr input[type="number"] { width: 5.5rem; text-align: right; }
+.thr-note { margin: var(--s-2) 0 0; font-size: var(--text-label); }
+.llm .error { margin: var(--s-2) 0 0; }
+.llm-again > p { margin: var(--s-2) 0 var(--s-3); }
+.llm-again .confirm { margin-top: var(--s-3); }
+.llm-again:has(.confirm) > [data-confirm-opener] { display: none; }
+
+/* Members: a card per role, the section being the state and the row's buttons the actions. */
+.roles { display: grid; gap: var(--s-4); max-width: 56.25rem; }
+.role { padding-bottom: var(--s-3); }
+.role-head h2 { margin: 0; font-size: var(--text-title); }
+.role-head .count { color: var(--muted); font-weight: 400; }
+.role-head p { margin: var(--s-1) 0 var(--s-2); font-size: var(--text-sm); }
+.role-none { margin: 0; font-size: var(--text-sm); }
+.member-rows { margin: 0; padding: 0; list-style: none; }
+.member-rows > li { border-top: 1px solid var(--line); }
+.member-rows > li:first-child { border-top: 0; }
+.m-row { display: grid; grid-template-columns: 1.875rem minmax(0, 1fr) auto auto; gap: var(--s-3); align-items: center; padding: .625rem 0; }
+.m-who { display: grid; min-width: 0; }
+.m-name { font-weight: 500; }
+.m-sub { color: var(--muted); font-size: var(--text-label); overflow-wrap: anywhere; }
+.m-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); }
+.m-acts form { display: contents; }
+.member-row > .reason { max-width: none; margin: 0 0 .625rem 2.625rem; }
+.member-row .confirm { margin: 0 0 .625rem 2.625rem; }
+
+/* A modal dialog over the page (Invite a Member, a one-time link). */
+.dialog { width: calc(100vw - 2rem); max-width: 30rem; padding: var(--s-6); border: 0; border-radius: var(--r-card); background: var(--card); color: var(--ink); box-shadow: var(--shadow-pop); }
+.dialog.wide { max-width: 35rem; }
+.dialog::backdrop { background: rgb(0 0 0 / .4); }
+.dialog h2 { margin: 0 0 var(--s-3); font-size: var(--text-wordmark); }
+.dialog p { margin: 0 0 var(--s-3); color: var(--ink-2); }
+.dialog .helptext { margin: 0; color: var(--muted); }
+.dialog-form { display: grid; gap: var(--s-4); }
+.dialog-form p { margin: 0; }
+.dialog .form-actions { justify-content: flex-end; }
+.dialog-foot { margin-top: var(--s-5); }
+.link-box { display: flex; gap: var(--s-2); }
+.link-box input { flex: 1; min-width: 0; height: 2.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-sm); }
+.link-box button { height: 2.5rem; }
+.dialog .facts { display: grid; gap: var(--s-2); margin: var(--s-4) 0 0; padding: 0; list-style: none; }
+.dialog .facts li { display: flex; gap: .625rem; color: var(--ink-2); }
+.dialog .facts .icon { width: 1.125rem; height: 1.125rem; margin-top: .0625rem; color: var(--accent-text); }
+.dialog .facts b { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 600px) {
+  .ed-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .ed-row input { grid-column: 1 / -1; }
+  .hist { height: 8.75rem; }
+  .hbar span { font-size: .625rem; }
+  .ticks span:nth-child(even) { visibility: hidden; }
+  .m-row { grid-template-columns: 1.875rem minmax(0, 1fr); }
+  .m-row > .tag, .m-acts { grid-column: 2; justify-self: start; justify-content: flex-start; }
+  .member-row > .reason, .member-row .confirm { margin-left: 0; }
+  .link-box { flex-direction: column; }
+  .link-box input { flex: none; }
 }
 
 /* ---------- Empty states and first run ---------- */

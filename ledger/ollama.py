@@ -15,6 +15,9 @@ from .suggestions import NoSuggestion, Query, Suggestion, SuggestionsUnavailable
 
 MODEL = "qwen3-vl:8b"
 
+# Seconds Check now on the LLM suggestions page waits for the server, as an admin waits for the page.
+CHECK_TIMEOUT = 5
+
 # Stored data, so not translated. The household's conventions, from the default Category list.
 SYSTEM = """You categorize one household bank Transaction (a Household in Slovenia; merchant names and
 purposes are often Slovenian) into exactly one Subcategory from this list:
@@ -71,16 +74,24 @@ class OllamaSuggester:
             raise NoSuggestion(f"unusable answer from Ollama: {response!r:.200}") from err
         return Suggestion(subcategory, answer_confidence(response.get("logprobs") or [], answer))
 
+    def check(self) -> None:
+        """Asks the Ollama server for its version: whether it can be reached at all."""
+        self._call("/api/version", timeout=CHECK_TIMEOUT)
+
     def _post(self, body: dict) -> dict:
+        return self._call("/api/chat", body, timeout=self.timeout)
+
+    def _call(self, path: str, body: dict | None = None, *, timeout: float) -> dict:
+        """GETs `path`, or POSTs `body` to it as JSON, and returns the JSON answer."""
         if not self.base_url:
             raise SuggestionsUnavailable("no Ollama URL is configured (OLLAMA_URL)")
         request = urllib.request.Request(
-            f"{self.base_url}/api/chat",
-            json.dumps(body).encode(),
+            f"{self.base_url}{path}",
+            None if body is None else json.dumps(body).encode(),
             {"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
                 return json.load(response)
         except (OSError, ValueError) as err:  # URLError, HTTPError and timeouts are OSErrors
             raise SuggestionsUnavailable(f"Ollama at {self.base_url}: {err}") from err

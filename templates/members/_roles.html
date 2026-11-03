@@ -1,0 +1,17 @@
+{% load i18n %}{% comment %} The Members page's role cards (docs/design/admin.md): the section a Member is in is their state, the
+buttons on their row are the actions. Swapped in alone after a step, or out of band with a dialog. {% endcomment %}
+{% if alone %}{% include "_title.html" %}{% endif %}
+<div id="roles" class="roles"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for group in groups %}
+  <section class="panel role" aria-labelledby="role-{{ group.key }}">
+    <div class="role-head"><h2 id="role-{{ group.key }}" tabindex="-1">{{ group.title }} <span class="count fig">· {{ group.members|length }}</span></h2><p class="muted">{{ group.text }}</p></div>
+    {% if group.members %}
+    <ul class="member-rows">{% for m in group.members %}{% include "members/_member_row.html" %}{% endfor %}</ul>
+    {% elif group.key == "deactivated" %}
+    <p class="muted role-none">{% translate "Nobody is deactivated." %}</p>
+    {% else %}
+    <p class="muted role-none">{% translate "Nobody yet." %}</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>

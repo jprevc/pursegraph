@@ -1,0 +1,49 @@
+{% load i18n icons hues %}{% comment %} The Categories grid (docs/design/admin.md): read-only cards in Category order, the one being edited opened
+across two columns, and the New Category tile. Swapped in alone for every step of an edit. {% endcomment %}
+{% if alone %}{% include "_title.html" with page_title=_("Categories") %}{% endif %}
+{% url 'categories' as categories_url %}
+<div id="categories" class="cat-grid">
+  {% for category in categories %}
+  {% if category.pk == editing %}
+  {% include "ledger/_category_edit.html" %}
+  {% else %}
+  <section class="panel cat-card" style="--hue: var(--{{ category.pk|hue }})" aria-labelledby="cat-{{ category.pk }}">
+    <div class="cat-head"><h2 id="cat-{{ category.pk }}" tabindex="-1"{% if focus == category.pk %} data-focus{% endif %}><span class="dot" aria-hidden="true"></span>{{ category.name }}</h2>
+      <span class="kind">{{ category.get_kind_display }}</span>
+      {% if editing or new %}
+      <button type="button" class="ghost sm" disabled aria-label="{% blocktranslate with name=category.name %}Edit {{ name }}{% endblocktranslate %}">{% icon "edit" %}{% translate "Edit" %}</button>
+      {% else %}
+      <a class="button ghost sm" href="{{ categories_url }}?edit={{ category.pk }}" hx-get="{{ categories_url }}?edit={{ category.pk }}" hx-target="#categories" hx-swap="outerHTML" aria-label="{% blocktranslate with name=category.name %}Edit {{ name }}{% endblocktranslate %}">{% icon "edit" %}{% translate "Edit" %}</a>
+      {% endif %}
+    </div>
+    <ul class="cat-subs">
+      {% for s in category.subcategories.all %}
+      <li><span class="sub-name">{{ s.name }}{% if s.is_catch_all %} <span class="tag quiet">{% translate "catch-all" %}</span>{% endif %}{% if s.is_bank_fees %} <span class="tag">{% translate "bank fees" %}</span>{% endif %}</span><span class="fig">{{ s.transaction_count }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  {% endfor %}
+  {% if new %}
+  <section class="panel cat-card cat-new-form" aria-labelledby="new-category">
+    <h2 id="new-category" tabindex="-1">{% translate "New Category" %}</h2>
+    <form method="post" action="{% url 'add_category' %}" hx-post="{% url 'add_category' %}" hx-target="#categories" hx-swap="outerHTML" data-action>
+      {% csrf_token %}
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <div class="field"><label for="new-category-name">{% translate "Name" %}</label><input id="new-category-name" name="name" maxlength="100" required data-focus></div>
+      <div class="field"><label for="new-category-kind">{% translate "Kind" %}</label><select id="new-category-kind" name="kind">{% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+      <p class="helptext">{% translate "It starts with one catch-all, Other (Other income for an income Category)." %}</p>
+      <div class="form-actions">
+        <a class="button ghost" href="{{ categories_url }}" hx-get="{{ categories_url }}" hx-target="#categories" hx-swap="outerHTML">{% translate "Cancel" %}</a>
+        <button type="submit" class="primary">{% translate "Add Category" %}</button>
+      </div>
+    </form>
+  </section>
+  {% else %}
+  {% if editing %}
+  <button type="button" class="cat-new" disabled>{% icon "plus" %}{% translate "New Category" %}</button>
+  {% else %}
+  <a class="cat-new" href="{{ categories_url }}?new" hx-get="{{ categories_url }}?new" hx-target="#categories" hx-swap="outerHTML">{% icon "plus" %}{% translate "New Category" %}</a>
+  {% endif %}
+  {% endif %}
+</div>

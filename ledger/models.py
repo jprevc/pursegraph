@@ -384,8 +384,16 @@ class Setting(models.Model):
     AUTO_ACCEPT_THRESHOLD = "auto_accept_threshold"
     # "1" while the last call to the LLM failed.
     SUGGESTIONS_UNAVAILABLE = "suggestions_unavailable"
+    # When the LLM last answered, and when a call to it last failed (ISO 8601), for the LLM suggestions page.
+    LLM_ANSWERED_AT = "llm_answered_at"
+    LLM_FAILED_AT = "llm_failed_at"
 
-    DEFAULTS = {AUTO_ACCEPT_THRESHOLD: "0.90", SUGGESTIONS_UNAVAILABLE: ""}
+    DEFAULTS = {
+        AUTO_ACCEPT_THRESHOLD: "0.90",
+        SUGGESTIONS_UNAVAILABLE: "",
+        LLM_ANSWERED_AT: "",
+        LLM_FAILED_AT: "",
+    }
 
     key = models.CharField(_("key"), max_length=50, primary_key=True)
     value = models.CharField(_("value"), max_length=200, blank=True)

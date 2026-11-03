@@ -1,53 +1,18 @@
 {% extends "shell.html" %}
-{% load i18n %}
+{% load i18n icons static %}
 {% block title %}{% translate "Members" %}{% endblock %}
+{% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
-<h1 tabindex="-1">{% translate "Members" %}</h1>
-{% for message in messages %}<p class="panel notice {{ message.tags }}">{{ message }}</p>{% endfor %}
-<p><a class="button primary" href="{% url 'new_member' %}">{% translate "New Member" %}</a></p>
-<div class="scroll">
-<table>
-  <thead><tr><th>{% translate "Name" %}</th><th>{% translate "Username" %}</th><th>{% translate "Status" %}</th><th>{% translate "Admin" %}</th><th></th></tr></thead>
-  <tbody>
-  {% for m in members %}
-    <tr{% if not m.is_active %} class="muted"{% endif %}>
-      <td>{{ m.get_full_name }}</td>
-      <td>{{ m.get_username }}</td>
-      <td>
-        <form method="post" action="{% url 'member_active' m.pk %}" class="inline">
-          {% csrf_token %}
-          {% if m.is_active %}
-            {% translate "Active" %} <input type="hidden" name="active" value="0"><button type="submit" class="link">{% translate "Deactivate" %}</button>
-          {% else %}
-            {% translate "Deactivated" %} <input type="hidden" name="active" value="1"><button type="submit" class="link">{% translate "Reactivate" %}</button>
-          {% endif %}
-        </form>
-      </td>
-      <td>
-        <form method="post" action="{% url 'member_admin' m.pk %}" class="inline">
-          {% csrf_token %}
-          {% if m.is_admin %}
-            {% translate "Admin" %} <input type="hidden" name="admin" value="0"><button type="submit" class="link">{% translate "Remove admin" %}</button>
-          {% else %}
-            <input type="hidden" name="admin" value="1"><button type="submit" class="link">{% translate "Make admin" %}</button>
-          {% endif %}
-        </form>
-      </td>
-      <td>
-        {% if m.is_active %}
-        <form method="post" action="{% url 'member_reset_link' m.pk %}" class="inline">
-          {% csrf_token %}
-          <button type="submit" class="link">{% translate "Password-reset link" %}</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="page-head">
+  <h1 tabindex="-1">{% translate "Members" %}</h1>
+  <a class="button primary" href="{% url 'new_member' %}" hx-get="{% url 'new_member' %}" hx-target="#dialog-slot">{% icon "plus" %}{% translate "Invite a Member" %}</a>
 </div>
-{% if alone %}
+<p class="page-sub muted">{% translate "Everyone in the Household who logs in. Admins also manage Members, Accounts, Categories and the LLM suggestions. There is no email here: invite and reset links are passed on by hand." %}</p>
+{% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
+{% include "members/_roles.html" %}
+{% if only_admin %}
 {% url 'new_member' as new_member_url %}{% translate "Invite the rest of the Household" as heading %}{% translate "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." as text %}{% translate "Invite a Member" as primary_label %}
 {% include "_empty.html" with icon="people" primary_href=new_member_url primary_icon="plus" %}
 {% endif %}
+<div id="dialog-slot">{% if dialog_template %}{% include dialog_template with open=True %}{% endif %}</div>
 {% endblock %}
