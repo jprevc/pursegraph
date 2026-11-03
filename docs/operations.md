@@ -1,6 +1,6 @@
 # Operations
 
-Installing Pursegraph and keeping it running: backups, restores, re-parsing and admin recovery. Run the commands from the directory with `docker-compose.yml`.
+Installing Pursegraph and keeping it running: Categorizers, backups, restores, re-parsing and admin recovery. Run the commands from the directory with `docker-compose.yml`.
 
 ## Installing
 
@@ -25,6 +25,225 @@ Installing Pursegraph and keeping it running: backups, restores, re-parsing and 
    ```
 
    It prompts for the password. Then open `http://<host>:8000/` (or the `PURSEGRAPH_PORT` you set) and log in.
+4. For suggested Subcategories, create a token for a Categorizer, such as the bundled Ollama one; see [Categorizers](#categorizers).
+
+## Categorizers
+
+Transactions that no Rule categorizes wait for a Suggestion. A Categorizer is a program that fetches them through the [Categorizer API](#the-categorizer-api) and sends back a Subcategory with how sure it is. Pursegraph itself calls no LLM (see [ADR 0001](adr/0001-categorizers-pull-suggestions-through-an-api.md)). A Suggestion at least as sure as the auto-accept threshold on the LLM suggestions page sets the outcome; the rest wait in the Review queue, preselected. That threshold applies to every Categorizer alike, so a Categorizer must report a confidence that means something. Without a Categorizer the Review queue fills without suggestions.
+
+Transaction text leaves the LAN only if a Categorizer sends it elsewhere. The bundled Ollama Categorizer sends it only to your Ollama server, but one that asks a cloud service sends it there. That choice is made when an admin creates a token for it.
+
+### Creating a token
+
+Each Categorizer connects with a token of its own, which can only fetch the waiting Transactions and send Suggestions back; it can't log in.
+
+1. As an admin, open **Categorizers** in the sidebar's Manage links, name the token after the Categorizer (such as "Ollama on the NAS") and create it.
+2. Copy the token from the dialog. It starts with `pgc_` and is shown only once; only a hash of it is stored.
+3. Give it to the Categorizer. For the bundled one, put it in `.env` as `CATEGORIZER_TOKEN` (below).
+
+A lost or leaked token can't be shown again: revoke it on the same page and create another. Calls made with a revoked token get a 401 at once. The page lists when each token was last used, and the LLM suggestions page shows how many Transactions are waiting, since when, and which token sent the last Suggestion.
+
+### The bundled Ollama Categorizer
+
+Pursegraph ships an Ollama Categorizer, which uses only the Categorizer API. It needs:
+
+- `PURSEGRAPH_URL`: where it reaches Pursegraph;
+- `CATEGORIZER_TOKEN`: its token from the Categorizers page;
+- `OLLAMA_URL`: the Ollama server, such as `http://192.168.1.10:11434`.
+
+It checks for waiting Transactions every 10 seconds. While Ollama doesn't answer it waits longer between tries, up to 5 minutes, and until `CATEGORIZER_TOKEN` is set it logs that and waits. It doesn't wake a sleeping machine; for that, see [Waking a sleeping LLM machine](#waking-a-sleeping-llm-machine).
+
+**In Compose,** the `categorize_worker` service runs it next to Pursegraph, and Compose points `PURSEGRAPH_URL` at the `web` service. Set `OLLAMA_URL` in `.env`, create a token, add it to `.env` and restart the service:
+
+```sh
+echo 'CATEGORIZER_TOKEN=pgc_...' >> .env
+docker compose up -d categorize_worker
+docker compose logs -f categorize_worker
+```
+
+**On another machine,** such as the Ollama machine itself, run only that service from a checkout of Pursegraph there. Its `.env` holds just the three variables, with `PURSEGRAPH_URL` pointing at the Pursegraph host. That host's name or IP must be in Pursegraph's `DJANGO_ALLOWED_HOSTS`. Then stop the `categorize_worker` service on the Pursegraph machine, or leave `CATEGORIZER_TOKEN` unset there.
+
+```sh
+docker compose up -d --build --no-deps categorize_worker
+```
+
+### The Categorizer API
+
+Every call sends the token as `Authorization: Bearer pgc_...`. The API takes no session or CSRF token, and it answers in JSON.
+
+#### Fetching the waiting Transactions
+
+```http
+GET /api/categorizer/v1/transactions/?limit=50
+```
+
+`limit` is optional: from 1 to 200, 50 by default. The answer is the Subcategories to choose from, and up to `limit` Transactions waiting for a Suggestion, oldest first:
+
+```json
+{
+  "subcategories": [
+    {"id": 1, "label": "Food > Groceries"},
+    {"id": 2, "label": "Food > Restaurants & cafés"}
+  ],
+  "transactions": [
+    {
+      "id": 812,
+      "direction": "out",
+      "amount": "23.40",
+      "description": "Kavarna Zvezda",
+      "detail": "Card payment",
+      "examples": [
+        {"direction": "out", "description": "Mercator", "detail": "", "subcategory": 1}
+      ]
+    }
+  ]
+}
+```
+
+- `direction` is `"in"` or `"out"`, and `amount` is the amount in EUR without its sign, as a string with two decimals.
+- `detail` is other text the parser found on the Transaction, such as the counterparty or a purpose line, joined with `; `; it may be empty.
+- `examples` are the Household's latest manual outcome for each other merchant, most recent first and at most 100, as few-shot examples for a prompt. Their `subcategory` is an `id` from `subcategories`.
+
+Fetching claims nothing: the same Transactions come back until Suggestions for them arrive, or until a Member categorizes them. Two Categorizers may therefore get the same Transaction; the first Suggestion stored wins.
+
+#### Sending a Suggestion
+
+```http
+POST /api/categorizer/v1/transactions/812/suggestion/
+Content-Type: application/json
+
+{"subcategory": 2, "confidence": 0.93}
+```
+
+`subcategory` is an `id` from the last fetch, and `confidence` is a number from 0 to 1: how sure the Categorizer is. To say it has no suggestion, so the Transaction waits in the Review queue without one and isn't fetched again, send `{"subcategory": null}`. The answer:
+
+```json
+{"stored": true, "accepted": true}
+```
+
+- `stored` is false when the Suggestion was ignored: the Transaction already has an outcome or a Suggestion (the first one wins), or the Subcategory was deleted meanwhile. That last one is fetched again.
+- `accepted` is true when the Suggestion cleared the auto-accept threshold and set the Transaction's outcome.
+
+#### Errors
+
+| Status | When |
+| --- | --- |
+| 400 | A malformed request: `limit` out of range, a body that isn't a JSON object with `"subcategory"`, a `subcategory` that isn't an id or `null`, or a missing or out-of-range `confidence`. Also an unknown Subcategory; fetch again for the current ones. |
+| 401 | A missing, wrong or revoked token. The answer has `WWW-Authenticate: Bearer`. |
+| 404 | No Transaction with that id. |
+| 405 | The wrong method, with an empty body and an `Allow` header. |
+
+All but the 405 answer `{"error": "<why>"}`, such as `{"error": "limit must be a whole number from 1 to 200."}`.
+
+### Waking a sleeping LLM machine
+
+If Ollama runs on a machine that sleeps until it is woken with Wake-on-LAN, the Categorizer should poll from an always-on machine instead, such as the Pursegraph host or a NAS. When Transactions are waiting and Ollama doesn't answer, it wakes the machine. The sample below does that. It is documentation, not part of Pursegraph: copy it, then fit it to your machine. It needs only Python 3 and the same three variables as the bundled Categorizer, plus `OLLAMA_MAC`, the MAC address of the Ollama machine's network card. Wake-on-LAN must be enabled in that machine's firmware and network settings. If the always-on machine is on another subnet, set `BROADCAST` to that subnet's broadcast address, such as `192.168.1.255`.
+
+Its prompt is minimal and it reports a fixed confidence of 0.5, so its Suggestions never clear the default auto-accept threshold of 0.90. Before letting it auto-accept, give it a real confidence, as the bundled Categorizer does with Ollama's `logprobs`.
+
+```python
+"""A Categorizer that wakes the sleeping Ollama machine with Wake-on-LAN when Transactions are waiting."""
+
+import json
+import os
+import socket
+import time
+import urllib.request
+
+PURSEGRAPH_URL = os.environ["PURSEGRAPH_URL"].rstrip("/")
+TOKEN = os.environ["CATEGORIZER_TOKEN"]
+OLLAMA_URL = os.environ["OLLAMA_URL"].rstrip("/")
+OLLAMA_MAC = os.environ["OLLAMA_MAC"]  # the Ollama machine's network card, e.g. 3c:7c:3f:12:34:56
+BROADCAST = os.environ.get("BROADCAST", "255.255.255.255")
+MODEL = os.environ.get("MODEL", "qwen3-vl:8b")
+POLL, WAKE_TIMEOUT = 60, 180  # seconds
+
+
+def call(url, body=None, headers=None, timeout=10):
+    data = None if body is None else json.dumps(body).encode()
+    headers = {"Content-Type": "application/json", **(headers or {})}
+    with urllib.request.urlopen(urllib.request.Request(url, data, headers), timeout=timeout) as r:
+        return json.load(r)
+
+
+def pursegraph(path, body=None):
+    return call(PURSEGRAPH_URL + path, body, {"Authorization": f"Bearer {TOKEN}"})
+
+
+def ollama_up():
+    try:
+        call(OLLAMA_URL + "/api/version", timeout=3)
+        return True
+    except OSError:
+        return False
+
+
+def wake():
+    """Sends the magic packet (6 × 0xFF, then the MAC 16 times) and waits for Ollama to answer."""
+    packet = b"\xff" * 6 + bytes.fromhex(OLLAMA_MAC.replace(":", "").replace("-", "")) * 16
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.sendto(packet, (BROADCAST, 9))
+    deadline = time.monotonic() + WAKE_TIMEOUT
+    while time.monotonic() < deadline:
+        if ollama_up():
+            return True
+        time.sleep(5)
+    return False
+
+
+def suggest(transaction, labels):
+    """Asks Ollama for one of the labels. A fixed 0.5 is below the auto-accept threshold, so every
+    Suggestion waits in the Review queue. Report a real confidence before letting it auto-accept,
+    such as the bundled Categorizer's, from Ollama's logprobs."""
+    t = transaction
+    text = f"{t['direction']} {t['amount']} EUR: {t['description']} {t['detail']}"
+    answer = call(
+        OLLAMA_URL + "/api/chat",
+        {
+            "model": MODEL,
+            "stream": False,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Pick the Subcategory of this bank Transaction: {text}",
+                }
+            ],
+            "format": {
+                "type": "object",
+                "properties": {"subcategory": {"type": "string", "enum": list(labels)}},
+                "required": ["subcategory"],
+            },
+        },
+        timeout=120,
+    )
+    label = json.loads(answer["message"]["content"])["subcategory"]
+    return {"subcategory": labels[label], "confidence": 0.5}
+
+
+while True:
+    try:
+        work = pursegraph("/api/categorizer/v1/transactions/?limit=20")
+        if not work["transactions"]:
+            time.sleep(POLL)
+            continue
+        if not ollama_up() and not wake():
+            print("Ollama didn't wake up; trying again later", flush=True)
+            time.sleep(POLL)
+            continue
+        labels = {s["label"]: s["id"] for s in work["subcategories"]}
+        for transaction in work["transactions"]:
+            try:
+                body = suggest(transaction, labels)
+            except (KeyError, ValueError):  # an unusable answer: no Suggestion
+                body = {"subcategory": None}
+            pursegraph(f"/api/categorizer/v1/transactions/{transaction['id']}/suggestion/", body)
+    except OSError as error:  # Pursegraph or Ollama unreachable, or an HTTP error
+        print(error, flush=True)
+        time.sleep(POLL)
+```
+
+Run it with `python3 wake_categorizer.py` and the variables set, for example as a systemd service. In a container, the magic packet is a UDP broadcast, and Docker's default bridge network doesn't pass it onto the LAN. Give the container the host's network (`network_mode: host` in Compose, `--network host` with `docker run`).
 
 ## Backups
 
