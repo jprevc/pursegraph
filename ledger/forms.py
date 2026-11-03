@@ -270,6 +270,12 @@ class ThresholdForm(forms.Form):
     )
 
 
+class CategorizerTokenForm(forms.Form):
+    """A new Categorizer token: what the Categorizers page calls it."""
+
+    name = forms.CharField(label=_("Name"), max_length=100)
+
+
 class RuleForm(forms.ModelForm):
     """A Rule's conditions and outcome: a Subcategory's id, or TRANSFER. A new Rule goes to the top."""
 

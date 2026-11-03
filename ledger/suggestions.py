@@ -18,11 +18,11 @@ from decimal import Decimal
 from typing import Protocol
 
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import Min, QuerySet
 from django.db.models.functions import Lower
 from django.utils import timezone
 
-from .models import Setting, Source, Subcategory, Transaction
+from .models import CategorizerToken, Setting, Source, Subcategory, Transaction
 
 # The `raw` keys whose text helps tell what a Transaction was for, across the parsers.
 DETAIL_KEYS = ("Type", "n26_category", "purpose", "to", "from", "reference")
@@ -79,12 +79,6 @@ class NoSuggestion(Exception):
 class Suggester(Protocol):
     def suggest(self, query: Query) -> Suggestion:
         """Raises SuggestionsUnavailable when it can't answer, NoSuggestion when its answer is unusable."""
-        ...
-
-
-class Probe(Protocol):
-    def check(self) -> None:
-        """Raises SuggestionsUnavailable when the LLM can't be reached."""
         ...
 
 
@@ -156,35 +150,6 @@ def suggestions_unavailable() -> bool:
     return Setting.get(Setting.SUGGESTIONS_UNAVAILABLE) == "1"
 
 
-def check_now(probe: Probe) -> bool:
-    """Asks the LLM whether it can be reached, as the worker's next call would find out, and records the answer like
-    one of its calls. Returns whether it answered."""
-    try:
-        probe.check()
-    except SuggestionsUnavailable:
-        _failed()
-        return False
-    _answered()
-    return True
-
-
-@dataclass(frozen=True)
-class Status:
-    """What the last call to the LLM found."""
-
-    unavailable: bool
-    answered_at: datetime | None
-    failed_at: datetime | None
-
-
-def status() -> Status:
-    return Status(
-        suggestions_unavailable(),
-        _time(Setting.LLM_ANSWERED_AT),
-        _time(Setting.LLM_FAILED_AT),
-    )
-
-
 # The threshold's steps on the LLM suggestions page, in % sure; the chart's bins are as wide, so each bin is wholly on
 # one side of the line.
 STEPS = range(50, 101, 5)
@@ -198,7 +163,11 @@ class Overview:
     with_suggestion: int
     """Queued Transactions with a suggestion."""
     waiting: int
-    """Unresolved Transactions the LLM hasn't been asked about yet."""
+    """Unresolved Transactions waiting for a Suggestion."""
+    waiting_since: datetime | None
+    """When the Statement of the one waiting longest was imported: the first Statement it was on."""
+    last_suggestion: CategorizerToken | None
+    """The token that sent the last Suggestion stored, with when (`last_suggestion_at`); it may be revoked since."""
     by_llm_this_month: int
     """Transactions dated this month whose outcome the LLM set."""
     askable_again: int
@@ -223,6 +192,12 @@ def overview() -> Overview:
     return Overview(
         with_suggestion=len(sureness),
         waiting=_awaiting_suggestion().count(),
+        waiting_since=_awaiting_suggestion().aggregate(since=Min("statements__imported_at"))[
+            "since"
+        ],
+        last_suggestion=CategorizerToken.objects.filter(last_suggestion_at__isnull=False)
+        .order_by("-last_suggestion_at")
+        .first(),
         by_llm_this_month=Transaction.objects.filter(
             source=Source.LLM, date__year=today.year, date__month=today.month
         ).count(),
@@ -234,17 +209,10 @@ def overview() -> Overview:
 
 def _answered() -> None:
     Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
-    Setting.put(Setting.LLM_ANSWERED_AT, timezone.now().isoformat())
 
 
 def _failed() -> None:
     Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "1")
-    Setting.put(Setting.LLM_FAILED_AT, timezone.now().isoformat())
-
-
-def _time(key: str) -> datetime | None:
-    value = Setting.get(key)
-    return datetime.fromisoformat(value) if value else None
 
 
 def backoff(attempt: int) -> int:
@@ -258,7 +226,45 @@ def _awaiting_suggestion() -> "QuerySet[Transaction]":
     )
 
 
-def _store(pk: int, suggestion: Suggestion | None) -> None:
+@dataclass(frozen=True)
+class Received:
+    """What became of a Suggestion sent back by a Categorizer."""
+
+    stored: bool
+    """False when it was ignored: the Transaction already had an outcome or a Suggestion, or the Subcategory was
+    deleted meanwhile."""
+    accepted: bool
+    """It cleared the auto-accept threshold and set the outcome."""
+
+
+def waiting(limit: int) -> tuple[list[Subcategory], list[tuple[int, Query]]]:
+    """For a Categorizer: the Subcategories to choose from, and up to `limit` Transactions waiting for a
+    Suggestion, oldest first, each by id with what it is asked. Nothing is claimed: the same ones come back until
+    Suggestions for them arrive."""
+    subcategories = _subcategories()
+    return subcategories, [
+        (candidate.pk, _query(candidate, subcategories))
+        for candidate in _awaiting_suggestion()[:limit]
+    ]
+
+
+def receive(pk: int, suggestion: Suggestion | None, token: CategorizerToken) -> Received:
+    """Stores a Categorizer's Suggestion for the Transaction `pk`, or with None that it has none, as `run_once`
+    stores an answer, and records that `token` sent it."""
+    with transaction.atomic():
+        received = _store(pk, suggestion)
+        if received.stored:
+            token.last_suggestion_at = timezone.now()
+            token.save(update_fields=["last_suggestion_at"])
+    return received
+
+
+def label(subcategory: Subcategory) -> str:
+    """How a Categorizer sees a Subcategory: "Category > Subcategory"."""
+    return f"{subcategory.category.name} > {subcategory.name}"
+
+
+def _store(pk: int, suggestion: Suggestion | None) -> Received:
     """Stores the suggestion, and accepts it if it's confident enough, unless the Transaction got
     an outcome or a suggestion meanwhile, such as from a Member. With no suggestion, it stores
     confidence 0 so the Transaction isn't asked about again. A suggestion of a Subcategory deleted
@@ -266,17 +272,19 @@ def _store(pk: int, suggestion: Suggestion | None) -> None:
     with transaction.atomic():
         candidate = _awaiting_suggestion().select_for_update().filter(pk=pk).first()
         if candidate is None:
-            return
+            return Received(stored=False, accepted=False)
         if suggestion is None:
             candidate.confidence = 0
             candidate.save(update_fields=["confidence"])
-            return
+            return Received(stored=True, accepted=False)
         if not Subcategory.objects.filter(pk=suggestion.subcategory.pk).exists():
-            return
+            return Received(stored=False, accepted=False)
         candidate.suggested_subcategory = suggestion.subcategory
         candidate.confidence = suggestion.confidence
         candidate.save(update_fields=["suggested_subcategory", "confidence"])
-        _accept_clearing(Transaction.objects.filter(pk=pk))
+        return Received(
+            stored=True, accepted=bool(_accept_clearing(Transaction.objects.filter(pk=pk)))
+        )
 
 
 def _accept_clearing(transactions: "QuerySet[Transaction]") -> int:
@@ -292,14 +300,18 @@ def _accept_clearing(transactions: "QuerySet[Transaction]") -> int:
     return len(clearing)
 
 
-def _query(candidate: Transaction) -> Query:
+def _subcategories() -> list[Subcategory]:
+    return list(Subcategory.objects.select_related("category").order_by("category"))
+
+
+def _query(candidate: Transaction, subcategories: list[Subcategory] | None = None) -> Query:
     return Query(
         direction=_direction(candidate),
         amount=abs(candidate.amount),
         description=candidate.description,
         detail=_detail(candidate),
-        # Read for each query, so a Subcategory deleted during a batch is no longer offered.
-        subcategories=list(Subcategory.objects.select_related("category").order_by("category")),
+        # Read for each query unless given, so a Subcategory deleted during a batch is no longer offered.
+        subcategories=_subcategories() if subcategories is None else subcategories,
         examples=_examples(candidate),
     )
 

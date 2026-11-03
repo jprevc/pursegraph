@@ -2,13 +2,15 @@ import re
 from datetime import UTC, date, datetime
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from ledger.models import Setting, Source, Subcategory, Transaction
-from ledger.suggestions import SuggestionsUnavailable, check_now, run_once
+from ledger.models import Account, Setting, Source, Statement, Subcategory, Transaction
+from ledger.suggestions import run_once
 from tests.conftest import group_caption, page_text, subcategory_id, transaction_id
+from tests.test_categorizer_api import WAITING, create_token
 from tests.test_rules import make_transaction
-from tests.test_suggestions import DownSuggester, FakeSuggester
+from tests.test_suggestions import FakeSuggester
 
 pytestmark = pytest.mark.django_db
 
@@ -265,8 +267,6 @@ def test_an_llm_outcome_in_a_deleted_subcategory_moves_to_the_catch_all(admin_cl
 
 # The status strip, the chart and Ask again (docs/design/admin.md)
 
-LLM_URL = "http://192.168.1.10:11434"
-
 
 @pytest.fixture
 def at_1402(monkeypatch):
@@ -274,74 +274,64 @@ def at_1402(monkeypatch):
     monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 27, 13, 2, tzinfo=UTC))
 
 
-@pytest.fixture
-def llm_set_up(settings):
-    settings.OLLAMA_URL = LLM_URL
-
-
 def strip(client):
-    """The status strip's text, and the line under it."""
+    """The status strip's text."""
     page = settings_page(client)
     return page_text(page[page.index('<section class="panel llm-strip"') : page.index("llm-chart")])
 
 
-class UpProbe:
-    def check(self):
-        pass
+def on_a_statement_imported(when, *descriptions):
+    """Puts the Transactions described on a Statement imported at `when`."""
+    statement = Statement.objects.create(
+        account=Account.objects.get(),
+        format=Statement.Format.CSV,
+        period_start=date(2026, 6, 1),
+        period_end=date(2026, 6, 30),
+        opening_balance=0,
+        closing_balance=0,
+        imported_by=get_user_model().objects.get(),
+        sha256=str(when),
+        file="statement.csv",
+    )
+    Statement.objects.filter(pk=statement.pk).update(imported_at=when)
+    statement.transactions.add(*Transaction.objects.filter(description__in=descriptions))
 
 
-class DownProbe:
-    def check(self):
-        raise SuggestionsUnavailable("connection refused")
+def test_the_strip_says_how_long_the_oldest_transaction_has_waited(admin_client, at_1402):
+    for description in ("Corner Shop", "Hiša kave", "Kiosk"):
+        make_transaction(description)
+    on_a_statement_imported(datetime(2026, 10, 25, 8, 30, tzinfo=UTC), "Corner Shop")
+    on_a_statement_imported(datetime(2026, 10, 27, 12, 0, tzinfo=UTC), "Hiša kave", "Corner Shop")
+    on_a_statement_imported(datetime(2026, 10, 20, 9, 0, tzinfo=UTC), "Kiosk")
+    Transaction.objects.filter(description="Kiosk").update(confidence=0)  # answered: not waiting
+
+    assert strip(admin_client).startswith("Waiting for a suggestion 2 since 25 Oct 2026 09:30")
 
 
-def test_the_strip_says_when_the_llm_last_answered(admin_client, llm_set_up, at_1402):
-    suggest("Corner Shop")
-
-    assert strip(admin_client).startswith("Working last answer 14:02")
+def test_with_nothing_waiting_the_strip_says_so(admin_client):
+    assert strip(admin_client).startswith("Waiting for a suggestion 0 nothing waits")
 
 
-def test_the_strip_says_when_the_llm_failed_and_what_that_means(admin_client, llm_set_up, at_1402):
+def test_the_strip_says_when_the_last_suggestion_arrived_and_from_which_token(
+    admin_client, client, at_1402
+):
+    assert "Last suggestion none yet" in strip(admin_client)
     make_transaction("Corner Shop")
-    run_once(DownSuggester())
+    secret = create_token(admin_client, "Ollama on the NAS")
+    create_token(admin_client, "Cloud")
 
-    text = strip(admin_client)
-
-    assert text.startswith("Can't reach the LLM failed at 14:02 · retrying")
-    assert (
-        "The last call to 192.168.1.10:11434 failed at 14:02. It retries at least every 5 minutes; until then new "
-        "Transactions wait for review without a suggestion." in text
+    client.post(
+        f"{WAITING}{transaction_id('Corner Shop')}/suggestion/",
+        '{"subcategory": null}',
+        content_type="application/json",
+        headers={"Authorization": f"Bearer {secret}"},
     )
 
-
-def test_without_an_llm_server_the_strip_says_it_isnt_set_up(admin_client, settings):
-    settings.OLLAMA_URL = ""
-
-    text = strip(admin_client)
-
-    assert text.startswith("Not set up OLLAMA_URL is empty")
-    assert "Set it in the server's environment and restart." in text
-    assert "Check now" not in text
+    assert "Last suggestion 14:02 from Ollama on the NAS" in strip(admin_client)
+    assert "Check now" not in settings_page(admin_client)
 
 
-def test_check_now_asks_the_llm_server(admin_client, llm_set_up, at_1402):
-    check_now(DownProbe())
-    assert strip(admin_client).startswith("Can't reach the LLM")
-
-    check_now(UpProbe())
-    assert strip(admin_client).startswith("Working last answer 14:02")
-
-
-def test_check_now_from_the_page_reports_an_unreachable_server(admin_client, settings):
-    settings.OLLAMA_URL = "http://127.0.0.1:9"  # nothing listens on the discard port
-
-    response = admin_client.post("/suggestions/check/", follow=True)
-
-    assert "Can't reach the LLM" in strip(admin_client)
-    assert "Couldn't reach the LLM at 127.0.0.1:9." in page_text(response.content.decode())
-
-
-def test_the_strip_counts_the_suggestions(admin_client, llm_set_up, at_1402):
+def test_the_strip_counts_the_suggestions(admin_client, at_1402):
     suggest("Corner Shop", "Hiša kave", "Čevljar")  # all below 90 %, so all queued
     Transaction.objects.update(date=date(2026, 10, 5))
     make_transaction("Kiosk")  # not asked yet
@@ -351,7 +341,7 @@ def test_the_strip_counts_the_suggestions(admin_client, llm_set_up, at_1402):
 
     text = strip(admin_client)
 
-    assert "With a suggestion 2 Waiting to be asked 1 By the LLM this month 1" in text
+    assert "With a suggestion 2 By the LLM this month 1" in text
 
 
 def test_the_chart_lists_how_sure_the_queued_suggestions_are(admin_client):

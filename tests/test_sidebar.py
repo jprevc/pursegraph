@@ -63,6 +63,7 @@ def test_admins_find_the_admin_pages_under_manage(admin_client, household):
         "Rules",
         "Categories",
         "LLM suggestions",
+        "Categorizers",
         "Accounts",
         "Members",
     ]
@@ -231,6 +232,7 @@ def test_the_more_sheet_holds_import_manage_the_theme_and_log_out(admin_client, 
         "Rules",
         "Categories",
         "LLM suggestions",
+        "Categorizers",
         "Accounts",
         "Members",
     ]

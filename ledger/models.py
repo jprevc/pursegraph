@@ -384,15 +384,10 @@ class Setting(models.Model):
     AUTO_ACCEPT_THRESHOLD = "auto_accept_threshold"
     # "1" while the last call to the LLM failed.
     SUGGESTIONS_UNAVAILABLE = "suggestions_unavailable"
-    # When the LLM last answered, and when a call to it last failed (ISO 8601), for the LLM suggestions page.
-    LLM_ANSWERED_AT = "llm_answered_at"
-    LLM_FAILED_AT = "llm_failed_at"
 
     DEFAULTS = {
         AUTO_ACCEPT_THRESHOLD: "0.90",
         SUGGESTIONS_UNAVAILABLE: "",
-        LLM_ANSWERED_AT: "",
-        LLM_FAILED_AT: "",
     }
 
     key = models.CharField(_("key"), max_length=50, primary_key=True)
@@ -506,3 +501,34 @@ class Rule(models.Model):
         if self.direction == self.Direction.OUT:
             return _("Money out on %(account)s") % {"account": on} if on else str(_("Money out"))
         return _("Anything on %(account)s") % {"account": on}
+
+
+class CategorizerToken(models.Model):
+    """What one Categorizer authenticates with. It can only fetch the Transactions waiting for a Suggestion and send
+    Suggestions back; it can't log in. Only a hash of the secret is stored; the admin sees the secret once."""
+
+    name = models.CharField(_("name"), max_length=100)
+    # SHA-256 of the secret, in hex.
+    digest = models.CharField(_("digest"), max_length=64, unique=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",
+        verbose_name=_("created by"),
+    )
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    # Any call made with it.
+    last_used_at = models.DateTimeField(_("last used at"), null=True, blank=True)
+    # The last Suggestion, or "no suggestion", it sent that was stored.
+    last_suggestion_at = models.DateTimeField(_("last suggestion at"), null=True, blank=True)
+    # Kept once revoked, so the LLM suggestions page can still name it as the sender of the last Suggestion.
+    revoked_at = models.DateTimeField(_("revoked at"), null=True, blank=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        verbose_name = _("Categorizer token")
+        verbose_name_plural = _("Categorizer tokens")
+
+    def __str__(self):
+        return self.name

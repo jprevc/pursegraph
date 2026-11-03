@@ -388,7 +388,7 @@ Each page-level surface has its own file in `docs/design/`, so parallel tickets 
 - **Swap feedback** (`docs/design/swap-feedback.md`)
 - **Import and the Accounts board** (`docs/design/import.md`), with Import copy
 - **Transactions page** (`docs/design/transactions-page.md`)
-- **Admin pages** (`docs/design/admin.md`): Categories, LLM suggestions and Members
+- **Admin pages** (`docs/design/admin.md`): Categories, LLM suggestions, Categorizers and Members
 - **Navigation** (`docs/design/navigation.md`): the shell, Manage and the theme switch
 - **Charts** (`docs/design/charts.md`): the Dashboard views other than Spending
 - **Period completeness** (`docs/design/period-completeness.md`)

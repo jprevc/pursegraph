@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import api, views
 
 urlpatterns = [
     path("import/", views.import_statements, name="import"),
@@ -28,7 +28,14 @@ urlpatterns = [
         "suggestions/accept/", views.accept_clearing_suggestions, name="accept_clearing_suggestions"
     ),
     path("suggestions/resuggest/", views.resuggest_queue, name="resuggest_queue"),
-    path("suggestions/check/", views.check_llm, name="check_llm"),
+    path("categorizers/", views.categorizers, name="categorizers"),
+    path("categorizers/<int:pk>/revoke/", views.revoke_categorizer, name="revoke_categorizer"),
+    path("api/categorizer/v1/transactions/", api.waiting, name="api_waiting"),
+    path(
+        "api/categorizer/v1/transactions/<int:pk>/suggestion/",
+        api.suggestion,
+        name="api_suggestion",
+    ),
     path("rules/", views.rules, name="rules"),
     path("rules/new/", views.new_rule, name="new_rule"),
     path("rules/preview/", views.rule_preview, name="rule_preview"),

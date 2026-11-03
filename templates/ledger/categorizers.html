@@ -1,0 +1,46 @@
+{% extends "shell.html" %}
+{% load i18n icons static %}
+{% block title %}{% translate "Categorizers" %}{% endblock %}
+{% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
+{% block main %}
+<div class="page-head"><h1 tabindex="-1">{% translate "Categorizers" %}</h1></div>
+<p class="page-sub muted">{% translate "A Categorizer is a program, such as one that asks an LLM, that fetches the Transactions no Rule decides and sends back a suggested Subcategory with how sure it is. Each connects with a token of its own, which can do nothing else." %}</p>
+{% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
+
+<div class="tokens">
+  <section class="panel" aria-labelledby="tokens-heading">
+    <h2 id="tokens-heading">{% translate "Tokens" %} <span class="count fig muted">· {{ tokens|length }}</span></h2>
+    {% if tokens %}
+    <ul class="token-rows">
+      {% for token in tokens %}
+      <li>
+        <div class="t-row">
+          <div class="t-who">
+            <span class="t-name">{{ token.name }}</span>
+            <span class="t-sub">{% blocktranslate with day=token.created_at|date:"j M Y" %}created {{ day }}{% endblocktranslate %}{% if token.created_by %} {% blocktranslate with name=token.created_by.get_full_name|default:token.created_by.get_username %}by {{ name }}{% endblocktranslate %}{% endif %} · {% if token.last_used_at %}{% blocktranslate with moment=token.last_used_at|date:"j M Y H:i" %}last used {{ moment }}{% endblocktranslate %}{% else %}{% translate "never used" %}{% endif %}</span>
+          </div>
+          <a class="button ghost sm" href="{% url 'revoke_categorizer' token.pk %}" hx-get="{% url 'revoke_categorizer' token.pk %}" hx-target="#confirm-token-{{ token.pk }}" hx-swap="innerHTML" data-confirm-opener>{% translate "Revoke" %}</a>
+        </div>
+        <div id="confirm-token-{{ token.pk }}" data-confirm-slot>{% if confirm == token.pk %}{% include "ledger/_confirm_revoke.html" %}{% endif %}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted role-none">{% translate "No Categorizer can connect yet, so the Review queue fills without suggestions." %}</p>
+    {% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="new-token-heading">
+    <h2 id="new-token-heading">{% translate "New token" %}</h2>
+    <p class="reason">{% icon "info" %}<span>{% translate "The Categorizer gets each waiting Transaction's description, amount and details, and the Household's earlier choices as examples. Where it sends them is up to it: possibly outside this network, such as to a cloud service." %}</span></p>
+    <form class="token-new" method="post" action="{% url 'categorizers' %}">
+      {% csrf_token %}
+      <label for="token-name">{% translate "Name" %}</label>
+      <input id="token-name" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Ollama on the NAS' %}"{% if form.name.errors %} aria-invalid="true" aria-describedby="token-name-error"{% endif %}>
+      <button type="submit" class="primary">{% icon "key" %}{% translate "Create token" %}</button>
+    </form>
+    {% if form.name.errors %}<p class="error" id="token-name-error">{{ form.name.errors|join:" " }}</p>{% endif %}
+  </section>
+</div>
+<div id="dialog-slot">{% if created %}{% include "ledger/_token_dialog.html" with name=created.0 secret=created.1 open=True %}{% endif %}</div>
+{% endblock %}

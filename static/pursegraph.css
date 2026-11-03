@@ -1229,25 +1229,18 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
   .cat-card.editing { grid-column: span 2; }
 }
 
-/* LLM suggestions: the status strip, the chart of how sure the queued suggestions are with the threshold's line, and
-   Ask again. The states never use red or green. */
+/* LLM suggestions: the status strip of what waits and what last arrived, the chart of how sure the queued suggestions are with the threshold's line, and
+   Ask again. */
 .llm { display: grid; gap: var(--s-4); max-width: 61.25rem; }
 .llm h2 { margin: 0; font-size: var(--text-title); }
 .offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); max-width: 61.25rem; margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--ink); }
 .offer p { flex: 1 1 18rem; margin: 0; }
 .llm-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-5); padding: var(--s-4) var(--s-5); }
-.status-dot { flex: none; width: .625rem; height: .625rem; border-radius: 50%; }
-.status-dot.working { background: var(--ink-2); }
-.status-dot.unreachable { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
-.status-dot.off { box-shadow: inset 0 0 0 1.5px var(--line-strong); }
-.llm-state { display: grid; margin: 0; }
-.llm-state b { font-size: var(--text-title); font-weight: 600; }
-.llm-state span { color: var(--muted); font-size: var(--text-label); }
 .stats { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin: 0; }
 .stats dt { color: var(--muted); font-size: var(--text-label); font-weight: 500; }
 .stats dd { margin: 0; font-size: var(--text-title); font-weight: 600; }
-.llm-strip form { margin-left: auto; }
-.llm-line { max-width: 76ch; margin: calc(var(--s-1) * -1) var(--s-1) 0; font-size: var(--text-sm); }
+.stats dd .muted { font-size: var(--text-label); font-weight: 400; }
+.llm-strip > .button { margin-left: auto; }
 .chart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); }
 .chart-head h2 { margin-right: auto; }
 .chart-head span { font-size: var(--text-label); }
@@ -1309,6 +1302,23 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .dialog-form p { margin: 0; }
 .dialog .form-actions { justify-content: flex-end; }
 .dialog-foot { margin-top: var(--s-5); }
+/* Categorizers: the tokens, each with its last use and Revoke, then New token. */
+.tokens { display: grid; gap: var(--s-4); max-width: 56.25rem; }
+.tokens h2 { margin: 0 0 var(--s-2); font-size: var(--text-title); }
+.tokens .count { font-weight: 400; }
+.token-rows { margin: 0; padding: 0; list-style: none; }
+.token-rows > li { border-top: 1px solid var(--line); }
+.token-rows > li:first-child { border-top: 0; }
+.t-row { display: flex; align-items: center; gap: var(--s-3); padding: .625rem 0; }
+.t-who { display: grid; flex: 1; min-width: 0; }
+.t-name { font-weight: 500; overflow-wrap: anywhere; }
+.t-sub { color: var(--muted); font-size: var(--text-label); }
+.token-rows .confirm { margin: 0 0 .625rem; }
+.token-rows li:has(.confirm) [data-confirm-opener] { display: none; }
+.tokens .reason { max-width: 70ch; margin-bottom: var(--s-3); }
+.token-new { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.token-new input { flex: 1 1 16rem; min-width: 0; }
+.tokens .error { margin: var(--s-2) 0 0; }
 .link-box { display: flex; gap: var(--s-2); }
 .link-box input { flex: 1; min-width: 0; height: 2.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-sm); }
 .link-box button { height: 2.5rem; }
