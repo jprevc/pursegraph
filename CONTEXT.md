@@ -60,6 +60,14 @@ _Avoid_: Filter, mapping, auto-label
 The Transactions that still need a Member to decide their outcome: those with neither a Subcategory nor Transfer status, and the Transfer sides whose pairing is ambiguous because more than one Transaction is equally close to being their other side.
 _Avoid_: Inbox, uncategorized list
 
+**Suggestion**:
+A Subcategory proposed for a Transaction in the Review queue, with how sure its Categorizer is (0 to 100 %). A Suggestion at least as sure as the auto-accept threshold sets the Transaction's outcome; any other waits in the Review queue, preselected.
+_Avoid_: Guess, prediction
+
+**Categorizer**:
+A program, outside Pursegraph's own logic, that fetches the Transactions waiting for a Suggestion and sends Suggestions back. The Ollama one that ships with Pursegraph is one of them; an admin chooses which ones may connect.
+_Avoid_: Suggester, LLM, worker, client
+
 **Refund**:
 A Transaction that reverses an earlier purchase: money coming in, placed in a spending Subcategory, which reduces spending there. It is not income and is not linked to the purchase.
 _Avoid_: Return, chargeback, reimbursement
