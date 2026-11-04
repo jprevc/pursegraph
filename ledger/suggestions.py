@@ -25,7 +25,7 @@ from .models import CategorizerToken, Setting, Source, Subcategory, Transaction
 # The `raw` keys whose text helps tell what a Transaction was for, across the parsers.
 DETAIL_KEYS = ("Type", "n26_category", "purpose", "to", "from", "reference")
 
-# At most this many few-shot examples, the most recent merchants first, to keep the prompt small.
+# At most this many few-shot examples, the most recent merchants first, to keep a Categorizer's request small.
 MAX_EXAMPLES = 100
 
 # Transactions a Categorizer fetches at once by default.

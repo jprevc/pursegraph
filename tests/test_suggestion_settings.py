@@ -176,7 +176,7 @@ def test_re_suggesting_asks_again_about_the_queued_transactions_only(admin_clien
     )
 
 
-def test_re_suggesting_also_asks_again_after_an_unusable_answer(admin_client):
+def test_re_suggesting_also_asks_again_after_no_suggestion(admin_client):
     make_transaction("Hiša kave")
     Transaction.objects.update(confidence=0)
 
