@@ -47,5 +47,4 @@ def test_the_llm_source_becomes_categorizer_and_back():
             ("Waiting", ""),
         ]
     finally:
-        executor = MigrationExecutor(connection)
-        executor.migrate(executor.loader.graph.leaf_nodes())
+        migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
