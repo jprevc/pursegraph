@@ -207,7 +207,7 @@ def test_a_failed_call_ends_the_run_and_the_next_webhook_tries_again(start, olla
     webhook = webhook_at(f"{url}/{SECRET}")
 
     webhooks.deliver(webhook, 1)
-    eventually(lambda: "Stopped after 0 Transactions" in capsys.readouterr().err)
+    eventually(lambda: "Stopped after answering 0 Transactions" in capsys.readouterr().err)
     assert not has_suggestion("Corner Shop")
 
     ollama.status = 200

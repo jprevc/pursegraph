@@ -14,7 +14,7 @@ nothing is waiting. It does that once when it starts too. It reads
 - PORT: where it listens, 8765 by default;
 - OLLAMA_MODEL: the model to ask, qwen3-vl:8b by default.
 
-It assumes Ollama is up: when a call to Ollama or Pursegraph fails, it logs why and stops until the next Webhook.
+It assumes Ollama is up: when a call to Ollama or Pursegraph fails, it logs why and stops until the next delivery.
 """
 
 import hmac
@@ -49,7 +49,7 @@ def log(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
-class Failed(Exception):
+class CallFailed(Exception):
     """A call to Pursegraph or Ollama failed: it was unreachable, timed out or answered with an error."""
 
 
@@ -63,9 +63,9 @@ def _call(url: str, body: dict | None, headers: dict[str, str], timeout: float) 
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.load(response)
     except urllib.error.HTTPError as err:
-        raise Failed(f"{url}: {err}: {err.read()!r:.200}") from err
+        raise CallFailed(f"{url}: {err}: {err.read()!r:.200}") from err
     except (OSError, ValueError) as err:  # URLError and timeouts are OSErrors
-        raise Failed(f"{url}: {err}") from err
+        raise CallFailed(f"{url}: {err}") from err
 
 
 class Pursegraph:
@@ -190,19 +190,18 @@ def prompt(transaction: dict, labels: dict[int, str]) -> str:
 def run(pursegraph: Pursegraph, ollama: Ollama) -> None:
     """Suggests a Subcategory for every Transaction waiting, a batch at a time, until none is waiting. Stops at the
     first failed call: the Transactions not done yet wait for the next run."""
-    suggested = 0
+    answered = 0
     try:
         while (batch := pursegraph.waiting())["transactions"]:
             for transaction in batch["transactions"]:
                 pursegraph.send(
                     transaction["id"], ollama.suggest(batch["subcategories"], transaction)
                 )
-                suggested += 1
-    except Failed as error:
-        log(f"Stopped after {suggested} Transactions: {error}")
+                answered += 1
+    except CallFailed as error:
+        log(f"Stopped after answering {answered} Transactions: {error}")
         return
-    if suggested:
-        log(f"Suggested for {suggested} Transactions.")
+    log(f"Answered {answered} Transactions; none is waiting now.")
 
 
 class Runner:
@@ -231,10 +230,10 @@ class Runner:
 def listener(port: int, secret: str, runner: Runner) -> HTTPServer:
     """An HTTP server on `port` that asks `runner` for a run on each POST to /<secret>, answering 204 at once
     (Pursegraph stops waiting for the reply after 5 seconds), and 404 on any other path. It ignores the body:
-    whatever the Webhook says is waiting, the run fetches what is."""
+    whatever the delivery says is waiting, the run fetches what is."""
     expected = f"/{secret}".encode()
 
-    class Webhook(BaseHTTPRequestHandler):
+    class Delivery(BaseHTTPRequestHandler):
         def do_POST(self):
             self.rfile.read(int(self.headers.get("Content-Length") or 0))
             if hmac.compare_digest(self.path.encode(), expected):
@@ -248,7 +247,7 @@ def listener(port: int, secret: str, runner: Runner) -> HTTPServer:
         def log_message(self, format, *args):
             pass  # The secret is in the path.
 
-    return HTTPServer(("", port), Webhook)
+    return HTTPServer(("", port), Delivery)
 
 
 def start(environ: Mapping[str, str]) -> HTTPServer:

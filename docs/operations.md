@@ -133,7 +133,7 @@ All but the 405 answer `{"error": "<why>"}`, such as `{"error": "limit must be a
 
 [`docs/examples/ollama_categorizer.py`](examples/ollama_categorizer.py) is a Categorizer that asks an [Ollama](https://ollama.com) server. It is an example to copy and fit to your Household, such as its prompt and model, not part of Pursegraph; Pursegraph's tests run it against the API with Ollama faked, so it keeps working. It needs only Python 3.10 or later.
 
-It listens for the Webhook and doesn't poll. On a `POST` to `/<WEBHOOK_SECRET>` it answers `204` at once and then, on a background thread, fetches the waiting Transactions, asks Ollama about each and sends the Suggestions, repeating until nothing is waiting. A Webhook that arrives during a run starts one more run after it. It runs once when it starts too, for what was already waiting. Its confidence is Ollama's own probability of the answer, from the answer's token `logprobs`. It assumes Ollama is up: when a call to Ollama or Pursegraph fails, it logs why and stops until the next Webhook.
+It listens for the Webhook and doesn't poll. On a `POST` to `/<WEBHOOK_SECRET>` it answers `204` at once and then, on a background thread, fetches the waiting Transactions, asks Ollama about each and sends the Suggestions, repeating until nothing is waiting. A delivery that arrives during a run starts one more run after it. It runs once when it starts too, for what was already waiting. Its confidence is Ollama's own probability of the answer, from the answer's token `logprobs`. It assumes Ollama is up: when a call to Ollama or Pursegraph fails, it logs why and stops until the next delivery.
 
 It reads:
 
@@ -186,7 +186,7 @@ docker run -d --name ollama-categorizer --restart unless-stopped \
 
 In a container, `localhost` is the container itself, so point `OLLAMA_URL` at the host's address instead.
 
-Then add the Webhook on the Categorizers page, at `http://<categorizer host>:8765/<WEBHOOK_SECRET>`, and press Notify now: it shows "Delivered" if Pursegraph reached the example, and the example's log shows how many Transactions it suggested for. Pursegraph must reach that port, so open it in the Categorizer host's firewall to the Pursegraph host.
+Then add the Webhook on the Categorizers page, at `http://<categorizer host>:8765/<WEBHOOK_SECRET>`, and press Notify now: it shows "Delivered" if Pursegraph reached the example, and the example's log shows how many waiting Transactions it answered. Pursegraph must reach that port, so open it in the Categorizer host's firewall to the Pursegraph host.
 
 
 ## Backups
