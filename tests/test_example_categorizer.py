@@ -99,7 +99,7 @@ def start(live_server, django_user_model, ollama):
 
     def start():
         admin = django_user_model.objects.create_user(username="bor", is_admin=True)
-        record, token = categorizers.create("Ollama on the NAS", admin)
+        record, token = categorizers.create("Qwen on the NAS", admin)
         server = example.start(
             {
                 "PURSEGRAPH_URL": live_server.url,
@@ -162,7 +162,7 @@ def test_on_start_it_suggests_for_the_transactions_already_waiting(start):
 
 
 def webhook_at(url):
-    return Webhook.objects.create(name="Ollama on the NAS", url=url)
+    return Webhook.objects.create(name="Qwen on the NAS", url=url)
 
 
 def last_outcome(webhook):

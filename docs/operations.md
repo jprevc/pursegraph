@@ -39,7 +39,7 @@ A Suggestion at least as sure as the auto-accept threshold on the Suggestions pa
 
 Each Categorizer connects with a token of its own, which can only fetch the waiting Transactions and send Suggestions back; it can't log in.
 
-1. As an admin, open **Categorizers** in the sidebar's Manage links, name the token after the Categorizer (such as "Ollama on the NAS") and create it.
+1. As an admin, open **Categorizers** in the sidebar's Manage links, name the token after the Categorizer (such as "Qwen on the NAS") and create it.
 2. Copy the token from the dialog. It starts with `pgc_` and is shown only once; only a hash of it is stored.
 3. Give it to the Categorizer, such as in the example's `CATEGORIZER_TOKEN` ([below](#example-an-ollama-categorizer)).
 
