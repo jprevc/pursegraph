@@ -3,7 +3,7 @@
   <div class="t-row">
     <div class="w-who">
       <span class="t-name">{{ webhook.name }}</span>
-      <span class="t-sub"><span class="w-url">{{ webhook.masked_url }}</span> · {% with moment=webhook.last_attempt_at|date:"j M Y H:i" %}{% if not webhook.last_attempt_at %}{% translate "Never called" %}{% elif webhook.last_outcome == "delivered" %}{% blocktranslate %}Delivered {{ moment }}{% endblocktranslate %}{% else %}<span class="w-failed">{% if webhook.last_outcome == "http_error" %}{% blocktranslate with status=webhook.last_status %}Failed {{ moment }}: HTTP {{ status }}{% endblocktranslate %}{% else %}{% blocktranslate with why=webhook.get_last_outcome_display %}Failed {{ moment }}: {{ why }}{% endblocktranslate %}{% endif %}</span>{% endif %}{% endwith %}</span>
+      <span class="t-sub"><span class="w-url">{{ webhook.masked_url }}</span> · {% with moment=webhook.last_attempt_at|date:"j M Y H:i" %}{% if not webhook.last_attempt_at %}{% translate "Never called" %}{% elif webhook.delivered %}{% blocktranslate %}Delivered {{ moment }}{% endblocktranslate %}{% else %}<span class="w-failed">{% blocktranslate with why=webhook.failure %}Failed {{ moment }}: {{ why }}{% endblocktranslate %}</span>{% endif %}{% endwith %}</span>
     </div>
     <form method="post" action="{% url 'notify_webhook' webhook.pk %}" hx-post="{% url 'notify_webhook' webhook.pk %}" hx-target="#webhook-{{ webhook.pk }}" hx-swap="outerHTML" hx-disabled-elt="find button">
       {% csrf_token %}

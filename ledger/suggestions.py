@@ -136,7 +136,7 @@ def accept_suggestions_clearing_threshold(pks: Iterable[int]) -> int:
 
 
 def resuggest_queue() -> int:
-    """Clears the stored suggestions of the queued Transactions, so the worker asks about them again,
+    """Clears the stored suggestions of the queued Transactions, so they are asked about again,
     such as after a model or prompt change, and calls the Webhooks if any are waiting then. Returns how many it
     cleared."""
     from . import webhooks

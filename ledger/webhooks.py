@@ -6,20 +6,18 @@ A delivery is one POST of `{"event": "transactions_waiting", "at": "<ISO 8601>",
 Transaction data, with a 5 s timeout. Only a 2xx reply counts as delivered; there are no retries and no signing,
 the secret being in the URL. Each Webhook keeps only its latest attempt.
 
-An action that can leave Transactions waiting (a Statement import, a re-parse that re-runs outcomes, Re-suggest,
+An action that can leave Transactions waiting (a Statement import, a re-parse that re-runs outcomes, Ask again,
 deleting a Subcategory) calls `fire_if_waiting()`. Once its database transaction commits, and only if a Transaction
 is waiting then, every Webhook gets a delivery on a short-lived thread of its own, so a slow or failing receiver
-never holds up or breaks the action. A caller doing several such actions as one, such as importing several files,
-wraps them in `as_one_action()` so the Webhooks are called once.
+never holds up or breaks the action. Each action fires on its own, with nothing combined across actions: importing
+three Statements at once calls each Webhook three times. Receivers treat a delivery as "go fetch", which is safe to
+repeat.
 """
 
 import json
 import logging
 import socket
 import threading
-from collections.abc import Iterator
-from contextlib import contextmanager
-from contextvars import ContextVar
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -33,7 +31,7 @@ from .models import Webhook
 logger = logging.getLogger(__name__)
 
 EVENT = "transactions_waiting"
-# Seconds to wait for the receiver, to connect and for each read.
+# Seconds to wait for the receiver: to connect, and then for each read of its reply.
 TIMEOUT = 5.0
 
 
@@ -46,6 +44,10 @@ class _NoRedirects(HTTPRedirectHandler):
 
 
 _opener = build_opener(_NoRedirects)
+
+
+def add(name: str, url: str) -> Webhook:
+    return Webhook.objects.create(name=name, url=url)
 
 
 def deliver(webhook: Webhook, waiting: int) -> Webhook:
@@ -74,48 +76,22 @@ def deliver(webhook: Webhook, waiting: int) -> Webhook:
         outcome = Webhook.Outcome.TIMED_OUT
     except (OSError, HTTPException, ValueError):
         outcome = Webhook.Outcome.UNREACHABLE
-    if outcome != Webhook.Outcome.HTTP_ERROR:
-        status = None
-    webhook.last_attempt_at, webhook.last_outcome, webhook.last_status = (
-        attempted_at,
-        outcome,
-        status,
-    )
+    attempt = {
+        "last_attempt_at": attempted_at,
+        "last_outcome": outcome,
+        "last_status": status if outcome == Webhook.Outcome.HTTP_ERROR else None,
+    }
+    for field, value in attempt.items():
+        setattr(webhook, field, value)
     # An update rather than a save: the Webhook may have been deleted meanwhile.
-    Webhook.objects.filter(pk=webhook.pk).update(
-        last_attempt_at=attempted_at, last_outcome=outcome, last_status=status
-    )
+    Webhook.objects.filter(pk=webhook.pk).update(**attempt)
     return webhook
 
 
 def fire_if_waiting() -> None:
     """Calls every Webhook once the current database transaction commits, if a Transaction is waiting for a
     Suggestion then. Not if it rolls back. Outside a transaction, at once."""
-    fired = _action.get()
-    if fired is None:
-        transaction.on_commit(_send_to_all, robust=True)
-    else:
-        transaction.on_commit(lambda: fired.append(True))
-
-
-# Within `as_one_action()`: a True for each of its actions that committed.
-_action: ContextVar[list[bool] | None] = ContextVar("webhook_action", default=None)
-
-
-@contextmanager
-def as_one_action() -> Iterator[None]:
-    """The actions inside fire the Webhooks once, after the last of them commits, rather than once each."""
-    if _action.get() is not None:
-        yield
-        return
-    fired: list[bool] = []
-    reset = _action.set(fired)
-    try:
-        yield
-    finally:
-        _action.reset(reset)
-        # Commit callbacks run in the order they were added, so after those of the actions.
-        transaction.on_commit(lambda: _send_to_all() if fired else None, robust=True)
+    transaction.on_commit(_send_to_all, robust=True)
 
 
 def _send_to_all() -> None:
@@ -127,7 +103,8 @@ def _send_to_all() -> None:
             target=_deliver_in_background,
             args=(webhook, waiting),
             name=f"webhook-{webhook.pk}",
-            daemon=True,
+            # Not a daemon, so a command such as `reparse --apply` doesn't exit before its deliveries are sent.
+            daemon=False,
         ).start()
 
 

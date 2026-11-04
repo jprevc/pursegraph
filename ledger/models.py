@@ -565,6 +565,18 @@ class Webhook(models.Model):
         return self.name
 
     @property
+    def delivered(self) -> bool:
+        return self.last_outcome == self.Outcome.DELIVERED
+
+    @property
+    def failure(self) -> str:
+        """Why its latest attempt failed, as the Categorizers page says it: "HTTP 500", "timed out" or "couldn't
+        connect"; "" if it was delivered or never made."""
+        if self.last_outcome == self.Outcome.HTTP_ERROR:
+            return f"HTTP {self.last_status}"
+        return "" if self.delivered else self.get_last_outcome_display()
+
+    @property
     def masked_url(self) -> str:
         """Its URL with only the scheme, host and port shown, as the rest may hold the receiver's secret:
         "https://ha.example:8123/••••"."""

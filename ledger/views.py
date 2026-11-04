@@ -105,35 +105,33 @@ def import_statements(request):
                     results.append(FileResult(filename, rejection=error))
             choosing = "account" in request.POST
             created: dict[str, Account] = {}
-            # One upload calls the Webhooks once, however many files it imports.
-            with webhooks.as_one_action():
-                for statement in sorted(
-                    checked, key=lambda c: (c.parsed.period_start, c.parsed.period_end)
-                ):
-                    account: Account | NewAccount
-                    if statement.account and not choosing:
-                        account = statement.account
-                    else:
-                        account_form = AccountForm(
-                            request.POST if choosing else None,
-                            statement=statement,
-                            initial={"owners": [request.user.pk]},
-                            auto_id=f"id_{len(pending)}_%s",
-                        )
-                        if not (choosing and account_form.is_valid()):
-                            pending.append(_account_step(statement, account_form))
-                            continue
-                        account = account_form.chosen_account()
-                        if isinstance(account, NewAccount):
-                            account = created.get(statement.parsed.bank, account)
-                    try:
-                        summary = commit_statement(statement, member=request.user, account=account)
-                    except ImportRejected as error:
-                        results.append(FileResult(statement.filename, rejection=error))
-                    else:
-                        results.append(FileResult(statement.filename, summary=summary))
-                        if isinstance(account, NewAccount):
-                            created[statement.parsed.bank] = summary.account
+            for statement in sorted(
+                checked, key=lambda c: (c.parsed.period_start, c.parsed.period_end)
+            ):
+                account: Account | NewAccount
+                if statement.account and not choosing:
+                    account = statement.account
+                else:
+                    account_form = AccountForm(
+                        request.POST if choosing else None,
+                        statement=statement,
+                        initial={"owners": [request.user.pk]},
+                        auto_id=f"id_{len(pending)}_%s",
+                    )
+                    if not (choosing and account_form.is_valid()):
+                        pending.append(_account_step(statement, account_form))
+                        continue
+                    account = account_form.chosen_account()
+                    if isinstance(account, NewAccount):
+                        account = created.get(statement.parsed.bank, account)
+                try:
+                    summary = commit_statement(statement, member=request.user, account=account)
+                except ImportRejected as error:
+                    results.append(FileResult(statement.filename, rejection=error))
+                else:
+                    results.append(FileResult(statement.filename, summary=summary))
+                    if isinstance(account, NewAccount):
+                        created[statement.parsed.bank] = summary.account
 
     said = banner(results, needs_account=len(pending)) if before is not None else None
     rejected = [r for r in results if r.rejection and not r.rejection.already_imported]
@@ -1202,7 +1200,7 @@ def add_webhook(request):
     form = WebhookForm(request.POST)
     if not form.is_valid():
         return _categorizers_page(request, webhook_form=form)
-    webhook = Webhook.objects.create(name=form.cleaned_data["name"], url=form.cleaned_data["url"])
+    webhook = webhooks.add(form.cleaned_data["name"], form.cleaned_data["url"])
     messages.success(
         request,
         _(
@@ -1238,11 +1236,7 @@ def notify_webhook(request, pk):
     if not wants_the_fragment_alone(request):
         return redirect("categorizers")
     response = render(request, "ledger/_webhook_row.html", {"webhook": webhook})
-    said = (
-        _("%(name)s: delivered.")
-        if webhook.last_outcome == Webhook.Outcome.DELIVERED
-        else _("%(name)s: failed.")
-    )
+    said = _("%(name)s: delivered.") if webhook.delivered else _("%(name)s: failed.")
     return announce(response, said % {"name": webhook.name})
 
 

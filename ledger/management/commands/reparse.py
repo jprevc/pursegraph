@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from ledger import webhooks
 from ledger.models import Statement, Transaction
 from ledger.reparse import (
     ChangedRow,
@@ -39,61 +38,59 @@ class Command(BaseCommand):
                 raise CommandError(f"No Statement with id {', '.join(map(str, sorted(missing)))}.")
 
         unchanged = differing = applied = refused = failed = 0
-        # One run calls the Webhooks once, however many Statements it applies.
-        with webhooks.as_one_action():
-            for statement in statements:
-                result = reparse(statement)
-                self.stdout.write(
-                    f"Statement {statement.pk}: {statement.account} "
-                    f"{statement.period_start}–{statement.period_end} ({statement.file.name})"
-                )
-                for change in result.statement_changes:
-                    self.stdout.write(f"  {_change(change)}")
-                # In date order, whatever the kind of difference.
-                rows = [
-                    *((changed.transaction.date, changed) for changed in result.changed),
-                    *((row.date, row) for row in result.added),
-                    *((transaction.date, transaction) for transaction in result.removed),
-                ]
-                for _day, row in sorted(rows, key=lambda dated: dated[0]):
-                    if isinstance(row, ChangedRow):
-                        self.stdout.write(f"  ~ {describe_row(row.transaction)}")
-                        for change in row.changes:
-                            self.stdout.write(f"      {_change(change)}")
-                    elif isinstance(row, Transaction):
-                        self.stdout.write(f"  - {describe_row(row)}")
-                    else:
-                        self.stdout.write(f"  + {describe_row(row)}")
-                if result.error:
-                    failed += 1
-                    self.stdout.write(f"  failed: {result.error}")
-                elif not result.has_differences:
-                    unchanged += 1
-                    self.stdout.write("  no differences")
-                elif not apply:
-                    differing += 1
+        for statement in statements:
+            result = reparse(statement)
+            self.stdout.write(
+                f"Statement {statement.pk}: {statement.account} "
+                f"{statement.period_start}–{statement.period_end} ({statement.file.name})"
+            )
+            for change in result.statement_changes:
+                self.stdout.write(f"  {_change(change)}")
+            # In date order, whatever the kind of difference.
+            rows = [
+                *((changed.transaction.date, changed) for changed in result.changed),
+                *((row.date, row) for row in result.added),
+                *((transaction.date, transaction) for transaction in result.removed),
+            ]
+            for _day, row in sorted(rows, key=lambda dated: dated[0]):
+                if isinstance(row, ChangedRow):
+                    self.stdout.write(f"  ~ {describe_row(row.transaction)}")
+                    for change in row.changes:
+                        self.stdout.write(f"      {_change(change)}")
+                elif isinstance(row, Transaction):
+                    self.stdout.write(f"  - {describe_row(row)}")
                 else:
-                    try:
-                        reason = refusal(result)
-                        outcome_changes = [] if reason else apply_changes(result)
-                    except Exception as error:
-                        # Rolled back: this Statement fails, the others are still applied.
-                        failed += 1
-                        self.stdout.write(f"  failed: {type(error).__name__}: {error}")
-                        continue
-                    if reason:
-                        refused += 1
-                        self.stdout.write(f"  refused: {reason}")
-                        continue
-                    applied += 1
-                    count = len(result.changed)
+                    self.stdout.write(f"  + {describe_row(row)}")
+            if result.error:
+                failed += 1
+                self.stdout.write(f"  failed: {result.error}")
+            elif not result.has_differences:
+                unchanged += 1
+                self.stdout.write("  no differences")
+            elif not apply:
+                differing += 1
+            else:
+                try:
+                    reason = refusal(result)
+                    outcome_changes = [] if reason else apply_changes(result)
+                except Exception as error:
+                    # Rolled back: this Statement fails, the others are still applied.
+                    failed += 1
+                    self.stdout.write(f"  failed: {type(error).__name__}: {error}")
+                    continue
+                if reason:
+                    refused += 1
+                    self.stdout.write(f"  refused: {reason}")
+                    continue
+                applied += 1
+                count = len(result.changed)
+                self.stdout.write(
+                    f"  applied: {count} Transaction{'' if count == 1 else 's'} updated"
+                )
+                for outcome in outcome_changes:
                     self.stdout.write(
-                        f"  applied: {count} Transaction{'' if count == 1 else 's'} updated"
+                        f"    {describe_row(outcome.transaction)}: {outcome.before} → {outcome.after}"
                     )
-                    for outcome in outcome_changes:
-                        self.stdout.write(
-                            f"    {describe_row(outcome.transaction)}: {outcome.before} → {outcome.after}"
-                        )
 
         total = unchanged + differing + applied + refused + failed
         if apply:

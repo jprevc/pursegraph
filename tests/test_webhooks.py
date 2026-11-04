@@ -155,27 +155,6 @@ def test_an_import_tells_the_webhooks_how_many_wait(
     assert deliveries(receiver) == [("/ha", 5), ("/nas", 5)]
 
 
-def test_importing_several_files_at_once_calls_each_webhook_once(
-    logged_in_client, receiver, two_webhooks, django_capture_on_commit_callbacks
-):
-    july = FIXTURE.replace(b"2026-06-", b"2026-07-").replace(b"2026-05-31", b"2026-07-01")
-
-    with django_capture_on_commit_callbacks(execute=True):
-        logged_in_client.post(
-            "/import/",
-            {
-                "file": [
-                    SimpleUploadedFile(FILENAME, FIXTURE),
-                    SimpleUploadedFile("account-statement_2026-07.csv", july),
-                ],
-                "account": "new",
-                "new_account_name": "Ana's Revolut",
-            },
-        )
-
-    assert len(deliveries(receiver)) == 2
-
-
 def test_an_import_that_leaves_nothing_waiting_calls_no_webhook(
     logged_in_client, receiver, two_webhooks, django_capture_on_commit_callbacks
 ):
@@ -396,3 +375,25 @@ def test_non_admins_cant_reach_webhooks(logged_in_client, admin_client, receiver
     assert logged_in_client.post(f"/categorizers/webhooks/{pk}/notify/").status_code == 403
     assert Webhook.objects.count() == 1
     assert receiver.calls() == []
+
+
+@committed
+def test_importing_several_statements_at_once_calls_each_webhook_for_each(
+    logged_in_client, receiver, two_webhooks
+):
+    july = FIXTURE.replace(b"2026-06-", b"2026-07-").replace(b"2026-05-31", b"2026-07-01")
+
+    logged_in_client.post(
+        "/import/",
+        {
+            "file": [
+                SimpleUploadedFile(FILENAME, FIXTURE),
+                SimpleUploadedFile("account-statement_2026-07.csv", july),
+            ],
+            "account": "new",
+            "new_account_name": "Ana's Revolut",
+        },
+    )
+
+    # Each Statement import is an action of its own: after the first, its 6 wait; after the second, 12.
+    assert deliveries(receiver) == [("/ha", 6), ("/ha", 12), ("/nas", 6), ("/nas", 12)]
