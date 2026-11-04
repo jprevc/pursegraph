@@ -6,6 +6,7 @@ from django.db.models import Count, Max, Prefetch
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
+from . import webhooks
 from .models import Category, Rule, Subcategory, Transaction
 
 
@@ -77,8 +78,8 @@ def _move(siblings, item, direction):
 
 
 def delete_subcategory(subcategory: Subcategory) -> Subcategory:
-    """Moves its Transactions and Rules to the Category's catch-all, keeping the Transactions' source. Returns the
-    catch-all."""
+    """Moves its Transactions and Rules to the Category's catch-all, keeping the Transactions' source, and calls the
+    Webhooks if Transactions wait for a Suggestion then. Returns the catch-all."""
     if subcategory.is_catch_all:
         raise CategoryEditRefused(_("A catch-all Subcategory can't be deleted."))
     with transaction.atomic():
@@ -90,6 +91,7 @@ def delete_subcategory(subcategory: Subcategory) -> Subcategory:
             suggested_subcategory=None, confidence=None
         )
         subcategory.delete()
+        webhooks.fire_if_waiting()
     return catch_all
 
 

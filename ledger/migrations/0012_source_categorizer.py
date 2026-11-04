@@ -14,7 +14,7 @@ def to_llm(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ledger', '0010_categorizer_tokens'),
+        ('ledger', '0011_webhooks'),
     ]
 
     # Widened first, so that going back rewrites the rows before the column narrows again.

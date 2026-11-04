@@ -5,8 +5,8 @@ import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-BEFORE = [("ledger", "0010_categorizer_tokens")]
-AFTER = [("ledger", "0011_source_categorizer")]
+BEFORE = [("ledger", "0011_webhooks")]
+AFTER = [("ledger", "0012_source_categorizer")]
 
 
 def migrate(targets):
@@ -22,7 +22,7 @@ def sources(apps):
     return list(rows.values_list("description", "source"))
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
 def test_the_llm_source_becomes_categorizer_and_back():
     apps = migrate(BEFORE)
     account = apps.get_model("ledger", "Account").objects.create(name="Checking", bank="n26")

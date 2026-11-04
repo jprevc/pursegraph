@@ -26,6 +26,7 @@ from django.utils.translation import ngettext
 
 from pursegraph import figures
 
+from . import webhooks
 from .coverage import ONE_DAY
 from .models import (
     Account,
@@ -371,6 +372,7 @@ def commit_statement(
             paired_count = transfers.filter(counterpart__isnull=False).count()
             one_sided_count = transfers.filter(counterpart__isnull=True).count()
             awaiting_count = new.unresolved().count()
+            webhooks.fire_if_waiting()
         except IntegrityError as err:
             # The same file (or another Statement of this IBAN) was imported concurrently, after the checks.
             statement.file.delete(save=False)

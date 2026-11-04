@@ -30,6 +30,9 @@ urlpatterns = [
     path("suggestions/resuggest/", views.resuggest_queue, name="resuggest_queue"),
     path("categorizers/", views.categorizers, name="categorizers"),
     path("categorizers/<int:pk>/revoke/", views.revoke_categorizer, name="revoke_categorizer"),
+    path("categorizers/webhooks/", views.add_webhook, name="add_webhook"),
+    path("categorizers/webhooks/<int:pk>/delete/", views.delete_webhook, name="delete_webhook"),
+    path("categorizers/webhooks/<int:pk>/notify/", views.notify_webhook, name="notify_webhook"),
     path("api/categorizer/v1/transactions/", api.waiting, name="api_waiting"),
     path(
         "api/categorizer/v1/transactions/<int:pk>/suggestion/",

@@ -1,12 +1,16 @@
 import html
 import json
+import queue
 import re
+import threading
+import time
 from datetime import date
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 from django.test import Client
 
-from ledger.models import Account, Subcategory, Transaction
+from ledger.models import Account, Subcategory, Transaction, Webhook
 
 USERNAME = "ana"
 PASSWORD = "correct horse battery"
@@ -211,3 +215,71 @@ def drill_rows(client, url, params):
             client.get(url, params).content.decode()
         )
     ]
+
+
+class Receiver:
+    """A local HTTP server that records each POST it gets and answers `status`, after `delay` seconds."""
+
+    def __init__(self):
+        self.received: queue.Queue = queue.Queue()
+        self.status = 204
+        self.delay = 0.0
+        receiver = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                receiver.received.put(
+                    {"path": self.path, "headers": dict(self.headers), "body": json.loads(body)}
+                )
+                time.sleep(receiver.delay)
+                try:
+                    self.send_response(receiver.status)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                except OSError:
+                    pass  # Pursegraph stopped waiting.
+
+            def log_message(self, *args):
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def url(self, path="/api/webhook/s3cret"):
+        return f"http://127.0.0.1:{self.server.server_port}{path}"
+
+    def calls(self):
+        """What it has received so far, once every delivery Pursegraph started has finished."""
+        finish_deliveries()
+        calls = []
+        while not self.received.empty():
+            calls.append(self.received.get())
+        return calls
+
+
+def finish_deliveries():
+    for thread in threading.enumerate():
+        if thread.name.startswith("webhook-"):
+            thread.join(timeout=10)
+
+
+@pytest.fixture
+def receiver():
+    receiver = Receiver()
+    yield receiver
+    receiver.server.shutdown()
+    receiver.server.server_close()
+
+
+@pytest.fixture
+def two_webhooks(receiver):
+    """Two Webhooks, at the receiver's /ha and /nas."""
+    Webhook.objects.create(name="Home Assistant", url=receiver.url("/ha"))
+    Webhook.objects.create(name="NAS", url=receiver.url("/nas"))
+
+
+def deliveries(receiver):
+    """Each delivery received, as (path, waiting)."""
+    return sorted((call["path"], call["body"]["waiting"]) for call in receiver.calls())
