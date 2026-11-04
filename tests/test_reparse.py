@@ -7,7 +7,7 @@ import pytest
 from django.core.management import CommandError, call_command
 
 from ledger.models import Rule, Source, Statement, Subcategory, Transaction
-from tests.conftest import make_account, page_text, transaction_id
+from tests.conftest import deliveries, make_account, page_text, transaction_id
 from tests.test_import import upload
 
 pytestmark = pytest.mark.django_db
@@ -437,3 +437,28 @@ def test_apply_categorizes_a_row_the_parser_now_marks_as_a_fee(statement):
     assert fee.subcategory is not None
     assert (fee.is_fee, fee.subcategory.name, fee.source) == (True, "Bank fees", Source.PARSER)
     assert "Fee: Corner Shop: awaiting review → Finance / Bank fees (Parser)" in output
+
+
+def test_apply_that_reruns_outcomes_tells_the_webhooks_once(
+    statement, second, receiver, two_webhooks, django_capture_on_commit_callbacks
+):
+    misspell_mercator()
+
+    with django_capture_on_commit_callbacks(execute=True):
+        reparse("--apply")
+
+    # Both Statements re-ran outcomes. The first's 6 Transactions other than its fees still wait, and Kiosk.
+    assert deliveries(receiver) == [("/ha", 7), ("/nas", 7)]
+
+
+def test_apply_that_reruns_no_outcome_calls_no_webhook(
+    statement, receiver, two_webhooks, django_capture_on_commit_callbacks
+):
+    Transaction.objects.filter(description="Mercator Žalec").update(
+        description="Mercator Zalec", subcategory=groceries(), source=Source.MANUAL
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        reparse("--apply")
+
+    assert deliveries(receiver) == []

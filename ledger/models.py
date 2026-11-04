@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from django.conf import settings
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
@@ -532,3 +534,42 @@ class CategorizerToken(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Webhook(models.Model):
+    """A URL Pursegraph POSTs to when an action leaves Transactions waiting for a Suggestion, so a Categorizer knows
+    to fetch them (ledger/webhooks.py). The URL holds the receiver's secret, so pages show it masked."""
+
+    class Outcome(models.TextChoices):
+        DELIVERED = "delivered", _("delivered")
+        HTTP_ERROR = "http_error", _("HTTP error")
+        TIMED_OUT = "timed_out", _("timed out")
+        UNREACHABLE = "unreachable", _("couldn't connect")
+
+    name = models.CharField(_("name"), max_length=100)
+    url = models.CharField(_("URL"), max_length=2000)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    # Only the latest attempt is kept: when, how it went, and the reply's status code for an HTTP error.
+    last_attempt_at = models.DateTimeField(_("last attempt at"), null=True, blank=True)
+    last_outcome = models.CharField(
+        _("last outcome"), max_length=20, choices=Outcome.choices, blank=True
+    )
+    last_status = models.PositiveSmallIntegerField(_("last status"), null=True, blank=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        verbose_name = _("Webhook")
+        verbose_name_plural = _("Webhooks")
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def masked_url(self) -> str:
+        """Its URL with only the scheme, host and port shown, as the rest may hold the receiver's secret:
+        "https://ha.example:8123/••••"."""
+        parts = urlsplit(self.url)
+        host = f"[{parts.hostname}]" if ":" in (parts.hostname or "") else parts.hostname
+        origin = f"{parts.scheme}://{host}" + (f":{parts.port}" if parts.port else "")
+        hidden = parts.path.strip("/") or parts.query or parts.fragment
+        return origin + ("/••••" if hidden else "/")

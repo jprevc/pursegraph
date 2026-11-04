@@ -137,12 +137,23 @@ def accept_suggestions_clearing_threshold(pks: Iterable[int]) -> int:
 
 def resuggest_queue() -> int:
     """Clears the stored suggestions of the queued Transactions, so the worker asks about them again,
-    such as after a model or prompt change. Returns how many it cleared."""
-    return (
-        Transaction.objects.unresolved()
-        .filter(confidence__isnull=False)
-        .update(suggested_subcategory=None, confidence=None)
-    )
+    such as after a model or prompt change, and calls the Webhooks if any are waiting then. Returns how many it
+    cleared."""
+    from . import webhooks
+
+    with transaction.atomic():
+        cleared = (
+            Transaction.objects.unresolved()
+            .filter(confidence__isnull=False)
+            .update(suggested_subcategory=None, confidence=None)
+        )
+        webhooks.fire_if_waiting()
+    return cleared
+
+
+def waiting_count() -> int:
+    """How many Transactions are waiting for a Suggestion."""
+    return _awaiting_suggestion().count()
 
 
 def suggestions_unavailable() -> bool:
@@ -191,7 +202,7 @@ def overview() -> Overview:
     today = timezone.localdate()
     return Overview(
         with_suggestion=len(sureness),
-        waiting=_awaiting_suggestion().count(),
+        waiting=waiting_count(),
         waiting_since=_awaiting_suggestion().aggregate(since=Min("statements__imported_at"))[
             "since"
         ],

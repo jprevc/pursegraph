@@ -4,7 +4,7 @@
 {% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
 <div class="page-head"><h1 tabindex="-1">{% translate "Categorizers" %}</h1></div>
-<p class="page-sub muted">{% translate "A Categorizer is a program, such as one that asks an LLM, that fetches the Transactions no Rule decides and sends back a suggested Subcategory with how sure it is. Each connects with a token of its own, which can do nothing else." %}</p>
+<p class="page-sub muted">{% translate "A Categorizer is a program, such as one that asks an LLM, that fetches the Transactions no Rule decides and sends back a suggested Subcategory with how sure it is. Each connects with a token of its own, which can do nothing else. Webhooks tell it when there is something to fetch." %}</p>
 {% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 
 <div class="tokens">
@@ -40,6 +40,32 @@
       <button type="submit" class="primary">{% icon "key" %}{% translate "Create token" %}</button>
     </form>
     {% if form.name.errors %}<p class="error" id="token-name-error">{{ form.name.errors|join:" " }}</p>{% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="webhooks-heading">
+    <h2 id="webhooks-heading">{% translate "Webhooks" %} <span class="count fig muted">· {{ webhooks|length }}</span></h2>
+    <p class="w-intro muted">{% translate "Pursegraph calls each of these when an import, Ask again or a deleted Subcategory leaves Transactions waiting for a suggestion, so a Categorizer that doesn't keep asking knows to fetch them." %}</p>
+    {% if webhooks %}
+    <ul class="token-rows">
+      {% for webhook in webhooks %}{% include "ledger/_webhook_row.html" %}{% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted role-none">{% translate "No Webhook yet, so a Categorizer finds waiting Transactions only by asking." %}</p>
+    {% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="new-webhook-heading">
+    <h2 id="new-webhook-heading">{% translate "New Webhook" %}</h2>
+    <p class="reason">{% icon "info" %}<span>{% blocktranslate %}It gets a POST of <code>{"event": "transactions_waiting", "at": …, "waiting": 3}</code>: how many are waiting, never what they are. Nothing signs it, so put the secret in the URL, which is shown masked once added.{% endblocktranslate %}</span></p>
+    <form class="token-new webhook-new" method="post" action="{% url 'add_webhook' %}">
+      {% csrf_token %}
+      <label for="webhook-name">{% translate "Name" %}</label>
+      <input id="webhook-name" name="name" value="{{ webhook_form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Home Assistant' %}"{% if webhook_form.name.errors %} aria-invalid="true" aria-describedby="webhook-error"{% endif %}>
+      <label for="webhook-url">{% translate "URL" %}</label>
+      <input id="webhook-url" name="url" type="url" value="{{ webhook_form.url.value|default_if_none:'' }}" maxlength="2000" required autocomplete="off" spellcheck="false" placeholder="https://…"{% if webhook_form.url.errors %} aria-invalid="true" aria-describedby="webhook-error"{% endif %}>
+      <button type="submit" class="primary">{% icon "send" %}{% translate "Add Webhook" %}</button>
+    </form>
+    {% if webhook_form.errors %}<p class="error" id="webhook-error">{% for field in webhook_form %}{{ field.errors|join:" " }} {% endfor %}</p>{% endif %}
   </section>
 </div>
 <div id="dialog-slot">{% if created %}{% include "ledger/_token_dialog.html" with name=created.0 secret=created.1 open=True %}{% endif %}</div>

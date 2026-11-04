@@ -1,6 +1,7 @@
 import base64
 import binascii
 from typing import cast
+from urllib.parse import urlsplit
 
 from django import forms
 from django.contrib.auth import get_user_model
@@ -274,6 +275,30 @@ class CategorizerTokenForm(forms.Form):
     """A new Categorizer token: what the Categorizers page calls it."""
 
     name = forms.CharField(label=_("Name"), max_length=100)
+
+
+class WebhookForm(forms.Form):
+    """A new Webhook: what the Categorizers page calls it, and the http(s) URL it POSTs to, which may be on a host
+    with no domain, such as a Compose service's name."""
+
+    name = forms.CharField(label=_("Name"), max_length=100)
+    url = forms.CharField(label=_("URL"), max_length=2000)
+
+    def clean_url(self):
+        url = self.cleaned_data["url"].strip()
+        try:
+            parts = urlsplit(url)
+            parts.port  # noqa: B018 - raises for a port that isn't a number from 0 to 65535
+        except ValueError:
+            parts = None
+        if (
+            parts is None
+            or parts.scheme not in ("http", "https")
+            or not parts.hostname
+            or any(c.isspace() or not c.isprintable() for c in url)
+        ):
+            raise forms.ValidationError(_("Enter a URL starting with http:// or https://."))
+        return url
 
 
 class RuleForm(forms.ModelForm):
