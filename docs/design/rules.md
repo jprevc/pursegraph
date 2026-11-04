@@ -20,7 +20,7 @@ A Rule is a saved filter over the Household's Transactions. Each of its pages sh
     - "Already *outcome* · N";
     - "Keep their outcome · N".
 
-    The second group is how a Rule that is too broad shows itself. Outcomes set by hand, by IBAN, by pairing or by the parser are never overwritten; only those awaiting review, by LLM or by another Rule change.
+    The second group is how a Rule that is too broad shows itself. Outcomes set by hand, by IBAN, by pairing or by the parser are never overwritten; only those awaiting review, by Categorizer or by another Rule change.
   - **Warnings:** muted info lines above the table, with no alert colour: "Takes 2 over from Rule 7 (“SPAR”)" and "At import, Rule 3 above wins on 4 of these".
   - **Save bar:** sticky at the card's foot, holding "Categorize as" with the outcome select ("Category › Subcategory" options), Cancel, "Future imports only" and the primary "Save and change N" ("Save Rule" when nothing would change). This replaces the separate "Apply the Rule to existing Transactions?" page. After saving, the Rules page opens with the Rule selected, and a status line says what changed.
 - **Make a Rule** (from "Saved as … · Undo · Make a Rule" in the Review queue). It opens the Rule page pre-filled from the Transaction, with the outcome it was just given.

@@ -1,8 +1,8 @@
-"""LLM suggestions: Transactions still unresolved after Rules get a Subcategory suggested in the background.
+"""Suggestions: Transactions still unresolved after Rules get a Subcategory suggested in the background.
 
 `run_once` asks a Suggester about each unresolved Transaction that has no suggestion yet and stores
 the suggestion with its confidence. One at least as confident as the auto-accept threshold also
-sets the outcome (`source = llm`); the rest wait in the Review queue with the suggestion
+sets the outcome (`source = categorizer`); the rest wait in the Review queue with the suggestion
 preselected. The `categorize_worker` command calls it in a loop, backing off while the Suggester
 is unavailable. Imports never wait for it.
 
@@ -130,7 +130,7 @@ def suggestions_clearing_threshold() -> "QuerySet[Transaction]":
 
 def accept_suggestions_clearing_threshold(pks: Iterable[int]) -> int:
     """Accepts the suggestions of the Transactions `pks` that still clear the threshold, as the worker would
-    have (`source = llm`). Returns how many."""
+    have (`source = categorizer`). Returns how many."""
     with transaction.atomic():
         return _accept_clearing(Transaction.objects.filter(pk__in=pks))
 
@@ -161,7 +161,7 @@ def suggestions_unavailable() -> bool:
     return Setting.get(Setting.SUGGESTIONS_UNAVAILABLE) == "1"
 
 
-# The threshold's steps on the LLM suggestions page, in % sure; the chart's bins are as wide, so each bin is wholly on
+# The threshold's steps on the Suggestions page, in % sure; the chart's bins are as wide, so each bin is wholly on
 # one side of the line.
 STEPS = range(50, 101, 5)
 BIN_WIDTH = 5
@@ -169,7 +169,7 @@ BIN_WIDTH = 5
 
 @dataclass(frozen=True)
 class Overview:
-    """The LLM suggestions page's figures."""
+    """The Suggestions page's figures."""
 
     with_suggestion: int
     """Queued Transactions with a suggestion."""
@@ -179,8 +179,8 @@ class Overview:
     """When the Statement of the one waiting longest was imported: the first Statement it was on."""
     last_suggestion: CategorizerToken | None
     """The token that sent the last Suggestion stored, with when (`last_suggestion_at`); it may be revoked since."""
-    by_llm_this_month: int
-    """Transactions dated this month whose outcome the LLM set."""
+    by_categorizers_this_month: int
+    """Transactions dated this month whose outcome a Categorizer set."""
     askable_again: int
     """Queued Transactions with an answer, usable or not, that `resuggest_queue` would clear."""
     bins: list[int]
@@ -209,8 +209,8 @@ def overview() -> Overview:
         last_suggestion=CategorizerToken.objects.filter(last_suggestion_at__isnull=False)
         .order_by("-last_suggestion_at")
         .first(),
-        by_llm_this_month=Transaction.objects.filter(
-            source=Source.LLM, date__year=today.year, date__month=today.month
+        by_categorizers_this_month=Transaction.objects.filter(
+            source=Source.CATEGORIZER, date__year=today.year, date__month=today.month
         ).count(),
         askable_again=queued.filter(confidence__isnull=False).count(),
         bins=bins,
@@ -307,7 +307,7 @@ def _accept_clearing(transactions: "QuerySet[Transaction]") -> int:
         .select_related("suggested_subcategory")
     )
     for candidate in clearing:
-        candidate.set_outcome(candidate.suggested_subcategory, source=Source.LLM)
+        candidate.set_outcome(candidate.suggested_subcategory, source=Source.CATEGORIZER)
     return len(clearing)
 
 

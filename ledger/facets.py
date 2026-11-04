@@ -25,7 +25,7 @@ from .models import SOURCE_CAPTIONS, Category, Source, Transaction
 UNRESOLVED = "unresolved"
 TRANSFER = "transfer"
 # What the Decided facet offers, in its order; "by import" (a bank fee) is left to Any way.
-SOURCES = [Source.RULE, Source.LLM, Source.IBAN, Source.PAIRING, Source.MANUAL]
+SOURCES = [Source.RULE, Source.CATEGORIZER, Source.IBAN, Source.PAIRING, Source.MANUAL]
 OUT, IN = "out", "in"
 
 
@@ -291,7 +291,9 @@ SOURCE_NOTES = {
     Source.RULE: gettext_lazy(
         "A Rule matched it. Rules are patterns a Member set up, often from a correction."
     ),
-    Source.LLM: gettext_lazy("The local model suggested it, sure enough to take it on its own."),
+    Source.CATEGORIZER: gettext_lazy(
+        "A Categorizer suggested it, sure enough to take it on its own."
+    ),
     Source.IBAN: gettext_lazy(
         "The other side's IBAN is one of the Household's, so it's a Transfer."
     ),

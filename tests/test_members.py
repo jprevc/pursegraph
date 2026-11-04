@@ -380,7 +380,7 @@ def test_making_an_admin_is_confirmed_inline(admin_client, member):
     confirm = prose(admin_client.get(f"/members/{member.pk}/admin/", **HTMX).content.decode())
 
     assert confirm == (
-        "Make Vera Novak an admin? Admins manage Members, Accounts, Categories and the LLM suggestions, and can "
+        "Make Vera Novak an admin? Admins manage Members, Accounts, Categories and Categorizers, and can "
         "remove another admin's rights. Cancel Make admin"
     )
     member.refresh_from_db()

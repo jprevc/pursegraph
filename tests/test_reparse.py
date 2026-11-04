@@ -194,12 +194,12 @@ def shopping():
     return Subcategory.objects.get(category__name="Shopping", name="Other")
 
 
-def test_apply_reruns_an_automatic_outcome_and_clears_the_llm_suggestion(statement):
+def test_apply_reruns_an_automatic_outcome_and_clears_the_suggestion(statement):
     Rule.objects.create(description_contains="Mercator", subcategory=groceries())
     Transaction.objects.filter(description="Mercator Žalec").update(
         description="Shop 123",
         subcategory=shopping(),
-        source=Source.LLM,
+        source=Source.CATEGORIZER,
         suggested_subcategory=shopping(),
         confidence=0.95,
     )
@@ -210,7 +210,7 @@ def test_apply_reruns_an_automatic_outcome_and_clears_the_llm_suggestion(stateme
     assert (fixed.subcategory, fixed.source) == (groceries(), Source.RULE)
     assert (fixed.suggested_subcategory, fixed.confidence) == (None, None)
     assert (
-        "2026-06-11 -12.34 Mercator Žalec: Shopping / Other (LLM) → Food / Groceries (Rule)"
+        "2026-06-11 -12.34 Mercator Žalec: Shopping / Other (Categorizer) → Food / Groceries (Rule)"
         in output
     )
 
@@ -219,7 +219,7 @@ def test_apply_leaves_an_outcome_alone_when_only_the_running_balance_changed(sta
     Transaction.objects.filter(description="Mercator Žalec").update(
         running_balance=Decimal("1.00"),
         subcategory=shopping(),
-        source=Source.LLM,
+        source=Source.CATEGORIZER,
         suggested_subcategory=shopping(),
         confidence=0.95,
     )
@@ -228,7 +228,11 @@ def test_apply_leaves_an_outcome_alone_when_only_the_running_balance_changed(sta
 
     fixed = Transaction.objects.get(pk=transaction_id("Mercator Žalec"))
     assert fixed.running_balance == Decimal("2152.64")
-    assert (fixed.subcategory, fixed.source, fixed.confidence) == (shopping(), Source.LLM, 0.95)
+    assert (fixed.subcategory, fixed.source, fixed.confidence) == (
+        shopping(),
+        Source.CATEGORIZER,
+        0.95,
+    )
     assert "1 applied" in output
 
 

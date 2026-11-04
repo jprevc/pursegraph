@@ -90,6 +90,15 @@ def test_decided_narrows_to_what_set_the_outcome(homes, groceries):
     assert shown(choice(source="iban")) == ["By IBAN"]
 
 
+def test_decided_by_categorizer_narrows_and_old_llm_links_fall_back_to_any_way(homes, groceries):
+    account = homes["ana_account"]
+    add(account, date(2026, 9, 2), "-20", "By Rule", subcategory=groceries, source=Source.RULE)
+    add(account, date(2026, 9, 3), "-30", "Suggested", subcategory=groceries, source="categorizer")
+
+    assert shown(choice(source="categorizer")) == ["Suggested"]
+    assert choice(source="llm").source == ""
+
+
 def test_the_amount_narrows_by_direction_and_by_size_either_way(homes):
     account = homes["ana_account"]
     add(account, date(2026, 9, 1), "-5.00", "Small out")

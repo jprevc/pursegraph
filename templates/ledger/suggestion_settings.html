@@ -1,9 +1,9 @@
 {% extends "shell.html" %}
 {% load i18n icons static %}
-{% block title %}{% translate "LLM suggestions" %}{% endblock %}
+{% block title %}{% translate "Suggestions" %}{% endblock %}
 {% block head %}<script src="{% static 'admin.js' %}" defer></script>{% endblock %}
 {% block main %}
-<div class="page-head"><h1 tabindex="-1">{% translate "LLM suggestions" %}</h1></div>
+<div class="page-head"><h1 tabindex="-1">{% translate "Suggestions" %}</h1></div>
 <p class="page-sub muted">{% translate "What no Rule decides waits for a Categorizer, which suggests a Subcategory and how sure it is. A suggestion sure enough categorizes its Transaction by itself; the rest wait in the Review queue with the suggestion first." %}</p>
 {% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 
@@ -19,18 +19,18 @@
 </form>
 {% endif %}
 
-<div class="llm">
-  <section class="panel llm-strip" aria-label="{% translate 'Status' %}">
+<div class="suggestions">
+  <section class="panel suggestions-strip" aria-label="{% translate 'Status' %}">
     <dl class="stats">
       <div><dt>{% translate "Waiting for a suggestion" %}</dt><dd>{{ overview.waiting }} <span class="muted">{% if not overview.waiting %}{% translate "nothing waits" %}{% elif waiting_since %}{% blocktranslate %}since {{ waiting_since }}{% endblocktranslate %}{% endif %}</span></dd></div>
       <div><dt>{% translate "Last suggestion" %}</dt><dd>{% if overview.last_suggestion %}{{ last_suggestion_at }} <span class="muted">{% blocktranslate with name=overview.last_suggestion.name %}from {{ name }}{% endblocktranslate %}</span>{% else %}<span class="muted">{% translate "none yet" %}</span>{% endif %}</dd></div>
       <div><dt>{% translate "With a suggestion" %}</dt><dd>{{ overview.with_suggestion }}</dd></div>
-      <div><dt>{% translate "By the LLM this month" %}</dt><dd>{{ overview.by_llm_this_month }}</dd></div>
+      <div><dt>{% translate "By Categorizers this month" %}</dt><dd>{{ overview.by_categorizers_this_month }}</dd></div>
     </dl>
     <a class="button" href="{% url 'categorizers' %}">{% icon "key" %}{% translate "Categorizers" %}</a>
   </section>
 
-  <section class="panel llm-chart" aria-labelledby="chart-heading">
+  <section class="panel suggestions-chart" aria-labelledby="chart-heading">
     <div class="chart-head">
       <h2 id="chart-heading">{% translate "How sure the waiting suggestions are" %}</h2>
       <span class="muted">{% blocktranslate count n=overview.with_suggestion %}{{ n }} suggestion in the Review queue, by % sure{% plural %}{{ n }} suggestions in the Review queue, by % sure{% endblocktranslate %}</span>
@@ -50,12 +50,12 @@
       <button type="submit" class="primary" data-save>{% blocktranslate with percent=form.threshold.value %}Save {{ percent }} %{% endblocktranslate %}</button>
     </form>
     {% if form.threshold.errors %}<p class="error" id="threshold-error">{{ form.threshold.errors|join:" " }}</p>{% endif %}
-    <p class="muted thr-note">{% translate "Raising it never undoes what the LLM already set. Lowering it offers the queued suggestions past the line." %}</p>
+    <p class="muted thr-note">{% translate "Raising it never undoes what a Categorizer already set. Lowering it offers the queued suggestions past the line." %}</p>
   </section>
 
-  <section class="panel llm-again" aria-labelledby="again-heading">
+  <section class="panel suggestions-again" aria-labelledby="again-heading">
     <h2 id="again-heading">{% translate "Ask again" %}</h2>
-    <p class="muted">{% translate "After the model or the prompt changes, clear the queued suggestions so the LLM answers again." %}</p>
+    <p class="muted">{% translate "After a Categorizer changes (a new model or prompt, say), clear the queued suggestions so they're suggested again." %}</p>
     {% if overview.askable_again %}
     <a class="button" href="{% url 'resuggest_queue' %}" hx-get="{% url 'resuggest_queue' %}" hx-target="#confirm-again" hx-swap="innerHTML" data-confirm-opener>{% icon "refresh" %}{% blocktranslate count n=overview.askable_again %}Ask again about {{ n }} suggestion{% plural %}Ask again about {{ n }} suggestions{% endblocktranslate %}</a>
     <div id="confirm-again" data-confirm-slot>{% if confirm %}{% include "ledger/_confirm_resuggest.html" with count=overview.askable_again %}{% endif %}</div>

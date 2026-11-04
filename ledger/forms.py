@@ -264,7 +264,7 @@ class NameForm(forms.Form):
 
 
 class ThresholdForm(forms.Form):
-    """The auto-accept threshold in % sure, the Review queue's unit, in the LLM suggestions page's steps."""
+    """The auto-accept threshold in % sure, the Review queue's unit, in the Suggestions page's steps."""
 
     threshold = forms.IntegerField(
         label=_("Auto-accept at"), min_value=50, max_value=100, step_size=5

@@ -1033,9 +1033,9 @@ def _confirm_category_delete(request, editing: int, confirm):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def suggestion_settings(request):
-    """The LLM suggestions page (docs/design/admin.md): the LLM's status, how sure the queued suggestions are with the
-    auto-accept threshold, and Ask again. Right after lowering the threshold (`?lowered`), it offers the queued
-    suggestions that now clear it."""
+    """The Suggestions page (docs/design/admin.md): what waits and what last arrived, how sure the queued
+    suggestions are with the auto-accept threshold, and Ask again. Right after lowering the threshold (`?lowered`),
+    it offers the queued suggestions that now clear it."""
     current = _threshold_percent()
     form = ThresholdForm(request.POST or None, initial={"threshold": current})
     if form.is_valid():
@@ -1089,7 +1089,7 @@ def _suggestions_page(request, *, form=None, lowered=False, confirm=False):
 
 
 def _threshold_percent() -> int:
-    """The auto-accept threshold in % sure, as the LLM suggestions page shows and takes it."""
+    """The auto-accept threshold in % sure, as the Suggestions page shows and takes it."""
     return round(suggestions.threshold() * 100)
 
 
@@ -1117,7 +1117,7 @@ def accept_clearing_suggestions(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def resuggest_queue(request):
-    """Ask again: clears the queued suggestions after an inline confirmation, so the LLM is asked about them again."""
+    """Ask again: clears the queued suggestions after an inline confirmation, so the Categorizers are asked about them again."""
     if request.method == "GET":
         if wants_the_fragment_alone(request):
             return render(
@@ -1130,8 +1130,8 @@ def resuggest_queue(request):
     messages.success(
         request,
         ngettext(
-            "%(count)d suggestion cleared; the LLM will be asked again.",
-            "%(count)d suggestions cleared; the LLM will be asked again.",
+            "%(count)d suggestion cleared; the Categorizers will be asked again.",
+            "%(count)d suggestions cleared; the Categorizers will be asked again.",
             count,
         )
         % {"count": count},
