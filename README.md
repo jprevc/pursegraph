@@ -13,7 +13,8 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 The screenshots show a synthetic Household from `manage.py seed_demo`; `scripts/readme-shots` retakes them.
 
 - **Statement import:** parsers for Sparkasse SI, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
-- **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then a local LLM (Ollama) for the rest. Low-confidence suggestions wait in a Review queue.
+- **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then Suggestions from a Categorizer you connect (an LLM or any other service). Low-confidence Suggestions wait in a Review queue.
+- **Privacy:** Transaction text leaves Pursegraph only through a Categorizer you connect, which fetches it with a token of its own.
 - **Dashboard:** spending by Category, cashflow, Category trends, per-Member and money-flow views, with drill-down to the Transactions and warnings for gaps in the imported periods.
 
 Built with Django 5.2, PostgreSQL, HTMX and ECharts, and deployed with Docker Compose. Tested with pytest against a real PostgreSQL, and checked with ruff and mypy.
@@ -27,7 +28,7 @@ docker compose up -d --build
 docker compose exec web python manage.py create_admin <username>
 ```
 
-Then open `http://<host>:8000/` and log in. [Operations](docs/operations.md) covers the full setup, backups and restores, re-parsing Statements, and recovering a locked-out admin. The [user guide](docs/user-guide.md) describes how importing, categorization and Rules behave.
+Then open `http://<host>:8000/` and log in. [Operations](docs/operations.md) covers the full setup, connecting a Categorizer, backups and restores, re-parsing Statements, and recovering a locked-out admin. The [user guide](docs/user-guide.md) describes how importing, categorization and Rules behave.
 
 ## Development
 
