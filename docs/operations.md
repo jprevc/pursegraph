@@ -205,7 +205,7 @@ This replaces the whole database with the dump. It works the same on a fresh ins
 
 ```sh
 docker compose up -d postgres
-docker compose stop web categorize_worker backup
+docker compose stop web backup
 docker compose exec postgres sh -c 'dropdb -U "$POSTGRES_USER" --force "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
 docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --exit-on-error' < data/backups/daily/pursegraph-YYYY-MM-DD.dump
 docker compose up -d

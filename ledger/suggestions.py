@@ -1,10 +1,9 @@
-"""Suggestions: Transactions still unresolved after Rules get a Subcategory suggested in the background.
+"""Suggestions: Transactions still unresolved after Rules get a Subcategory suggested by a Categorizer.
 
-`run_once` asks a Suggester about each unresolved Transaction that has no suggestion yet and stores
-the suggestion with its confidence. One at least as confident as the auto-accept threshold also
-sets the outcome (`source = categorizer`); the rest wait in the Review queue with the suggestion
-preselected. The `categorize_worker` command calls it in a loop, backing off while the Suggester
-is unavailable. Imports never wait for it.
+A Categorizer fetches the unresolved Transactions that have no suggestion yet (`waiting`) through the Categorizer
+API (ledger/api.py) and sends back a Suggestion with its confidence (`receive`). One at least as confident as the
+auto-accept threshold also sets the outcome (`source = categorizer`); the rest wait in the Review queue with the
+suggestion preselected. Imports never wait for it.
 
 Admins retune it: changing the threshold applies from then on, and lowering it can accept the
 queued suggestions that now clear it; re-suggesting the queue clears its stored suggestions so
@@ -15,7 +14,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
 
 from django.db import transaction
 from django.db.models import Min, QuerySet
@@ -30,7 +28,7 @@ DETAIL_KEYS = ("Type", "n26_category", "purpose", "to", "from", "reference")
 # At most this many few-shot examples, the most recent merchants first, to keep the prompt small.
 MAX_EXAMPLES = 100
 
-# Transactions asked about per run, so the loop notices new work and failures between batches.
+# Transactions a Categorizer fetches at once by default.
 BATCH_SIZE = 50
 
 
@@ -46,7 +44,7 @@ class Example:
 
 @dataclass(frozen=True)
 class Query:
-    """What a Suggester is asked: one Transaction, the Subcategories to choose from, and examples."""
+    """What a Categorizer is asked about one Transaction, with examples."""
 
     direction: str
     """"in" or "out"."""
@@ -55,59 +53,15 @@ class Query:
     description: str
     detail: str
     """Text from the Transaction's `raw` that the parser saw, such as a purpose line."""
-    subcategories: list[Subcategory]
-    """With their Category."""
     examples: list[Example]
 
 
 @dataclass(frozen=True)
 class Suggestion:
     subcategory: Subcategory
-    """One of the Query's Subcategories."""
+    """One of the Subcategories offered."""
     confidence: float
-    """The model's own probability of `subcategory`, from 0 to 1."""
-
-
-class SuggestionsUnavailable(Exception):
-    """The Suggester can't answer at all, such as when Ollama is unreachable."""
-
-
-class NoSuggestion(Exception):
-    """The Suggester answered about one Transaction, but unusably; it goes to the Review queue unsuggested."""
-
-
-class Suggester(Protocol):
-    def suggest(self, query: Query) -> Suggestion:
-        """Raises SuggestionsUnavailable when it can't answer, NoSuggestion when its answer is unusable."""
-        ...
-
-
-@dataclass(frozen=True)
-class Run:
-    """What one `run_once` did."""
-
-    asked: int
-    """Transactions it asked the Suggester about."""
-    error: SuggestionsUnavailable | None = None
-    """Why it stopped early, if the Suggester failed."""
-
-
-def run_once(suggester: Suggester) -> Run:
-    """Asks `suggester` about a batch of unresolved Transactions with no suggestion.
-
-    Stops at the first failure, which the sidebar then shows until a call succeeds again."""
-    pending = list(_awaiting_suggestion()[:BATCH_SIZE])
-    for done, candidate in enumerate(pending):
-        try:
-            suggestion: Suggestion | None = suggester.suggest(_query(candidate))
-        except SuggestionsUnavailable as error:
-            _failed()
-            return Run(done, error)
-        except NoSuggestion:
-            suggestion = None
-        _answered()
-        _store(candidate.pk, suggestion)
-    return Run(len(pending))
+    """The Categorizer's own probability of `subcategory`, from 0 to 1."""
 
 
 def threshold() -> Decimal:
@@ -121,7 +75,7 @@ def set_threshold(value: Decimal) -> None:
 
 
 def suggestions_clearing_threshold() -> "QuerySet[Transaction]":
-    """The queued Transactions whose stored suggestion is at least as confident as the threshold: the worker
+    """The queued Transactions whose stored suggestion is at least as confident as the threshold: `receive`
     accepts these as it stores them, and lowering the threshold leaves some."""
     return Transaction.objects.unresolved().filter(
         suggested_subcategory__isnull=False, confidence__gte=threshold()
@@ -129,14 +83,14 @@ def suggestions_clearing_threshold() -> "QuerySet[Transaction]":
 
 
 def accept_suggestions_clearing_threshold(pks: Iterable[int]) -> int:
-    """Accepts the suggestions of the Transactions `pks` that still clear the threshold, as the worker would
+    """Accepts the suggestions of the Transactions `pks` that still clear the threshold, as `receive` would
     have (`source = categorizer`). Returns how many."""
     with transaction.atomic():
         return _accept_clearing(Transaction.objects.filter(pk__in=pks))
 
 
 def resuggest_queue() -> int:
-    """Clears the stored suggestions of the queued Transactions, so they are asked about again,
+    """Clears the stored suggestions of the queued Transactions, so Categorizers are asked about them again,
     such as after a model or prompt change, and calls the Webhooks if any are waiting then. Returns how many it
     cleared."""
     from . import webhooks
@@ -154,11 +108,6 @@ def resuggest_queue() -> int:
 def waiting_count() -> int:
     """How many Transactions are waiting for a Suggestion."""
     return _awaiting_suggestion().count()
-
-
-def suggestions_unavailable() -> bool:
-    """Whether the last call to the Suggester failed."""
-    return Setting.get(Setting.SUGGESTIONS_UNAVAILABLE) == "1"
 
 
 # The threshold's steps on the Suggestions page, in % sure; the chart's bins are as wide, so each bin is wholly on
@@ -218,19 +167,6 @@ def overview() -> Overview:
     )
 
 
-def _answered() -> None:
-    Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "")
-
-
-def _failed() -> None:
-    Setting.put(Setting.SUGGESTIONS_UNAVAILABLE, "1")
-
-
-def backoff(attempt: int) -> int:
-    """Seconds to wait after the `attempt`-th failure in a row: 5, 10, 20, … up to 5 minutes."""
-    return min(5 * 2 ** (attempt - 1), 300)
-
-
 def _awaiting_suggestion() -> "QuerySet[Transaction]":
     return Transaction.objects.unresolved().filter(
         suggested_subcategory__isnull=True, confidence__isnull=True
@@ -252,16 +188,14 @@ def waiting(limit: int) -> tuple[list[Subcategory], list[tuple[int, Query]]]:
     """For a Categorizer: the Subcategories to choose from, and up to `limit` Transactions waiting for a
     Suggestion, oldest first, each by id with what it is asked. Nothing is claimed: the same ones come back until
     Suggestions for them arrive."""
-    subcategories = _subcategories()
-    return subcategories, [
-        (candidate.pk, _query(candidate, subcategories))
-        for candidate in _awaiting_suggestion()[:limit]
+    return _subcategories(), [
+        (candidate.pk, _query(candidate)) for candidate in _awaiting_suggestion()[:limit]
     ]
 
 
 def receive(pk: int, suggestion: Suggestion | None, token: CategorizerToken) -> Received:
-    """Stores a Categorizer's Suggestion for the Transaction `pk`, or with None that it has none, as `run_once`
-    stores an answer, and records that `token` sent it."""
+    """Stores a Categorizer's Suggestion for the Transaction `pk`, or with None that it has none, and records that
+    `token` sent it."""
     with transaction.atomic():
         received = _store(pk, suggestion)
         if received.stored:
@@ -315,14 +249,12 @@ def _subcategories() -> list[Subcategory]:
     return list(Subcategory.objects.select_related("category").order_by("category"))
 
 
-def _query(candidate: Transaction, subcategories: list[Subcategory] | None = None) -> Query:
+def _query(candidate: Transaction) -> Query:
     return Query(
         direction=_direction(candidate),
         amount=abs(candidate.amount),
         description=candidate.description,
         detail=_detail(candidate),
-        # Read for each query unless given, so a Subcategory deleted during a batch is no longer offered.
-        subcategories=_subcategories() if subcategories is None else subcategories,
         examples=_examples(candidate),
     )
 

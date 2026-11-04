@@ -34,10 +34,10 @@ def test_the_page_says_where_transaction_text_may_go(admin_client):
 
 def test_a_new_token_is_shown_once(admin_client):
     page = admin_client.post(
-        "/categorizers/", {"name": "Ollama on the NAS"}, follow=True
+        "/categorizers/", {"name": "Qwen on the NAS"}, follow=True
     ).content.decode()
 
-    assert "Token for Ollama on the NAS" in page_text(page)
+    assert "Token for Qwen on the NAS" in page_text(page)
     assert "Shown only now." in page_text(page)
     secret = re.search(r'value="(pgc_[^"]+)"', page)
     assert secret
@@ -45,7 +45,7 @@ def test_a_new_token_is_shown_once(admin_client):
 
 
 def test_refreshing_after_creating_doesnt_create_another(admin_client):
-    created = admin_client.post("/categorizers/", {"name": "Ollama on the NAS"})
+    created = admin_client.post("/categorizers/", {"name": "Qwen on the NAS"})
     assert created.status_code == 302
 
     page = admin_client.get(created["Location"]).content.decode()
@@ -66,28 +66,28 @@ def test_a_token_needs_a_name(admin_client):
 
 def test_each_token_shows_when_it_was_last_used(admin_client, client, monkeypatch):
     monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 27, 13, 2, tzinfo=UTC))
-    used = create_token(admin_client, "Ollama on the NAS")
+    used = create_token(admin_client, "Qwen on the NAS")
     create_token(admin_client, "Cloud")
 
     client.get(WAITING, headers={"Authorization": f"Bearer {used}"})
 
     assert tokens_shown(admin_client) == [
         "Cloud created 27 Oct 2026 by bor · never used",
-        "Ollama on the NAS created 27 Oct 2026 by bor · last used 27 Oct 2026 14:02",
+        "Qwen on the NAS created 27 Oct 2026 by bor · last used 27 Oct 2026 14:02",
     ]
 
 
 def test_revoking_is_confirmed_inline_and_removes_the_token(admin_client):
-    create_token(admin_client, "Ollama on the NAS")
+    create_token(admin_client, "Qwen on the NAS")
     revoke = revoke_url(admin_client)
 
     confirm = page_text(admin_client.get(revoke, HTTP_HX_REQUEST="true").content.decode())
-    assert confirm.startswith("Revoke Ollama on the NAS ? Its Categorizer can't connect any more.")
+    assert confirm.startswith("Revoke Qwen on the NAS ? Its Categorizer can't connect any more.")
     assert tokens_shown(admin_client) != []
 
     page = admin_client.post(revoke, follow=True).content.decode()
 
-    assert "“Ollama on the NAS” is revoked" in page_text(page)
+    assert "“Qwen on the NAS” is revoked" in page_text(page)
     assert tokens_shown(admin_client) == []
     assert admin_client.post(revoke).status_code == 404
 
