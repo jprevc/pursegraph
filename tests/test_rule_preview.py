@@ -20,23 +20,23 @@ def descriptions(transactions):
 def test_the_preview_groups_matches_by_what_saving_does():
     groceries, other = sub("Food", "Groceries"), sub("Food", "Other")
     make_transaction("HOFER waiting")
-    make_transaction("HOFER by llm", subcategory=other, source=Source.LLM)
+    make_transaction("HOFER by Categorizer", subcategory=other, source=Source.CATEGORIZER)
     make_transaction("HOFER by hand", subcategory=sub("Leisure", "Travel"), source=Source.MANUAL)
-    make_transaction("HOFER already", subcategory=groceries, source=Source.LLM)
+    make_transaction("HOFER already", subcategory=groceries, source=Source.CATEGORIZER)
     make_transaction("HOFER by hand too", subcategory=groceries, source=Source.MANUAL)
     make_transaction("HOFER by parser", subcategory=other, source=Source.PARSER)
     make_transaction("Spar")
 
     p = preview(Rule(description_contains="hofer", subcategory=groceries))
 
-    assert sorted(descriptions(p.change)) == ["HOFER by llm", "HOFER waiting"]
+    assert sorted(descriptions(p.change)) == ["HOFER by Categorizer", "HOFER waiting"]
     assert descriptions(p.set_by_hand) == ["HOFER by hand"]
     assert descriptions(p.already) == ["HOFER already"]
     assert sorted(descriptions(p.keep)) == ["HOFER by hand too", "HOFER by parser"]
 
 
 def test_a_transfer_rule_finds_the_transfers_already_made():
-    make_transaction("Savings", is_transfer=True, source=Source.LLM)
+    make_transaction("Savings", is_transfer=True, source=Source.CATEGORIZER)
 
     p = preview(Rule(description_contains="savings", subcategory=None))
 
@@ -45,7 +45,7 @@ def test_a_transfer_rule_finds_the_transfers_already_made():
 
 
 def test_without_an_outcome_every_overwritable_match_would_change():
-    make_transaction("Shop", subcategory=sub("Food", "Groceries"), source=Source.LLM)
+    make_transaction("Shop", subcategory=sub("Food", "Groceries"), source=Source.CATEGORIZER)
     make_transaction("Shop by hand", subcategory=sub("Food", "Other"), source=Source.MANUAL)
 
     p = preview(Rule(description_contains="shop"), chosen=False)

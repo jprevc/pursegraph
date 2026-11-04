@@ -1,8 +1,8 @@
 """Applying Rules to Transactions, and keeping the Rules' order.
 
 At import, Rules categorize only unresolved Transactions. Applied to existing Transactions, a Rule
-also overwrites outcomes other automatic processing set (`llm`, `rule`), never `manual`, `iban`,
-`pairing` or `parser` ones, and pairs the Transfers it makes as import does."""
+also overwrites outcomes other automatic processing set (`categorizer`, `rule`), never `manual`,
+`iban`, `pairing` or `parser` ones, and pairs the Transfers it makes as import does."""
 
 import unicodedata
 from dataclasses import dataclass, field
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .transfers import Pairing
 
 # The automatic outcomes a Rule applied to existing Transactions may overwrite.
-OVERWRITABLE = [Source.LLM, Source.RULE]
+OVERWRITABLE = [Source.CATEGORIZER, Source.RULE]
 
 # Payment processors put the merchant after "*" ("PAYPAL *STEAMGAMES").
 PROCESSORS = {"PAYPAL", "SUMUP", "SQ", "ZETTLE", "IZETTLE", "GOOGLE", "APPLE"}

@@ -1175,7 +1175,7 @@ mark { padding: 0 1px; border-radius: 3px; background: var(--match); color: inhe
 }
 
 /* ---------- Admin pages ---------- */
-/* Categories, LLM suggestions and Members (docs/design/admin.md): each reads first, and editing is a step taken on
+/* Categories, Suggestions and Members (docs/design/admin.md): each reads first, and editing is a step taken on
    purpose. Small 30px buttons sit in their rows. */
 button.sm, .button.sm { height: 1.875rem; padding: 0 .625rem; font-size: var(--text-sm); }
 .icon-button.sm { width: 1.875rem; padding: 0; }
@@ -1229,18 +1229,18 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
   .cat-card.editing { grid-column: span 2; }
 }
 
-/* LLM suggestions: the status strip of what waits and what last arrived, the chart of how sure the queued suggestions are with the threshold's line, and
+/* Suggestions: the status strip of what waits and what last arrived, the chart of how sure the queued suggestions are with the threshold's line, and
    Ask again. */
-.llm { display: grid; gap: var(--s-4); max-width: 61.25rem; }
-.llm h2 { margin: 0; font-size: var(--text-title); }
+.suggestions { display: grid; gap: var(--s-4); max-width: 61.25rem; }
+.suggestions h2 { margin: 0; font-size: var(--text-title); }
 .offer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); max-width: 61.25rem; margin-bottom: var(--s-4); padding: var(--s-3) var(--s-4); border-radius: var(--r-ctl); background: var(--accent-soft); color: var(--ink); }
 .offer p { flex: 1 1 18rem; margin: 0; }
-.llm-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-5); padding: var(--s-4) var(--s-5); }
+.suggestions-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-5); padding: var(--s-4) var(--s-5); }
 .stats { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin: 0; }
 .stats dt { color: var(--muted); font-size: var(--text-label); font-weight: 500; }
 .stats dd { margin: 0; font-size: var(--text-title); font-weight: 600; }
 .stats dd .muted { font-size: var(--text-label); font-weight: 400; }
-.llm-strip > .button { margin-left: auto; }
+.suggestions-strip > .button { margin-left: auto; }
 .chart-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); }
 .chart-head h2 { margin-right: auto; }
 .chart-head span { font-size: var(--text-label); }
@@ -1267,10 +1267,10 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .thr .pct { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .thr input[type="number"] { width: 5.5rem; text-align: right; }
 .thr-note { margin: var(--s-2) 0 0; font-size: var(--text-label); }
-.llm .error { margin: var(--s-2) 0 0; }
-.llm-again > p { margin: var(--s-2) 0 var(--s-3); }
-.llm-again .confirm { margin-top: var(--s-3); }
-.llm-again:has(.confirm) > [data-confirm-opener] { display: none; }
+.suggestions .error { margin: var(--s-2) 0 0; }
+.suggestions-again > p { margin: var(--s-2) 0 var(--s-3); }
+.suggestions-again .confirm { margin-top: var(--s-3); }
+.suggestions-again:has(.confirm) > [data-confirm-opener] { display: none; }
 
 /* Members: a card per role, the section being the state and the row's buttons the actions. */
 .roles { display: grid; gap: var(--s-4); max-width: 56.25rem; }

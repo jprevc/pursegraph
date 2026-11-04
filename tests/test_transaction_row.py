@@ -145,8 +145,11 @@ def test_the_source_caption_carries_the_specific_reason_as_its_title(db):
 
     by_rule = made(subcategory=groceries, source=Source.RULE, rule=rule)
     by_lost_rule = made(subcategory=groceries, source=Source.RULE)
-    by_llm = made(
-        subcategory=groceries, source=Source.LLM, suggested_subcategory=groceries, confidence=0.92
+    by_categorizer = made(
+        subcategory=groceries,
+        source=Source.CATEGORIZER,
+        suggested_subcategory=groceries,
+        confidence=0.92,
     )
     by_iban = made(is_transfer=True, source=Source.IBAN, counterparty_iban="SI56 1234")
     other_side = Transaction.objects.create(
@@ -156,7 +159,7 @@ def test_the_source_caption_carries_the_specific_reason_as_its_title(db):
 
     assert by_rule.source_reason == "Matched the Rule “HOFER” → Food › Groceries"
     assert by_lost_rule.source_reason == "A Rule matched it; the Rule has since been deleted."
-    assert by_llm.source_reason == "The local model suggested it, 92 % sure."
+    assert by_categorizer.source_reason == "A Categorizer suggested it, 92 % sure."
     assert by_iban.source_reason == "Its counterparty IBAN, SI56 1234, is one of the Household's."
     assert paired.source_reason == "Paired with the other side in Savings on 9 Sep 2026."
     assert made(subcategory=groceries, source=Source.MANUAL).source_reason == "A Member chose it."

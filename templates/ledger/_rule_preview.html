@@ -9,7 +9,7 @@ to them, with notes on the other Rules involved. Swapped in as the conditions ch
   <ul class="r-notes">
     {% for place, name, n in taken_over %}<li>{% icon "info" %}<span>{% blocktranslate count n=n %}Takes {{ n }} over from Rule {{ place }} ({{ name }}).{% plural %}Takes {{ n }} over from Rule {{ place }} ({{ name }}).{% endblocktranslate %}</span></li>{% endfor %}
     {% for place, name, n in shadowed %}<li>{% icon "info" %}<span>{% blocktranslate count n=n %}At import, Rule {{ place }} ({{ name }}) above wins on {{ n }} of these.{% plural %}At import, Rule {{ place }} ({{ name }}) above wins on {{ n }} of these.{% endblocktranslate %}</span></li>{% endfor %}
-    {% if chosen and not draft.subcategory and preview.change %}<li>{% icon "info" %}<span>{% translate "Pairing the Transfers may also convert a counterpart categorized by the LLM or a Rule into a Transfer." %}</span></li>{% endif %}
+    {% if chosen and not draft.subcategory and preview.change %}<li>{% icon "info" %}<span>{% translate "Pairing the Transfers may also convert a counterpart categorized by a Categorizer or a Rule into a Transfer." %}</span></li>{% endif %}
   </ul>
   {% endif %}
   {% if preview.change or preview.set_by_hand or preview.already or preview.keep %}

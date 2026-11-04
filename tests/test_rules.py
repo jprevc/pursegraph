@@ -263,7 +263,7 @@ def test_saving_and_changing_applies_the_rule_and_says_so(logged_in_client):
     assert outcome_shown(page, "Corner Shop") == "Food → Groceries"
 
 
-def test_applying_overwrites_only_unresolved_llm_and_rule_outcomes(logged_in_client):
+def test_applying_overwrites_only_unresolved_categorizer_and_rule_outcomes(logged_in_client):
     other = subcategory_id("Other", "Miscellaneous")
     kept = {
         source: make_transaction(f"Shop {source}", subcategory_id=other, source=source)
@@ -271,7 +271,7 @@ def test_applying_overwrites_only_unresolved_llm_and_rule_outcomes(logged_in_cli
     }
     overwritten = [
         make_transaction("Shop unresolved"),
-        make_transaction("Shop llm", subcategory_id=other, source=Source.LLM),
+        make_transaction("Shop by Categorizer", subcategory_id=other, source=Source.CATEGORIZER),
         make_transaction("Shop rule", subcategory_id=other, source=Source.RULE),
     ]
     make_rule(logged_in_client, groceries(), description_contains="shop")
@@ -289,7 +289,7 @@ def test_applying_overwrites_only_unresolved_llm_and_rule_outcomes(logged_in_cli
 
 
 def test_applying_a_transfer_rule(logged_in_client):
-    t = make_transaction("Savings", subcategory_id=groceries(), source=Source.LLM)
+    t = make_transaction("Savings", subcategory_id=groceries(), source=Source.CATEGORIZER)
     make_rule(logged_in_client, "transfer", description_contains="savings")
 
     apply_rule(logged_in_client, Rule.objects.get(description_contains="savings"))
@@ -339,8 +339,8 @@ def test_a_category_with_rules_is_not_deleted(logged_in_client, admin_client):
 
 
 def test_applying_a_subcategory_rule_unpairs_a_transfer(logged_in_client):
-    a = make_transaction("Savings", is_transfer=True, source=Source.LLM)
-    b = make_transaction("From checking", "10.00", is_transfer=True, source=Source.LLM)
+    a = make_transaction("Savings", is_transfer=True, source=Source.CATEGORIZER)
+    b = make_transaction("From checking", "10.00", is_transfer=True, source=Source.CATEGORIZER)
     a.counterpart = b
     a.save()
     b.counterpart = a
@@ -405,7 +405,7 @@ def test_applying_a_transfer_rule_reports_the_counterparts_pairing_converted(log
         amount=Decimal("10.00"),
         description="From checking",
         subcategory_id=groceries(),
-        source=Source.LLM,
+        source=Source.CATEGORIZER,
     )
     make_rule(logged_in_client, "transfer", description_contains="to savings")
 

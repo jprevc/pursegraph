@@ -121,7 +121,7 @@ class Statement(models.Model):
 
 class Source(models.TextChoices):
     RULE = "rule", _("Rule")
-    LLM = "llm", _("LLM")
+    CATEGORIZER = "categorizer", _("Categorizer")
     MANUAL = "manual", _("Manual")
     IBAN = "iban", _("IBAN")
     PAIRING = "pairing", _("Pairing")
@@ -131,7 +131,7 @@ class Source(models.TextChoices):
 
 SOURCE_CAPTIONS = {
     Source.RULE: _("by Rule"),
-    Source.LLM: _("by LLM"),
+    Source.CATEGORIZER: _("by Categorizer"),
     Source.MANUAL: _("by hand"),
     Source.IBAN: _("by IBAN"),
     Source.PAIRING: _("paired"),
@@ -193,7 +193,7 @@ class Transaction(models.Model):
     # An unpaired Transfer side with several equally close candidates, waiting for a Member to pick one.
     ambiguous_pairing = models.BooleanField(_("ambiguous pairing"), default=False)
     # What set the outcome; blank while unresolved. Automatic processing never overwrites MANUAL.
-    source = models.CharField(_("source"), max_length=10, choices=Source.choices, blank=True)
+    source = models.CharField(_("source"), max_length=20, choices=Source.choices, blank=True)
     # The Rule that set the outcome, while `source` is RULE.
     rule = models.ForeignKey(
         "Rule",
@@ -203,8 +203,8 @@ class Transaction(models.Model):
         related_name="transactions",
         verbose_name=_("rule"),
     )
-    # The local LLM's suggestion, kept apart from the outcome. The worker asks for one while both are None;
-    # confidence 0 with no Subcategory means the LLM's answer was unusable.
+    # A Categorizer's Suggestion, kept apart from the outcome. One is waited for while both are None;
+    # confidence 0 with no Subcategory means the Categorizer's answer was unusable.
     suggested_subcategory = models.ForeignKey(
         "Subcategory",
         on_delete=models.SET_NULL,
@@ -213,7 +213,7 @@ class Transaction(models.Model):
         related_name="+",
         verbose_name=_("suggested subcategory"),
     )
-    # The LLM's own probability of `suggested_subcategory`, from 0 to 1.
+    # The Categorizer's own probability of `suggested_subcategory`, from 0 to 1.
     confidence = models.FloatField(_("confidence"), null=True, blank=True)
 
     objects = TransactionQuerySet.as_manager()
@@ -266,10 +266,10 @@ class Transaction(models.Model):
                 "rule": self.rule,
                 "outcome": self.outcome_label,
             }
-        if self.source == Source.LLM:
+        if self.source == Source.CATEGORIZER:
             if self.confidence is None:
-                return str(_("The local model suggested it."))
-            return _("The local model suggested it, %(percent)s sure.") % {
+                return str(_("A Categorizer suggested it."))
+            return _("A Categorizer suggested it, %(percent)s sure.") % {
                 "percent": figures.share(self.confidence)
             }
         if self.source == Source.IBAN:
@@ -380,7 +380,7 @@ class Subcategory(models.Model):
 class Setting(models.Model):
     """An installation-wide value. There is no Household table: the installation is the Household."""
 
-    # An LLM suggestion at least this confident sets the outcome by itself.
+    # A Suggestion at least this confident sets the outcome by itself.
     AUTO_ACCEPT_THRESHOLD = "auto_accept_threshold"
     # "1" while the last call to the LLM failed.
     SUGGESTIONS_UNAVAILABLE = "suggestions_unavailable"
@@ -522,7 +522,7 @@ class CategorizerToken(models.Model):
     last_used_at = models.DateTimeField(_("last used at"), null=True, blank=True)
     # The last Suggestion, or "no suggestion", it sent that was stored.
     last_suggestion_at = models.DateTimeField(_("last suggestion at"), null=True, blank=True)
-    # Kept once revoked, so the LLM suggestions page can still name it as the sender of the last Suggestion.
+    # Kept once revoked, so the Suggestions page can still name it as the sender of the last Suggestion.
     revoked_at = models.DateTimeField(_("revoked at"), null=True, blank=True)
 
     class Meta:

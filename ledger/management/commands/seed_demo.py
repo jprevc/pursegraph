@@ -123,7 +123,7 @@ RULES = [
     ("Hofer", ("Food", "Groceries")),
     ("DARS", ("Transport", "Parking & tolls")),
 ]
-# The Transactions awaiting review, in turn: a description and its LLM suggestion, if any.
+# The Transactions awaiting review, in turn: a description and its Suggestion, if any.
 WAITING = [
     ("Bolt.eu", ("Transport", "Public transport & car sharing", 0.78)),
     ("Kavarna Zvezda", None),
@@ -235,12 +235,12 @@ class Command(BaseCommand):
         salary = subcategory("Income", "Salary")
 
         def spend(account, day, low, high, description, counterparty, outcome):
-            """A payment out, categorized by hand or by the LLM; the Rules take theirs at the end."""
+            """A payment out, categorized by hand or by a Categorizer; the Rules take theirs at the end."""
             amount = -Decimal(rng.randint(round(low * 100), round(high * 100))) / 100
             if rng.random() < 0.5:
                 confidence = rng.randint(90, 99) / 100
                 how = {
-                    "source": Source.LLM,
+                    "source": Source.CATEGORIZER,
                     "suggested_subcategory": outcome,
                     "confidence": confidence,
                 }
@@ -376,7 +376,7 @@ class Command(BaseCommand):
         pair(Transaction.objects.filter(is_transfer=True))
 
         # The Rules, top first. Made a month into the demo, each categorized what it matches from then on, where
-        # a Member would have chosen the same; what came before keeps the outcome a Member or the LLM gave it.
+        # a Member would have chosen the same; what came before keeps the outcome a Member or a Categorizer gave it.
         made = month_start(MONTHS - 1)
         rules = [
             Rule(description_contains=contains, subcategory=subcategory(*outcome))

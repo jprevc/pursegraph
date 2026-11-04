@@ -67,7 +67,7 @@ def test_a_confident_suggestion_is_accepted(logged_in_client):
         outcome_shown(transactions_page(logged_in_client), "Mercator Žalec") == "Food → Groceries"
     )
     mercator = Transaction.objects.get(description="Mercator Žalec")
-    assert mercator.source == Source.LLM
+    assert mercator.source == Source.CATEGORIZER
     assert ">Mercator Žalec<" not in review_page(logged_in_client)
 
 
@@ -92,7 +92,7 @@ def test_the_default_threshold_is_090(logged_in_client, confidence, accepted):
     run_once(FakeSuggester({"Corner Shop": ("Food", "Groceries", confidence)}))
 
     assert Transaction.objects.get(description="Corner Shop").source == (
-        Source.LLM if accepted else ""
+        Source.CATEGORIZER if accepted else ""
     )
 
 

@@ -9,7 +9,7 @@ An empty page always says why it is empty and what fills it. It never only says 
   1. "Pursegraph is installed and you are its first admin": always done. Its circle shows a check on Indigo Wash, and its title is Muted 500.
   2. "Import a Statement": "Upload a bank Statement: a Sparkasse or N26 PDF, or a Revolut PDF or CSV. Its Account is created from the IBAN on it, so there's nothing to set up first." Who: "Any Member · usually their own bank". Action: Import.
   3. "Invite the other Members": "Each gets a one-time link to choose their password, then imports their own Statements." Who: "Admins". Action: Invite, which opens Members. Done once a second active Member exists. A Member who isn't an admin doesn't see this step.
-  4. "Sort the Review queue": "What no Rule or LLM suggestion could categorize waits for a Member to decide. Available after the first import." Not available yet: no card fill or shadow, a dashed Line Strong border, and muted text.
+  4. "Sort the Review queue": "What no Rule or Suggestion could categorize waits for a Member to decide. Available after the first import." Not available yet: no card fill or shadow, a dashed Line Strong border, and muted text.
 - **The shell in setup mode.** The sidebar offers only what works yet: Get started, Import, and under Manage, Categories, Accounts and Members (for admins). A muted 13px note under Manage says "Transactions, the Review queue and Rules appear after the first import." The phone tab bar has three items: Get started, Import and More. The first import ends setup mode for everyone, and the full shell and the Dashboard return.
 
 **The empty block.** One centred card, the same on every page:

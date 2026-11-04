@@ -84,7 +84,9 @@ def test_last_time_is_the_newest_outcome_of_the_description_outside_the_queue(ac
     fuel, transport = sub("Transport", "Fuel"), sub("Transport", "Public transport & car sharing")
     txn(revolut, date(2026, 7, 1), "-5", "Bolt.eu", subcategory=transport, source=Source.MANUAL)
     txn(n26, date(2026, 8, 2), "-5", "Bolt.eu", subcategory=transport, source=Source.RULE)
-    newest = txn(revolut, date(2026, 8, 12), "-5", "Bolt.eu", subcategory=fuel, source=Source.LLM)
+    newest = txn(
+        revolut, date(2026, 8, 12), "-5", "Bolt.eu", subcategory=fuel, source=Source.CATEGORIZER
+    )
     txn(revolut, date(2026, 6, 1), "-5", "Bolt.eu", subcategory=fuel, source=Source.MANUAL)
     txn(revolut, date(2026, 9, 1), "-5", "Bolt.eu")  # in the queue
     txn(revolut, date(2026, 9, 2), "-5", "Bolt.eu x", subcategory=transport, source=Source.MANUAL)
@@ -93,7 +95,7 @@ def test_last_time_is_the_newest_outcome_of_the_description_outside_the_queue(ac
 
     assert last is not None
     assert (last.subcategory, last.is_transfer, last.date) == (fuel, False, date(2026, 8, 12))
-    assert last.source_caption == "by LLM"
+    assert last.source_caption == "by Categorizer"
     assert last.count == 2
     assert last.outcome == str(fuel.pk)
 

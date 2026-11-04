@@ -138,7 +138,7 @@ def test_a_confident_suggestion_sets_the_outcome(api):
     corner = Transaction.objects.get(description="Corner Shop")
     assert (corner.subcategory_id, corner.source) == (
         subcategory_id("Food", "Groceries"),
-        Source.LLM,
+        Source.CATEGORIZER,
     )
     assert api.fetch().json()["transactions"] == []
 

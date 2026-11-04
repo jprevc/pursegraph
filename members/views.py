@@ -62,7 +62,7 @@ def _roles() -> dict:
                 "key": "admins",
                 "title": _("Admins"),
                 "text": _(
-                    "Manage Members, Accounts, Categories and the LLM suggestions, and do everything a Member does."
+                    "Manage Members, Accounts, Categories and Categorizers, and do everything a Member does."
                 ),
                 "members": admins,
             },

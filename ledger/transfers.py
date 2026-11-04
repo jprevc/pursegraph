@@ -5,7 +5,7 @@ then links each unpaired Transfer side with the Transaction in another Account t
 and opposite amount within ±3 days; a side paying to a Household IBAN pairs only within that
 IBAN's Account. The closest pairs are linked first. Pairing works in either import order: a side
 already imported finds its counterpart among the new Transactions, and a new side finds it among
-the existing ones. A counterpart categorized by a Rule or the LLM becomes a Transfer.
+the existing ones. A counterpart categorized by a Rule or a Categorizer becomes a Transfer.
 
 A tie, whether a side has several equally close candidates or a candidate several equally close
 sides, leaves those sides unpaired and in the Review queue as ambiguous pairings, until a Member
@@ -137,7 +137,7 @@ def _within_reach_of(t: Transaction) -> Q:
 
 
 def _counterpart_outcome() -> Q:
-    """Outcomes a counterpart may have: a Transfer already, none, or a Category set by a Rule or the LLM."""
+    """Outcomes a counterpart may have: a Transfer already, none, or a Category set by a Rule or a Categorizer."""
     return (
         Q(is_transfer=True)
         | Q(subcategory__isnull=True, is_transfer=False)

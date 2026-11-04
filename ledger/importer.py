@@ -157,7 +157,7 @@ class ImportSummary:
     ambiguous_count: int
     """The Transfer sides, new or already imported, sent to the Review queue for a tie between candidates."""
     awaiting_count: int
-    """The new Transactions still unresolved, waiting for an LLM suggestion or the Review queue."""
+    """The new Transactions still unresolved, waiting for a Suggestion or the Review queue."""
 
 
 @dataclass(frozen=True)
@@ -413,7 +413,7 @@ def run_automatic_steps(new: TransactionQuerySet) -> AutomaticSteps:
 
     In order: bank fees the parser split off are categorized, the IBAN rule and pairing recognise
     Transfers, the Rules categorize, and pairing runs again for the Transfers the Rules marked.
-    What is still unresolved then waits for an LLM suggestion.
+    What is still unresolved then waits for a Suggestion.
     """
     # None once an admin deleted it; fees then wait in the Review queue.
     bank_fees = Subcategory.objects.filter(is_bank_fees=True).first()

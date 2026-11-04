@@ -80,11 +80,11 @@ def test_lowering_the_threshold_offers_the_suggestions_that_now_clear_it(admin_c
     )
     assert (corner.subcategory_id, corner.source) == (
         subcategory_id("Food", "Groceries"),
-        Source.LLM,
+        Source.CATEGORIZER,
     )
     assert (hisa.subcategory_id, hisa.source) == (
         subcategory_id("Food", "Restaurants & cafés"),
-        Source.LLM,
+        Source.CATEGORIZER,
     )
     assert (cevljar.subcategory, cevljar.source) == (None, "")
     assert "now at least" not in settings_page(admin_client)
@@ -108,7 +108,7 @@ def test_accepting_takes_only_the_transactions_offered(admin_client):
 
     accept_offer(admin_client, page)
 
-    assert Transaction.objects.get(description="Corner Shop").source == Source.LLM
+    assert Transaction.objects.get(description="Corner Shop").source == Source.CATEGORIZER
     assert Transaction.objects.get(description="Hiša kave").is_unresolved
 
 
@@ -119,7 +119,7 @@ def test_accepting_respects_a_threshold_raised_meanwhile(admin_client):
 
     accept_offer(admin_client, page)
 
-    assert Transaction.objects.get(description="Corner Shop").source == Source.LLM
+    assert Transaction.objects.get(description="Corner Shop").source == Source.CATEGORIZER
     assert Transaction.objects.get(description="Hiša kave").is_unresolved
 
 
@@ -146,7 +146,7 @@ def test_accepting_leaves_transactions_decided_meanwhile_alone(admin_client, log
     assert (corner.is_transfer, corner.source) == (True, Source.MANUAL)
 
 
-def test_raising_the_threshold_keeps_existing_llm_outcomes(admin_client):
+def test_raising_the_threshold_keeps_existing_categorizer_outcomes(admin_client):
     Setting.put(Setting.AUTO_ACCEPT_THRESHOLD, "0.80")
     suggest("Corner Shop")
 
@@ -155,7 +155,7 @@ def test_raising_the_threshold_keeps_existing_llm_outcomes(admin_client):
     corner = Transaction.objects.get(description="Corner Shop")
     assert (corner.subcategory_id, corner.source) == (
         subcategory_id("Food", "Groceries"),
-        Source.LLM,
+        Source.CATEGORIZER,
     )
 
 
@@ -174,7 +174,7 @@ def test_re_suggesting_asks_again_about_the_queued_transactions_only(admin_clien
     corner = Transaction.objects.get(description="Corner Shop")
     assert (corner.subcategory_id, corner.source) == (
         subcategory_id("Food", "Groceries"),
-        Source.LLM,
+        Source.CATEGORIZER,
     )
 
 
@@ -252,17 +252,17 @@ def test_a_subcategory_deleted_during_a_batch_is_no_longer_offered(admin_client)
     ]  # its answer was the deleted one: asked again, not unusable
 
 
-def test_an_llm_outcome_in_a_deleted_subcategory_moves_to_the_catch_all(admin_client):
+def test_a_categorizer_outcome_in_a_deleted_subcategory_moves_to_the_catch_all(admin_client):
     suggest("Hiša kave")
     Transaction.objects.filter(description="Hiša kave").update(
-        subcategory=subcategory_id("Food", "Restaurants & cafés"), source=Source.LLM
+        subcategory=subcategory_id("Food", "Restaurants & cafés"), source=Source.CATEGORIZER
     )
 
     admin_client.post(f"/subcategories/{subcategory_id('Food', 'Restaurants & cafés')}/delete/")
 
     hisa = Transaction.objects.get(description="Hiša kave")
     assert hisa.subcategory == Subcategory.objects.get(category__name="Food", is_catch_all=True)
-    assert hisa.source == Source.LLM
+    assert hisa.source == Source.CATEGORIZER
 
 
 # The status strip, the chart and Ask again (docs/design/admin.md)
@@ -277,7 +277,11 @@ def at_1402(monkeypatch):
 def strip(client):
     """The status strip's text."""
     page = settings_page(client)
-    return page_text(page[page.index('<section class="panel llm-strip"') : page.index("llm-chart")])
+    return page_text(
+        page[
+            page.index('<section class="panel suggestions-strip"') : page.index("suggestions-chart")
+        ]
+    )
 
 
 def on_a_statement_imported(when, *descriptions):
@@ -336,12 +340,12 @@ def test_the_strip_counts_the_suggestions(admin_client, at_1402):
     Transaction.objects.update(date=date(2026, 10, 5))
     make_transaction("Kiosk")  # not asked yet
     Transaction.objects.filter(description="Corner Shop").update(
-        subcategory=subcategory_id("Food", "Groceries"), source=Source.LLM
+        subcategory=subcategory_id("Food", "Groceries"), source=Source.CATEGORIZER
     )
 
     text = strip(admin_client)
 
-    assert "With a suggestion 2 By the LLM this month 1" in text
+    assert "With a suggestion 2 By Categorizers this month 1" in text
 
 
 def test_the_chart_lists_how_sure_the_queued_suggestions_are(admin_client):
@@ -366,8 +370,8 @@ def test_ask_again_is_confirmed_inline(admin_client):
 
     assert "Ask again about 2 suggestions" in page
     assert confirm.startswith(
-        "Ask the LLM again about the 2 suggestions in the Review queue? They're cleared and come back as the LLM "
-        "answers. Outcomes already set stay."
+        "Ask the Categorizers again about the 2 suggestions in the Review queue? They're cleared and come back as "
+        "the Categorizers answer. Outcomes already set stay."
     )
     assert Transaction.objects.filter(confidence__isnull=False).count() == 2
 

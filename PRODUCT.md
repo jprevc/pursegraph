@@ -31,7 +31,7 @@ A bank's app sees only one bank. A single-user budgeting tool sees only one pers
 
 ## Operating Context
 
-- **Weekly ritual:** download Statements (PDF, or Revolut CSV) from the banks, import several at once, then work through the Review queue. Most Transactions arrive already categorized by a Rule or by the local LLM's suggestion. The rest wait with a suggestion preselected.
+- **Weekly ritual:** download Statements (PDF, or Revolut CSV) from the banks, import several at once, then work through the Review queue. Most Transactions arrive already categorized by a Rule or by a Categorizer's Suggestion. The rest wait with a suggestion preselected.
 - **Reading:** the Dashboard has five views (Spending, Cash flow, Money flow, Trends, Per Member) with drill-down and filters. The reader opens it casually, often on a phone.
 - **Devices:** desktop-first. The Dashboard and the Review queue must be genuinely good on a phone. Import and the admin pages need only work on desktop.
 - **Network:** LAN or VPN only, never exposed to the internet. The app has to work fully offline from the internet, so every asset is self-hosted.
