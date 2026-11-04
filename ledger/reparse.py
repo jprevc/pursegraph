@@ -13,6 +13,7 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Q
 
+from . import webhooks
 from .importer import ImportRejected, check_balances_and_totals, run_automatic_steps
 from .models import Source, Statement, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, parse
@@ -247,7 +248,8 @@ def apply_changes(result: ReparseResult) -> list[OutcomeChange]:
     there is a `refusal()`.
 
     Those whose change could alter their automatic outcome get it again, as at import; a manual
-    outcome is kept. Returns the outcomes that changed, of these Transactions and of those they
+    outcome is kept, and the Webhooks are called if Transactions wait for a Suggestion then. Returns the outcomes
+    that changed, of these Transactions and of those they
     were or are now paired with."""
     rerun = [
         changed.transaction
@@ -285,6 +287,7 @@ def apply_changes(result: ReparseResult) -> list[OutcomeChange]:
             confidence=None,
         )
         run_automatic_steps(Transaction.objects.filter(pk__in=pks))
+        webhooks.fire_if_waiting()
         return [
             OutcomeChange(t, before[t.pk][1], describe_outcome(t))
             for t in affected.filter(pk__in=before.keys())

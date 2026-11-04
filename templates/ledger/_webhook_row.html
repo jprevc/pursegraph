@@ -1,0 +1,15 @@
+{% load i18n %}{# One Webhook's row on the Categorizers page, with its latest attempt; Notify now swaps it for a new one (docs/design/admin.md). #}
+<li id="webhook-{{ webhook.pk }}">
+  <div class="t-row">
+    <div class="w-who">
+      <span class="t-name">{{ webhook.name }}</span>
+      <span class="t-sub"><span class="w-url">{{ webhook.masked_url }}</span> · {% with moment=webhook.last_attempt_at|date:"j M Y H:i" %}{% if not webhook.last_attempt_at %}{% translate "Never called" %}{% elif webhook.delivered %}{% blocktranslate %}Delivered {{ moment }}{% endblocktranslate %}{% else %}<span class="w-failed">{% blocktranslate with why=webhook.failure %}Failed {{ moment }}: {{ why }}{% endblocktranslate %}</span>{% endif %}{% endwith %}</span>
+    </div>
+    <form method="post" action="{% url 'notify_webhook' webhook.pk %}" hx-post="{% url 'notify_webhook' webhook.pk %}" hx-target="#webhook-{{ webhook.pk }}" hx-swap="outerHTML" hx-disabled-elt="find button">
+      {% csrf_token %}
+      <button type="submit" class="sm">{% translate "Notify now" %}</button>
+    </form>
+    <a class="button ghost sm" href="{% url 'delete_webhook' webhook.pk %}" hx-get="{% url 'delete_webhook' webhook.pk %}" hx-target="#confirm-webhook-{{ webhook.pk }}" hx-swap="innerHTML" data-confirm-opener>{% translate "Delete" %}</a>
+  </div>
+  <div id="confirm-webhook-{{ webhook.pk }}" data-confirm-slot>{% if confirm_webhook == webhook.pk %}{% include "ledger/_confirm_delete_webhook.html" %}{% endif %}</div>
+</li>

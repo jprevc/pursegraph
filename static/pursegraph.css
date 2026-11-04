@@ -1302,7 +1302,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .dialog-form p { margin: 0; }
 .dialog .form-actions { justify-content: flex-end; }
 .dialog-foot { margin-top: var(--s-5); }
-/* Categorizers: the tokens, each with its last use and Revoke, then New token. */
+/* Categorizers: the tokens, each with its last use and Revoke, then New token; the Webhooks, each with its latest
+   attempt, Notify now and Delete, then New Webhook. */
 .tokens { display: grid; gap: var(--s-4); max-width: 56.25rem; }
 .tokens h2 { margin: 0 0 var(--s-2); font-size: var(--text-title); }
 .tokens .count { font-weight: 400; }
@@ -1310,7 +1311,7 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .token-rows > li { border-top: 1px solid var(--line); }
 .token-rows > li:first-child { border-top: 0; }
 .t-row { display: flex; align-items: center; gap: var(--s-3); padding: .625rem 0; }
-.t-who { display: grid; flex: 1; min-width: 0; }
+.t-who, .w-who { display: grid; flex: 1; min-width: 0; }
 .t-name { font-weight: 500; overflow-wrap: anywhere; }
 .t-sub { color: var(--muted); font-size: var(--text-label); }
 .token-rows .confirm { margin: 0 0 .625rem; }
@@ -1319,6 +1320,10 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .token-new { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
 .token-new input { flex: 1 1 16rem; min-width: 0; }
 .tokens .error { margin: var(--s-2) 0 0; }
+.w-intro { max-width: 70ch; margin: 0 0 var(--s-2); }
+.w-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.w-failed { color: var(--ink); font-weight: 500; }
+.webhook-new input[name="url"] { flex-basis: 20rem; }
 .link-box { display: flex; gap: var(--s-2); }
 .link-box input { flex: 1; min-width: 0; height: 2.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-sm); }
 .link-box button { height: 2.5rem; }

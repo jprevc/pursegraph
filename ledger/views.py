@@ -31,7 +31,7 @@ from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import categories as category_edits
 from . import categorizers as categorizer_tokens
-from . import facets, outcomes, review, suggestions
+from . import facets, outcomes, review, suggestions, webhooks
 from . import rules as rule_edits
 from .board import Axis, track
 from .coverage import DateRange, coverage, removing
@@ -45,6 +45,7 @@ from .forms import (
     RuleForm,
     StatementFileForm,
     ThresholdForm,
+    WebhookForm,
 )
 from .import_results import banner, domain_counts
 from .importer import (
@@ -55,7 +56,17 @@ from .importer import (
     check_statement,
     commit_statement,
 )
-from .models import Account, Bank, Category, Rule, Source, Statement, Subcategory, Transaction
+from .models import (
+    Account,
+    Bank,
+    Category,
+    Rule,
+    Source,
+    Statement,
+    Subcategory,
+    Transaction,
+    Webhook,
+)
 
 TRANSACTIONS_PER_PAGE = 25
 
@@ -1145,15 +1156,20 @@ def categorizers(request):
 _NEW_TOKEN = "new_categorizer_token"
 
 
-def _categorizers_page(request, *, form, created=None, confirm=None):
+def _categorizers_page(
+    request, *, form=None, webhook_form=None, created=None, confirm=None, confirm_webhook=None
+):
     response = render(
         request,
         "ledger/categorizers.html",
         {
-            "form": form,
+            "form": form or CategorizerTokenForm(),
+            "webhook_form": webhook_form or WebhookForm(),
             "tokens": categorizer_tokens.active().select_related("created_by"),
+            "webhooks": Webhook.objects.all(),
             "created": created,
             "confirm": confirm,
+            "confirm_webhook": confirm_webhook,
         },
     )
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
@@ -1168,13 +1184,60 @@ def revoke_categorizer(request, pk):
     if request.method == "GET":
         if wants_the_fragment_alone(request):
             return render(request, "ledger/_confirm_revoke.html", {"token": token})
-        return _categorizers_page(request, form=CategorizerTokenForm(), confirm=token.pk)
+        return _categorizers_page(request, confirm=token.pk)
     categorizer_tokens.revoke(token.pk)
     messages.success(
         request,
         _("“%(name)s” is revoked: its Categorizer can't connect any more.") % {"name": token.name},
     )
     return redirect("categorizers")
+
+
+@admin_required
+@require_POST
+def add_webhook(request):
+    """New Webhook, on the Categorizers page."""
+    form = WebhookForm(request.POST)
+    if not form.is_valid():
+        return _categorizers_page(request, webhook_form=form)
+    webhook = webhooks.add(form.cleaned_data["name"], form.cleaned_data["url"])
+    messages.success(
+        request,
+        _(
+            "“%(name)s” is added: Pursegraph calls it when Transactions are waiting for a suggestion."
+        )
+        % {"name": webhook.name},
+    )
+    return redirect("categorizers")
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def delete_webhook(request, pk):
+    """Delete, confirmed inline under the Webhook's row."""
+    webhook = get_object_or_404(Webhook, pk=pk)
+    if request.method == "GET":
+        if wants_the_fragment_alone(request):
+            return render(request, "ledger/_confirm_delete_webhook.html", {"webhook": webhook})
+        return _categorizers_page(request, confirm_webhook=webhook.pk)
+    webhook.delete()
+    messages.success(
+        request, _("“%(name)s” is deleted: Pursegraph no longer calls it.") % {"name": webhook.name}
+    )
+    return redirect("categorizers")
+
+
+@admin_required
+@require_POST
+def notify_webhook(request, pk):
+    """Notify now: calls this Webhook alone, even when nothing is waiting, and waits for the reply. HTMX swaps the
+    Webhook's row for one showing how it went."""
+    webhook = webhooks.deliver(get_object_or_404(Webhook, pk=pk), suggestions.waiting_count())
+    if not wants_the_fragment_alone(request):
+        return redirect("categorizers")
+    response = render(request, "ledger/_webhook_row.html", {"webhook": webhook})
+    said = _("%(name)s: delivered.") if webhook.delivered else _("%(name)s: failed.")
+    return announce(response, said % {"name": webhook.name})
 
 
 def _suggestions_accepted(request, count: int) -> None:
