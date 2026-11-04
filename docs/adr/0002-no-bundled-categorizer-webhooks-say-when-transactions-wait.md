@@ -19,7 +19,7 @@ This supersedes [ADR 0001](0001-categorizers-pull-suggestions-through-an-api.md)
 
 ## Consequences
 
-- An install with no Categorizer connected works: the Transactions no Rule resolves wait in the Review queue without Suggestions. An install upgraded from the bundled Ollama gets no Suggestions until its operator connects a Categorizer, and must run `docker compose up -d --remove-orphans` so the old `categorize_worker` container stops.
+- An install with no Categorizer connected works: the Transactions no Rule resolves wait in the Review queue without Suggestions. No install ran the bundled Ollama, so removing it needs no upgrade steps.
 - Transaction text leaves Pursegraph only through a Categorizer an admin gives a token to. Pursegraph doesn't restrict where that Categorizer runs, since it couldn't enforce that against a token holder, so the README no longer promises "LAN only".
 - "LLM" no longer names anything in the app. An outcome set from a Suggestion is recorded as set by a Categorizer, and the admin page is called Suggestions.
 - A delivery may be lost, and an action fires once without combining with the others. Receivers treat each delivery as "go fetch", which is safe to repeat.
