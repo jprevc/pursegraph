@@ -36,7 +36,7 @@
     <form class="token-new" method="post" action="{% url 'categorizers' %}">
       {% csrf_token %}
       <label for="token-name">{% translate "Name" %}</label>
-      <input id="token-name" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Ollama on the NAS' %}"{% if form.name.errors %} aria-invalid="true" aria-describedby="token-name-error"{% endif %}>
+      <input id="token-name" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Qwen on the NAS' %}"{% if form.name.errors %} aria-invalid="true" aria-describedby="token-name-error"{% endif %}>
       <button type="submit" class="primary">{% icon "key" %}{% translate "Create token" %}</button>
     </form>
     {% if form.name.errors %}<p class="error" id="token-name-error">{{ form.name.errors|join:" " }}</p>{% endif %}

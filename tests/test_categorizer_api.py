@@ -17,7 +17,7 @@ def suggestion_url(description):
     return f"{WAITING}{transaction_id(description)}/suggestion/"
 
 
-def create_token(admin_client, name="Ollama on the NAS"):
+def create_token(admin_client, name="Qwen on the NAS"):
     """Creates a token on the Categorizers page, as an admin would, and returns its secret as the page shows it once."""
     page = admin_client.post("/categorizers/", {"name": name}, follow=True).content.decode()
     secret = re.search(r'value="(pgc_[^"]+)"', page)

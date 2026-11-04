@@ -195,7 +195,6 @@ a.nav, button.nav {
 a.nav:hover, button.nav:hover { background: var(--hover); color: var(--ink); }
 a.nav[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
 .nav .badge { margin-left: auto; }
-.sidebar .suggestions-status { margin: 0 var(--s-3) var(--s-1) 2.625rem; font-size: var(--text-label); }
 .manage { margin-top: var(--s-5); }
 .manage summary {
   display: flex; align-items: center; gap: var(--s-2); margin: 0 0 2px; padding: var(--s-2) var(--s-3);

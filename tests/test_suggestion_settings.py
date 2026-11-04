@@ -6,11 +6,10 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from ledger.models import Account, Setting, Source, Statement, Subcategory, Transaction
-from ledger.suggestions import run_once
 from tests.conftest import group_caption, page_text, subcategory_id, transaction_id
 from tests.test_categorizer_api import WAITING, create_token
 from tests.test_rules import make_transaction
-from tests.test_suggestions import FakeSuggester
+from tests.test_suggestions import FakeCategorizer
 
 pytestmark = pytest.mark.django_db
 
@@ -24,7 +23,7 @@ ANSWERS = {
 def suggest(*descriptions):
     for description in descriptions:
         make_transaction(description)
-    run_once(FakeSuggester(ANSWERS))
+    FakeCategorizer(ANSWERS).run()
 
 
 def settings_page(client):
@@ -168,8 +167,7 @@ def test_re_suggesting_asks_again_about_the_queued_transactions_only(admin_clien
     assert response.status_code == 302
     hisa = Transaction.objects.get(description="Hiša kave")
     assert (hisa.suggested_subcategory, hisa.confidence) == (None, None)
-    again = FakeSuggester()
-    run_once(again)
+    again = FakeCategorizer().run()
     assert sorted(again.asked()) == ["Hiša kave", "Čevljar"]
     corner = Transaction.objects.get(description="Corner Shop")
     assert (corner.subcategory_id, corner.source) == (
@@ -178,13 +176,12 @@ def test_re_suggesting_asks_again_about_the_queued_transactions_only(admin_clien
     )
 
 
-def test_re_suggesting_also_asks_again_after_an_unusable_answer(admin_client):
+def test_re_suggesting_also_asks_again_after_no_suggestion(admin_client):
     make_transaction("Hiša kave")
     Transaction.objects.update(confidence=0)
 
     admin_client.post("/suggestions/resuggest/")
-    again = FakeSuggester()
-    run_once(again)
+    again = FakeCategorizer().run()
 
     assert again.asked() == ["Hiša kave"]
 
@@ -211,45 +208,18 @@ def test_only_admins_see_the_suggestions_link(logged_in_client, admin_client, ho
     assert b'href="/suggestions/"' not in logged_in_client.get("/").content
 
 
-def test_raising_the_threshold_applies_to_a_batch_already_running(admin_client):
+def test_raising_the_threshold_after_a_fetch_applies_to_its_suggestions(admin_client):
     for description in ("Corner Shop", "Hiša kave"):
         make_transaction(description)
 
-    class RaisedMeanwhile(FakeSuggester):
-        def suggest(self, query):
-            if query.description == "Corner Shop":
+    class RaisedMeanwhile(FakeCategorizer):
+        def meanwhile(self, transaction):
+            if transaction["description"] == "Corner Shop":
                 admin_client.post("/suggestions/", {"threshold": "100"})
-            return super().suggest(query)
 
-    run_once(RaisedMeanwhile(default=("Food", "Groceries", 0.95)))
+    RaisedMeanwhile(default=("Food", "Groceries", 0.95)).run()
 
     assert Transaction.objects.unresolved().count() == 2
-
-
-def test_a_subcategory_deleted_during_a_batch_is_no_longer_offered(admin_client):
-    for description in ("Corner Shop", "Hiša kave"):
-        make_transaction(description)
-    cafes = subcategory_id("Food", "Restaurants & cafés")
-
-    class DeletedMeanwhile(FakeSuggester):
-        def suggest(self, query):
-            if not self.queries:
-                admin_client.post(f"/subcategories/{cafes}/delete/")
-            return super().suggest(query)
-
-    first = DeletedMeanwhile(
-        {"Hiša kave": ("Food", "Groceries", 0.5)}, default=("Food", "Restaurants & cafés", 0.5)
-    )
-    run_once(first)
-    assert first.asked() == ["Corner Shop", "Hiša kave"]
-    assert cafes not in [s.pk for s in first.queries[1].subcategories]
-
-    again = FakeSuggester()
-    run_once(again)
-
-    assert again.asked() == [
-        "Corner Shop"
-    ]  # its answer was the deleted one: asked again, not unusable
 
 
 def test_a_categorizer_outcome_in_a_deleted_subcategory_moves_to_the_catch_all(admin_client):
@@ -321,7 +291,7 @@ def test_the_strip_says_when_the_last_suggestion_arrived_and_from_which_token(
 ):
     assert "Last suggestion none yet" in strip(admin_client)
     make_transaction("Corner Shop")
-    secret = create_token(admin_client, "Ollama on the NAS")
+    secret = create_token(admin_client, "Qwen on the NAS")
     create_token(admin_client, "Cloud")
 
     client.post(
@@ -331,7 +301,7 @@ def test_the_strip_says_when_the_last_suggestion_arrived_and_from_which_token(
         headers={"Authorization": f"Bearer {secret}"},
     )
 
-    assert "Last suggestion 14:02 from Ollama on the NAS" in strip(admin_client)
+    assert "Last suggestion 14:02 from Qwen on the NAS" in strip(admin_client)
     assert "Check now" not in settings_page(admin_client)
 
 
