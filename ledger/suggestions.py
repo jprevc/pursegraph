@@ -18,8 +18,13 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import Min, QuerySet
 from django.db.models.functions import Lower
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html
+from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 
+from . import api_tokens
 from .models import ApiToken, Setting, Source, Subcategory, Transaction
 
 # The `raw` keys whose text helps tell what a Transaction was for, across the parsers.
@@ -132,6 +137,8 @@ class Overview:
     """Transactions dated this month whose outcome a Categorizer set."""
     askable_again: int
     """Queued Transactions with an answer, usable or not, that `resuggest_queue` would clear."""
+    ask_again_refusal: str
+    """Why Ask again can't run, in the Suggestions page's words; "" when it can."""
     bins: list[int]
     """The queued suggestions by how sure they are, in BIN_WIDTH % bins from 0 to 100 %."""
     clearing: dict[int, int]
@@ -149,6 +156,7 @@ def overview() -> Overview:
     for confidence in sureness:
         bins[min(int(confidence * 100 + 1e-9) // BIN_WIDTH, len(bins) - 1)] += 1
     today = timezone.localdate()
+    askable_again = queued.filter(confidence__isnull=False).count()
     return Overview(
         with_suggestion=len(sureness),
         waiting=waiting_count(),
@@ -161,10 +169,34 @@ def overview() -> Overview:
         by_categorizers_this_month=Transaction.objects.filter(
             source=Source.CATEGORIZER, date__year=today.year, date__month=today.month
         ).count(),
-        askable_again=queued.filter(confidence__isnull=False).count(),
+        askable_again=askable_again,
+        ask_again_refusal=_ask_again_refusal(queued.count(), askable_again),
         bins=bins,
         clearing={step: sum(c * 100 + 1e-9 >= step for c in sureness) for step in STEPS},
     )
+
+
+def _ask_again_refusal(queued: int, askable_again: int) -> str:
+    """Why Ask again can't run with `queued` Transactions in the Review queue, `askable_again` of them answered,
+    in the Suggestions page's words; "" when it can. The first that applies wins."""
+    if not api_tokens.active().exists():
+        # Even with suggestions queued: clearing them would leave nothing to suggest them again.
+        return format_html(
+            _(
+                'No Categorizer is connected. Create an API token for one on the <a href="{url}">API & Webhooks '
+                "page</a>."
+            ),
+            url=reverse("api_and_webhooks"),
+        )
+    if not queued:
+        return _("The Review queue is empty, so there's nothing to ask about again.")
+    if not askable_again:
+        return ngettext(
+            "None of the %(count)d Transaction in the Review queue has a suggestion yet.",
+            "None of the %(count)d Transactions in the Review queue has a suggestion yet.",
+            queued,
+        ) % {"count": queued}
+    return ""
 
 
 def _awaiting_suggestion() -> "QuerySet[Transaction]":

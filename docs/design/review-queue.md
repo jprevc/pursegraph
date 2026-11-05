@@ -21,6 +21,7 @@ The driver's weekly job: give every waiting Transaction an outcome, then read th
   - **Without a suggestion:** "Choose an outcome" ("… for all 3" for a group) over the same chips.
   - **An ambiguous Transfer:** "Which is the other side of this Transfer?" over the candidate cards (description, date · Account, amount), then "Or something else" and the chips, ending with "Transfer, one-sided".
   - **On touch:** the chips stay; the native select isn't used here, because the detail has room and the chips show the hue dots.
+- **Splitting.** "Split into Parts…" sits under the chips; a larger group offers "Split all 3 into Parts…", a table with one row per Transaction. See Split editor and Part rows.
 - **After a save.** The group is saved as a whole. The detail stays on it so the follow-ups are in reach:
   - the outcome and its source;
   - "✓ Saved all 3 as … · Undo · Make a Rule for "Bolt.eu" · See them in Transactions" ("See them" only for a group of more than one);
