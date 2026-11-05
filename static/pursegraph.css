@@ -657,11 +657,12 @@ form.undo { display: inline; }
 .period { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .period form { display: flex; align-items: center; gap: .375rem; }
 .stepper { display: inline-flex; align-items: center; height: var(--control); background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl); }
-.stepper .step { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
-.stepper a.step:hover { background: var(--hover); }
-.stepper a.step:focus-visible { outline-offset: -2px; }
-.stepper .step .icon { color: var(--muted); }
-.stepper .step.off { opacity: .35; }
+/* The stepper's chevrons. Not `.step`: that is a Get started step card, whose padding would push the chevron out. */
+.stepper-arrow { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
+a.stepper-arrow:hover { background: var(--hover); }
+a.stepper-arrow:focus-visible { outline-offset: -2px; }
+.stepper-arrow .icon { color: var(--muted); }
+.stepper-arrow.off { opacity: .35; }
 .period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
 .period-label .muted { font-weight: 400; }
 .filter-bar { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
