@@ -1,7 +1,7 @@
 {% load i18n icons static %}{# The navigation: the desktop sidebar, and on a phone the top row, the tab bar and the More sheet. Its links carry the dashboard's period and filters; a view or Transactions swapped in by HTMX swaps it too (`swap_nav`), so that they carry the view's and only its own item is current. #}
 <div id="nav"{% if swap_nav %} hx-swap-oob="true"{% endif %}>
 {% url 'dashboard' as dashboard_url %}{% url 'transactions' as transactions_url %}{% url 'review_queue' as review_url %}{% url 'import' as import_url %}
-{% if user.is_admin %}{% translate "Admin" as role %}{% else %}{% translate "Member" as role %}{% endif %}
+{% if user.is_admin %}{% translate "Admin" as role %}{% else %}{% translate "Member" as role %}{% endif %}{% with shown_name=user.get_full_name|default:user.get_username %}
 <aside class="sidebar">
   <a class="brand" href="{{ dashboard_url }}{{ carried_query }}"><img src="{% static 'mark.svg' %}" alt="" width="28" height="28">Purse<span>graph</span></a>
   <nav aria-label="{% translate 'Main' %}">
@@ -26,8 +26,8 @@
   </nav>
   <div class="sidebar-foot">
     <button class="account" type="button" popovertarget="account">
-      <span class="avatar" aria-hidden="true">{{ user.get_username|first|upper }}</span>
-      <span class="who">{{ user.get_username }}<small>{{ role }}</small></span>
+      <span class="avatar" aria-hidden="true">{{ shown_name|first|upper }}</span>
+      <span class="who">{{ shown_name }}<small>{{ role }}</small></span>
       {% icon "updown" %}
     </button>
     <div id="account" class="account-pop" popover>
@@ -64,7 +64,7 @@
   {% include "_manage_links.html" %}
   {% endif %}
   {% include "_theme_switch.html" with name="theme-sheet" %}
-  <p class="sheet-h">{{ user.get_username }} · {{ role }}</p>
+  <p class="sheet-h">{{ shown_name }} · {{ role }}</p>
   <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="nav">{% icon "logout" %}{% translate "Log out" %}</button></form>
 </div>
-</div>
+</div>{% endwith %}

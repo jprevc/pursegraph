@@ -8,5 +8,6 @@ urlpatterns = [
     path("members/<int:pk>/reset-link/", views.reset_link, name="member_reset_link"),
     path("members/<int:pk>/active/", views.set_active, name="member_active"),
     path("members/<int:pk>/admin/", views.set_admin, name="member_admin"),
+    path("members/<int:pk>/rename/", views.rename, name="member_rename"),
     path("set-password/<uidb64>/<token>/", views.SetPasswordView.as_view(), name="set_password"),
 ]

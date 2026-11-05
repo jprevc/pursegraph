@@ -1,8 +1,8 @@
 // The admin pages (docs/design/admin.md): Categories, Suggestions and Members. HTMX swaps their regions; here, what
 // stays in the page:
 // - an inline confirmation's Keep it, which closes it and gives the focus back to the control that opened it;
-// - Members' dialogs, shown modal when swapped in (or open without JS), the focus going back to their opener on close,
-//   and the link dialog's Copy link;
+// - Members' dialogs, shown modal when swapped in (or open without JS), the focus going back to their opener when
+//   they close or a save empties their slot, and the link dialog's Copy link;
 // - the auto-accept threshold, its slider and number kept in step, moving the chart's line and recolouring its bars
 //   live, with Save naming what saving does.
 (() => {
@@ -32,9 +32,19 @@
     dialog.showModal();
     (dialog.querySelector('[data-focus]') || dialog.querySelector('input, button'))?.focus();
   };
+  const backToOpener = () => {
+    const opener = dialogOpener && [...document.querySelectorAll('[hx-get], [hx-post]')].find(el => requestOf(el) === dialogOpener);
+    const control = opener?.matches('form') ? opener.querySelector('button') : opener;
+    (control || heading())?.focus();
+    dialogOpener = null;
+  };
   document.addEventListener('htmx:afterSwap', e => {
-    const dialog = e.detail.target?.id === 'dialog-slot' && e.detail.target.querySelector('dialog[data-modal]');
+    if (e.detail.target?.id !== 'dialog-slot') return;
+    const dialog = e.detail.target.querySelector('dialog[data-modal]');
+    // A dialog that is done (Rename's Save) empties the slot, which removes it without a `close`. With the
+    // out-of-band role cards this runs twice; the first already gave the focus back.
     if (dialog) showModal(dialog);
+    else if (dialogOpener) backToOpener();
   });
   document.querySelectorAll('dialog[data-modal][open]').forEach(showModal);
   // `close` doesn't bubble.
@@ -44,10 +54,7 @@
     // A dialog replaced by the next one (Create and get the link) is closed by being removed: nothing to restore.
     if (!dialog.isConnected) return;
     dialog.remove();
-    const opener = dialogOpener && [...document.querySelectorAll('[hx-get], [hx-post]')].find(el => requestOf(el) === dialogOpener);
-    const control = opener?.matches('form') ? opener.querySelector('button') : opener;
-    (control || heading())?.focus();
-    dialogOpener = null;
+    backToOpener();
   }, true);
 
   document.addEventListener('click', e => {

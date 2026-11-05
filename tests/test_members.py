@@ -293,17 +293,20 @@ def test_sidebar_links_to_members_for_admins_only(admin_client, logged_in_client
         ("post", "/members/{pk}/reset-link/"),
         ("post", "/members/{pk}/active/"),
         ("post", "/members/{pk}/admin/"),
+        ("get", "/members/{pk}/rename/"),
+        ("post", "/members/{pk}/rename/"),
     ],
 )
 def test_admin_pages_are_forbidden_to_non_admins(logged_in_client, member, method, path):
     response = getattr(logged_in_client, method)(
-        path.format(pk=member.pk), {"active": "0", "admin": "1"}
+        path.format(pk=member.pk), {"active": "0", "admin": "1", "name": "Luka Horvat"}
     )
 
     assert response.status_code == 403
     member.refresh_from_db()
     assert member.is_active
     assert not member.is_admin
+    assert member.get_full_name() == ""
 
 
 # The Members page grouped by role, its confirms and the link dialog (docs/design/admin.md)
@@ -337,12 +340,14 @@ def test_members_are_grouped_by_role(admin_client, admin, member, django_user_mo
     shown = groups(admin_client)
 
     assert list(shown) == ["Admins · 1", "Members · 1", "Deactivated · 1"]
-    assert shown["Admins · 1"][0].startswith("boris You boris · no Accounts of their own")
+    assert shown["Admins · 1"][0].startswith(
+        "boris You boris · no Accounts of their own Rename Reset link"
+    )
     assert shown["Members · 1"][0].startswith(
-        "ana ana · no Accounts of their own Make admin Reset link Deactivate"
+        "ana ana · no Accounts of their own Make admin Rename Reset link Deactivate"
     )
     assert shown["Deactivated · 1"][0].startswith(
-        "Rok Novak rok · no Accounts of their own Reactivate"
+        "Rok Novak rok · no Accounts of their own Rename Reactivate"
     )
 
 
@@ -423,3 +428,104 @@ def test_the_link_dialog_says_until_when_it_works(admin_client, monkeypatch):
         in text
     )
     assert "Works once, until Tuesday 27 October 2026 at 14:05." in text
+
+
+# Renaming a Member (docs/design/admin.md)
+
+
+def rename(client, member, name, **headers):
+    return client.post(f"/members/{member.pk}/rename/", {"name": name}, **headers)
+
+
+def test_admin_renames_a_member(admin_client, member):
+    member.first_name = "Luka Novak"
+    member.save()
+
+    response = rename(admin_client, member, "Luka Horvat", follow=True)
+
+    assert response.redirect_chain[-1][0] == "/members/"
+    assert "Luka Novak is now Luka Horvat." in prose(response.content.decode())
+    member.refresh_from_db()
+    assert member.get_full_name() == "Luka Horvat"
+    assert member.get_username() == "ana"
+
+
+def test_renaming_with_htmx_closes_the_dialog_swaps_the_groups_and_says_so(admin_client, member):
+    response = rename(admin_client, member, "Luka Horvat", **HTMX)
+
+    assert json.loads(response["HX-Trigger"])["announce"] == "ana is now Luka Horvat."
+    html = response.content.decode()
+    assert "<dialog" not in html
+    assert 'id="roles" class="roles" hx-swap-oob="true"' in html
+    assert "Luka Horvat" in html
+
+
+def test_saving_an_unchanged_name_closes_the_dialog_and_says_nothing(admin_client, member):
+    member.first_name = "Luka Novak"
+    member.save()
+
+    swapped = rename(admin_client, member, "  Luka Novak ", **HTMX)
+    redirected = rename(admin_client, member, "Luka Novak", follow=True)
+
+    assert "announce" not in swapped.get("HX-Trigger", "")
+    assert "<dialog" not in swapped.content.decode()
+    assert redirected.redirect_chain[-1][0] == "/members/"
+    assert "is now" not in prose(redirected.content.decode())
+
+
+@pytest.mark.parametrize("name", ["", "   ", "x" * 151])
+def test_a_name_that_is_empty_or_too_long_is_refused_in_the_dialog(admin_client, member, name):
+    member.first_name = "Luka Novak"
+    member.save()
+
+    response = rename(admin_client, member, name, **HTMX)
+
+    dialog = response.content.decode()
+    assert "<dialog" in dialog
+    assert 'aria-invalid="true"' in dialog
+    assert "announce" not in response.get("HX-Trigger", "")
+    member.refresh_from_db()
+    assert member.get_full_name() == "Luka Novak"
+
+
+def test_two_members_can_share_a_name(admin_client, admin, member):
+    admin.first_name = "Luka Novak"
+    admin.save()
+
+    rename(admin_client, member, "Luka Novak")
+
+    member.refresh_from_db()
+    assert member.get_full_name() == "Luka Novak"
+
+
+def test_the_rename_dialog_offers_the_current_name(admin_client, member):
+    member.first_name = "Luka Novak"
+    member.save()
+
+    swapped = admin_client.get(f"/members/{member.pk}/rename/", **HTMX).content.decode()
+    page = admin_client.get(f"/members/{member.pk}/rename/").content.decode()
+
+    assert prose(swapped) == (
+        "Rename Luka Novak Name As the Dashboard shows it, e.g. in Per Member. Cancel Save"
+    )
+    assert 'name="name" value="Luka Novak"' in swapped
+    assert re.search(r"<dialog [^>]*open>", page)
+    assert 'id="roles"' in page
+
+
+def test_the_shell_shows_the_members_name_or_their_username(admin_client, admin):
+    def account(page):
+        """The sidebar's account button and the More sheet's heading above Log out."""
+        [button] = re.findall(r'<button class="account".*?</button>', page, re.S)
+        [heading] = re.findall(r'<p class="sheet-h">([^<]*·[^<]*)</p>', page)
+        return button, prose(heading)
+
+    unnamed = account(admin_client.get("/members/").content.decode())
+    admin.first_name = "Vera Novak"
+    admin.save()
+    named = account(admin_client.get("/members/").content.decode())
+
+    assert re.search(r">B</span>\s*<span class=\"who\">boris<small>Admin", unnamed[0])
+    assert unnamed[1] == "boris · Admin"
+    assert re.search(r">V</span>\s*<span class=\"who\">Vera Novak<small>Admin", named[0])
+    assert named[1] == "Vera Novak · Admin"

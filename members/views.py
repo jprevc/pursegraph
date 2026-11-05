@@ -20,7 +20,7 @@ from ledger.models import Account
 from ledger.setup import others_invited
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
-from .forms import NewMemberForm
+from .forms import NewMemberForm, RenameMemberForm
 from .links import set_password_link
 from .permissions import admin_required
 
@@ -177,6 +177,36 @@ def set_admin(request, pk):
         "name": _name(member)
     }
     return _stepped(request, said)
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def rename(request, pk):
+    """Renames a Member through a dialog with their name. Only admins rename, any Member, deactivated ones too."""
+    member = get_object_or_404(get_user_model(), pk=pk)
+    before = _name(member)
+    form = RenameMemberForm(request.POST or None, initial={"name": member.first_name})
+    if not form.is_valid():
+        return _dialog(
+            request, "members/_rename_dialog.html", {"form": form, "m": member, "name": before}
+        )
+    unchanged = form.cleaned_data["name"] == member.first_name
+    if not unchanged:
+        member.first_name = form.cleaned_data["name"]
+        member.save(update_fields=["first_name"])
+    if not wants_the_fragment_alone(request):
+        if unchanged:
+            return redirect("members")
+        return _stepped(request, _said_renamed(before, member))
+    # The dialog slot emptied, which closes the dialog, and the role cards swapped out of band.
+    response = HttpResponse(
+        render_to_string("members/_roles.html", {**_roles(), "oob": True}, request)
+    )
+    return response if unchanged else announce(response, _said_renamed(before, member))
+
+
+def _said_renamed(before: str, member) -> str:
+    return _("%(before)s is now %(after)s.") % {"before": before, "after": _name(member)}
 
 
 def _confirm(request, kind: str, pk):
