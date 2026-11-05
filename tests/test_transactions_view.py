@@ -303,18 +303,21 @@ def test_a_rows_source_caption_gives_its_specific_reason_as_a_title(logged_in_cl
     assert '<span class="cap" title="A Member chose it.">by hand</span>' in page
 
 
+def note(page, source):
+    """The muted explanation under the Decided facet's option for `source`."""
+    return text(found(rf'id="f-source-{source}".*?<small>(.*?)</small>', page, 1))
+
+
 def test_the_decided_facet_says_which_transfers_by_iban_and_paired_cover(logged_in_client):
     upload(logged_in_client)
 
     page = logged_in_client.get("/transactions/").content.decode()
 
-    def note(source):
-        return html.unescape(found(rf'id="f-source-{source}".*?<small>(.*?)</small>', page, 1))
-
     assert (
-        note("iban") == "It pays to or from one of the Household's own IBANs, so it's a Transfer."
+        note(page, "iban")
+        == "It pays to or from another of the Household's own Accounts, so it's a Transfer."
     )
-    assert note("pairing") == (
-        "Its bank line didn't show a Household IBAN, but it matches a Transfer in another Account: "
-        "same amount, opposite way, within 3 days."
+    assert note(page, "pairing") == (
+        "Paired with its other side in another Account: same amount, the opposite way, "
+        "within 3 days."
     )
