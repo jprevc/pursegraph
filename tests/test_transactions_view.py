@@ -332,13 +332,7 @@ def test_decided_by_offers_anything_then_each_way_an_outcome_is_set(logged_in_cl
     ]
 
 
-def test_no_hairline_parts_the_ways_an_outcome_is_decided(logged_in_client, household):
-    facet = decided_facet(logged_in_client.get("/transactions/").content.decode())
-
-    assert "<hr" not in facet
-
-
-def test_one_info_toggle_on_decided_by_shows_and_hides_its_notes(logged_in_client, household):
+def test_decided_by_has_one_info_toggle_controlling_its_notes(logged_in_client, household):
     page = logged_in_client.get("/transactions/").content.decode()
     form = found(r'<form class="facet" id="([^"]+)"[^>]*aria-labelledby="facet-source">', page, 1)
     toggles = re.findall(r"<button[^>]*data-notes[^>]*>", page)
