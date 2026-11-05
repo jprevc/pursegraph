@@ -256,3 +256,18 @@ def test_amount_direction_and_source_use_the_whole_split_transaction(hypermarket
     assert shown(choice(min="40", max="55")) == []
     assert shown(choice(dir="out")) == ["INTERSPAR"]
     assert facets.counts(choice())["source"] == {"": 1, Source.MANUAL: 1}
+
+
+def test_the_drill_down_into_a_category_lists_a_split_with_two_parts_there_once(ana):
+    t = add(make_account("Ana's N26", "n26", ana), date(2026, 9, 5), "-80.00", "Market")
+    outcomes.split(
+        t,
+        [
+            (sub("Food", "Groceries"), Decimal("-50.00")),
+            (sub("Food", "Restaurants & cafés"), Decimal("-30.00")),
+        ],
+    )
+
+    assert counted("spending", str(category("Food").pk)) == [
+        ("Market", Decimal("-80.00"), ["Groceries", "Restaurants & cafés"])
+    ]

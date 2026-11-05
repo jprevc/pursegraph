@@ -21,7 +21,7 @@ from dashboard.templatetags.hues import hue
 from pursegraph import figures
 
 from .models import SOURCE_CAPTIONS, Category, Part, Source, Transaction, counts_in
-from .models import UNRESOLVED as AWAITING_REVIEW
+from .models import UNRESOLVED as WITHOUT_OUTCOME
 from .transfers import WINDOW
 
 UNRESOLVED = "unresolved"
@@ -184,9 +184,9 @@ class Choice:
         return q
 
 
-def _lines(outcome: str) -> Q | None:
-    """For a Category or Subcategory `outcome`, the condition on a Transaction's or a Part's Subcategory that
-    picks the money counted there (see `ledger.models.counts_in`); None for any other."""
+def _subcategories(outcome: str) -> Q | None:
+    """For a Category or Subcategory `outcome`, its Subcategories as a condition on a Transaction's or a Part's
+    `subcategory` (see `ledger.models.counts_in`); None for any other."""
     kind, _sep, pk = outcome.partition("-")
     if kind == "category":
         return Q(subcategory__category=int(pk))
@@ -199,20 +199,19 @@ def _outcome_condition(outcome: str) -> Q:
     """The Transactions with `outcome`, as `Choice.outcome` names it, a Split among those of each Category and
     Subcategory a Part is in; all of them for none."""
     if outcome == UNRESOLVED:
-        return AWAITING_REVIEW
+        return WITHOUT_OUTCOME
     if outcome == TRANSFER:
         return Q(is_transfer=True)
-    lines = _lines(outcome)
-    return counts_in(lines) if lines else Q()
+    subcategories = _subcategories(outcome)
+    return counts_in(subcategories) if subcategories else Q()
 
 
 def rows(choice: Choice) -> QuerySet[Transaction]:
-    """The chosen Transactions, newest first, each with `counted`, the money it counts in the chosen Category or
-    Subcategory, and its Parts, each with `counted`, whether it is one of those
+    """The chosen Transactions, newest first, each with what it counts in the chosen Category or Subcategory
     (`TransactionQuerySet.with_counted`)."""
     return (
         Transaction.objects.filter(choice.condition())
-        .with_counted(_lines(choice.outcome))
+        .with_counted(_subcategories(choice.outcome))
         .order_by("-date", "-id")
     )
 

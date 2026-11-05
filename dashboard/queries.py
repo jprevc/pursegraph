@@ -8,7 +8,7 @@ counts each Part in the Part's own Subcategory (ADR 0003); it is money in or out
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
-from typing import Any
+from typing import Any, NamedTuple
 
 from django.db.models import Exists, F, IntegerField, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, TruncMonth
@@ -145,12 +145,19 @@ def _of_kind(kind: Category.Kind) -> Q:
 MONEY_OUT = _of_kind(Category.Kind.SPENDING) | Q(UNRESOLVED, amount__lt=0)
 MONEY_IN = _of_kind(Category.Kind.INCOME) | Q(UNRESOLVED, amount__gt=0)
 
-# What `_counted_by` can group by, as a Transaction's field and as a Part's.
+
+class _Grouping(NamedTuple):
+    """What `_counted_by` groups by, as a Transaction's field and as a Part's."""
+
+    transaction: Any
+    part: Any
+
+
 _GROUPINGS = {
-    "subcategory": (F("subcategory"), F("subcategory")),
-    "category": (F("subcategory__category"), F("subcategory__category")),
-    "account": (F("account"), F("transaction__account")),
-    "month": (TruncMonth("date"), TruncMonth("transaction__date")),
+    "subcategory": _Grouping(F("subcategory"), F("subcategory")),
+    "category": _Grouping(F("subcategory__category"), F("subcategory__category")),
+    "account": _Grouping(F("account"), F("transaction__account")),
+    "month": _Grouping(TruncMonth("date"), TruncMonth("transaction__date")),
 }
 
 
@@ -161,9 +168,12 @@ def _counted_by(transactions: QuerySet[Transaction], *by: str) -> dict[tuple, De
     whole = transactions.filter(is_split=False)
     parts = Part.objects.filter(transaction__in=transactions.filter(is_split=True).values("pk"))
     sums: dict[tuple, Decimal] = {}
-    for rows, side in ((whole, 0), (parts, 1)):
+    for rows, field_of in (
+        (whole, lambda g: g.transaction),
+        (parts, lambda g: g.part),
+    ):
         grouped = (
-            rows.values(**{f"by_{name}": _GROUPINGS[name][side] for name in by})
+            rows.values(**{f"by_{name}": field_of(_GROUPINGS[name]) for name in by})
             .annotate(total=Sum("amount"))
             .values_list(*(f"by_{name}" for name in by), "total")
             .order_by()
@@ -173,12 +183,14 @@ def _counted_by(transactions: QuerySet[Transaction], *by: str) -> dict[tuple, De
     return sums
 
 
-def _marked(transactions: TransactionQuerySet, lines: Q | None = None) -> QuerySet[Transaction]:
-    """A drill-down's Transactions: those of `transactions` with money counted where `lines` says (see
+def _marked(
+    transactions: TransactionQuerySet, subcategories: Q | None = None
+) -> QuerySet[Transaction]:
+    """A drill-down's Transactions: those of `transactions` with money counted in `subcategories` (see
     `ledger.models.counts_in`), or all of them, each with what it counts there."""
-    if lines:
-        transactions = transactions.filter(counts_in(lines))
-    return transactions.with_counted(lines)
+    if subcategories is not None:
+        transactions = transactions.filter(counts_in(subcategories))
+    return transactions.with_counted(subcategories)
 
 
 def _transactions(period: Period, filters: Filters) -> TransactionQuerySet:
@@ -774,8 +786,7 @@ def view_data(view: str, period: Period, filters: Filters) -> ViewData:
 
 
 def drill_down(view: str, period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
-    """The Transactions behind the mark `key`, each with `counted`, the money it counts in that mark, and its Parts,
-    each with `counted`, whether it is one of those (`TransactionQuerySet.with_counted`)."""
+    """The Transactions behind the mark `key`, each with what it counts there (`TransactionQuerySet.with_counted`)."""
     return DRILL_DOWNS[view](period, filters, key)
 
 
