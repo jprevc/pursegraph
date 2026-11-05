@@ -1315,7 +1315,11 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .t-sub { color: var(--muted); font-size: var(--text-label); }
 .token-rows .confirm { margin: 0 0 .625rem; }
 .token-rows li:has(.confirm) [data-confirm-opener] { display: none; }
-.t-add { margin-top: var(--s-2); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+.list-add { margin-top: .625rem; padding-top: .625rem; border-top: 1px solid var(--line); }
+.token-rows + .list-add { margin-top: 0; }
+/* Without JS the info line shows open, so its toggle would do nothing. */
+.list-add [data-disclose] { display: none; }
+.js .list-add [data-disclose] { display: inline-flex; }
 .tokens .reason { max-width: 70ch; margin-top: var(--s-3); }
 .token-new { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
 .token-new input { flex: 1 1 16rem; min-width: 0; }

@@ -35,11 +35,10 @@ def test_the_page_says_where_transaction_text_may_go(admin_client):
 def cards(client):
     """The Categorizers page's cards, by heading, each as the text of everything in it."""
     page = client.get("/categorizers/").content.decode()
-    sections = re.findall(r'<section class="panel".*?</section>', page, re.S)
-    return {
-        page_text(s.split("<h2", 1)[1].split("</h2>", 1)[0].split(">", 1)[1]): page_text(s)
-        for s in sections
-    }
+    found = re.finditer(
+        r'<section class="panel".*?<h2[^>]*>(?P<heading>.*?)</h2>.*?</section>', page, re.S
+    )
+    return {page_text(card["heading"]): page_text(card[0]) for card in found}
 
 
 def test_each_list_and_its_form_share_one_card(admin_client):
