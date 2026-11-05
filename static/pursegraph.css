@@ -493,6 +493,8 @@ button.fopt .n { margin-left: auto; padding-top: 1px; padding-left: var(--s-2); 
 button.fopt[aria-pressed="true"] .n { color: var(--accent-text); }
 button.fopt.zero:not([aria-pressed="true"]) { opacity: .45; }
 button.fopt.sub { padding-left: 1.625rem; font-size: var(--text-sm); }
+/* A hairline parting an option from those before, inset like their text; its own element, so a dimmed option leaves it whole. */
+.facet .fdiv { width: auto; margin: var(--s-1) var(--s-2); border: 0; border-top: 1px solid var(--line); }
 button.fopt:focus-visible { outline-offset: -2px; }
 /* Amount: a Money segmented control (the theme switch's track), then the range. */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; min-width: 0; margin: 0 var(--s-2); padding: 3px; border: 0; border-radius: var(--r-ctl); background: var(--ground); }
@@ -655,11 +657,12 @@ form.undo { display: inline; }
 .period { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .period form { display: flex; align-items: center; gap: .375rem; }
 .stepper { display: inline-flex; align-items: center; height: var(--control); background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl); }
-.stepper .step { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
-.stepper a.step:hover { background: var(--hover); }
-.stepper a.step:focus-visible { outline-offset: -2px; }
-.stepper .step .icon { color: var(--muted); }
-.stepper .step.off { opacity: .35; }
+/* The stepper's chevrons. Not `.step`: that is a Get started step card, whose padding would push the chevron out. */
+.stepper-arrow { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
+a.stepper-arrow:hover { background: var(--hover); }
+a.stepper-arrow:focus-visible { outline-offset: -2px; }
+.stepper-arrow .icon { color: var(--muted); }
+.stepper-arrow.off { opacity: .35; }
 .period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
 .period-label .muted { font-weight: 400; }
 .filter-bar { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
@@ -1265,6 +1268,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .thr input[type="range"] { flex: 1 1 12rem; min-width: 0; accent-color: var(--accent); }
 .thr .pct { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .thr input[type="number"] { width: 5.5rem; text-align: right; }
+/* The buttons get a row of their own: Keep coming and going, or Save's label changing, would resize the slider under the pointer. */
+.thr .form-actions { flex-basis: 100%; }
 .thr-note { margin: var(--s-2) 0 0; font-size: var(--text-label); }
 .suggestions .error { margin: var(--s-2) 0 0; }
 .suggestions-again > p { margin: var(--s-2) 0 var(--s-3); }
@@ -1301,8 +1306,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .dialog-form p { margin: 0; }
 .dialog .form-actions { justify-content: flex-end; }
 .dialog-foot { margin-top: var(--s-5); }
-/* Categorizers: the tokens, each with its last use and Revoke, then New token; the Webhooks, each with its latest
-   attempt, Notify now and Delete, then New Webhook. */
+/* Categorizers: the tokens, each with its last use and Revoke, then the form for a new one; the Webhooks, each with its
+   latest attempt, Notify now and Delete, then the form for a new one. Each form's info line opens from its toggle. */
 .tokens { display: grid; gap: var(--s-4); max-width: 56.25rem; }
 .tokens h2 { margin: 0 0 var(--s-2); font-size: var(--text-title); }
 .tokens .count { font-weight: 400; }
@@ -1315,13 +1320,19 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .t-sub { color: var(--muted); font-size: var(--text-label); }
 .token-rows .confirm { margin: 0 0 .625rem; }
 .token-rows li:has(.confirm) [data-confirm-opener] { display: none; }
-.tokens .reason { max-width: 70ch; margin-bottom: var(--s-3); }
+.list-add { margin-top: .625rem; padding-top: .625rem; border-top: 1px solid var(--line); }
+.token-rows + .list-add { margin-top: 0; }
+/* Without JS the info line shows open, so its toggle would do nothing. */
+.list-add [data-disclose] { display: none; }
+.js .list-add [data-disclose] { display: inline-flex; }
+.tokens .reason { max-width: 70ch; margin-top: var(--s-3); }
 .token-new { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
 .token-new input { flex: 1 1 16rem; min-width: 0; }
 .tokens .error { margin: var(--s-2) 0 0; }
 .w-intro { max-width: 70ch; margin: 0 0 var(--s-2); }
 .w-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .w-failed { color: var(--ink); font-weight: 500; }
+.webhook-new input[name="name"] { flex-basis: 12rem; }
 .webhook-new input[name="url"] { flex-basis: 20rem; }
 .link-box { display: flex; gap: var(--s-2); }
 .link-box input { flex: 1; min-width: 0; height: 2.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-sm); }

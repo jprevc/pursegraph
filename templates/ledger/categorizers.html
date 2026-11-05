@@ -28,18 +28,17 @@
     {% else %}
     <p class="muted role-none">{% translate "No Categorizer can connect yet, so the Review queue fills without suggestions." %}</p>
     {% endif %}
-  </section>
-
-  <section class="panel" aria-labelledby="new-token-heading">
-    <h2 id="new-token-heading">{% translate "New token" %}</h2>
-    <p class="reason">{% icon "info" %}<span>{% translate "The Categorizer gets each waiting Transaction's description, amount and details, and the Household's earlier choices as examples. Where it sends them is up to it: possibly outside this network, such as to a cloud service." %}</span></p>
-    <form class="token-new" method="post" action="{% url 'categorizers' %}">
-      {% csrf_token %}
-      <label for="token-name">{% translate "Name" %}</label>
-      <input id="token-name" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Qwen on the NAS' %}"{% if form.name.errors %} aria-invalid="true" aria-describedby="token-name-error"{% endif %}>
-      <button type="submit" class="primary">{% icon "key" %}{% translate "Create token" %}</button>
-    </form>
-    {% if form.name.errors %}<p class="error" id="token-name-error">{{ form.name.errors|join:" " }}</p>{% endif %}
+    <div class="list-add">
+      <form class="token-new" method="post" action="{% url 'categorizers' %}">
+        {% csrf_token %}
+        <label for="token-name">{% translate "Name" %}</label>
+        <input id="token-name" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Qwen on the NAS' %}"{% if form.name.errors %} aria-invalid="true" aria-describedby="token-name-error"{% endif %}>
+        <button type="submit" class="primary">{% icon "key" %}{% translate "Create token" %}</button>
+        <button type="button" class="ghost icon-button" aria-expanded="false" aria-controls="token-info" aria-label="{% translate 'About what the Categorizer gets' %}" data-disclose>{% icon "info" %}</button>
+      </form>
+      {% if form.name.errors %}<p class="error" id="token-name-error">{{ form.name.errors|join:" " }}</p>{% endif %}
+      <p id="token-info" class="reason" data-disclosed><span>{% translate "The Categorizer gets each waiting Transaction's description, amount and details, and the Household's earlier choices as examples. Where it sends them is up to it: possibly outside this network, such as to a cloud service." %}</span></p>
+    </div>
   </section>
 
   <section class="panel" aria-labelledby="webhooks-heading">
@@ -52,20 +51,19 @@
     {% else %}
     <p class="muted role-none">{% translate "No Webhook yet, so a Categorizer finds waiting Transactions only by asking." %}</p>
     {% endif %}
-  </section>
-
-  <section class="panel" aria-labelledby="new-webhook-heading">
-    <h2 id="new-webhook-heading">{% translate "New Webhook" %}</h2>
-    <p class="reason">{% icon "info" %}<span>{% blocktranslate %}It gets a POST of <code>{"event": "transactions_waiting", "at": …, "waiting": 3}</code>: how many are waiting, never what they are. Nothing signs it, so put the secret in the URL, which is shown masked once added.{% endblocktranslate %}</span></p>
-    <form class="token-new webhook-new" method="post" action="{% url 'add_webhook' %}">
-      {% csrf_token %}
-      <label for="webhook-name">{% translate "Name" %}</label>
-      <input id="webhook-name" name="name" value="{{ webhook_form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Home Assistant' %}"{% if webhook_form.name.errors %} aria-invalid="true" aria-describedby="webhook-error"{% endif %}>
-      <label for="webhook-url">{% translate "URL" %}</label>
-      <input id="webhook-url" name="url" type="url" value="{{ webhook_form.url.value|default_if_none:'' }}" maxlength="2000" required autocomplete="off" spellcheck="false" placeholder="https://…"{% if webhook_form.url.errors %} aria-invalid="true" aria-describedby="webhook-error"{% endif %}>
-      <button type="submit" class="primary">{% icon "send" %}{% translate "Add Webhook" %}</button>
-    </form>
-    {% if webhook_form.errors %}<p class="error" id="webhook-error">{% for field in webhook_form %}{{ field.errors|join:" " }} {% endfor %}</p>{% endif %}
+    <div class="list-add">
+      <form class="token-new webhook-new" method="post" action="{% url 'add_webhook' %}">
+        {% csrf_token %}
+        <label for="webhook-name">{% translate "Name" %}</label>
+        <input id="webhook-name" name="name" value="{{ webhook_form.name.value|default_if_none:'' }}" maxlength="100" required autocomplete="off" placeholder="{% translate 'e.g. Home Assistant' %}"{% if webhook_form.name.errors %} aria-invalid="true" aria-describedby="webhook-error"{% endif %}>
+        <label for="webhook-url">{% translate "URL" %}</label>
+        <input id="webhook-url" name="url" type="url" value="{{ webhook_form.url.value|default_if_none:'' }}" maxlength="2000" required autocomplete="off" spellcheck="false" placeholder="https://…"{% if webhook_form.url.errors %} aria-invalid="true" aria-describedby="webhook-error"{% endif %}>
+        <button type="submit" class="primary">{% icon "send" %}{% translate "Add Webhook" %}</button>
+        <button type="button" class="ghost icon-button" aria-expanded="false" aria-controls="webhook-info" aria-label="{% translate 'About what the Webhook gets' %}" data-disclose>{% icon "info" %}</button>
+      </form>
+      {% if webhook_form.errors %}<p class="error" id="webhook-error">{% for field in webhook_form %}{{ field.errors|join:" " }} {% endfor %}</p>{% endif %}
+      <p id="webhook-info" class="reason" data-disclosed><span>{% blocktranslate %}It gets a POST of <code>{"event": "transactions_waiting", "at": …, "waiting": 3}</code>: how many are waiting, never what they are. Nothing signs it, so put the secret in the URL, which is shown masked once added.{% endblocktranslate %}</span></p>
+    </div>
   </section>
 </div>
 <div id="dialog-slot">{% if created %}{% include "ledger/_token_dialog.html" with name=created.0 secret=created.1 open=True %}{% endif %}</div>

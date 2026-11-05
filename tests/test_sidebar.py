@@ -91,13 +91,39 @@ def test_only_the_current_page_is_marked_current(admin_client, household, url, c
 
 
 @pytest.mark.parametrize("url", ["/", "/transactions/", "/review/", "/import/"])
-def test_manage_is_closed_away_from_its_pages(admin_client, household, url):
+def test_manage_is_rendered_closed_away_from_its_pages(admin_client, household, url):
     assert " open" not in manage(admin_client.get(url).content.decode())[1]
 
 
 @pytest.mark.parametrize("url", ["/rules/", "/categories/", "/suggestions/", "/members/"])
 def test_manage_is_open_on_its_pages(admin_client, household, url):
     assert " open" in manage(admin_client.get(url).content.decode())[1]
+
+
+@pytest.mark.parametrize("url", ["/", "/transactions/", "/review/", "/import/"])
+def test_away_from_its_pages_manage_opens_as_this_member_left_it(
+    logged_in_client, member, household, url
+):
+    page = logged_in_client.get(url).content.decode()
+
+    # Restored by a script right after the group, so the first paint, or a swap of the sidebar, already shows it.
+    restore = re.search(r"</details>\s*<script>(.*?)</script>", sidebar(page), re.S)
+    assert restore, "Manage is not restored"
+    assert f'localStorage.getItem("manage-open:{member.pk}")' in restore[1]
+
+
+@pytest.mark.parametrize("url", ["/rules/", "/categories/", "/suggestions/", "/members/"])
+def test_on_its_pages_manage_stays_open_whatever_was_left(admin_client, household, url):
+    assert 'localStorage.getItem("manage-open:' not in sidebar(
+        admin_client.get(url).content.decode()
+    )
+
+
+def test_the_manage_group_names_its_member_for_saving_it(logged_in_client, member, household):
+    page = logged_in_client.get("/").content.decode()
+
+    assert f'data-member="{member.pk}"' in manage(page)[1]
+    assert "manage.js" in page.split("</head>")[0]
 
 
 def test_the_review_queue_badge_is_hidden_when_the_queue_is_empty(logged_in_client, household):
