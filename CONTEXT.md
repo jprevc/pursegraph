@@ -11,8 +11,8 @@ The family as a single unit whose combined finances the app shows. There is exac
 _Avoid_: Family, group, tenant
 
 **Member**:
-One person in the Household who logs in and imports Statements. Some Members are admins.
-_Avoid_: User, family member, owner
+One person in the Household who logs in and imports Statements. Some Members are admins. A Member has a name, which is how the Household sees them (such as in Per Member) and which only an admin sets or changes, and a username, which they log in with and which never changes.
+_Avoid_: User, family member, owner, display name
 
 ### Money
 

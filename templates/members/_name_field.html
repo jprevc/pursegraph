@@ -1,0 +1,7 @@
+{% load i18n %}{# A Member's Name field, in the invite and rename dialogs: `id` is the input's. #}
+    <div class="field">
+      <label for="{{ id }}">{% translate "Name" %}</label>
+      <input id="{{ id }}" name="name" value="{{ form.name.value|default_if_none:'' }}" maxlength="150" required autocomplete="off" aria-describedby="{{ id }}-help"{% if form.name.errors %} aria-invalid="true"{% endif %} data-focus>
+      <p class="helptext" id="{{ id }}-help">{% translate "As the Dashboard shows it, e.g. in Per Member." %}</p>
+      {{ form.name.errors }}
+    </div>

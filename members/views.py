@@ -13,6 +13,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
+from django.utils.safestring import SafeString
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -20,7 +21,7 @@ from ledger.models import Account
 from ledger.setup import others_invited
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
-from .forms import NewMemberForm
+from .forms import NewMemberForm, RenameMemberForm
 from .links import set_password_link
 from .permissions import admin_required
 
@@ -125,7 +126,7 @@ def _dialog(request, template: str, context: dict, *, roles=False):
         return _members_page(request, dialog={"dialog_template": template, **context})
     html = render_to_string(template, context, request)
     if roles:
-        html += render_to_string("members/_roles.html", {**_roles(), "oob": True}, request)
+        html += _roles_out_of_band(request)
     return HttpResponse(html)
 
 
@@ -177,6 +178,42 @@ def set_admin(request, pk):
         "name": _name(member)
     }
     return _stepped(request, said)
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def rename(request, pk):
+    """Renames a Member through a dialog with their name. Only admins rename, any Member, deactivated ones too."""
+    member = get_object_or_404(get_user_model(), pk=pk)
+    before = _name(member)
+    form = RenameMemberForm(request.POST or None, initial={"name": member.get_full_name()})
+    if not form.is_valid():
+        return _dialog(
+            request, "members/_rename_dialog.html", {"form": form, "m": member, "name": before}
+        )
+    if form.cleaned_data["name"] == member.get_full_name():
+        return _dialog_done(request)
+    # The whole name in first_name, also for a Member given a last name outside the app (createsuperuser).
+    member.first_name, member.last_name = form.cleaned_data["name"], ""
+    member.save(update_fields=["first_name", "last_name"])
+    return _dialog_done(
+        request, _("%(before)s is now %(after)s.") % {"before": before, "after": _name(member)}
+    )
+
+
+def _dialog_done(request, said: str | None = None):
+    """After a dialog's step on a Member: with HTMX the dialog slot emptied, which closes it, and the role cards
+    swapped out of band; else the page by redirect. `said` is announced, or shown on the page."""
+    if not wants_the_fragment_alone(request):
+        if said:
+            messages.success(request, said)
+        return redirect("members")
+    response = HttpResponse(_roles_out_of_band(request))
+    return announce(response, said) if said else response
+
+
+def _roles_out_of_band(request) -> SafeString:
+    return render_to_string("members/_roles.html", {**_roles(), "oob": True}, request)
 
 
 def _confirm(request, kind: str, pk):

@@ -1,0 +1,12 @@
+{% load i18n %}{# Rename a Member (docs/design/admin.md): a modal dialog over the Members page; open without JS. #}
+<dialog class="dialog" aria-labelledby="dialog-heading" data-modal{% if open %} open{% endif %}>
+  <h2 id="dialog-heading">{% blocktranslate %}Rename {{ name }}{% endblocktranslate %}</h2>
+  <form class="dialog-form" method="post" action="{% url 'member_rename' m.pk %}" hx-post="{% url 'member_rename' m.pk %}" hx-target="#dialog-slot" data-action>
+    {% csrf_token %}
+    {% include "members/_name_field.html" with id="rename-name" %}
+    <div class="form-actions">
+      <a class="button ghost" href="{% url 'members' %}" data-close-dialog>{% translate "Cancel" %}</a>
+      <button type="submit" class="primary">{% translate "Save" %}</button>
+    </div>
+  </form>
+</dialog>
