@@ -350,11 +350,8 @@ def test_ask_again_is_confirmed_inline(admin_client):
 def ask_again_card(client):
     """The Ask again card's HTML on the Suggestions page."""
     page = settings_page(client)
-    return page[
-        page.index('aria-labelledby="again-heading"') : page.index(
-            "</section>", page.index("again-heading")
-        )
-    ]
+    start = page.index('class="panel suggestions-again"')
+    return page[start : page.index("</section>", start)]
 
 
 def revoke_every_token():
