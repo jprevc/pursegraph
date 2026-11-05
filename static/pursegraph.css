@@ -493,6 +493,8 @@ button.fopt .n { margin-left: auto; padding-top: 1px; padding-left: var(--s-2); 
 button.fopt[aria-pressed="true"] .n { color: var(--accent-text); }
 button.fopt.zero:not([aria-pressed="true"]) { opacity: .45; }
 button.fopt.sub { padding-left: 1.625rem; font-size: var(--text-sm); }
+/* A hairline parting an option from those before, inset like their text; its own element, so a dimmed option leaves it whole. */
+.facet .fdiv { width: auto; margin: var(--s-1) var(--s-2); border: 0; border-top: 1px solid var(--line); }
 button.fopt:focus-visible { outline-offset: -2px; }
 /* Amount: a Money segmented control (the theme switch's track), then the range. */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; min-width: 0; margin: 0 var(--s-2); padding: 3px; border: 0; border-radius: var(--r-ctl); background: var(--ground); }
@@ -655,11 +657,12 @@ form.undo { display: inline; }
 .period { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
 .period form { display: flex; align-items: center; gap: .375rem; }
 .stepper { display: inline-flex; align-items: center; height: var(--control); background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); box-shadow: var(--shadow-ctl); }
-.stepper .step { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
-.stepper a.step:hover { background: var(--hover); }
-.stepper a.step:focus-visible { outline-offset: -2px; }
-.stepper .step .icon { color: var(--muted); }
-.stepper .step.off { opacity: .35; }
+/* The stepper's chevrons. Not `.step`: that is a Get started step card, whose padding would push the chevron out. */
+.stepper-arrow { display: grid; place-items: center; width: 2rem; height: 100%; color: var(--ink); border-radius: calc(var(--r-ctl) - 1px); }
+a.stepper-arrow:hover { background: var(--hover); }
+a.stepper-arrow:focus-visible { outline-offset: -2px; }
+.stepper-arrow .icon { color: var(--muted); }
+.stepper-arrow.off { opacity: .35; }
 .period-label { padding: 0 var(--s-2); font-weight: 600; white-space: nowrap; }
 .period-label .muted { font-weight: 400; }
 .filter-bar { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
