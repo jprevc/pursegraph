@@ -5,7 +5,7 @@ import re
 import pytest
 
 from ledger.models import Category, Source, Subcategory
-from tests.conftest import outcome_shown, page_text, subcategory_id, transaction_id
+from tests.conftest import disabled_reason, outcome_shown, page_text, subcategory_id, transaction_id
 from tests.test_import import upload
 from tests.test_rules import make_rule, make_transaction
 
@@ -272,9 +272,14 @@ def test_a_card_counts_each_subcategorys_transactions(admin_client):
 HTMX = {"HTTP_HX_REQUEST": "true"}
 
 
+def editing_page(client, name):
+    """The Categories page with Category `name` opened for editing."""
+    return client.get(f"/categories/?edit={category_id(name)}").content.decode()
+
+
 def editing(client, name):
     """The Categories page with Category `name` opened for editing, as text."""
-    return page_text(client.get(f"/categories/?edit={category_id(name)}").content.decode())
+    return page_text(editing_page(client, name))
 
 
 def test_editing_counts_each_subcategorys_transactions_and_rules(admin_client):
@@ -302,10 +307,13 @@ def test_a_used_category_says_why_it_cant_be_deleted(admin_client):
     make_rule(admin_client, subcategory_id("Home", "Utilities"), description_contains="elektro")
 
     assert (
-        "Food still has 1 Transaction. Delete its Subcategories first, then recategorize what is left in Other."
-        in editing(admin_client, "Food")
+        disabled_reason(editing_page(admin_client, "Food"), "Delete Food")
+        == "Food still has 1 Transaction. Delete its Subcategories first, then recategorize what is left in Other."
     )
-    assert "1 Rule still categorizes into Home." in editing(admin_client, "Home")
+    assert (
+        disabled_reason(editing_page(admin_client, "Home"), "Delete Home")
+        == "1 Rule still categorizes into Home."
+    )
 
 
 def test_deleting_an_unused_category_is_confirmed_inline(admin_client):

@@ -42,8 +42,8 @@ moves, adds and deletes apply at once, carrying the names typed so far along (`h
   </form>
   <div class="cat-foot">
     {% if category.refusal %}
-    <button type="button" class="ghost" disabled>{% icon "trash" %}{% blocktranslate with name=category.name %}Delete {{ name }}{% endblocktranslate %}</button>
-    <p class="reason">{% icon "info" %}<span>{{ category.refusal }}</span></p>
+    <button type="button" class="ghost" disabled aria-describedby="category-delete-reason-{{ category.pk }}">{% icon "trash" %}{% blocktranslate with name=category.name %}Delete {{ name }}{% endblocktranslate %}</button>
+    <p class="reason" id="category-delete-reason-{{ category.pk }}">{% icon "info" %}<span>{{ category.refusal }}</span></p>
     {% else %}
     <a class="button ghost" href="{% url 'delete_category' category.pk %}" hx-get="{% url 'delete_category' category.pk %}" hx-target="#confirm-category" hx-swap="innerHTML" data-confirm-opener>{% icon "trash" %}{% blocktranslate with name=category.name %}Delete {{ name }}{% endblocktranslate %}</a>
     {% endif %}
