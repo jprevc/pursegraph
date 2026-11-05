@@ -73,7 +73,7 @@ A Subcategory proposed for a Transaction in the Review queue, with how sure its 
 _Avoid_: Guess, prediction
 
 **Categorizer**:
-A program outside Pursegraph, such as one that asks an LLM, that uses an API token to fetch the Transactions waiting for a Suggestion and send Suggestions back. Pursegraph ships none.
+A program outside Pursegraph, such as one that asks an LLM, that uses an API token to fetch the Transactions waiting for a Suggestion and send Suggestions back. Pursegraph ships none. A Categorizer is connected while its API token isn't revoked, whether or not it has used it yet.
 _Avoid_: Suggester, LLM, worker, client
 
 **API token**:
