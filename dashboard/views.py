@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.db.models import QuerySet
-from django.http import Http404
+from django.http import Http404, QueryDict
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
@@ -221,25 +221,31 @@ def show(request, view: str):
     return response
 
 
-def drill_rows(view: str, query) -> QuerySet[Transaction]:
-    """The drill-down's Transactions for its `query` (a QueryDict), each with what it counts there."""
-    v = _view(view)
-    return queries.drill_down(
-        v.name,
+def _drill_query(v: View, query: QueryDict) -> tuple[Period, queries.Filters, str]:
+    """What a drill-down's `query` names: its period, its filters and its mark."""
+    return (
         Period.from_query(query, v.default_period),
         queries.Filters.from_query(query),
         query.get(v.mark_param, ""),
-    ).select_related("account", "subcategory__category")
+    )
+
+
+def drill_rows(view: str, query: QueryDict) -> QuerySet[Transaction]:
+    """The drill-down's Transactions for its `query`, each with what it counts there."""
+    v = _view(view)
+    return queries.drill_down(v.name, *_drill_query(v, query)).select_related(
+        "account", "subcategory__category"
+    )
 
 
 def transactions(request, view: str):
     """The drill-down: the Transactions behind one chart mark, as rows with inline outcome editing, in a card titled
     by the mark and the period."""
     v = _view(view)
-    period = Period.from_query(request.GET, v.default_period)
-    filters = queries.Filters.from_query(request.GET)
-    key = request.GET.get(v.mark_param, "")
-    rows = drill_rows(view, request.GET)
+    period, filters, key = _drill_query(v, request.GET)
+    rows = queries.drill_down(v.name, period, filters, key).select_related(
+        "account", "subcategory__category"
+    )
     label = queries.mark_label(v.name, period, filters, key) or _("Transactions")
     judged = completeness.Tracking(queries.heeded(v.name, filters).included()).completeness(period)
     # A month's mark takes its month's qualifier, as its table row does; any other mark the period's.
