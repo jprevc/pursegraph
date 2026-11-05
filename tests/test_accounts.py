@@ -2,12 +2,13 @@
 
 import json
 import re
+from datetime import date
 
 import pytest
 
 from ledger.importer import ImportRejected, check_statement, commit_statement
 from ledger.models import Account, Rule, Transaction
-from tests.conftest import board_row, make_account, page_text
+from tests.conftest import board_row, disabled_reason, make_account, page_text
 from tests.test_import import FIXTURE as REVOLUT_CSV
 from tests.test_import import upload as upload_csv
 from tests.test_import import upload_without_account
@@ -442,8 +443,32 @@ def test_an_account_with_statements_says_why_it_cant_be_deleted(admin_client):
 
     page = admin_client.get(f"/accounts/{account.pk}/edit/").content.decode()
 
-    assert "Can't be deleted while it has 1 Statement. Delete it first." in page_text(page)
+    assert (
+        disabled_reason(page, "Delete Account")
+        == "Can't be deleted while it has 1 Statement. Delete it first."
+    )
     assert f"/accounts/{account.pk}/delete/" not in page
+
+
+def test_an_account_with_several_statements_counts_them_in_its_reason(admin_client, admin):
+    account = make_account("Ana's savings", "other", admin, [OTHER_IBAN])
+    for n in range(2):
+        account.statements.create(
+            format="csv",
+            period_start=date(2026, 9 + n, 1),
+            period_end=date(2026, 9 + n, 28),
+            opening_balance=0,
+            closing_balance=0,
+            imported_by=admin,
+            sha256=f"{n}" * 64,
+        )
+
+    page = admin_client.get(f"/accounts/{account.pk}/edit/").content.decode()
+
+    assert (
+        disabled_reason(page, "Delete Account")
+        == "Can't be deleted while it has 2 Statements. Delete them first."
+    )
 
 
 def test_deleting_an_account_is_refused_while_it_has_statements(admin_client):

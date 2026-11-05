@@ -53,9 +53,9 @@ A visually hidden ordered list reads the whole timeline ("Covered 1 Jan 2025 –
 **Accounts page.**
 - **Header:** the same board without the drop strip, titled "Accounts", with "New Account" as the primary action and a muted line, "Each Account with its Coverage, as on Import."
 - **Edit** expands the row in place. The form sits on the left: Name, Bank (with the hint that "Other" is for an Account whose Statements aren't imported), Owners as Member-name checkboxes ("Several owners make it a joint Account, shown in the Joint bucket."), and IBANs.
-- **Delete or why it's missing** sits on the right:
-  - with Statements: "Can't be deleted while it has 20 Statements. Delete them first."
-  - without: "Delete Account", which confirms how many Rules only for this Account go with it.
+- **Delete Account** sits on the right:
+  - without Statements, it confirms how many Rules only for this Account go with it.
+  - with Statements, it is disabled, with its reason right under it: "Can't be deleted while it has 20 Statements. Delete them first."
 - **Save** collapses the row and shows "✓ Saved" beside the Account name (`role="status"`, announced).
 - **Members who aren't admins** see Import's board without Edit.
 
