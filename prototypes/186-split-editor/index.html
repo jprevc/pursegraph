@@ -1,0 +1,756 @@
+<!doctype html>
+<!-- PROTOTYPE (#186 Split editor and Part rows): throwaway, lives only on prototype/186-split-editor. Never merge.
+     Three variants of the Split editor and the Part rows, switchable via ?variant=A|B|C (or the black bar, or ← / →
+     while nothing is focused). Hosts: ?page=transactions|review|drill. ?phone=1 shows the page in a 390px frame that
+     behaves as a coarse pointer (Change is the native select). ?theme=light|dark|system.
+       A · Inline lines, the last Part takes the rest : the editor opens in the chip panel; each Part is a line with a
+                                                        Subcategory button (chips open under it) and an amount; the last
+                                                        Part is never typed, it is always the rest. Tree-line Part rows.
+       B · Pick Subcategories, then amounts           : step 1 toggles the Subcategories (the same chips), step 2 types
+                                                        every amount against a big "€X left", with "Add the €X left"
+                                                        per Part. Phone: a bottom sheet. Compact Part rows, wash emphasis.
+       C · A dialog with a bar                        : a dialog (a full sheet on a phone) with a stacked bar in the
+                                                        Parts' hues, a native select and an amount per Part; the last
+                                                        Part fills itself until touched. Hue-ruled Part rows.
+     Uses the app's own static/pursegraph.css; serve from the repo root: python3 -m http.server 8186
+     All figures are synthetic; changes stay in memory. -->
+<html lang="en" class="js" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pursegraph · Split editor prototype</title>
+<link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/pursegraph.css">
+<style>
+/* ---------- Prototype page frame ---------- */
+.m-top { display: none; }
+@media (max-width: 900px) { .m-top { display: flex; } }
+.sidebar .brand img { display: block; }
+h1 { margin-bottom: var(--s-4); }
+
+/* Emulated coarse pointer (the phone frame): the same rules the app gates on (pointer: coarse). */
+.p-coarse .js [data-change], .p-coarse [data-change] { display: none !important; }
+.p-coarse .change-label { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 .25rem; color: var(--accent-text); font-weight: 500; }
+.p-coarse .oc-form select { display: block !important; position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; opacity: 0; font-size: 1rem; cursor: pointer; }
+.p-coarse .change:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-inner); }
+
+/* ---------- The Split outcome on the Transaction row ---------- */
+.split-ic { width: .875rem; height: .875rem; flex: none; align-self: center; color: var(--muted); margin-right: calc(var(--s-1) * -1); }
+.dot.pie { background: conic-gradient(var(--stops)); }
+.minibar { display: inline-flex; align-self: center; width: 2.5rem; height: .375rem; border-radius: 3px; overflow: hidden; gap: 1px; background: var(--line); }
+.minibar i { background: var(--hue); }
+
+/* Part rows: always shown, under their Transaction. */
+.rows tr.txn.has-parts > td { border-bottom: 0; }
+.rows tr.part > td { padding-top: .3125rem; padding-bottom: .3125rem; border-bottom: 0; font-size: var(--text-sm); }
+.rows tr.part.last > td { padding-bottom: .625rem; border-bottom: 1px solid var(--line); }
+.rows tr.part .oc-label { font-weight: 500; }
+.rows tr.part .amt { font-weight: 500; color: var(--ink-2); }
+.rows tr.part.em .amt { font-weight: 600; color: var(--ink); }
+.rows tr.part.dim .oc-label, .rows tr.part.dim .oc-label .sub-name, .rows tr.part.dim .amt { color: var(--muted); }
+.rows tr.part.dim .dot { opacity: .45; }
+.rows .amt.not-counted { color: var(--muted); font-weight: 400; }
+.rows .amt small { display: block; color: var(--muted); font-size: var(--text-label); font-weight: 400; }
+/* A: a tree line from the Transaction to each Part, Parts in the Outcome and Amount columns. */
+.pa tr.part .tree { position: relative; height: 1.25rem; margin-left: .25rem; }
+.pa tr.part .tree::before { content: ""; position: absolute; left: 0; top: -1rem; width: .875rem; height: 1.625rem; border-left: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); border-bottom-left-radius: 6px; }
+.pa tr.part .tree span { position: absolute; left: 1.25rem; top: 0; color: var(--muted); font-size: var(--text-label); white-space: nowrap; }
+.pa tr.part.em .oc-label .sub-name { color: var(--ink); }
+/* B: compact lines under the description; the emphasised Part takes Indigo Wash. */
+.pb tr.part td.p-span { padding-left: 8rem; }
+.pb tr.part .oc-label { font-weight: 400; color: var(--ink-2); }
+.pb tr.part.em > td { background: var(--accent-soft); }
+.pb tr.part.em > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.pb tr.part.em .oc-label, .pb tr.part.em .amt { color: var(--accent-text); font-weight: 600; }
+/* C: the Part's hue as a rule at the start of its outcome; others fade. */
+.pc tr.part .c-out .oc-label { padding-left: var(--s-3); box-shadow: inset 3px 0 0 var(--hue); }
+.pc tr.part.dim > td { opacity: .5; }
+.pc tr.part.dim .oc-label, .pc tr.part.dim .amt { color: var(--ink-2); }
+
+/* ---------- Split editor (shared bits) ---------- */
+.sp { display: grid; gap: var(--s-3); }
+.sp-amt { position: relative; display: inline-flex; align-items: center; }
+.sp-amt input { width: 8.5rem; padding-right: 1.75rem; text-align: right; font-weight: 500; }
+.sp-amt > span { position: absolute; right: .625rem; color: var(--muted); pointer-events: none; }
+.sp-amt input.auto { color: var(--muted); font-style: italic; }
+.sp-status { display: flex; align-items: center; gap: var(--s-2); margin: 0; color: var(--ink-2); font-size: var(--text-sm); }
+.sp-status.bad { color: var(--ink); font-weight: 500; }
+.sp-status .icon { width: .875rem; height: .875rem; }
+.sp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.sp-foot .sp-status { flex: 1 1 16rem; }
+.sp-foot .acts { display: flex; gap: var(--s-2); margin-left: auto; }
+.sp-x { width: 2rem; height: 2rem; padding: 0; }
+.sp-x .icon { width: .875rem; height: .875rem; }
+.sp-add { justify-self: start; margin: 0; padding: .375rem .25rem; }
+.chips button.split-chip { border-style: dashed; }
+.chips button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+.chips button[aria-pressed="true"] .cat-name, .chips button[aria-pressed="true"] .sep { color: inherit; }
+.chips button:disabled { opacity: .4; }
+.p-note { margin: 0; color: var(--muted); font-size: var(--text-label); }
+
+/* A: one line per Part. */
+.sp-lines { display: grid; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
+.sp-line { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr) auto 2rem; align-items: center; gap: var(--s-2); }
+.sp-n { color: var(--muted); font-size: var(--text-label); font-weight: 500; }
+button.sp-sub { justify-content: flex-start; gap: var(--s-2); width: 100%; min-width: 0; padding-right: var(--s-8); background: var(--card) var(--chevron) no-repeat right .625rem center / 1rem; font-weight: 500; white-space: normal; text-align: left; line-height: 1.3; height: auto; min-height: var(--control); }
+button.sp-sub .cat-name { color: var(--muted); font-weight: 400; }
+button.sp-sub .sep { color: var(--faint); }
+button.sp-sub[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+select.sp-sel { width: 100%; min-width: 0; }
+.sp-rest { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: var(--s-2); width: 8.5rem; padding-right: .625rem; }
+.sp-rest .k { color: var(--muted); font-size: var(--text-label); }
+.sp-rest b { font-weight: 600; }
+.sp-picker { margin: 0 2.5rem var(--s-2) 3.75rem; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--card); display: grid; gap: var(--s-2); }
+
+/* B: steps, tray, the left figure. */
+.sp-steps { display: flex; gap: var(--s-2); margin: 0; color: var(--muted); font-size: var(--text-label); font-weight: 500; }
+.sp-steps b { color: var(--ink); font-weight: 600; }
+.sp-tray { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; min-height: 2.25rem; padding: .25rem .375rem; border: 1px dashed var(--line-strong); border-radius: var(--r-ctl); }
+.sp-tray .p-note { padding: 0 .25rem; }
+.sp-tray .tok { display: inline-flex; align-items: center; gap: .375rem; height: 1.75rem; padding: 0 .25rem 0 .625rem; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent-text); font-size: var(--text-sm); font-weight: 500; }
+.sp-tray .tok button { width: 1.5rem; height: 1.5rem; padding: 0; border: 0; border-radius: 50%; background: none; box-shadow: none; color: inherit; }
+.sp-left { display: flex; align-items: baseline; gap: var(--s-2); margin: 0; }
+.sp-left b { font-size: 1.375rem; font-weight: 600; letter-spacing: -.01em; }
+.sp-left span { color: var(--muted); }
+.sp-amts { display: grid; gap: var(--s-2); }
+.sp-arow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-1) var(--s-3); padding: var(--s-2) 0; border-top: 1px solid var(--line); }
+.sp-arow .oc-label { font-weight: 500; }
+.sp-arow .fill { grid-column: 2; justify-self: end; margin: 0; padding: .125rem; font-size: var(--text-sm); }
+
+/* C: the dialog and its bar. */
+.p-scrim { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: var(--s-4); background: rgb(0 0 0 / .35); }
+.p-dialog { width: min(36rem, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; padding: var(--s-5); border-radius: var(--r-card); background: var(--card); box-shadow: var(--shadow-pop); display: grid; gap: var(--s-4); }
+.p-dialog .d-head h2 { font-size: 1.125rem; }
+.sp-bar { display: flex; height: .75rem; gap: 2px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.sp-bar i { background: var(--hue); min-width: 2px; }
+.sp-bar i.left { background: repeating-linear-gradient(45deg, var(--line-strong) 0 3px, transparent 3px 6px); }
+.sp-bar i.over { background: var(--ink); }
+.sp-crows { display: grid; gap: var(--s-2); }
+.sp-crow { display: grid; grid-template-columns: .5rem minmax(0, 1fr) auto 2rem; align-items: center; gap: var(--s-2); }
+.sp-crow .tag { grid-column: 3; justify-self: end; margin-top: -.25rem; color: var(--muted); font-size: var(--text-label); }
+
+/* The phone sheet (B on touch, C on a phone). */
+@media (max-width: 600px) {
+  .p-scrim { place-items: end stretch; padding: 0; }
+  .p-dialog { width: 100%; max-height: 92vh; padding: var(--s-2) var(--s-4) calc(var(--s-4) + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
+  .p-dialog::before { content: ""; justify-self: center; width: 2.25rem; height: 4px; border-radius: 4px; background: var(--line-strong); }
+  .p-dialog.full { height: 92vh; align-content: start; }
+  .sp-foot { position: sticky; bottom: calc(var(--s-4) * -1); background: var(--card); padding-bottom: var(--s-3); }
+  .sp-foot .acts { width: 100%; }
+  .sp-foot .acts button { flex: 1; height: 2.75rem; }
+  .sp-amt input, .sp-sel, .p-dialog select { height: 2.75rem; font-size: 1rem; }
+  .sp-amt input { width: 7.5rem; }
+  .sp-line { grid-template-columns: minmax(0, 1fr) auto 2rem; }
+  .sp-n { grid-column: 1 / -1; }
+  .sp-rest { width: 7.5rem; }
+  .sp-picker { margin: 0; }
+  button.sp-sub { min-height: 2.75rem; }
+  .sp-x { width: 2.75rem; height: 2.75rem; }
+  .chips button { min-height: 2.75rem; }
+  .sp-crow { grid-template-columns: .5rem minmax(0, 1fr) 2.75rem; }
+  .sp-crow .sp-amt { grid-column: 2; }
+  .sp-crow .sp-amt input { width: 100%; }
+  .sp-crow .sp-amt { display: flex; }
+  .sp-crow .tag { grid-column: 2; justify-self: start; margin: 0; }
+  /* Part rows on the phone card: indented lines under the Transaction. */
+  .rows tr.part { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s-3); padding: .3125rem var(--s-4) .3125rem 2rem; }
+  .rows tr.part > td { padding: 0 !important; border: 0 !important; width: auto; }
+  .rows tr.part > td.empty { display: none; }
+  .rows tr.part.last { padding-bottom: var(--s-3); border-bottom: 1px solid var(--line); }
+  .rows tr.txn.has-parts { border-bottom: 0; padding-bottom: var(--s-2); }
+  .pa tr.part { position: relative; }
+  .pa tr.part::before { content: ""; position: absolute; left: 1.125rem; top: -.375rem; width: .5rem; height: 1.125rem; border-left: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong); border-bottom-left-radius: 5px; }
+  .pa tr.part .c-desc { display: none; }
+  .pb tr.part td.p-span { padding-left: 0 !important; }
+  .pb tr.part.em { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  .pb tr.part.em > td { background: none; }
+}
+
+/* ---------- PROTOTYPE switcher: deliberately NOT the design ---------- */
+.proto { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 100; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; max-width: calc(100vw - 16px); padding: 6px 8px; border-radius: 14px; background: #000; color: #fff; font: 500 12px/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgb(0 0 0 / .35); }
+.proto button { height: 26px; padding: 0 9px; border: 1px solid #444; border-radius: 8px; background: #111; color: #fff; font: inherit; box-shadow: none; }
+.proto button:hover { background: #222; }
+.proto button[aria-pressed="true"] { background: #fff; color: #000; }
+.proto .lbl { min-width: 15rem; text-align: center; }
+.proto .sep { width: 1px; height: 18px; background: #444; }
+.phone-stage { display: grid; place-items: center; min-height: 100vh; padding: 24px 0 90px; background: #2b2d33; }
+.phone-stage iframe { width: 390px; height: 844px; border: 0; border-radius: 28px; background: var(--ground); box-shadow: 0 0 0 10px #111, 0 20px 50px rgb(0 0 0 / .5); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-split" viewBox="0 0 24 24"><path d="M4 12h6l4-6h6M10 12l4 6h6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+<div id="app"></div>
+<div id="announcer" class="sr" role="status"></div>
+<script>
+// ===================== Data (synthetic) =====================
+const CATS = [
+  { id: 1, name: "Food", kind: "out", subs: [[11, "Groceries"], [12, "Restaurants & cafés"], [19, "Other"]] },
+  { id: 2, name: "Transport", kind: "out", subs: [[21, "Fuel"], [22, "Public transport & car sharing"], [29, "Other"]] },
+  { id: 3, name: "Home", kind: "out", subs: [[31, "Rent"], [32, "Utilities"], [33, "Household supplies"], [39, "Other"]] },
+  { id: 4, name: "Leisure", kind: "out", subs: [[41, "Subscriptions & digital services"], [42, "Sport"], [49, "Other"]] },
+  { id: 5, name: "Health", kind: "out", subs: [[51, "Pharmacy"], [52, "Doctor"], [59, "Other"]] },
+  { id: 6, name: "Shopping", kind: "out", subs: [[61, "Clothes"], [62, "Electronics"], [63, "Gifts"], [69, "Other"]] },
+  { id: 7, name: "Kids", kind: "out", subs: [[71, "School"], [72, "Toys"], [79, "Other"]] },
+  { id: 8, name: "Income", kind: "in", subs: [[81, "Salary"], [82, "Reimbursements"], [83, "Gifts received"], [89, "Other"]] },
+];
+const SUB = {};
+CATS.forEach(c => c.subs.forEach(([id, name]) => SUB[id] = { id, name, cat: c }));
+const MOST = { out: [11, 22, 21, 41, 33], in: [81, 82] };
+const hue = catId => `var(--cat-${(catId - 1) % 10})`;
+const kindOf = amt => amt < 0 ? "out" : "in";
+
+const sub = (s, src) => ({ type: "sub", sub: s, src });
+const split = (parts) => ({ type: "split", parts: parts.map(([s, a]) => ({ sub: s, amt: a })), src: "by hand" });
+const TXNS0 = [
+  { id: 1, date: "31 Oct", desc: "Mercator", acct: "Ana's Sparkasse", amt: -12780, out: sub(11, "by Rule") },
+  { id: 2, date: "30 Oct", desc: "Hofer", acct: "Joint Revolut", amt: -8437, out: split([[11, 6120], [33, 2317]]) },
+  { id: 3, date: "29 Oct", desc: "Amazon.de", acct: "Luka's N26", amt: -5899, out: sub(62, "by Categorizer") },
+  { id: 4, date: "28 Oct", desc: "Petrol Ljubljana", acct: "Ana's Sparkasse", amt: -7210, out: sub(21, "by Rule") },
+  { id: 5, date: "27 Oct", desc: "dm drogerie markt", acct: "Joint Revolut", amt: -3645, out: split([[51, 1499], [33, 1247], [72, 899]]) },
+  { id: 6, date: "26 Oct", desc: "Gostilna Pri Lojzetu", acct: "Luka's N26", amt: -4600, out: sub(12, "by hand") },
+  { id: 7, date: "25 Oct", desc: "Bolt.eu", acct: "Luka's N26", amt: -740, out: sub(22, "by Rule") },
+  { id: 8, date: "15 Oct", desc: "ACME d.o.o. plača", acct: "Ana's Sparkasse", amt: 248000, out: sub(81, "by Rule") },
+  { id: 9, date: "12 Oct", desc: "Spar", acct: "Joint Revolut", amt: -2310, out: sub(11, "by Rule") },
+];
+const GROUPS0 = [
+  { id: "g1", desc: "Interspar", meta: "Interspar d.o.o. · Card payment", txns: [{ date: "1 Nov", acct: "Joint Revolut", amt: -9630 }], sugg: 11, sure: 74, last: "Food › Groceries · 3 Oct · by hand · used 6 times" },
+  { id: "g2", desc: "Bolt.eu", meta: "Bolt Operations OÜ · Card payment", txns: [{ date: "2 Nov", acct: "Luka's N26", amt: -740 }, { date: "1 Nov", acct: "Luka's N26", amt: -690 }, { date: "31 Oct", acct: "Ana's Sparkasse", amt: -700 }], sugg: 22, sure: 91, last: "Transport › Public transport & car sharing · 25 Oct · by Rule · used 31 times" },
+  { id: "g3", desc: "ACME d.o.o. potni stroški", meta: "ACME d.o.o. · Credit transfer", txns: [{ date: "31 Oct", acct: "Ana's Sparkasse", amt: 31240 }], sugg: null, last: null },
+  { id: "g4", desc: "Lekarna Ljubljana", meta: "Javni zavod Lekarna Ljubljana · Card payment", txns: [{ date: "30 Oct", acct: "Joint Revolut", amt: -4215 }], sugg: 51, sure: 63, last: "Health › Pharmacy · 2 Oct · by Categorizer · used 4 times" },
+];
+const clone = o => JSON.parse(JSON.stringify(o));
+let TXNS = clone(TXNS0), GROUPS = clone(GROUPS0);
+
+// ===================== URL state =====================
+const P = new URLSearchParams(location.search);
+const S = {
+  variant: P.get("variant") || "A",
+  page: P.get("page") || "transactions",
+  phone: P.get("phone") === "1",
+  embed: P.get("embed") === "1",
+  theme: P.get("theme") || "system",
+  filter: P.get("filter") || "", // "", "cat-1", "sub-11", "cat-3", "sub-33"
+};
+const NAMES = { A: "Inline lines, last Part takes the rest", B: "Pick Subcategories, then amounts", C: "A dialog with a bar" };
+const coarse = () => S.embed || matchMedia("(pointer: coarse)").matches;
+function pushUrl() {
+  const q = new URLSearchParams();
+  q.set("variant", S.variant); q.set("page", S.page);
+  if (S.phone) q.set("phone", "1");
+  if (S.embed) q.set("embed", "1");
+  if (S.theme !== "system") q.set("theme", S.theme);
+  if (S.filter) q.set("filter", S.filter);
+  history.replaceState(null, "", "?" + q);
+}
+
+// ===================== UI state =====================
+let ui = { panel: null, step: null, ed: null, saved: null, review: { open: "g1", saved: {} } };
+const reset = () => { TXNS = clone(TXNS0); GROUPS = clone(GROUPS0); ui = { panel: null, step: null, ed: null, saved: null, review: { open: "g1", saved: {} } }; };
+
+// ===================== Helpers =====================
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ic = (n, cls = "icon") => `<svg class="${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+function fmt(c, signed = true) {
+  const neg = c < 0, a = Math.abs(Math.round(c));
+  const e = String(Math.floor(a / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (signed && neg ? "−" : "") + e + "," + String(a % 100).padStart(2, "0") + " €";
+}
+const fmtIn = c => { const s = fmt(c, false); return s.slice(0, -2); };
+function parse(s) {
+  s = String(s ?? "").trim().replace(/[€\s−-]/g, "");
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  const v = Number(s);
+  return isFinite(v) ? Math.round(v * 100) : NaN;
+}
+const subLabel = id => { const s = SUB[id]; return `<span><span class="cat-name">${esc(s.cat.name)}</span> <span class="sep">›</span> <span class="sub-name">${esc(s.name)}</span></span>`; };
+const subText = id => `${SUB[id].cat.name} › ${SUB[id].name}`;
+const dot = id => `<i class="dot" style="--hue: ${hue(SUB[id].cat.id)}" aria-hidden="true"></i>`;
+
+// ===================== The editor model =====================
+// ed = { key: "t1" | "g1", total (signed cents), desc, kind, parts: [{ sub, amt (string), touched }], pickFor, picked (B), phase (B) }
+function openEditor(key, total, desc, current) {
+  const kind = kindOf(total);
+  let parts;
+  if (current && current.type === "split") parts = current.parts.map(p => ({ sub: p.sub, amt: fmtIn(p.amt), touched: true }));
+  else {
+    const first = current && current.type === "sub" ? current.sub : current?.sugg ?? null;
+    parts = [{ sub: first, amt: "", touched: false }, { sub: null, amt: "", touched: false }];
+  }
+  if (S.variant === "C" && current?.type === "split") parts[parts.length - 1].touched = false;
+  ui.ed = { key, total, desc, kind, parts, pickFor: null, phase: current?.type === "split" ? "amounts" : "pick",
+            picked: parts.map(p => p.sub).filter(Boolean) };
+  ui.step = null;
+}
+// The amount each Part would have, by the variant's remainder rule.
+function amounts(ed) {
+  const T = Math.abs(ed.total), n = ed.parts.length;
+  const typed = ed.parts.map(p => parse(p.amt));
+  if (S.variant === "A") {
+    const others = typed.slice(0, -1).reduce((s, v) => s + (v > 0 ? v : 0), 0);
+    return [...typed.slice(0, -1), T - others];
+  }
+  if (S.variant === "C" && !ed.parts[n - 1].touched) {
+    const others = typed.slice(0, -1).reduce((s, v) => s + (v > 0 ? v : 0), 0);
+    return [...typed.slice(0, -1), Math.max(0, T - others)];
+  }
+  return typed;
+}
+function check(ed) {
+  const T = Math.abs(ed.total), am = amounts(ed), probs = [];
+  const sum = am.reduce((s, v) => s + (v > 0 ? v : 0), 0), left = T - sum;
+  ed.parts.forEach((p, i) => { if (!p.sub) probs.push(`Choose a Subcategory for Part ${i + 1}.`); });
+  const seen = {};
+  ed.parts.forEach((p, i) => { if (p.sub) { if (seen[p.sub] !== undefined) probs.push(`Parts ${seen[p.sub] + 1} and ${i + 1} are both ${subText(p.sub)}. Put that amount in one Part.`); else seen[p.sub] = i; } });
+  am.forEach((v, i) => {
+    if (Number.isNaN(v)) probs.push(`Part ${i + 1}'s amount isn't a number.`);
+    else if (S.variant === "A" && i === am.length - 1) { if (v <= 0) probs.push(left < 0 || v < 0 ? `The other Parts come to ${fmt(sum - v, false)}, ${fmt(-v, false)} more than the Transaction.` : `Part ${i + 1} would be 0,00 €. Lower another Part to make room.`); }
+    else if (v === null) probs.push(`Part ${i + 1} needs an amount.`);
+    else if (v <= 0) probs.push(`Part ${i + 1} can't be 0,00 €.`);
+  });
+  if (S.variant !== "A") {
+    if (left > 0) probs.unshift(`${fmt(left, false)} left to put in a Part.`);
+    if (left < 0) probs.unshift(`The Parts come to ${fmt(-left, false)} more than ${fmt(T, false)}.`);
+  }
+  return { ok: probs.length === 0, probs, left, sum, am, T };
+}
+function statusLine(ed) {
+  const c = check(ed);
+  if (c.ok) return `<p class="sp-status" id="sp-why">${ic("check")}${ed.parts.length} Parts add up to ${fmt(c.T, false)}.</p>`;
+  return `<p class="sp-status bad" id="sp-why">${ic("alert")}${esc(c.probs[0])}${c.probs.length > 1 ? ` <span class="muted">(${c.probs.length - 1} more)</span>` : ""}</p>`;
+}
+function saveBtn(ed) {
+  const c = check(ed);
+  return `<button type="button" class="primary" data-act="save" ${c.ok ? "" : 'aria-disabled="true" aria-describedby="sp-why"'} ${c.ok ? "" : 'style="opacity:.35"'}>Save the Split</button>`;
+}
+
+// ===================== Chips =====================
+function chipPicker({ kind, act, marks = {}, extra = "", disabled = {} }) {
+  if (ui.step) {
+    const c = CATS.find(c => c.id === ui.step);
+    return `<div class="pick-step" data-step=""><div class="pick-h"><button type="button" class="link" data-act="step" data-cat="">‹ All Categories</button><i class="dot" style="--hue:${hue(c.id)}"></i><span>${esc(c.name)}</span></div>
+      <div class="chips">${c.subs.map(([id, n]) => chip(id, n, act, marks, disabled, false)).join("")}</div></div>`;
+  }
+  const most = MOST[kind].filter(id => !disabled[id] || marks[id]);
+  return `<div class="pick-step" data-step="">
+    ${most.length ? `<p class="pick-h">Most used</p><div class="chips">${most.map(id => chip(id, null, act, marks, disabled, true)).join("")}</div>` : ""}
+    <p class="pick-h">Category</p>
+    <div class="chips">${CATS.filter(c => c.kind === kind).map(c => `<button type="button" data-act="step" data-cat="${c.id}"><i class="dot" style="--hue:${hue(c.id)}"></i>${esc(c.name)}${c.subs.some(([id]) => marks[id] === "pressed") ? ` <span class="muted">· ${c.subs.filter(([id]) => marks[id] === "pressed").length}</span>` : ""}</button>`).join("")}${extra}</div></div>`;
+}
+function chip(id, name, act, marks, disabled, withCat) {
+  const m = marks[id], d = disabled[id];
+  const label = withCat ? `${dot(id)}${subLabel(id)}` : (m === "pressed" ? ic("check") : "") + esc(name);
+  return `<button type="button" data-act="${act}" data-sub="${id}"${m === "current" ? ' aria-current="true"' : ""}${act === "toggle" ? ` aria-pressed="${m === "pressed"}"` : ""}${d ? ` disabled title="${esc(d)}"` : ""}>${label}</button>`;
+}
+const splitChip = (label = "Split into Parts…") => `<button type="button" class="split-chip" data-act="split">${ic("split")}${label}</button>`;
+const transferChip = `<button type="button" data-act="choose" data-sub="transfer"><i class="dot transfer"></i>Transfer</button>`;
+
+// ===================== Variant editors =====================
+function nativeSubSelect(ed, i, cls = "sp-sel") {
+  const used = ed.parts.map((p, j) => j !== i && p.sub).filter(Boolean);
+  return `<select class="${cls}" data-act="subsel" data-i="${i}" aria-label="Subcategory of Part ${i + 1}">
+    <option value=""${ed.parts[i].sub ? "" : " selected"} disabled>Choose a Subcategory</option>
+    ${CATS.filter(c => c.kind === ed.kind).map(c => `<optgroup label="${esc(c.name)}">${c.subs.map(([id, n]) => `<option value="${id}"${ed.parts[i].sub === id ? " selected" : ""}${used.includes(id) ? " disabled" : ""}>${esc(c.name)} › ${esc(n)}${used.includes(id) ? " (another Part)" : ""}</option>`).join("")}</optgroup>`).join("")}
+  </select>`;
+}
+const usedElsewhere = (ed, i) => Object.fromEntries(ed.parts.map((p, j) => [p.sub, j !== i && p.sub ? `Already Part ${j + 1}` : null]).filter(([s, w]) => s && w));
+const headLine = (ed, verb = "Split") => `<div class="pick-head"><p class="pick-title">${verb} <b>${esc(ed.desc)}</b> into Parts · <span class="fig">${fmt(ed.total)}</span></p><button type="button" class="link" data-act="close">Cancel</button></div>`;
+
+function editorA(ed) {
+  const c = check(ed);
+  const lines = ed.parts.map((p, i) => {
+    const last = i === ed.parts.length - 1;
+    const subCtl = coarse() ? nativeSubSelect(ed, i)
+      : `<button type="button" class="sp-sub" data-act="pickfor" data-i="${i}" aria-expanded="${ed.pickFor === i}">${p.sub ? dot(p.sub) + subLabel(p.sub) : '<span class="muted">Choose a Subcategory</span>'}</button>`;
+    const amt = last ? `<span class="sp-rest"><span class="k">the rest</span><b class="fig">${fmt(c.am[i], false)}</b></span>`
+      : `<label class="sp-amt"><input data-amt="${i}" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(p.amt)}" aria-label="Amount of Part ${i + 1}"><span>€</span></label>`;
+    const rm = ed.parts.length > 2 ? `<button type="button" class="ghost sp-x" data-act="remove" data-i="${i}" aria-label="Remove Part ${i + 1}">${ic("x")}</button>` : "<span></span>";
+    const picker = ed.pickFor === i && !coarse() ? `<li class="sp-picker">${chipPicker({ kind: ed.kind, act: "partsub", marks: p.sub ? { [p.sub]: "current" } : {}, disabled: usedElsewhere(ed, i) })}</li>` : "";
+    return `<li class="sp-line"><span class="sp-n">Part ${i + 1}</span>${subCtl}${amt}${rm}</li>${picker}`;
+  }).join("");
+  return `<div class="sp sp-a">${headLine(ed)}
+    <ol class="sp-lines">${lines}</ol>
+    <button type="button" class="link sp-add" data-act="add">+ Add a Part</button>
+    <div class="sp-foot">${statusLine(ed)}<div class="acts"><button type="button" data-act="close">Cancel</button>${saveBtn(ed)}</div></div>
+  </div>`;
+}
+
+function editorB(ed) {
+  if (ed.phase === "pick") {
+    const marks = Object.fromEntries(ed.picked.map(s => [s, "pressed"]));
+    return `<div class="sp sp-b">${headLine(ed)}
+      <p class="sp-steps"><b>1 · Subcategories</b><span>›</span><span>2 · Amounts</span></p>
+      <div class="sp-tray" aria-label="Picked">${ed.picked.length ? ed.picked.map(s => `<span class="tok">${esc(subText(s))}<button type="button" data-act="toggle" data-sub="${s}" aria-label="Remove ${esc(subText(s))}">${ic("x")}</button></span>`).join("") : '<span class="p-note">Pick the Subcategories it splits into: two or more.</span>'}</div>
+      ${chipPicker({ kind: ed.kind, act: "toggle", marks })}
+      <div class="sp-foot"><p class="sp-status${ed.picked.length < 2 ? " bad" : ""}" id="sp-why">${ed.picked.length < 2 ? ic("alert") + "Pick at least two Subcategories." : ic("check") + ed.picked.length + " Parts"}</p>
+        <div class="acts"><button type="button" data-act="close">Cancel</button><button type="button" class="primary" data-act="toamounts"${ed.picked.length < 2 ? ' aria-disabled="true" style="opacity:.35"' : ""}>Next: amounts ›</button></div></div>
+    </div>`;
+  }
+  const c = check(ed);
+  const rows = ed.parts.map((p, i) => `<div class="sp-arow"><span class="oc-label">${dot(p.sub)}${subLabel(p.sub)}</span>
+      <label class="sp-amt"><input data-amt="${i}" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(p.amt)}" aria-label="Amount for ${esc(subText(p.sub))}"><span>€</span></label>
+      ${c.left > 0 ? `<button type="button" class="link fill" data-act="fill" data-i="${i}">Add the ${fmt(c.left, false)} left</button>` : ""}</div>`).join("");
+  return `<div class="sp sp-b">${headLine(ed)}
+    <p class="sp-steps"><button type="button" class="link" data-act="topick" style="margin:0;padding:0;font-size:inherit">1 · Subcategories</button><span>›</span><b>2 · Amounts</b></p>
+    <p class="sp-left" aria-live="polite"><b class="fig">${fmt(Math.abs(c.left), false)}</b><span>${c.left < 0 ? "too much" : "left"} of ${fmt(c.T, false)}</span></p>
+    <div class="sp-amts">${rows}</div>
+    <div class="sp-foot">${statusLine(ed)}<div class="acts"><button type="button" data-act="topick">‹ Subcategories</button>${saveBtn(ed)}</div></div>
+  </div>`;
+}
+
+function editorC(ed) {
+  const c = check(ed), n = ed.parts.length;
+  const segs = c.am.map((v, i) => v > 0 && ed.parts[i].sub ? `<i style="flex:${v};--hue:${hue(SUB[ed.parts[i].sub].cat.id)}" title="${esc(subText(ed.parts[i].sub))} · ${fmt(v, false)}"></i>` : v > 0 ? `<i style="flex:${v};--hue:var(--faint)"></i>` : "").join("")
+    + (c.left > 0 ? `<i class="left" style="flex:${c.left}" title="${fmt(c.left, false)} left"></i>` : "") + (c.left < 0 ? `<i class="over" style="flex:${-c.left}"></i>` : "");
+  const rows = ed.parts.map((p, i) => {
+    const auto = i === n - 1 && !p.touched;
+    const val = auto ? (c.am[i] > 0 ? fmtIn(c.am[i]) : "") : p.amt;
+    return `<div class="sp-crow">${p.sub ? dot(p.sub) : '<i class="dot awaiting"></i>'}${nativeSubSelect(ed, i)}
+      <label class="sp-amt"><input class="${auto ? "auto" : ""}" data-amt="${i}" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(val)}" aria-label="Amount of Part ${i + 1}"><span>€</span></label>
+      ${n > 2 ? `<button type="button" class="ghost sp-x" data-act="remove" data-i="${i}" aria-label="Remove Part ${i + 1}">${ic("x")}</button>` : "<span></span>"}
+      ${auto && c.am[i] > 0 ? '<span class="tag">the rest, until you type here</span>' : ""}</div>`;
+  }).join("");
+  const t = ed.key[0] === "t" ? TXNS.find(t => "t" + t.id === ed.key) : null;
+  return `<div class="p-scrim" data-act="scrim"><div class="p-dialog full sp sp-c" role="dialog" aria-modal="true" aria-labelledby="sp-h">
+    <div class="d-head"><div class="d-title"><h2 id="sp-h">Split into Parts</h2><p class="d-meta">${esc(ed.desc)}${t ? ` · ${t.date} · ${esc(t.acct)}` : ""}</p></div><p class="d-total fig">${fmt(ed.total)}</p></div>
+    <div class="sp-bar" aria-hidden="true">${segs}</div>
+    <div class="sp-crows">${rows}</div>
+    <button type="button" class="link sp-add" data-act="add">+ Add a Part</button>
+    <div class="sp-foot">${statusLine(ed)}<div class="acts"><button type="button" data-act="close">Cancel</button>${saveBtn(ed)}</div></div>
+  </div></div>`;
+}
+const editor = ed => ({ A: editorA, B: editorB, C: editorC })[S.variant](ed);
+// Where the editor shows: C is always a dialog; B is a sheet on touch on Transactions; otherwise inline.
+const editorIsOverlay = where => S.variant === "C" || (S.variant === "B" && coarse() && where === "txn");
+
+// ===================== Rows =====================
+function matchSub(id) {
+  if (!S.filter) return null;
+  const [k, v] = S.filter.split("-");
+  return k === "cat" ? SUB[id].cat.id === +v : id === +v;
+}
+function matches(t) {
+  if (!S.filter) return true;
+  if (t.out.type === "split") return t.out.parts.some(p => matchSub(p.sub));
+  return t.out.type === "sub" && matchSub(t.out.sub);
+}
+function outLabel(t) {
+  const o = t.out;
+  if (o.type === "sub") return `<span class="oc-label">${dot(o.sub)}${subLabel(o.sub)}<span class="cap">${o.src}</span></span>`;
+  if (o.type === "transfer") return `<span class="oc-label"><i class="dot transfer"></i><span>Transfer</span><span class="cap">by hand</span></span>`;
+  if (o.type === "split") {
+    const T = Math.abs(t.amt);
+    const mark = S.variant === "A" ? ic("split", "icon split-ic")
+      : S.variant === "B" ? `<i class="dot pie" style="--stops:${pieStops(o.parts, T)}"></i>`
+      : "";
+    const bar = S.variant === "C" ? `<span class="minibar" aria-hidden="true">${o.parts.map(p => `<i style="flex:${p.amt};--hue:${hue(SUB[p.sub].cat.id)}"></i>`).join("")}</span>` : "";
+    return `<span class="oc-label">${mark}<span>Split</span>${bar}<span class="cap">by hand</span></span>`;
+  }
+  return `<span class="oc-label"><i class="dot awaiting"></i><span>Awaiting review</span></span>`;
+}
+function pieStops(parts, T) { let a = 0; return parts.map(p => { const s = a; a += p.amt / T * 100; return `${hue(SUB[p.sub].cat.id)} ${s}% ${a}%`; }).join(", "); }
+
+function nativeOutcome(t) {
+  const kind = kindOf(t.amt), cur = t.out.type === "sub" ? t.out.sub : null, isSplit = t.out.type === "split";
+  return `<select data-act="native" data-t="${t.id}" aria-label="Change the outcome of ${esc(t.desc)}">
+    ${isSplit ? `<option value="" selected disabled>Split into ${t.out.parts.length} Parts</option>` : ""}
+    <optgroup label="Most used">${MOST[kind].map(id => `<option value="${id}">${esc(subText(id))}</option>`).join("")}</optgroup>
+    ${CATS.filter(c => c.kind === kind).map(c => `<optgroup label="${esc(c.name)}">${c.subs.map(([id, n]) => `<option value="${id}"${id === cur ? " selected" : ""}>${esc(c.name)} › ${esc(n)}</option>`).join("")}</optgroup>`).join("")}
+    <optgroup label="Transfer"><option value="transfer"${t.out.type === "transfer" ? " selected" : ""}>Transfer</option></optgroup>
+    <optgroup label="Split"><option value="split">${isSplit ? "Edit the Split…" : "Split into Parts…"}</option></optgroup>
+  </select>`;
+}
+
+function txnRows(t, { drill = false } = {}) {
+  const parts = t.out.type === "split" ? t.out.parts : [];
+  const saved = ui.saved && ui.saved.key === "t" + t.id ? `<p class="oc-saved">${ic("check")}<span>${esc(ui.saved.text)}</span><span aria-hidden="true">·</span><button type="button" class="link" data-act="undo">Undo</button></p>` : "";
+  const counted = drill && parts.length ? parts.filter(p => matchSub(p.sub)).reduce((s, p) => s + p.amt, 0) : null;
+  let html = `<tr class="txn${parts.length ? " has-parts" : ""}" id="t-${t.id}">
+    <td class="c-date fig">${t.date}</td>
+    <td class="c-desc"><span class="desc">${esc(t.desc)}</span><small class="m-meta"><span class="fig">${t.date}</span> · ${esc(t.acct)}</small></td>
+    <td class="c-acct"><span class="pill">${esc(t.acct)}</span></td>
+    <td class="c-out"><div class="oc">${outLabel(t)}
+      <div class="oc-form"><span class="change"><button type="button" class="link" data-change data-act="change" data-t="${t.id}" aria-expanded="${ui.panel === t.id}">Change</button><span class="change-label" aria-hidden="true">Change</span>${nativeOutcome(t)}</span></div>
+      ${saved}</div></td>
+    <td class="num amt${counted !== null ? " not-counted" : ""}">${fmt(t.amt)}${counted !== null && S.variant === "C" ? "<small>in total</small>" : ""}</td></tr>`;
+  const sign = t.amt < 0 ? -1 : 1;
+  parts.forEach((p, i) => {
+    const m = matchSub(p.sub), cls = m === null ? "" : m ? " em" : " dim", last = i === parts.length - 1 ? " last" : "";
+    const lab = `<span class="oc-label">${dot(p.sub)}${subLabel(p.sub)}</span>`;
+    const amt = `<td class="num amt">${fmt(sign * p.amt)}</td>`;
+    if (S.variant === "B") html += `<tr class="part${cls}${last}"><td class="p-span" colspan="4">${lab}</td>${amt}</tr>`;
+    else html += `<tr class="part${cls}${last}"><td class="empty"></td><td class="c-desc empty" colspan="2">${S.variant === "A" ? `<div class="tree"><span>Part ${i + 1} of ${parts.length}</span></div>` : ""}</td><td class="c-out" style="--hue:${hue(SUB[p.sub].cat.id)}">${lab}</td>${amt}</tr>`;
+  });
+  if (ui.panel === t.id) html += panelRow(t);
+  return html;
+}
+function panelRow(t) {
+  const ed = ui.ed && ui.ed.key === "t" + t.id && !editorIsOverlay("txn") ? ui.ed : null;
+  let inner;
+  if (ed) inner = editor(ed);
+  else if (coarse()) return "";
+  else {
+    const marks = t.out.type === "sub" ? { [t.out.sub]: "current" } : {};
+    inner = `<div class="pick-head"><p class="pick-title">Choose an outcome for <b>${esc(t.desc)}</b></p><button type="button" class="link" data-act="close">Cancel</button></div>
+      ${chipPicker({ kind: kindOf(t.amt), act: "choose", marks, extra: ui.step ? "" : (kindOf(t.amt) === "out" ? transferChip : "") + splitChip() })}`;
+  }
+  return `<tr class="chip-panel"><td colspan="5"><div class="pick" role="group">${inner}</div></td></tr>`;
+}
+const tableHead = `<thead><tr><th>Date</th><th>Transaction</th><th>Account</th><th>Outcome</th><th class="num">Amount</th></tr></thead>`;
+const tableCls = () => `rows p${S.variant.toLowerCase()}`;
+
+// ===================== Pages =====================
+function facetOpt(val, label, n, cls = "", hueId) {
+  return `<button type="button" class="fopt ${cls}" data-act="filter" data-f="${val}" aria-pressed="${S.filter === val}">${hueId ? `<i class="dot" style="--hue:${hue(hueId)}"></i>` : ""}<span class="t">${label}</span><span class="n">${n}</span></button>`;
+}
+function countFor(f) { const save = S.filter; S.filter = f; const n = TXNS.filter(matches).length; S.filter = save; return n; }
+function pageTransactions() {
+  const list = TXNS.filter(t => matches(t) || ui.saved?.key === "t" + t.id || ui.panel === t.id);
+  const named = S.filter ? (S.filter.startsWith("cat") ? CATS.find(c => c.id === +S.filter.split("-")[1]).name : subText(+S.filter.split("-")[1])) : "";
+  const out = list.filter(t => t.amt < 0).reduce((s, t) => s + t.amt, 0), inn = list.filter(t => t.amt > 0).reduce((s, t) => s + t.amt, 0);
+  const sel = S.filter.split("-");
+  const subsOf = id => S.filter && SUB[+sel[1]]?.cat.id === id || (sel[0] === "cat" && +sel[1] === id);
+  return `<h1>Transactions</h1>
+  <div class="tx-bar"><label class="tx-search">${ic("search")}<input type="search" placeholder="Search descriptions" aria-label="Search descriptions"></label></div>
+  <p class="summary"><b>${list.length} Transactions</b> · ${fmt(-out, false)} out · ${fmt(inn, false)} in${named ? ` · <span class="named">October 2026, ${esc(named)}</span> <button type="button" class="link clear" data-act="filter" data-f="">Clear filters</button>` : ' · <span class="named">October 2026</span>'}</p>
+  <div class="tx-grid">
+    <aside class="rail panel"><div class="facet"><p class="facet-h">Outcome${S.filter ? '<button type="button" class="link" data-act="filter" data-f="">Clear</button>' : ""}</p>
+      ${facetOpt("", "Any outcome", TXNS.length)}
+      ${CATS.map(c => facetOpt("cat-" + c.id, esc(c.name), countFor("cat-" + c.id), "", c.id) + (subsOf(c.id) ? c.subs.map(([id, n]) => facetOpt("sub-" + id, esc(n), countFor("sub-" + id), "sub")).join("") : "")).join("")}
+      <p class="p-note" style="padding:var(--s-2)">Counts count a Split once per Category it touches.</p></div></aside>
+    <section class="results panel"><div class="scroll"><table class="${tableCls()}">${tableHead}<tbody>${list.map(t => txnRows(t)).join("")}</tbody></table></div></section>
+  </div>`;
+}
+function pageDrill() {
+  if (!S.filter || !S.filter.startsWith("cat")) S.filter = "cat-1";
+  const cat = CATS.find(c => c.id === +S.filter.split("-")[1]);
+  const list = TXNS.filter(t => t.amt < 0 && (matches(t) || ui.saved?.key === "t" + t.id || ui.panel === t.id));
+  const counted = list.reduce((s, t) => s + (t.out.type === "split" ? t.out.parts.filter(p => matchSub(p.sub)).reduce((a, p) => a + p.amt, 0) : matches(t) ? -t.amt : 0), 0);
+  return `<h1>Dashboard</h1>
+  <p class="muted">Spending · October 2026 · the donut and Category list sit here; picking a Category opens its drill-down:</p>
+  <div class="chips" style="margin-bottom:var(--s-3)">${CATS.filter(c => c.kind === "out").slice(0, 5).map(c => `<button type="button" data-act="filter" data-f="cat-${c.id}"${c.id === cat.id ? ' aria-current="true"' : ""}><i class="dot" style="--hue:${hue(c.id)}"></i>${esc(c.name)}</button>`).join("")}</div>
+  <section class="panel drill-card"><div class="card-head"><i class="dot" style="--hue:${hue(cat.id)}"></i><h2>${esc(cat.name)} · October 2026 <span class="qualifier">(so far)</span></h2><span class="meta fig">${fmt(counted, false)}</span><button type="button" class="ghost icon-button" aria-label="Close">${ic("x")}</button></div>
+    <div class="scroll"><table class="${tableCls()}">${tableHead}<tbody>${list.map(t => txnRows(t, { drill: true })).join("")}</tbody></table></div>
+    <p class="muted" style="padding:var(--s-3) var(--s-5) 0;font-size:var(--text-sm)">Changing an outcome moves its amount between Categories. For a Split, only its ${esc(cat.name)} Part counts here.</p>
+    <div class="foot"><p></p><a class="all" href="#">All ${list.length} in Transactions ›</a></div></section>`;
+}
+function pageReview() {
+  const g = GROUPS.find(g => g.id === ui.review.open);
+  const waiting = GROUPS.filter(x => !ui.review.saved[x.id]);
+  const n = waiting.reduce((s, x) => s + x.txns.length, 0);
+  const tot = x => x.txns.reduce((s, t) => s + t.amt, 0);
+  const list = GROUPS.filter(x => !ui.review.saved[x.id] || x.id === g.id).map(x => {
+    const sv = ui.review.saved[x.id];
+    const cap = sv ? `${ic("check")}<span>${sv.type === "split" ? `Split into ${sv.parts.length} Parts` : esc(subText(sv.sub))}</span>`
+      : x.sugg ? `${dot(x.sugg)}<span>${esc(subText(x.sugg))} · ${x.sure} % sure</span>` : "<span>No suggestion</span>";
+    return `<li class="${sv ? "decided" : ""}"><button type="button" data-act="group" data-g="${x.id}"${x.id === g.id ? ' aria-current="true"' : ""}><span class="g-desc">${esc(x.desc)}${x.txns.length > 1 ? ` <span class="n">×${x.txns.length}</span>` : ""}</span><span class="g-amt fig">${fmt(tot(x))}</span><span class="g-sub">${cap}</span></button></li>`;
+  }).join("");
+  const kind = kindOf(g.txns[0].amt), sv = ui.review.saved[g.id];
+  const ed = ui.ed && ui.ed.key === g.id && !editorIsOverlay("review") ? ui.ed : null;
+  let decide;
+  if (sv) {
+    const lab = sv.type === "split" ? `<span class="oc-label">${S.variant === "A" ? ic("split", "icon split-ic") : ""}<span>Split</span><span class="cap">by hand</span></span>
+      <table class="${tableCls()}" style="margin-top:-.25rem"><tbody>${sv.parts.map((p, i) => `<tr class="part${i === sv.parts.length - 1 ? " last" : ""}"><td class="p-span" style="padding-left:0"><span class="oc-label">${dot(p.sub)}${subLabel(p.sub)}</span></td><td class="num amt">${fmt((kind === "out" ? -1 : 1) * p.amt)}</td></tr>`).join("")}</tbody></table>`
+      : `<span class="oc-label">${dot(sv.sub)}${subLabel(sv.sub)}<span class="cap">by hand</span></span>`;
+    const next = GROUPS.find(x => !ui.review.saved[x.id]);
+    decide = `${lab}<p class="oc-saved">${ic("check")}<span>${sv.type === "split" ? `Saved as a Split into ${sv.parts.length} Parts` : `Saved as ${esc(subText(sv.sub))}`}</span><span aria-hidden="true">·</span><button type="button" class="link" data-act="rundo">Undo</button>${sv.type === "split" ? "" : '<span aria-hidden="true">·</span><a href="#">Make a Rule for "' + esc(g.desc) + '"</a>'}</p>
+      <div class="acts">${next ? `<button type="button" class="primary" data-act="group" data-g="${next.id}">Next: ${esc(next.desc)} ›</button>` : '<button type="button" class="primary">Queue clear · See October on the Dashboard</button>'}</div>`;
+  } else if (ed) decide = editor(ed);
+  else {
+    const multi = g.txns.length > 1;
+    const extra = ui.step ? "" : (kind === "out" ? transferChip : "") + (multi ? "" : splitChip());
+    const marks = {};
+    const chips = chipPicker({ kind, act: "rchoose", marks, extra });
+    const multiNote = multi && !ui.step ? `<p class="p-note">Split isn't offered for a group: its Transactions have different amounts. Decide the group here, then split one from Transactions.</p>` : "";
+    decide = g.sugg ? `<div class="suggested"><p class="sugg-k">Suggested · ${g.sure} % sure</p><span class="oc-label">${dot(g.sugg)}${subLabel(g.sugg)}</span>
+        <div class="acts"><button type="button" class="primary" data-act="accept">Accept${multi ? ` for all ${g.txns.length}` : ""}</button></div></div>
+      <div class="pick or"><h3>Or choose another outcome</h3>${chips}${multiNote}</div>`
+      : `<div class="pick"><h3>Choose an outcome${multi ? ` for all ${g.txns.length}` : ""}</h3>${chips}${multiNote}</div>`;
+  }
+  return `<h1>Review queue</h1><p class="review-summary">${n} Transactions in ${waiting.length} groups still need an outcome</p>
+  <div class="md opened">
+    <section class="panel md-list"><div class="list-head"><span>${waiting.length} waiting</span></div><ul class="groups">${list}</ul></section>
+    <section class="panel md-detail"><a class="back" href="#">‹ All groups</a>
+      <div class="d-head"><div class="d-title"><h2>${esc(g.desc)}</h2><p class="d-meta">${esc(g.meta)}</p></div><p class="d-total fig">${fmt(tot(g))}</p></div>
+      <div class="d-sec"><h3>Transactions</h3><table class="mini"><tbody>${g.txns.map(t => `<tr><td class="fig">${t.date}</td><td><span class="pill">${esc(t.acct)}</span></td><td class="num">${fmt(t.amt)}</td></tr>`).join("")}</tbody></table></div>
+      <div class="d-sec"><h3>Last time</h3>${g.last ? `<p class="last">${esc(g.last)}</p>` : '<p class="last muted">First time this description is seen.</p>'}</div>
+      <div class="decide">${decide}</div>
+    </section>
+  </div>`;
+}
+
+// ===================== Render =====================
+function render() {
+  document.documentElement.dataset.theme = S.theme;
+  document.documentElement.classList.toggle("p-coarse", S.embed);
+  const app = document.getElementById("app");
+  if (S.phone && !S.embed) {
+    const q = new URLSearchParams(location.search); q.delete("phone"); q.set("embed", "1");
+    const src = "?" + q;
+    const fr = app.querySelector("iframe");
+    if (!fr || fr.dataset.src !== src) app.innerHTML = `<div class="phone-stage"><iframe title="Phone" data-src="${src}" src="${src}"></iframe></div>`;
+    app.insertAdjacentHTML("beforeend", "");
+    renderBar();
+    return;
+  }
+  // Keep focus and caret across the re-render.
+  const a = document.activeElement, fk = a && fkOf(a), sel = a && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null;
+  const page = S.page === "review" ? pageReview() : S.page === "drill" ? pageDrill() : pageTransactions();
+  const overlay = ui.ed && editorIsOverlay(ui.ed.key[0] === "t" ? "txn" : "review") ? editor(ui.ed) : "";
+  const nav = (id, label, icn) => `<a class="nav" href="#" data-act="page" data-p="${id}"${S.page === id ? ' aria-current="page"' : ""}>${ic(icn)}${label}</a>`;
+  app.innerHTML = `<div class="shell">
+    <aside class="sidebar"><a class="brand" href="#"><img src="/static/mark.svg" alt="" width="28" height="28">Purse<span>graph</span></a>
+      <nav>${nav("drill", "Dashboard", "home")}${nav("transactions", "Transactions", "list")}${nav("review", "Review queue", "check")}</nav></aside>
+    <main id="main">${S.embed ? `<div class="m-top"><a class="brand" href="#"><img src="/static/mark.svg" alt="" width="24" height="24">Purse<span>graph</span></a><span style="margin-left:auto;display:flex;gap:var(--s-3)">${["drill", "transactions", "review"].map(p => `<a href="#" data-act="page" data-p="${p}" style="font-size:12px${S.page === p ? ";font-weight:600" : ""}">${{ drill: "Dash", transactions: "Txns", review: "Review" }[p]}</a>`).join("")}</span></div>` : ""}${page}</main>
+  </div>${overlay}`;
+  if (fk) { const el = [...app.querySelectorAll("[data-act],[data-amt]")].find(e => fkOf(e) === fk); if (el) { el.focus(); if (sel && el.setSelectionRange) try { el.setSelectionRange(...sel); } catch (e) {} } }
+  if (!S.embed) renderBar();
+}
+const fkOf = el => [el.dataset.act, el.dataset.amt, el.dataset.i, el.dataset.sub, el.dataset.cat, el.dataset.t, el.dataset.g, el.dataset.f].join("|");
+
+function renderBar() {
+  let bar = document.getElementById("proto");
+  if (!bar) { bar = document.createElement("div"); bar.id = "proto"; bar.className = "proto"; bar.setAttribute("aria-label", "Prototype switcher (not part of the design)"); document.body.append(bar); }
+  const b = (act, label, pressed, extra = "") => `<button type="button" data-p-act="${act}" ${extra}${pressed !== undefined ? ` aria-pressed="${pressed}"` : ""}>${label}</button>`;
+  bar.innerHTML = `${b("prev", "‹")}<span class="lbl">${S.variant} · ${NAMES[S.variant]}</span>${b("next", "›")}<span class="sep"></span>
+    ${b("pg", "Transactions", S.page === "transactions", 'data-v="transactions"')}${b("pg", "Review queue", S.page === "review", 'data-v="review"')}${b("pg", "Drill-down", S.page === "drill", 'data-v="drill"')}<span class="sep"></span>
+    ${b("phone", S.phone ? "Phone ✓" : "Phone", S.phone)}${b("theme", "Theme: " + S.theme)}${b("reset", "Reset")}`;
+}
+
+// ===================== Actions =====================
+function txnById(id) { return TXNS.find(t => t.id === +id); }
+function commitTxn(t, out, text) {
+  ui.saved = { key: "t" + t.id, prev: clone(t.out), text };
+  t.out = out; ui.panel = null; ui.ed = null; ui.step = null;
+  announce(text);
+}
+function announce(s) { document.getElementById("announcer").textContent = s; }
+function saveEditor() {
+  const ed = ui.ed, c = check(ed);
+  if (!c.ok) { const w = document.getElementById("sp-why"); if (w) { w.animate([{ transform: "translateX(-3px)" }, { transform: "translateX(3px)" }, { transform: "none" }], { duration: 180 }); } announce(c.probs[0]); return; }
+  const parts = ed.parts.map((p, i) => ({ sub: p.sub, amt: c.am[i] }));
+  const text = `Saved as a Split into ${parts.length} Parts`;
+  if (ed.key[0] === "t") commitTxn(txnById(ed.key.slice(1)), { type: "split", parts, src: "by hand" }, text);
+  else { ui.review.saved[ed.key] = { type: "split", parts }; ui.ed = null; announce(text); }
+}
+function openSplitFor(t) {
+  ui.panel = t.id;
+  openEditor("t" + t.id, t.amt, t.desc, t.out);
+}
+
+document.addEventListener("click", e => {
+  const pb = e.target.closest("[data-p-act]");
+  if (pb) {
+    const a = pb.dataset.pAct, keys = ["A", "B", "C"];
+    if (a === "prev" || a === "next") { S.variant = keys[(keys.indexOf(S.variant) + (a === "next" ? 1 : 2)) % 3]; ui.ed = null; ui.panel = null; }
+    if (a === "pg") { S.page = pb.dataset.v; S.filter = S.page === "drill" ? "cat-1" : ""; ui.ed = null; ui.panel = null; ui.saved = null; }
+    if (a === "phone") S.phone = !S.phone;
+    if (a === "theme") S.theme = { system: "light", light: "dark", dark: "system" }[S.theme];
+    if (a === "reset") reset();
+    pushUrl(); render(); return;
+  }
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act, ed = ui.ed;
+  if (act === "scrim" && e.target !== el) return;
+  if (el.tagName === "A") e.preventDefault();
+  switch (act) {
+    case "page": S.page = el.dataset.p; S.filter = S.page === "drill" ? "cat-1" : ""; ui.ed = null; ui.panel = null; break;
+    case "filter": S.filter = S.filter === el.dataset.f && S.page !== "drill" ? "" : el.dataset.f; ui.saved = null; ui.panel = null; ui.ed = null; break;
+    case "change": {
+      const t = txnById(el.dataset.t);
+      if (ui.panel === t.id) { ui.panel = null; ui.ed = null; break; }
+      ui.saved = null; ui.step = null; ui.ed = null; ui.panel = t.id;
+      if (t.out.type === "split") openSplitFor(t); // editing a Split reopens its editor
+      break;
+    }
+    case "close": case "scrim": ui.panel = null; ui.ed = null; ui.step = null; break;
+    case "step": ui.step = el.dataset.cat ? +el.dataset.cat : null; break;
+    case "choose": {
+      const t = txnById(ui.panel), v = el.dataset.sub;
+      commitTxn(t, v === "transfer" ? { type: "transfer" } : sub(+v, "by hand"), v === "transfer" ? "Saved as Transfer" : `Saved as ${subText(+v)}`);
+      break;
+    }
+    case "split": {
+      if (S.page === "review") { const g = GROUPS.find(g => g.id === ui.review.open); openEditor(g.id, g.txns[0].amt, g.desc, { sugg: g.sugg }); }
+      else openSplitFor(txnById(ui.panel));
+      break;
+    }
+    case "undo": { const t = txnById(ui.saved.key.slice(1)); t.out = ui.saved.prev; announce("Undone."); ui.saved = null; break; }
+    // Editor
+    case "pickfor": { const i = +el.dataset.i; ed.pickFor = ed.pickFor === i ? null : i; ui.step = null; break; }
+    case "partsub": ed.parts[ed.pickFor].sub = +el.dataset.sub; ed.pickFor = null; ui.step = null; break;
+    case "add": {
+      const n = ed.parts.length, c = check(ed);
+      if (S.variant === "A") ed.parts[n - 1].amt = c.am[n - 1] > 0 ? fmtIn(c.am[n - 1]) : "";
+      if (S.variant === "C" && !ed.parts[n - 1].touched) { ed.parts[n - 1].amt = c.am[n - 1] > 0 ? fmtIn(c.am[n - 1]) : ""; ed.parts[n - 1].touched = true; }
+      ed.parts.push({ sub: null, amt: "", touched: false });
+      if (S.variant === "A" && !coarse()) { ed.pickFor = n; ui.step = null; }
+      break;
+    }
+    case "remove": ed.parts.splice(+el.dataset.i, 1); ed.pickFor = null; break;
+    case "toggle": {
+      const s = +el.dataset.sub, i = ed.picked.indexOf(s);
+      if (i >= 0) ed.picked.splice(i, 1); else ed.picked.push(s);
+      break;
+    }
+    case "toamounts": {
+      if (ed.picked.length < 2) { announce("Pick at least two Subcategories."); break; }
+      const old = Object.fromEntries(ed.parts.filter(p => p.sub).map(p => [p.sub, p.amt]));
+      ed.parts = ed.picked.map(s => ({ sub: s, amt: old[s] || "", touched: true }));
+      ed.phase = "amounts"; ui.step = null; break;
+    }
+    case "topick": ed.picked = ed.parts.map(p => p.sub); ed.phase = "pick"; break;
+    case "fill": { const c = check(ed), i = +el.dataset.i, cur = parse(ed.parts[i].amt) || 0; ed.parts[i].amt = fmtIn(cur + c.left); break; }
+    case "save": saveEditor(); break;
+    // Review
+    case "group": ui.review.open = el.dataset.g; ui.ed = null; ui.step = null; break;
+    case "accept": { const g = GROUPS.find(g => g.id === ui.review.open); ui.review.saved[g.id] = { type: "sub", sub: g.sugg }; announce("Saved."); break; }
+    case "rchoose": { const v = el.dataset.sub; if (v === "transfer") break; ui.review.saved[ui.review.open] = { type: "sub", sub: +v }; ui.step = null; break; }
+    case "rundo": delete ui.review.saved[ui.review.open]; break;
+    default: return;
+  }
+  pushUrl(); render();
+});
+document.addEventListener("input", e => {
+  const i = e.target.dataset.amt;
+  if (i === undefined || !ui.ed) return;
+  ui.ed.parts[+i].amt = e.target.value; ui.ed.parts[+i].touched = true;
+  render();
+});
+document.addEventListener("change", e => {
+  const el = e.target;
+  if (el.dataset.act === "native") {
+    const t = txnById(el.dataset.t), v = el.value;
+    ui.saved = null;
+    if (v === "split") openSplitFor(t);
+    else commitTxn(t, v === "transfer" ? { type: "transfer" } : sub(+v, "by hand"), v === "transfer" ? "Saved as Transfer" : `Saved as ${subText(+v)}`);
+    render();
+  } else if (el.dataset.act === "subsel") { ui.ed.parts[+el.dataset.i].sub = +el.value; render(); }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && ui.ed) { ui.ed = null; ui.panel = null; render(); return; }
+  if (S.embed) return;
+  const t = e.target;
+  if (t.closest && t.closest("input, textarea, select, [contenteditable]")) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    const keys = ["A", "B", "C"];
+    S.variant = keys[(keys.indexOf(S.variant) + (e.key === "ArrowRight" ? 1 : 2)) % 3]; ui.ed = null; ui.panel = null;
+    pushUrl(); render();
+  }
+});
+pushUrl(); render();
+</script>
+</body>
+</html>
