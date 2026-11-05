@@ -14,12 +14,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 
 from django.db import transaction
 from django.db.models import Min, QuerySet
 from django.db.models.functions import Lower
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html
+from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 
 from . import categorizers
 from .models import CategorizerToken, Setting, Source, Subcategory, Transaction
@@ -122,8 +125,6 @@ BIN_WIDTH = 5
 class Overview:
     """The Suggestions page's figures."""
 
-    queued: int
-    """Transactions in the Review queue."""
     with_suggestion: int
     """Queued Transactions with a suggestion."""
     waiting: int
@@ -136,8 +137,8 @@ class Overview:
     """Transactions dated this month whose outcome a Categorizer set."""
     askable_again: int
     """Queued Transactions with an answer, usable or not, that `resuggest_queue` would clear."""
-    cant_ask_again: "CantAskAgain | None"
-    """Why Ask again can't run, or None when it can."""
+    ask_again_refusal: str
+    """Why Ask again can't run, in the Suggestions page's words; "" when it can."""
     bins: list[int]
     """The queued suggestions by how sure they are, in BIN_WIDTH % bins from 0 to 100 %."""
     clearing: dict[int, int]
@@ -155,8 +156,8 @@ def overview() -> Overview:
     for confidence in sureness:
         bins[min(int(confidence * 100 + 1e-9) // BIN_WIDTH, len(bins) - 1)] += 1
     today = timezone.localdate()
+    askable_again = queued.filter(confidence__isnull=False).count()
     return Overview(
-        queued=queued.count(),
         with_suggestion=len(sureness),
         waiting=waiting_count(),
         waiting_since=_awaiting_suggestion().aggregate(since=Min("statements__imported_at"))[
@@ -168,33 +169,33 @@ def overview() -> Overview:
         by_categorizers_this_month=Transaction.objects.filter(
             source=Source.CATEGORIZER, date__year=today.year, date__month=today.month
         ).count(),
-        askable_again=queued.filter(confidence__isnull=False).count(),
-        cant_ask_again=cant_ask_again(),
+        askable_again=askable_again,
+        ask_again_refusal=_ask_again_refusal(queued.count(), askable_again),
         bins=bins,
         clearing={step: sum(c * 100 + 1e-9 >= step for c in sureness) for step in STEPS},
     )
 
 
-class CantAskAgain(StrEnum):
-    """Why Ask again can't run, in the order the Suggestions page checks them."""
-
-    NO_CATEGORIZER = "no_categorizer"
-    """No token is unrevoked, so nothing would suggest the cleared Transactions again."""
-    EMPTY_QUEUE = "empty_queue"
-    """The Review queue is empty."""
-    NO_SUGGESTION = "no_suggestion"
-    """Nothing in the Review queue has a Categorizer's answer to clear yet."""
-
-
-def cant_ask_again() -> CantAskAgain | None:
-    """Why Ask again can't run now, or None when it can."""
+def _ask_again_refusal(queued: int, askable_again: int) -> str:
+    """Why Ask again can't run with `queued` Transactions in the Review queue, `askable_again` of them answered,
+    in the Suggestions page's words; "" when it can. The first that applies wins."""
     if not categorizers.active().exists():
-        return CantAskAgain.NO_CATEGORIZER
-    if not Transaction.objects.unresolved().exists():
-        return CantAskAgain.EMPTY_QUEUE
-    if not Transaction.objects.unresolved().filter(confidence__isnull=False).exists():
-        return CantAskAgain.NO_SUGGESTION
-    return None
+        # Even with suggestions queued: clearing them would leave nothing to suggest them again.
+        return format_html(
+            _(
+                'No Categorizer is connected. Connect one on the <a href="{url}">Categorizers page</a>.'
+            ),
+            url=reverse("categorizers"),
+        )
+    if not queued:
+        return _("The Review queue is empty, so there's nothing to ask about again.")
+    if not askable_again:
+        return ngettext(
+            "None of the %(count)d Transaction in the Review queue has a suggestion yet.",
+            "None of the %(count)d Transactions in the Review queue has a suggestion yet.",
+            queued,
+        ) % {"count": queued}
+    return ""
 
 
 def _awaiting_suggestion() -> "QuerySet[Transaction]":

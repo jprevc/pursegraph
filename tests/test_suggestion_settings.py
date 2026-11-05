@@ -177,13 +177,12 @@ def test_re_suggesting_asks_again_about_the_queued_transactions_only(admin_clien
     )
 
 
-def test_re_suggesting_also_asks_again_after_no_suggestion(admin_client):
+def test_re_suggesting_also_asks_again_after_no_suggestion(admin_client, connected):
     make_transaction("Hiša kave")
     Transaction.objects.update(confidence=0)
-    again = FakeCategorizer()
 
     admin_client.post("/suggestions/resuggest/")
-    again.run()
+    again = FakeCategorizer().run()
 
     assert again.asked() == ["Hiša kave"]
 
@@ -363,13 +362,23 @@ def revoke_every_token():
         categorizers.revoke(token.pk)
 
 
+def is_disabled(card):
+    """Whether the card's Ask again is a disabled button, labelled without a count, tied to its reason."""
+    return bool(
+        re.search(
+            r'<button[^>]*disabled aria-describedby="again-reason">.*Ask again</button>', card
+        )
+        and 'id="again-reason"' in card
+    )
+
+
 def test_with_no_categorizer_connected_ask_again_is_disabled_even_with_suggestions(admin_client):
     suggest("Corner Shop", "Hiša kave")
     revoke_every_token()
 
     card = ask_again_card(admin_client)
 
-    assert re.search(r"<button[^>]*disabled[^>]*>.*Ask again</button>", card)
+    assert is_disabled(card)
     assert "Ask again about" not in page_text(card)
     assert "No Categorizer is connected. Connect one on the Categorizers page" in page_text(card)
     assert 'href="/categorizers/"' in card
@@ -380,31 +389,41 @@ def test_with_no_categorizer_connected_asking_again_clears_nothing(admin_client)
     revoke_every_token()
 
     confirm = admin_client.get("/suggestions/resuggest/", HTTP_HX_REQUEST="true")
+    page = admin_client.get("/suggestions/resuggest/")
     response = admin_client.post("/suggestions/resuggest/")
 
-    assert "Clear and ask again" not in confirm.content.decode()
-    assert response.status_code == 302
+    assert confirm.content == b""
+    assert page.status_code == response.status_code == 302
     assert Transaction.objects.filter(confidence__isnull=False).count() == 2
 
 
-def test_with_the_review_queue_empty_ask_again_is_disabled(admin_client):
-    FakeCategorizer()
-
+def test_with_the_review_queue_empty_ask_again_is_disabled(admin_client, connected):
     card = ask_again_card(admin_client)
 
-    assert re.search(r"<button[^>]*disabled[^>]*>.*Ask again</button>", card)
+    assert is_disabled(card)
     assert "The Review queue is empty, so there's nothing to ask about again." in page_text(card)
 
 
-def test_with_nothing_queued_suggested_yet_ask_again_is_disabled(admin_client):
-    FakeCategorizer()
-    make_transaction("Corner Shop")
-    make_transaction("Hiša kave")
+@pytest.mark.parametrize(
+    "descriptions, reason",
+    [
+        (["Corner Shop"], "None of the 1 Transaction in the Review queue has a suggestion yet."),
+        (
+            ["Corner Shop", "Hiša kave"],
+            "None of the 2 Transactions in the Review queue has a suggestion yet.",
+        ),
+    ],
+)
+def test_with_no_suggestion_in_the_review_queue_yet_ask_again_is_disabled(
+    admin_client, connected, descriptions, reason
+):
+    for description in descriptions:
+        make_transaction(description)
 
     card = ask_again_card(admin_client)
 
-    assert re.search(r"<button[^>]*disabled[^>]*>.*Ask again</button>", card)
-    assert "None of the 2 Transactions in the Review queue has a suggestion yet." in page_text(card)
+    assert is_disabled(card)
+    assert reason in page_text(card)
 
 
 def test_ask_again_says_when_to_use_it(admin_client):

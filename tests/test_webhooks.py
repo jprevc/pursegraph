@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.utils import timezone
 
-from ledger import categorizers, webhooks
+from ledger import webhooks
 from ledger.models import Rule, Subcategory, Webhook
 from ledger.suggestions import resuggest_queue
 from tests.conftest import deliveries, page_text
@@ -82,12 +82,6 @@ def test_a_receiver_that_isnt_listening_couldnt_be_reached():
     webhooks.deliver(webhook, 3)
 
     assert outcome_of(webhook) == ("unreachable", None)
-
-
-@pytest.fixture
-def connected():
-    """A Categorizer is connected, so Ask again can run."""
-    categorizers.create("Qwen on the NAS", None)
 
 
 def suggested(description, confidence=0.4):
