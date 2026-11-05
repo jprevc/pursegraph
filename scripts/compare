@@ -1,13 +1,26 @@
 #!/usr/bin/env bash
 # compare — before/after screenshots for issue N: this worktree against BASE (default origin/main),
-# each on its own demo-server, shot by scripts/shots into OUT_DIR/before and OUT_DIR/after.
+# each on its own demo-server, shot by scripts/shots into OUT_DIR/before and OUT_DIR/after, then
+# joined side by side (before left, after right) as OUT_DIR/cmp/<shot>.png for reading.
 #
-#   scripts/compare N OUT_DIR [page...]      BASE=<ref> to compare against another ref
+#   scripts/compare N OUT_DIR [page...] [--state SCRIPT.js]   BASE=<ref> to compare against another ref
+#
+# Pages: PAGES in scripts/shots.js; with no page and no --state, every page. --state runs SCRIPT.js
+# with scripts/playwright against each server, as `SCRIPT.js BASE_URL DIR`, before the servers stop:
+# for a state no page shows on load (an open panel, a scrolled-to section). It shoots into DIR with
+# `shoot(page, DIR, name)` from require('browser'), so its shots get a cmp/ image and can be published.
 #
 # Ports 8000+N (after) and 9000+N (before). Servers, the BASE worktree and the demo databases are
 # all gone when it exits. Then scripts/publish-shots N OUT_DIR for the PR.
 set -euo pipefail
 n="$1" out="$2"; shift 2
+pages=() state=""
+while (($#)); do
+    case "$1" in
+        --state) state="$(realpath "$2")"; shift 2 ;;
+        *) pages+=("$1"); shift ;;
+    esac
+done
 here="$(cd "$(dirname "$0")" && pwd)"
 base="${BASE:-origin/main}"
 after_port=$((8000 + n)) before_port=$((9000 + n))
@@ -36,7 +49,34 @@ for port in "$after_port" "$before_port"; do
     exit 1
 done
 
-echo "before ($base):"
-"$here/shots" "http://127.0.0.1:$before_port" "$out/before" "$@"
-echo "after (this worktree):"
-"$here/shots" "http://127.0.0.1:$after_port" "$out/after" "$@"
+for side in before after; do
+    port=$([[ $side == before ]] && echo "$before_port" || echo "$after_port")
+    echo "$side ($([[ $side == before ]] && echo "$base" || echo "this worktree")):"
+    if ((${#pages[@]})) || [[ -z $state ]]; then
+        "$here/shots" "http://127.0.0.1:$port" "$out/$side" "${pages[@]}"
+    fi
+    if [[ -n $state ]]; then
+        "$here/playwright" "$state" "http://127.0.0.1:$port" "$out/$side"
+    fi
+done
+
+# Each shot in both before/ and after/, side by side with a 24px gap, into cmp/.
+uv run -q --no-project --with pillow python -I - "$out" <<'EOF'
+import sys
+from pathlib import Path
+
+from PIL import Image
+
+out = Path(sys.argv[1])
+(out / "cmp").mkdir(exist_ok=True)
+for after in sorted((out / "after").glob("*.png")):
+    before = out / "before" / after.name
+    if not before.exists():
+        continue
+    a, b = Image.open(before), Image.open(after)
+    sheet = Image.new("RGB", (a.width + 24 + b.width, max(a.height, b.height)), "#888")
+    sheet.paste(a, (0, 0))
+    sheet.paste(b, (a.width + 24, 0))
+    sheet.save(out / "cmp" / after.name)
+print(f"side by side (before | after): {out / 'cmp'}")
+EOF
