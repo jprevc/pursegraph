@@ -32,6 +32,45 @@ def test_the_page_says_where_transaction_text_may_go(admin_client):
     assert "No Categorizer can connect yet" in text
 
 
+def cards(client):
+    """The Categorizers page's cards, by heading, each as the text of everything in it."""
+    page = client.get("/categorizers/").content.decode()
+    sections = re.findall(r'<section class="panel".*?</section>', page, re.S)
+    return {
+        page_text(s.split("<h2", 1)[1].split("</h2>", 1)[0].split(">", 1)[1]): page_text(s)
+        for s in sections
+    }
+
+
+def test_each_list_and_its_form_share_one_card(admin_client):
+    shown = cards(admin_client)
+
+    assert list(shown) == ["Tokens · 0", "Webhooks · 0"]
+    assert "Create token" in shown["Tokens · 0"]
+    assert "Add Webhook" in shown["Webhooks · 0"]
+
+
+@pytest.mark.parametrize(
+    "info",
+    [
+        "possibly outside this network, such as to a cloud service",
+        "how many are waiting, never what they are",
+    ],
+)
+def test_what_a_form_sends_is_behind_a_closed_toggle(admin_client, info):
+    page = admin_client.get("/categorizers/").content.decode()
+    disclosed = {
+        id_: page_text(body)
+        for id_, body in re.findall(r'<p id="([^"]+)"[^>]*data-disclosed>(.*?)</p>', page, re.S)
+    }
+    shown_by = next(id_ for id_, body in disclosed.items() if info in body)
+
+    toggle = re.search(rf'<button[^>]*aria-controls="{shown_by}"[^>]*>', page)
+    assert toggle, "no toggle"
+    assert 'aria-expanded="false"' in toggle[0]
+    assert 'aria-label="About ' in toggle[0]
+
+
 def test_a_new_token_is_shown_once(admin_client):
     page = admin_client.post(
         "/categorizers/", {"name": "Qwen on the NAS"}, follow=True

@@ -1301,8 +1301,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .dialog-form p { margin: 0; }
 .dialog .form-actions { justify-content: flex-end; }
 .dialog-foot { margin-top: var(--s-5); }
-/* Categorizers: the tokens, each with its last use and Revoke, then New token; the Webhooks, each with its latest
-   attempt, Notify now and Delete, then New Webhook. */
+/* Categorizers: the tokens, each with its last use and Revoke, then the form for a new one; the Webhooks, each with its
+   latest attempt, Notify now and Delete, then the form for a new one. Each form's info line opens from its toggle. */
 .tokens { display: grid; gap: var(--s-4); max-width: 56.25rem; }
 .tokens h2 { margin: 0 0 var(--s-2); font-size: var(--text-title); }
 .tokens .count { font-weight: 400; }
@@ -1315,7 +1315,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .t-sub { color: var(--muted); font-size: var(--text-label); }
 .token-rows .confirm { margin: 0 0 .625rem; }
 .token-rows li:has(.confirm) [data-confirm-opener] { display: none; }
-.tokens .reason { max-width: 70ch; margin-bottom: var(--s-3); }
+.t-add { margin-top: var(--s-2); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+.tokens .reason { max-width: 70ch; margin-top: var(--s-3); }
 .token-new { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
 .token-new input { flex: 1 1 16rem; min-width: 0; }
 .tokens .error { margin: var(--s-2) 0 0; }

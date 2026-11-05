@@ -47,7 +47,7 @@ A lost or leaked token can't be shown again: revoke it on the same page and crea
 
 ### Webhooks
 
-A Webhook is a URL Pursegraph calls when Transactions are waiting for a Suggestion, so a Categorizer knows to fetch them without asking all the time. Add one on the **Categorizers** page under New Webhook: a name and an `http://` or `https://` URL. Deliveries aren't signed, so put a secret in the URL, such as `http://192.168.1.10:8765/<secret>`; the page shows only the URL's scheme, host and port once it is added.
+A Webhook is a URL Pursegraph calls when Transactions are waiting for a Suggestion, so a Categorizer knows to fetch them without asking all the time. Add one on the **Categorizers** page, with the form at the bottom of the Webhooks card: a name and an `http://` or `https://` URL. Deliveries aren't signed, so put a secret in the URL, such as `http://192.168.1.10:8765/<secret>`; the page shows only the URL's scheme, host and port once it is added.
 
 Every Webhook is called once an action that can leave Transactions waiting is done, if any are waiting then: a Statement import, a re-parse that re-runs outcomes, Ask again on the Suggestions page, or deleting a Subcategory. Each action calls each Webhook once on its own, so importing three Statements calls it three times. A delivery is one `POST` with a JSON body that says how many Transactions are waiting, never which:
 
