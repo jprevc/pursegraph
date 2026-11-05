@@ -295,10 +295,11 @@ SOURCE_NOTES = {
         "A Categorizer suggested it, sure enough to take it on its own."
     ),
     Source.IBAN: gettext_lazy(
-        "The other side's IBAN is one of the Household's, so it's a Transfer."
+        "It pays to or from one of the Household's own IBANs, so it's a Transfer."
     ),
     Source.PAIRING: gettext_lazy(
-        "Matched with its other side in another of the Household's Accounts."
+        "Its bank line didn't show a Household IBAN, but it matches a Transfer in another Account: "
+        "same amount, opposite way, within 3 days."
     ),
     Source.MANUAL: gettext_lazy("A Member chose it."),
 }
