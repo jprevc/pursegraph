@@ -381,6 +381,7 @@ A full-width card titled with the Category's hue dot and "Category · Period", w
 Each page-level surface has its own file in `docs/design/`, so parallel tickets edit different files. Read the ones your work touches:
 - **Transaction row** (`docs/design/transaction-row.md`)
 - **Review queue** (`docs/design/review-queue.md`)
+- **Split editor and Part rows** (`docs/design/split-editor.md`)
 - **Rules** (`docs/design/rules.md`)
 - **Login and locked out** (`docs/design/login.md`)
 - **Empty states and first run** (`docs/design/empty-states.md`)
