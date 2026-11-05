@@ -486,11 +486,15 @@ def named(choice: Choice, groups: list[Group]) -> list[str]:
 
 def totals(choice: Choice) -> tuple[int, Decimal, Decimal]:
     """How many Transactions the choice gives, and their money out and in, Transfers left aside as the Dashboard
-    leaves them."""
+    leaves them. Under a Category or Subcategory, a Split adds only its Parts there, as the Dashboard counts it."""
     moved = Q(is_transfer=False)
-    result = Transaction.objects.filter(choice.condition()).aggregate(
-        count=Count("id"),
-        out=Sum("amount", filter=moved & Q(amount__lt=0), default=Decimal(0)),
-        money_in=Sum("amount", filter=moved & Q(amount__gt=0), default=Decimal(0)),
+    result = (
+        Transaction.objects.filter(choice.condition())
+        .with_counted(_subcategories(choice.outcome))
+        .aggregate(
+            count=Count("id"),
+            out=Sum("counted", filter=moved & Q(amount__lt=0), default=Decimal(0)),
+            money_in=Sum("counted", filter=moved & Q(amount__gt=0), default=Decimal(0)),
+        )
     )
     return result["count"], abs(result["out"]), result["money_in"]

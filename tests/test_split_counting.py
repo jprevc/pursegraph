@@ -271,3 +271,21 @@ def test_the_drill_down_into_a_category_lists_a_split_with_two_parts_there_once(
     assert counted("spending", str(category("Food").pk)) == [
         ("Market", Decimal("-80.00"), ["Groceries", "Restaurants & cafés"])
     ]
+
+
+def test_the_summary_counts_only_the_parts_in_the_chosen_category_or_subcategory(
+    hypermarket, payslip
+):
+    groceries = sub("Food", "Groceries")
+
+    assert facets.totals(choice(outcome=f"category-{groceries.category_id}")) == (
+        1,
+        Decimal("50.00"),
+        Decimal(0),
+    )
+    assert facets.totals(choice(outcome=f"subcategory-{sub('Income', 'Interest').pk}")) == (
+        1,
+        Decimal(0),
+        Decimal("100.00"),
+    )
+    assert facets.totals(choice()) == (2, Decimal("80.00"), Decimal("300.00"))
