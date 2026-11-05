@@ -1,6 +1,7 @@
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.http import Http404
@@ -255,6 +256,8 @@ def transactions(request, view: str):
         "dashboard/_drill_down.html",
         {
             "transactions": rows,
+            # What the mark counts: a Split Transaction's counted Parts only.
+            "total": sum((t.counted for t in rows), Decimal(0)),  # type: ignore[attr-defined]
             "all_url": all_url,
             **outcomes.picker(),
             "mark": key,

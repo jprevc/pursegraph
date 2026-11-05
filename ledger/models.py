@@ -145,6 +145,15 @@ SOURCE_CAPTIONS = {
 UNRESOLVED = models.Q(subcategory__isnull=True, is_transfer=False, is_split=False)
 
 
+def counts_in(subcategories: models.Q) -> models.Q:
+    """The Transactions with money counted in `subcategories`: an unsplit one whose Subcategory is among them, a
+    Split with a Part whose Subcategory is. `subcategories` is a condition on `subcategory`, which a Transaction and
+    a Part both have, such as Q(subcategory__category=3)."""
+    return models.Q(subcategories, is_split=False) | models.Q(
+        models.Exists(Part.objects.filter(subcategories, transaction=models.OuterRef("pk")))
+    )
+
+
 class TransactionQuerySet(models.QuerySet):
     def unresolved(self):
         """Neither a Subcategory, a Transfer nor a Split."""
@@ -153,6 +162,36 @@ class TransactionQuerySet(models.QuerySet):
     def in_review_queue(self):
         """The Review queue: the unresolved ones, and the Transfer sides with several possible counterparts."""
         return self.unresolved() | self.filter(ambiguous_pairing=True)
+
+    def with_counted(self, subcategories: models.Q | None = None) -> "TransactionQuerySet":
+        """Each with `counted`, the money it counts in `subcategories` (see `counts_in`), and its Parts, each with
+        `counted`, whether it is one of those. An unsplit Transaction counts its whole amount; without
+        `subcategories`, a Split counts every Part."""
+        if subcategories is None:
+            counted: models.F | models.Expression = models.F("amount")
+            part_counted: models.Expression = models.Value(True)
+        else:
+            counted = models.Case(
+                models.When(
+                    is_split=True,
+                    then=models.Subquery(
+                        Part.objects.filter(subcategories, transaction=models.OuterRef("pk"))
+                        .values("transaction")
+                        .annotate(total=models.Sum("amount"))
+                        .values("total")
+                    ),
+                ),
+                default=models.F("amount"),
+            )
+            part_counted = models.ExpressionWrapper(
+                subcategories, output_field=models.BooleanField()
+            )
+        return self.annotate(counted=counted).prefetch_related(
+            models.Prefetch(
+                "parts",
+                Part.objects.select_related("subcategory__category").annotate(counted=part_counted),
+            )
+        )
 
 
 class Transaction(models.Model):
