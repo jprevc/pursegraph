@@ -62,7 +62,7 @@ def page(client, url, params=None):
 
 
 def previous_link(content):
-    return re.search(r'<a class="step"[^>]*aria-label="Previous period"', content)
+    return re.search(r'<a class="stepper-arrow"[^>]*aria-label="Previous period"', content)
 
 
 def test_the_stepper_stops_at_the_households_first_coverage_day_whatever_the_filters(
