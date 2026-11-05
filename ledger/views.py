@@ -3,6 +3,7 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import wraps
+from urllib.parse import urlsplit
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -11,10 +12,10 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db import transaction as db_transaction
-from django.db.models import Count, Prefetch, Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.db.models import Count, Prefetch, Q, QuerySet
+from django.http import HttpResponse, HttpResponseBadRequest, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from django.utils.formats import date_format, number_format
@@ -24,7 +25,8 @@ from django.utils.translation import ngettext
 from django.views.decorators.http import require_http_methods, require_POST
 
 from dashboard import periods, queries
-from dashboard.views import VIEWS
+from dashboard.views import VIEWS, drill_rows
+from dashboard.views import transactions as drill_down
 from members.permissions import admin_required
 from pursegraph import figures
 from pursegraph.htmx import announce, wants_the_fragment_alone
@@ -798,7 +800,7 @@ def transaction_outcome(request, pk):
     undo[str(pk)] = before
     request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
     if request.headers.get("HX-Request"):
-        transaction = _shown(pk)
+        transaction = _shown(request, pk)
         return announce(
             _transaction_row(request, transaction, saved=True),
             _("Saved %(description)s as %(outcome)s.")
@@ -825,7 +827,7 @@ def transaction_split(request, pk):
     request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
     if not request.headers.get("HX-Request"):
         return redirect("transactions")
-    transaction = _shown(pk)
+    transaction = _shown(request, pk)
     return announce(
         _transaction_row(request, transaction, saved=True),
         _("Saved %(description)s as %(outcome)s.")
@@ -833,13 +835,34 @@ def transaction_split(request, pk):
     )
 
 
-def _shown(pk: int) -> Transaction:
-    """A Transaction as its row shows it, with its Parts."""
-    return (
-        Transaction.objects.with_counted()
-        .select_related("account", "subcategory__category", "rule", "counterpart__account")
-        .get(pk=pk)
-    )
+def _shown(request, pk: int) -> Transaction:
+    """A Transaction as its row shows it, with its Parts: as a load of the list it is shown in (the posted `listed`,
+    that list's address) shows it, with what it counts there, while it is in that list; else every Part counted."""
+    rows = _list_at(request.POST.get("listed", ""))[0]
+    shown = rows.filter(pk=pk).first() if rows is not None else None
+    return shown or Transaction.objects.with_counted().select_related(*_ROW_RELATED).get(pk=pk)
+
+
+def _list_at(listed: str) -> tuple[QuerySet[Transaction] | None, bool]:
+    """The Transactions of the list at the address `listed`, the Transactions page or a drill-down, as its rows show
+    them, and whether it is a drill-down; None for any other address."""
+    address = urlsplit(listed)
+    try:
+        match = resolve(address.path)
+    except Resolver404:
+        return None, False
+    query = QueryDict(address.query)
+    if match.func is transactions:
+        rows, drill = facets.rows(facets.Choice.from_query(query)), False
+    elif match.func is drill_down:
+        rows, drill = drill_rows(match.kwargs["view"], query), True
+    else:
+        return None, False
+    return rows.select_related(*_ROW_RELATED), drill
+
+
+# What a Transaction row shows of each Transaction's relations.
+_ROW_RELATED = ("account", "subcategory__category", "rule", "counterpart__account")
 
 
 @require_POST
@@ -854,7 +877,7 @@ def undo_outcome(request, pk):
         outcomes.restore(before)
     except outcomes.UndoRefused:
         return HttpResponseBadRequest()
-    transaction = _shown(pk)
+    transaction = _shown(request, pk)
     return announce(
         _transaction_row(request, transaction),
         _("Undone. %(description)s is back to %(outcome)s.")
@@ -863,11 +886,19 @@ def undo_outcome(request, pk):
 
 
 def _transaction_row(request, transaction, *, saved=False):
-    """The shared Transaction row, swapped in for a Transaction just changed."""
+    """The shared Transaction row, swapped in for a Transaction just changed (`_shown`), in the list it is shown in."""
+    listed = request.POST.get("listed", "")
     return render(
         request,
         "ledger/_transaction_row.html",
-        {"t": transaction, **outcomes.picker(), "saved": saved, "refresh_review_queue_count": True},
+        {
+            "t": transaction,
+            **outcomes.picker(),
+            "saved": saved,
+            "listed": listed,
+            "drill": _list_at(listed)[1],
+            "refresh_review_queue_count": True,
+        },
     )
 
 

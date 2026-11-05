@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.db.models import QuerySet
 from django.http import Http404
 from django.shortcuts import render
 from django.urls import reverse
@@ -13,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
 from ledger import outcomes
+from ledger.models import Transaction
 from ledger.setup import in_setup_mode, others_invited
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
@@ -219,6 +221,17 @@ def show(request, view: str):
     return response
 
 
+def drill_rows(view: str, query) -> QuerySet[Transaction]:
+    """The drill-down's Transactions for its `query` (a QueryDict), each with what it counts there."""
+    v = _view(view)
+    return queries.drill_down(
+        v.name,
+        Period.from_query(query, v.default_period),
+        queries.Filters.from_query(query),
+        query.get(v.mark_param, ""),
+    ).select_related("account", "subcategory__category")
+
+
 def transactions(request, view: str):
     """The drill-down: the Transactions behind one chart mark, as rows with inline outcome editing, in a card titled
     by the mark and the period."""
@@ -226,9 +239,7 @@ def transactions(request, view: str):
     period = Period.from_query(request.GET, v.default_period)
     filters = queries.Filters.from_query(request.GET)
     key = request.GET.get(v.mark_param, "")
-    rows = queries.drill_down(v.name, period, filters, key).select_related(
-        "account", "subcategory__category"
-    )
+    rows = drill_rows(view, request.GET)
     label = queries.mark_label(v.name, period, filters, key) or _("Transactions")
     judged = completeness.Tracking(queries.heeded(v.name, filters).included()).completeness(period)
     # A month's mark takes its month's qualifier, as its table row does; any other mark the period's.
