@@ -55,15 +55,15 @@
     <p class="muted thr-note">{% translate "Raising it never undoes what a Categorizer already set. Lowering it offers the queued suggestions past the line." %}</p>
   </section>
 
-  <section class="panel suggestions-again" aria-labelledby="again-heading">
-    <h2 id="again-heading">{% translate "Ask again" %}</h2>
-    <p class="muted">{% translate "After a Categorizer changes (a new model or prompt, say), clear the queued suggestions so they're suggested again." %}</p>
-    {% if overview.askable_again %}
+  <section class="panel suggestions-again" aria-label="{% translate 'Ask again' %}">
+    {% if overview.ask_again_refusal %}
+    <button type="button" disabled aria-describedby="again-reason">{% icon "refresh" %}{% translate "Ask again" %}</button>
+    <p class="reason" id="again-reason">{% icon "info" %}<span>{{ overview.ask_again_refusal }}</span></p>
+    {% else %}
     <a class="button" href="{% url 'resuggest_queue' %}" hx-get="{% url 'resuggest_queue' %}" hx-target="#confirm-again" hx-swap="innerHTML" data-confirm-opener>{% icon "refresh" %}{% blocktranslate count n=overview.askable_again %}Ask again about {{ n }} suggestion{% plural %}Ask again about {{ n }} suggestions{% endblocktranslate %}</a>
     <div id="confirm-again" data-confirm-slot>{% if confirm %}{% include "ledger/_confirm_resuggest.html" with count=overview.askable_again %}{% endif %}</div>
-    {% else %}
-    <p class="reason">{% icon "info" %}<span>{% translate "Nothing in the Review queue has a suggestion yet." %}</span></p>
     {% endif %}
+    <p class="muted again-intro">{% translate "Changed a Categorizer's model or prompt? Ask again throws away the suggestions waiting in the Review queue, and the Categorizers suggest those Transactions afresh. Transactions already categorized aren't touched." %}</p>
   </section>
 </div>
 {% endblock %}

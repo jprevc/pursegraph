@@ -3,9 +3,13 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 
+def name_field():
+    """A Member's name, as the Dashboard shows it. The whole name goes into first_name: the app never splits names."""
+    return forms.CharField(label=_("Name"), max_length=150)
+
+
 class NewMemberForm(forms.ModelForm):
-    # The whole name goes into first_name: the app never splits names.
-    name = forms.CharField(label=_("Name"), max_length=150)
+    name = name_field()
 
     class Meta:
         model = get_user_model()
@@ -19,3 +23,7 @@ class NewMemberForm(forms.ModelForm):
         if commit:
             member.save()
         return member
+
+
+class RenameMemberForm(forms.Form):
+    name = name_field()

@@ -1272,7 +1272,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .thr .form-actions { flex-basis: 100%; }
 .thr-note { margin: var(--s-2) 0 0; font-size: var(--text-label); }
 .suggestions .error { margin: var(--s-2) 0 0; }
-.suggestions-again > p { margin: var(--s-2) 0 var(--s-3); }
+.suggestions-again > p { margin: var(--s-2) 0 0; }
+.suggestions-again > .again-intro { margin-top: var(--s-3); }
 .suggestions-again .confirm { margin-top: var(--s-3); }
 .suggestions-again:has(.confirm) > [data-confirm-opener] { display: none; }
 
