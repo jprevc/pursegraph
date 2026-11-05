@@ -46,6 +46,17 @@ def page_text(page):
     return re.sub(r"[ \t\n\r]+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page))).strip()
 
 
+def disabled_reason(page, label):
+    """The reason a disabled button reading `label` gives, as a screen reader is told it through its
+    `aria-describedby`; None when no such button is disabled with a reason."""
+    for attrs, text in re.findall(r"<button([^>]*)>(.*?)</button>", page, re.S):
+        described = re.search(r'aria-describedby="([^"]+)"', attrs)
+        if re.search(r"\sdisabled(\s|$)", attrs) and described and page_text(text) == label:
+            reason = re.search(rf'<p class="reason" id="{described[1]}">(.*?)</p>', page, re.S)
+            return page_text(reason[1]) if reason else None
+    return None
+
+
 def board_row(page, account):
     """The words of the Accounts board's row of the Account named `account`, with what an import added to it."""
     for row in page.split('<div class="board-row"')[1:]:

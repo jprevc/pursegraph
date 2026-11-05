@@ -9,7 +9,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.test import Client
 from django.utils import timezone
 
-from tests.conftest import PASSWORD, log_in, make_account, page_text, view_table
+from tests.conftest import PASSWORD, disabled_reason, log_in, make_account, page_text, view_table
 
 pytestmark = pytest.mark.django_db
 
@@ -341,7 +341,7 @@ def test_members_are_grouped_by_role(admin_client, admin, member, django_user_mo
 
     assert list(shown) == ["Admins · 1", "Members · 1", "Deactivated · 1"]
     assert shown["Admins · 1"][0].startswith(
-        "boris You boris · no Accounts of their own Rename Reset link"
+        "boris You boris · no Accounts of their own Make Member Rename Reset link Deactivate"
     )
     assert shown["Members · 1"][0].startswith(
         "ana ana · no Accounts of their own Make admin Rename Reset link Deactivate"
@@ -359,11 +359,27 @@ def test_a_row_names_the_accounts_its_member_owns(admin_client, member):
 
 
 def test_the_last_active_admin_says_why_they_cant_step_down(admin_client, admin, member):
+    page = admin_client.get("/members/").content.decode()
     [row] = groups(admin_client)["Admins · 1"]
 
-    assert "Make Member" not in row
-    assert "Deactivate" not in row
-    assert row.endswith("You are the only active admin. Make someone else an admin first.")
+    reason = "You are the only active admin. Make someone else an admin first."
+    assert disabled_reason(page, "Make Member") == reason
+    assert disabled_reason(page, "Deactivate") == reason
+    assert row.endswith(f"Make Member Rename Reset link Deactivate {reason}")
+
+
+def test_with_two_active_admins_either_can_step_down(admin_client, admin, member):
+    member.is_admin = True
+    member.save()
+    page = admin_client.get("/members/").content.decode()
+
+    assert disabled_reason(page, "Make Member") is None
+    assert disabled_reason(page, "Deactivate") is None
+    assert "only active admin" not in page
+    assert all(
+        row.endswith("Make Member Rename Reset link Deactivate")
+        for row in groups(admin_client)["Admins · 2"]
+    )
 
 
 def test_an_unused_invite_shows_on_its_row(admin_client, django_user_model):
