@@ -29,16 +29,15 @@ from members.permissions import admin_required
 from pursegraph import figures
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
+from . import api_tokens, facets, outcomes, review, suggestions, webhooks
 from . import categories as category_edits
-from . import categorizers as categorizer_tokens
-from . import facets, outcomes, review, suggestions, webhooks
 from . import rules as rule_edits
 from .board import Axis, track
 from .coverage import DateRange, coverage, removing
 from .forms import (
     AccountAdminForm,
     AccountForm,
-    CategorizerTokenForm,
+    ApiTokenForm,
     CategoryForm,
     NameForm,
     OutcomeForm,
@@ -1141,31 +1140,32 @@ def resuggest_queue(request):
 
 @admin_required
 @require_http_methods(["GET", "POST"])
-def categorizers(request):
-    """The Categorizers page (docs/design/admin.md): the tokens Categorizers connect with. Creating one redirects, so
-    a refresh doesn't create another, and the page after it shows the secret once, in a dialog over the page."""
-    form = CategorizerTokenForm(request.POST or None)
+def api_and_webhooks(request):
+    """The API & Webhooks page (docs/design/admin.md): the API tokens programs outside Pursegraph connect with.
+    Creating one redirects, so a refresh doesn't create another, and the page after it shows the secret once, in a
+    dialog over the page."""
+    form = ApiTokenForm(request.POST or None)
     if form.is_valid():
-        token, secret = categorizer_tokens.create(form.cleaned_data["name"], request.user)
+        token, secret = api_tokens.create(form.cleaned_data["name"], request.user)
         request.session[_NEW_TOKEN] = [token.name, secret]
-        return redirect("categorizers")
-    return _categorizers_page(request, form=form, created=request.session.pop(_NEW_TOKEN, None))
+        return redirect("api_and_webhooks")
+    return _api_and_webhooks_page(request, form=form, created=request.session.pop(_NEW_TOKEN, None))
 
 
 # The session key holding a new token's name and secret until the page after creating it shows them.
-_NEW_TOKEN = "new_categorizer_token"
+_NEW_TOKEN = "new_api_token"
 
 
-def _categorizers_page(
+def _api_and_webhooks_page(
     request, *, form=None, webhook_form=None, created=None, confirm=None, confirm_webhook=None
 ):
     response = render(
         request,
-        "ledger/categorizers.html",
+        "ledger/api_and_webhooks.html",
         {
-            "form": form or CategorizerTokenForm(),
+            "form": form or ApiTokenForm(),
             "webhook_form": webhook_form or WebhookForm(),
-            "tokens": categorizer_tokens.active().select_related("created_by"),
+            "tokens": api_tokens.active().select_related("created_by"),
             "webhooks": Webhook.objects.all(),
             "created": created,
             "confirm": confirm,
@@ -1178,28 +1178,28 @@ def _categorizers_page(
 
 @admin_required
 @require_http_methods(["GET", "POST"])
-def revoke_categorizer(request, pk):
+def revoke_token(request, pk):
     """Revoke, confirmed inline under the token's row."""
-    token = get_object_or_404(categorizer_tokens.active(), pk=pk)
+    token = get_object_or_404(api_tokens.active(), pk=pk)
     if request.method == "GET":
         if wants_the_fragment_alone(request):
             return render(request, "ledger/_confirm_revoke.html", {"token": token})
-        return _categorizers_page(request, confirm=token.pk)
-    categorizer_tokens.revoke(token.pk)
+        return _api_and_webhooks_page(request, confirm=token.pk)
+    api_tokens.revoke(token.pk)
     messages.success(
         request,
-        _("“%(name)s” is revoked: its Categorizer can't connect any more.") % {"name": token.name},
+        _("“%(name)s” is revoked: what uses it can't connect any more.") % {"name": token.name},
     )
-    return redirect("categorizers")
+    return redirect("api_and_webhooks")
 
 
 @admin_required
 @require_POST
 def add_webhook(request):
-    """New Webhook, on the Categorizers page."""
+    """New Webhook, on the API & Webhooks page."""
     form = WebhookForm(request.POST)
     if not form.is_valid():
-        return _categorizers_page(request, webhook_form=form)
+        return _api_and_webhooks_page(request, webhook_form=form)
     webhook = webhooks.add(form.cleaned_data["name"], form.cleaned_data["url"])
     messages.success(
         request,
@@ -1208,7 +1208,7 @@ def add_webhook(request):
         )
         % {"name": webhook.name},
     )
-    return redirect("categorizers")
+    return redirect("api_and_webhooks")
 
 
 @admin_required
@@ -1219,12 +1219,12 @@ def delete_webhook(request, pk):
     if request.method == "GET":
         if wants_the_fragment_alone(request):
             return render(request, "ledger/_confirm_delete_webhook.html", {"webhook": webhook})
-        return _categorizers_page(request, confirm_webhook=webhook.pk)
+        return _api_and_webhooks_page(request, confirm_webhook=webhook.pk)
     webhook.delete()
     messages.success(
         request, _("“%(name)s” is deleted: Pursegraph no longer calls it.") % {"name": webhook.name}
     )
-    return redirect("categorizers")
+    return redirect("api_and_webhooks")
 
 
 @admin_required
@@ -1234,7 +1234,7 @@ def notify_webhook(request, pk):
     Webhook's row for one showing how it went."""
     webhook = webhooks.deliver(get_object_or_404(Webhook, pk=pk), suggestions.waiting_count())
     if not wants_the_fragment_alone(request):
-        return redirect("categorizers")
+        return redirect("api_and_webhooks")
     response = render(request, "ledger/_webhook_row.html", {"webhook": webhook})
     said = _("%(name)s: delivered.") if webhook.delivered else _("%(name)s: failed.")
     return announce(response, said % {"name": webhook.name})

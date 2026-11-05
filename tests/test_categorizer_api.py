@@ -18,8 +18,8 @@ def suggestion_url(description):
 
 
 def create_token(admin_client, name="Qwen on the NAS"):
-    """Creates a token on the Categorizers page, as an admin would, and returns its secret as the page shows it once."""
-    page = admin_client.post("/categorizers/", {"name": name}, follow=True).content.decode()
+    """Creates a token on the API & Webhooks page, as an admin would, and returns its secret as the page shows it once."""
+    page = admin_client.post("/api-and-webhooks/", {"name": name}, follow=True).content.decode()
     secret = re.search(r'value="(pgc_[^"]+)"', page)
     assert secret, "no token shown"
     return secret[1]
@@ -57,6 +57,7 @@ def test_without_a_valid_token_the_api_answers_401(client, authorization):
 
     assert response.status_code == 401
     assert response["WWW-Authenticate"] == "Bearer"
+    assert response.json() == {"error": "A valid API token is required."}
 
 
 def test_a_logged_in_member_without_a_token_gets_401(logged_in_client):
@@ -267,8 +268,8 @@ def test_a_suggestion_for_an_unknown_transaction_is_a_404(api, client, secret):
 
 def test_a_revoked_token_gets_401(api, admin_client, client, secret):
     make_transaction("Corner Shop")
-    page = admin_client.get("/categorizers/").content.decode()
-    revoke = re.search(r'href="(/categorizers/\d+/revoke/)"', page)
+    page = admin_client.get("/api-and-webhooks/").content.decode()
+    revoke = re.search(r'href="(/api-and-webhooks/tokens/\d+/revoke/)"', page)
     assert revoke, "no Revoke"
     confirm = admin_client.get(revoke[1]).content.decode()
     assert f'action="{revoke[1]}"' in confirm

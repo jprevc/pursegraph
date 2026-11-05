@@ -1,9 +1,9 @@
-// The admin pages (docs/design/admin.md): Categories, Suggestions, Categorizers and Members. HTMX swaps their regions; here, what
+// The admin pages (docs/design/admin.md): Categories, Suggestions, API & Webhooks and Members. HTMX swaps their regions; here, what
 // stays in the page:
 // - an inline confirmation's Keep it, which closes it and gives the focus back to the control that opened it;
 // - Members' dialogs, shown modal when swapped in (or open without JS), the focus going back to their opener on close,
 //   and the link dialog's Copy link;
-// - Categorizers' info toggles, whose text shows open without JS;
+// - API & Webhooks' info toggles, whose text shows open without JS;
 // - the auto-accept threshold, its slider and number kept in step, moving the chart's line and recolouring its bars
 //   live, with Save naming what saving does.
 (() => {

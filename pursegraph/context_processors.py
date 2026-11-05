@@ -14,8 +14,10 @@ ITEMS = {
     "apply_rule": "rules",
     "categories": "categories",
     "suggestion_settings": "suggestion_settings",
-    "categorizers": "categorizers",
-    "revoke_categorizer": "categorizers",
+    "api_and_webhooks": "api_and_webhooks",
+    "revoke_token": "api_and_webhooks",
+    "add_webhook": "api_and_webhooks",
+    "delete_webhook": "api_and_webhooks",
     "accounts": "accounts",
     "new_account": "accounts",
     "edit_account": "accounts",
@@ -24,7 +26,7 @@ ITEMS = {
     "new_member": "members",
 }
 # The items under Manage, which opens on their pages.
-MANAGE = {"rules", "categories", "suggestion_settings", "categorizers", "accounts", "members"}
+MANAGE = {"rules", "categories", "suggestion_settings", "api_and_webhooks", "accounts", "members"}
 
 
 def navigation(request):

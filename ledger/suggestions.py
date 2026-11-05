@@ -20,7 +20,7 @@ from django.db.models import Min, QuerySet
 from django.db.models.functions import Lower
 from django.utils import timezone
 
-from .models import CategorizerToken, Setting, Source, Subcategory, Transaction
+from .models import ApiToken, Setting, Source, Subcategory, Transaction
 
 # The `raw` keys whose text helps tell what a Transaction was for, across the parsers.
 DETAIL_KEYS = ("Type", "n26_category", "purpose", "to", "from", "reference")
@@ -126,7 +126,7 @@ class Overview:
     """Unresolved Transactions waiting for a Suggestion."""
     waiting_since: datetime | None
     """When the Statement of the one waiting longest was imported: the first Statement it was on."""
-    last_suggestion: CategorizerToken | None
+    last_suggestion: ApiToken | None
     """The token that sent the last Suggestion stored, with when (`last_suggestion_at`); it may be revoked since."""
     by_categorizers_this_month: int
     """Transactions dated this month whose outcome a Categorizer set."""
@@ -155,7 +155,7 @@ def overview() -> Overview:
         waiting_since=_awaiting_suggestion().aggregate(since=Min("statements__imported_at"))[
             "since"
         ],
-        last_suggestion=CategorizerToken.objects.filter(last_suggestion_at__isnull=False)
+        last_suggestion=ApiToken.objects.filter(last_suggestion_at__isnull=False)
         .order_by("-last_suggestion_at")
         .first(),
         by_categorizers_this_month=Transaction.objects.filter(
@@ -193,7 +193,7 @@ def waiting(limit: int) -> tuple[list[Subcategory], list[tuple[int, Query]]]:
     ]
 
 
-def receive(pk: int, suggestion: Suggestion | None, token: CategorizerToken) -> Received:
+def receive(pk: int, suggestion: Suggestion | None, token: ApiToken) -> Received:
     """Stores a Categorizer's Suggestion for the Transaction `pk`, or with None that it has none, and records that
     `token` sent it."""
     with transaction.atomic():
