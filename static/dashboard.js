@@ -429,7 +429,7 @@
   // An outcome changed in the drill-down moves money between the bars: refetch the numbers, keeping the drill-down open.
   document.addEventListener('htmx:afterRequest', e => {
     // The row is swapped out by now, so the request's path says what it was rather than its (detached) form.
-    const outcome = /^\/transactions\/\d+\/outcome\/$/.test(e.detail.requestConfig.path);
+    const outcome = /^\/transactions\/\d+\/(outcome|split|undo)\/$/.test(e.detail.requestConfig.path);
     if (e.detail.successful && outcome && document.getElementById('numbers')) {
       htmx.ajax('GET', location.href, { target: '#numbers', select: '#numbers', swap: 'outerHTML' });
     }

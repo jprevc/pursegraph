@@ -45,6 +45,7 @@ from .forms import (
     StatementFileForm,
     ThresholdForm,
     WebhookForm,
+    split_parts,
 )
 from .import_results import banner, domain_counts
 from .importer import (
@@ -557,7 +558,41 @@ def review_decide(request):
                 t, t.counterpart, form.candidates.get(form.cleaned_data["outcome"])
             )
             form.save()
-    decided = sorted(form.transaction.pk for form in forms)
+    return _review_decided(request, pks, sorted(form.transaction.pk for form in forms), before)
+
+
+@require_POST
+def review_split(request):
+    """Splits a group into the Parts posted, as `ledger.forms.split_parts` reads them: the Subcategories once, an
+    amount of each for every Transaction still in the Review queue. All of them or none; Undo puts the whole group
+    back. A refusal is a 400 whose text names the first Transaction it was about."""
+    pks = _posted_pks(request)
+    if pks is None:
+        return HttpResponseBadRequest()
+    before: list[dict] = []
+    try:
+        with db_transaction.atomic():
+            waiting = Transaction.objects.select_for_update().filter(
+                pk__in=Transaction.objects.in_review_queue().filter(pk__in=pks).values("pk")
+            )
+            for t in waiting:
+                try:
+                    before += outcomes.split(t, split_parts(request.POST, t))
+                except outcomes.SplitRefused as refused:
+                    if len(pks) == 1:
+                        raise
+                    raise outcomes.SplitRefused(
+                        f"{figures.day(t.date)} · {figures.money(abs(t.amount))}: {refused}"
+                    ) from refused
+    except outcomes.SplitRefused as refused:
+        return HttpResponseBadRequest(str(refused), content_type="text/plain; charset=utf-8")
+    decided = sorted(s["pk"] for s in before if s["pk"] in pks)
+    return _review_decided(request, pks, decided, before)
+
+
+def _review_decided(request, pks: list[int], decided: list[int], before: list[dict]):
+    """After the group `pks` was decided, `decided` those still waiting: kept for Undo and for Show resolved, and the
+    group open again with what was saved said."""
     if decided:
         request.session[REVIEW_DECIDED_SESSION_KEY] = [
             *request.session.get(REVIEW_DECIDED_SESSION_KEY, []),
@@ -580,7 +615,7 @@ def review_decide(request):
     ) % {
         "count": group.size,
         "description": group.description,
-        "outcome": group.newest.outcome_label,
+        "outcome": group.newest.outcome_saved,
     }
     return _review_changed(request, group, focus="next", said=said)
 
@@ -709,6 +744,22 @@ def _group_detail(group: review.Group) -> dict:
         "categories": picker["categories"],
         "most_used": [s for s in picker["most_used"] if str(s.pk) not in left_out],
         "candidates": group.newest.pairing_candidates() if group.ambiguous else [],
+        # What the Split editor (static/split.js) opens with: the Transactions still waiting, Part 1 the Suggestion.
+        "split_group": {
+            "url": reverse("review_split"),
+            "description": group.description,
+            "first": group.suggestion.pk if group.suggestion else None,
+            "rows": [
+                {
+                    "pk": t.pk,
+                    "amount": str(t.amount),
+                    "date": figures.day(t.date),
+                    "account": t.account.name,
+                }
+                for t in group.transactions
+                if t.is_unresolved or t.ambiguous_pairing
+            ],
+        },
     }
 
 
@@ -747,16 +798,48 @@ def transaction_outcome(request, pk):
     undo[str(pk)] = before
     request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
     if request.headers.get("HX-Request"):
-        transaction.refresh_from_db()
+        transaction = _shown(pk)
         return announce(
             _transaction_row(request, transaction, saved=True),
             _("Saved %(description)s as %(outcome)s.")
-            % {"description": transaction.description, "outcome": transaction.outcome_label},
+            % {"description": transaction.description, "outcome": transaction.outcome_saved},
         )
     next_url = request.POST.get("next", "")
     if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
         next_url = "transactions"
     return redirect(next_url)
+
+
+@require_POST
+def transaction_split(request, pk):
+    """Splits a Transaction into the Parts posted (`ledger.forms.split_parts`), by hand. HTMX gets the row back with
+    its Part rows, saying it saved and offering Undo; a refusal is a 400 whose text says why, for the editor to show."""
+    transaction = get_object_or_404(Transaction, pk=pk)
+    try:
+        before = outcomes.split(transaction, split_parts(request.POST, transaction))
+    except outcomes.SplitRefused as refused:
+        return HttpResponseBadRequest(str(refused), content_type="text/plain; charset=utf-8")
+    undo = request.session.get(UNDO_SESSION_KEY, {})
+    undo.pop(str(pk), None)
+    undo[str(pk)] = before
+    request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
+    if not request.headers.get("HX-Request"):
+        return redirect("transactions")
+    transaction = _shown(pk)
+    return announce(
+        _transaction_row(request, transaction, saved=True),
+        _("Saved %(description)s as %(outcome)s.")
+        % {"description": transaction.description, "outcome": transaction.outcome_saved},
+    )
+
+
+def _shown(pk: int) -> Transaction:
+    """A Transaction as its row shows it, with its Parts."""
+    return (
+        Transaction.objects.with_counted()
+        .select_related("account", "subcategory__category", "rule", "counterpart__account")
+        .get(pk=pk)
+    )
 
 
 @require_POST
@@ -771,7 +854,7 @@ def undo_outcome(request, pk):
         outcomes.restore(before)
     except outcomes.UndoRefused:
         return HttpResponseBadRequest()
-    transaction.refresh_from_db()
+    transaction = _shown(pk)
     return announce(
         _transaction_row(request, transaction),
         _("Undone. %(description)s is back to %(outcome)s.")

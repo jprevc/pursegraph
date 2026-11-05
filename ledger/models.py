@@ -3,6 +3,7 @@ from urllib.parse import urlsplit
 from django.conf import settings
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 
 from pursegraph import figures
 
@@ -304,6 +305,26 @@ class Transaction(models.Model):
             assert self.subcategory is not None
             return f"{self.subcategory.category.name} › {self.subcategory.name}"
         return str(_("Transfer") if self.is_transfer else _("Awaiting review"))
+
+    @property
+    def outcome_saved(self) -> str:
+        """The outcome as the line saying it was saved names it: "a Split into 2 Parts", or else `outcome_label`."""
+        if self.is_split:
+            count = len(self.parts.all())
+            return ngettext(
+                "a Split into %(count)d Part", "a Split into %(count)d Parts", count
+            ) % {"count": count}
+        return self.outcome_label
+
+    @property
+    def shown_parts(self) -> list[tuple["Part", str]]:
+        """A Split's Parts as its Part rows show them, each with "em" or "dim" when only some count where the rows are
+        listed (`TransactionQuerySet.with_counted`), else ""."""
+        parts = list(self.parts.all())
+        counted = [getattr(p, "counted", True) for p in parts]
+        if all(counted):
+            return [(p, "") for p in parts]
+        return [(p, "em" if c else "dim") for p, c in zip(parts, counted, strict=True)]
 
     @property
     def source_caption(self) -> str:

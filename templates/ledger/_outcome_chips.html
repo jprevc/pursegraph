@@ -1,4 +1,4 @@
-{% load hues i18n %}{% comment %} The chip panel a Transaction row's Change opens with a fine pointer, once per table: static/outcome.js copies it
+{% load hues i18n icons %}{% comment %} The chip panel a Transaction row's Change opens with a fine pointer, once per table: static/outcome.js copies it
 under the row, names the Transaction in its title, marks the current outcome's chip and adds the pairing cards. Needs
 `categories` and `most_used`. {% endcomment %}
 <template class="outcome-chips">
@@ -37,7 +37,9 @@ under the row, names the Transaction in its title, marks the current outcome's c
           </div>
         </div>
         {% endfor %}
+        {% include "ledger/_split_entry.html" %}
       </div>
     </td>
   </tr>
 </template>
+{% include "ledger/_split_editor.html" %}

@@ -28,7 +28,7 @@ def test_inline_change_returns_the_updated_row_marked_manual(logged_in_client):
 
     row = response.content.decode()
     assert response.status_code == 200
-    assert row.lstrip().startswith("<tr")
+    assert row.lstrip().startswith("<tbody")
     assert outcome_shown(row, "Corner Shop") == "Food → Groceries"
     assert "by hand" in row
     assert review_queue_count(row) == 5  # swapped into every badge out of band

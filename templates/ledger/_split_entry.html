@@ -1,0 +1,5 @@
+{% load i18n icons %}{# Split's way in (docs/design/split-editor.md), its own row under the outcome chips: it opens the Split editor (static/split.js) for the row, or the Review queue's group of `count`. #}
+<div class="sp-entry">
+  <button type="button" data-split-open>{% icon "split" %}{% if count > 1 %}{% blocktranslate count n=count %}Split all {{ n }} into Parts…{% plural %}Split all {{ n }} into Parts…{% endblocktranslate %}{% else %}{% translate "Split into Parts…" %}{% endif %}</button>
+  <span class="sp-note">{% translate "Spread it over two or more Subcategories." %}</span>
+</div>

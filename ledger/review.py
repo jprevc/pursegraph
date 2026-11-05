@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 
 from dashboard.completeness import COMPLETE, Tracking
 from dashboard.periods import Period
 
-from .models import SOURCE_CAPTIONS, Account, Source, Subcategory, Transaction
+from .models import SOURCE_CAPTIONS, Account, Part, Source, Subcategory, Transaction
 
 
 @dataclass
@@ -78,9 +78,13 @@ class Group:
 
 
 def _queryset():
-    return Transaction.objects.select_related(
-        "account", "subcategory__category", "suggested_subcategory__category"
-    ).order_by("date", "id")
+    return (
+        Transaction.objects.select_related(
+            "account", "subcategory__category", "suggested_subcategory__category"
+        )
+        .prefetch_related(Prefetch("parts", Part.objects.select_related("subcategory__category")))
+        .order_by("date", "id")
+    )
 
 
 def sorted_groups(groups: list[Group]) -> list[Group]:
