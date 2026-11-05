@@ -9,9 +9,7 @@
   <div class="scroll">
   <table class="rows">
     <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
-    <tbody>
-    {% for t in transactions %}{% include "ledger/_transaction_row.html" %}{% endfor %}
-    </tbody>
+    {% for t in transactions %}{% include "ledger/_transaction_row.html" with drill=True %}{% endfor %}
   </table>
 {% include "ledger/_outcome_chips.html" %}
   </div>
@@ -19,7 +17,7 @@
   <p class="muted">{% translate "No Transactions here." %}</p>
   {% endif %}
   <div class="foot">
-    <p class="muted">{% translate "Changing an outcome moves the amount between Categories at once." %}</p>
+    <p class="muted">{% translate "Changing an outcome moves the amount between Categories at once." %}{% if split_counted %} {% blocktranslate with mark=split_counted %}For a Split, only its {{ mark }} Part counts here.{% endblocktranslate %}{% endif %}</p>
     {% if all_url %}<a class="all" href="{{ all_url }}" hx-get="{{ all_url }}" hx-target="main" hx-push-url="true">{% blocktranslate count n=transactions|length %}All {{ n }} in Transactions ›{% plural %}All {{ n }} in Transactions ›{% endblocktranslate %}</a>{% endif %}
   </div>
 </section>

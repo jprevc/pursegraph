@@ -258,6 +258,10 @@ def transactions(request, view: str):
             "transactions": rows,
             # What the mark counts: a Split Transaction's counted Parts only.
             "total": sum((t.counted for t in rows), Decimal(0)),  # type: ignore[attr-defined]
+            # Named in the footnote when some Split here counts only some of its Parts.
+            "split_counted": label
+            if any(t.is_split and t.counted != t.amount for t in rows)  # type: ignore[attr-defined]
+            else "",
             "all_url": all_url,
             **outcomes.picker(),
             "mark": key,

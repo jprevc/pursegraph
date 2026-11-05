@@ -23,6 +23,11 @@ def today(monkeypatch):
     monkeypatch.setattr("dashboard.periods.today", lambda: TODAY)
 
 
+def shown(page):
+    """The page without its <template>s, which the browser keeps inert until a script copies them."""
+    return re.sub(r"<template.*?</template>", "", page, flags=re.S)
+
+
 def text(fragment):
     return html.unescape(re.sub(r"<[^>]+>", "", fragment)).strip()
 
@@ -101,7 +106,7 @@ def test_the_drill_down_is_a_card_titled_by_its_category_and_period(logged_in_cl
     card = re.search(r'<section class="panel drill-card" ([^>]*)>', page)
     assert card and f'data-mark="{food.pk}"' in card[1]
     assert f'style="--hue: var(--cat-{(food.pk - 1) % 10})"' in card[1]
-    assert [text(h) for h in re.findall(r"<h2[^>]*>(.*?)</h2>", page, re.S)] == [
+    assert [text(h) for h in re.findall(r"<h2[^>]*>(.*?)</h2>", shown(page), re.S)] == [
         "Food · September 2026"
     ]
     assert re.search(
@@ -118,7 +123,7 @@ def test_a_drill_down_into_another_views_mark_is_titled_by_its_label(logged_in_c
         logged_in_client, "/cashflow/transactions/", {"period": "2026-Q3", "key": "2026-09"}
     ).content.decode()
 
-    assert [text(h) for h in re.findall(r"<h2[^>]*>(.*?)</h2>", page, re.S)] == [
+    assert [text(h) for h in re.findall(r"<h2[^>]*>(.*?)</h2>", shown(page), re.S)] == [
         "Sep 2026 · Q3 2026"
     ]
     card = re.search(r"<section[^>]*>", page)

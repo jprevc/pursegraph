@@ -1,10 +1,14 @@
-{% load figures hues i18n icons matched %}{% comment %} The Transaction row (docs/design/transaction-row.md), shared by Transactions and the drill-down. The outcome is text;
+{% load figures hues i18n icons l10n matched %}{% comment %} The Transaction row (docs/design/transaction-row.md), shared by Transactions and the drill-down, in a <tbody> of its
+own with a Split's Part rows (docs/design/split-editor.md), so that a swap takes them along. The outcome is text;
 only Change changes it: with a fine pointer it opens the chip panel (static/outcome.js, from the table's
-_outcome_chips.html), with a coarse one it is a native select laid over the button, and without JS the select and a
-Save button. Needs `t`, `categories`, `most_used` and `request`; `next` overrides where a plain form post goes back
-to, `saved` adds the line that says so, with Undo, and `contains` highlights the text a Rule matched. {% endcomment %}
+_outcome_chips.html), or on a Split the Split editor (static/split.js, from _split_editor.html); with a coarse one it is
+a native select laid over the button, and without JS the select and a Save button. Needs `t`, `categories`,
+`most_used` and `request`; `next` overrides where a plain form post goes back to, `saved` adds the line that says so,
+with Undo, `contains` highlights the text a Rule matched, and `drill` marks a Split's amount as its total.
+{% endcomment %}
 {% url 'transaction_outcome' t.pk as outcome_url %}
-<tr id="transaction-{{ t.pk }}" class="txn" data-outcome="{% if t.subcategory_id %}{{ t.subcategory_id }}{% elif t.is_transfer and not t.ambiguous_pairing %}transfer{% endif %}">
+<tbody id="transaction-{{ t.pk }}-rows" class="txn-rows">
+<tr id="transaction-{{ t.pk }}" class="txn{% if t.is_split %} is-split{% if drill %} in-total{% endif %}{% endif %}" data-outcome="{% if t.subcategory_id %}{{ t.subcategory_id }}{% elif t.is_transfer and not t.ambiguous_pairing %}transfer{% elif t.is_split %}split{% endif %}" data-split-url="{% url 'transaction_split' t.pk %}" data-amount="{{ t.amount|unlocalize }}"{% if t.is_split %} data-parts="{% for p in t.parts.all %}{{ p.subcategory_id }}:{{ p.amount|unlocalize }}{% if not forloop.last %},{% endif %}{% endfor %}"{% endif %}>
   <td class="c-date fig">{{ t.date|day }}</td>
   <td class="c-desc">
     <span class="desc">{% if contains %}{{ t.description|matched:contains }}{% else %}{{ t.description }}{% endif %}</span>
@@ -15,7 +19,7 @@ to, `saved` adds the line that says so, with Undo, and `contains` highlights the
   <td class="c-out">
     <div class="oc">
       {% include "ledger/_transaction_outcome.html" %}
-      <form class="oc-form" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}" method="post" action="{{ outcome_url }}" hx-post="{{ outcome_url }}" hx-target="closest tr" hx-swap="outerHTML">
+      <form class="oc-form" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}" method="post" action="{{ outcome_url }}" hx-post="{{ outcome_url }}" hx-target="closest tbody" hx-swap="outerHTML">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">
         {% blocktranslate asvar change_label with description=t.description %}Change the outcome of {{ description }}{% endblocktranslate %}
@@ -24,7 +28,8 @@ to, `saved` adds the line that says so, with Undo, and `contains` highlights the
           <span class="change-label" aria-hidden="true">{% translate "Change" %}</span>
           <select name="outcome" aria-label="{{ change_label }}">
             {% if t.ambiguous_pairing %}<option value="" selected disabled>{% translate "Pick the other side" %}</option>
-            {% elif t.is_unresolved %}<option value="" selected disabled>{% translate "Awaiting review" %}</option>{% endif %}
+            {% elif t.is_unresolved %}<option value="" selected disabled>{% translate "Awaiting review" %}</option>
+            {% elif t.is_split %}<option value="" selected disabled>{% blocktranslate count n=t.parts.all|length %}Split into {{ n }} Part{% plural %}Split into {{ n }} Parts{% endblocktranslate %}</option>{% endif %}
             {% if t.ambiguous_pairing %}
             <optgroup label="{% translate 'The other side of this Transfer' %}" data-pairs>
               {% for c in t.pairing_candidates %}
@@ -45,21 +50,34 @@ to, `saved` adds the line that says so, with Undo, and `contains` highlights the
             <optgroup label="{% translate 'Transfer' %}">
               <option value="transfer"{% if t.is_transfer and not t.ambiguous_pairing %} selected{% endif %}>{% if t.ambiguous_pairing %}{% translate "Transfer, one-sided" %}{% else %}{% translate "Transfer" %}{% endif %}</option>
             </optgroup>
+            {# Opens the Split editor (static/split.js), so hidden without JS. #}
+            <optgroup label="{% translate 'Split' %}" data-split-group>
+              <option value="split">{% if t.is_split %}{% translate "Edit the Split…" %}{% else %}{% translate "Split into Parts…" %}{% endif %}</option>
+            </optgroup>
           </select>
         </span>
         <button type="submit" class="oc-save">{% translate "Save" %}</button>
       </form>
       {% if saved %}
       <p class="oc-saved" data-saved>
-        {% icon "check" %}<span>{% blocktranslate with outcome=t.outcome_label %}Saved as {{ outcome }}{% endblocktranslate %}</span>
+        {% icon "check" %}<span>{% blocktranslate with outcome=t.outcome_saved %}Saved as {{ outcome }}{% endblocktranslate %}</span>
         <span aria-hidden="true">·</span>
-        <button type="button" class="link" data-action data-undo data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}" hx-post="{% url 'undo_outcome' t.pk %}" hx-target="closest tr" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
-        {% if t.source == "manual" and not t.counterpart_id %}<span aria-hidden="true">·</span>
+        <button type="button" class="link" data-action data-undo data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}" hx-post="{% url 'undo_outcome' t.pk %}" hx-target="closest tbody" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
+        {% if t.source == "manual" and not t.counterpart_id and not t.is_split %}<span aria-hidden="true">·</span>
         <a href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
       </p>
       {% endif %}
     </div>
   </td>
-  <td class="num amt">{{ t.amount|money }}</td>
+  <td class="num amt">{{ t.amount|money }}{% if drill and t.is_split %}<small>{% translate "in total" %}</small>{% endif %}</td>
 </tr>
+{% if t.is_split %}{% for p, shown in t.shown_parts %}
+<tr class="part{% if shown %} {{ shown }}{% endif %}">
+  <td class="c-date"></td>
+  <td class="c-desc" colspan="2"></td>
+  <td class="c-out" style="--hue: var(--{{ p.subcategory.category_id|hue }})"><span class="oc-label"><i class="dot" aria-hidden="true"></i><span><span class="cat-name">{{ p.subcategory.category.name }}</span> <span class="sep">›</span> <span class="sub-name">{{ p.subcategory.name }}</span></span></span></td>
+  <td class="num amt">{{ p.amount|money }}</td>
+</tr>
+{% endfor %}{% endif %}
+</tbody>
 {% if refresh_review_queue_count %}{% include "_review_count.html" with oob=True %}{% endif %}

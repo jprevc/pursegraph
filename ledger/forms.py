@@ -1,5 +1,6 @@
 import base64
 import binascii
+from decimal import Decimal, InvalidOperation
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -21,6 +22,7 @@ from .models import (
     Subcategory,
     Transaction,
 )
+from .outcomes import SplitRefused
 from .parsers.iban import tidy_iban, valid_iban
 from .rules import merchant_words, place_at_top, words_text
 from .transfers import pair_by_hand, recognise_transfers_to
@@ -246,6 +248,41 @@ class OutcomeForm(forms.Form):
         else:
             subcategory = None if value == TRANSFER else Subcategory.objects.get(pk=value)
             self.transaction.set_outcome(subcategory, source=Source.MANUAL)
+
+
+def split_parts(data, transaction: Transaction) -> list[tuple[Subcategory, Decimal]]:
+    """The Parts the Split editor posted for `transaction`: `subcategory`, one Subcategory id per Part, and
+    `amount-<pk>`, the Transaction's amount of each Part in the same order, unsigned and typed either way ("61,20" or
+    "61.20"), signed here as the Transaction is. `ledger.outcomes.split` judges them; this refuses only what it can't
+    read."""
+    ids = data.getlist("subcategory")
+    amounts = data.getlist(f"amount-{transaction.pk}")
+    if len(amounts) != len(ids) or not all(pk.isdigit() for pk in ids):
+        raise SplitRefused(_("The Parts weren't sent whole. Try again."))
+    subcategories = Subcategory.objects.select_related("category").in_bulk(map(int, ids))
+    if len(subcategories) != len(set(ids)):
+        raise SplitRefused(_("A Subcategory was deleted meanwhile."))
+    sign = -1 if transaction.amount < 0 else 1
+    parts = []
+    for number, (pk, typed) in enumerate(zip(ids, amounts, strict=True), start=1):
+        amount = _typed_amount(typed)
+        if amount is None:
+            raise SplitRefused(_("Part %(number)d needs an amount.") % {"number": number})
+        parts.append((subcategories[int(pk)], sign * amount))
+    return parts
+
+
+def _typed_amount(typed: str) -> Decimal | None:
+    """An amount as a Member types it, "1.234,56", "61,20" or "61.20", with or without "€", as a size; None if it
+    can't be read."""
+    text = "".join(c for c in typed if c.isdigit() or c in ",.")
+    if "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    try:
+        amount = Decimal(text)
+    except InvalidOperation:
+        return None
+    return amount if amount.is_finite() else None
 
 
 class CategoryForm(forms.Form):

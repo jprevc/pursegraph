@@ -27,9 +27,7 @@
     <div class="scroll">
     <table class="rows">
       <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
-      <tbody>
       {% for t in page.object_list %}{% include "ledger/_transaction_row.html" %}{% endfor %}
-      </tbody>
     </table>
     {% include "ledger/_outcome_chips.html" %}
     </div>

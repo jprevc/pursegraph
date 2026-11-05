@@ -26,7 +26,7 @@ Swapped in alone, it brings the page title and the sidebar's count too. {% endco
           <span class="g-desc">{{ g.description }}{% if g.size > 1 %} <span class="n fig">×{{ g.size }}</span>{% endif %}</span>
           <span class="g-amt fig">{{ g.total|money }}</span>
           <span class="g-sub">
-            {% if not g.waiting %}{% icon "check" %}{% include "ledger/_outcome_label.html" with subcategory=g.newest.subcategory %}
+            {% if not g.waiting %}{% icon "check" %}{% if g.newest.is_split %}<span>{% translate "Split" %}</span>{% else %}{% include "ledger/_outcome_label.html" with subcategory=g.newest.subcategory %}{% endif %}
             {% elif g.ambiguous %}<i class="dot transfer" aria-hidden="true"></i><span>{% translate "Transfer · other side unknown" %}</span>
             {% elif g.suggestion %}{% include "ledger/_outcome_label.html" with subcategory=g.suggestion %}<span class="fig">· {% blocktranslate with percent=g.confidence|share %}{{ percent }} sure{% endblocktranslate %}</span>
             {% else %}<i class="dot awaiting" aria-hidden="true"></i><span>{% translate "No suggestion" %}</span>{% endif %}
@@ -124,12 +124,22 @@ Swapped in alone, it brings the page title and the sidebar's count too. {% endco
           </div>
         </div>
         {% endfor %}
+        {% include "ledger/_split_entry.html" with count=n %}
       </div>
     </form>
+    {{ split_group|json_script:"split-group" }}
+    {% include "ledger/_split_editor.html" %}
   {% else %}
+    {% if t.is_split %}
+    <p class="oc-label"><span class="split-name">{% translate "Split" %}</span>{% if t.source_caption %}<span class="cap">{{ t.source_caption }}</span>{% endif %}</p>
+    <ul class="part-lines">
+      {% for p in t.parts.all %}<li style="--hue: var(--{{ p.subcategory.category_id|hue }})"><span class="oc-label">{% include "ledger/_outcome_label.html" with subcategory=p.subcategory %}</span>{% if n == 1 %}<span class="fig">{{ p.amount|money }}</span>{% endif %}</li>{% endfor %}
+    </ul>
+    {% else %}
     <p class="oc-label">{% include "ledger/_outcome_label.html" with subcategory=t.subcategory %}{% if t.source_caption %}<span class="cap">{{ t.source_caption }}</span>{% endif %}</p>
+    {% endif %}
     <div class="oc-saved">
-      {% icon "check" %}<span>{% if n > 1 %}{% blocktranslate with outcome=t.outcome_label count n=n %}Saved all {{ n }} as {{ outcome }}{% plural %}Saved all {{ n }} as {{ outcome }}{% endblocktranslate %}{% else %}{% blocktranslate with outcome=t.outcome_label %}Saved as {{ outcome }}{% endblocktranslate %}{% endif %}</span>
+      {% icon "check" %}<span>{% if n > 1 and t.is_split %}{% blocktranslate with parts=t.parts.all|length count n=n %}Saved all {{ n }} as Splits into {{ parts }} Parts{% plural %}Saved all {{ n }} as Splits into {{ parts }} Parts{% endblocktranslate %}{% elif n > 1 %}{% blocktranslate with outcome=t.outcome_label count n=n %}Saved all {{ n }} as {{ outcome }}{% plural %}Saved all {{ n }} as {{ outcome }}{% endblocktranslate %}{% else %}{% blocktranslate with outcome=t.outcome_saved %}Saved as {{ outcome }}{% endblocktranslate %}{% endif %}</span>
       <span aria-hidden="true">·</span>
       <form class="undo" method="post" action="{% url 'review_undo' %}" hx-post="{% url 'review_undo' %}" hx-target="#review" hx-swap="outerHTML" data-action data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}">
         {% csrf_token %}
@@ -137,7 +147,7 @@ Swapped in alone, it brings the page title and the sidebar's count too. {% endco
         {% if resolved %}<input type="hidden" name="resolved" value="1">{% endif %}
         <button type="submit" class="link" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
       </form>
-      {% if t.source == "manual" and not t.counterpart_id %}<span aria-hidden="true">·</span>
+      {% if t.source == "manual" and not t.counterpart_id and not t.is_split %}<span aria-hidden="true">·</span>
       <a href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% blocktranslate with description=group.description %}Make a Rule for "{{ description }}"{% endblocktranslate %}</a>{% endif %}
       {% if n > 1 %}<span aria-hidden="true">·</span>
       <a href="{% url 'transactions' %}?decided={{ group.pks|join:',' }}">{% translate "See them in Transactions" %}</a>{% endif %}

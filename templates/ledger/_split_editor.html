@@ -1,0 +1,58 @@
+{% load hues i18n %}{% comment %} The Split editor (docs/design/split-editor.md), once per page that offers Split: static/split.js copies the dialog,
+fills it for the Transaction or the Review queue's group it opens for, and keeps its bar, rest and status line. Its words
+are data attributes, so that the script holds none; "%(…)s" names what it puts in. Needs `categories`. {% endcomment %}
+<template class="split-editor">
+  <dialog class="dialog sp-dialog" aria-labelledby="sp-title"
+    data-title="{% translate 'Split into Parts' %}"
+    data-group-title="{% translate 'Split %(count)s × %(description)s into Parts' %}"
+    data-group-meta="{% translate '%(count)s Transactions · %(total)s in total' %}"
+    data-choose="{% translate 'Choose a Subcategory' %}"
+    data-taken="{% translate '%(outcome)s (another Part)' %}"
+    data-part="{% translate 'Part %(number)s' %}"
+    data-amount-of="{% translate 'Amount of Part %(number)s' %}"
+    data-amount-in="{% translate 'Amount of %(outcome)s' %}"
+    data-amount-for="{% translate '%(row)s, amount of Part %(number)s' %}"
+    data-the-rest="{% translate '%(name)s, the rest' %}"
+    data-remove="{% translate 'Remove Part %(number)s' %}"
+    data-save-one="{% translate 'Save the Split' %}"
+    data-save-group="{% translate 'Save %(count)s Splits' %}"
+    data-left="{% translate '%(amount)s left to put in a Part.' %}"
+    data-over="{% translate 'The Parts come to %(over)s more than %(total)s.' %}"
+    data-no-subcategory="{% translate 'Choose a Subcategory for Part %(number)s.' %}"
+    data-both="{% translate 'Parts %(first)s and %(second)s are both %(outcome)s. Put that amount in one Part.' %}"
+    data-no-amount="{% translate 'Part %(number)s needs an amount.' %}"
+    data-zero="{% translate "Part %(number)s can't be %(zero)s." %}"
+    data-more="{% translate '(%(count)s more)' %}"
+    data-ready-one="{% translate '%(count)s Parts add up to %(total)s.' %}"
+    data-ready-group="{% translate 'All %(count)s add up.' %}"
+    data-row="{% translate '%(date)s · %(amount)s' %}"
+    data-failed="{% translate "Couldn't save the Split. Nothing changed." %}">
+    <div class="sp-head">
+      <div>
+        <h2 id="sp-title"></h2>
+        <p class="sp-meta"></p>
+      </div>
+      <p class="sp-total fig"></p>
+    </div>
+    <div class="sp-bar" aria-hidden="true"></div>
+    <div class="sp-parts"></div>
+    <button type="button" class="link sp-add" data-sp-add>{% translate "+ Add a Part" %}</button>
+    <div class="sp-foot">
+      <p class="sp-status" id="sp-why"></p>
+      <button type="button" class="link sp-one" data-sp-one hidden>{% translate "Choose one outcome instead…" %}</button>
+      <div class="acts">
+        <button type="button" data-sp-cancel>{% translate "Cancel" %}</button>
+        <button type="button" class="primary" data-sp-save data-action data-own-failure data-busy-label="{% translate 'Saving…' %}"></button>
+      </div>
+    </div>
+    {# The choices every Part's select copies: only the Categories of the Transaction's kind are kept. #}
+    <select class="sp-choices" hidden disabled>
+      <option value="">{% translate "Choose a Subcategory" %}</option>
+      {% for category in categories %}
+      <optgroup label="{{ category.name }}" data-kind="{{ category.kind }}">
+        {% for s in category.subcategories.all %}<option value="{{ s.pk }}" data-hue="{{ category.pk|hue }}">{{ category.name }} › {{ s.name }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </dialog>
+</template>

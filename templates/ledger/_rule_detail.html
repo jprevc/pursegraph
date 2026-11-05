@@ -33,14 +33,14 @@ in the Transaction row, grouped by whether it decided them. Swapped in alone whe
     {% if mine %}
     <tbody>
       <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=mine|length %}Categorized by this Rule · <span class="fig">{{ n }}</span>{% plural %}Categorized by this Rule · <span class="fig">{{ n }}</span>{% endblocktranslate %}</th></tr>
-      {% for t in mine %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains next=request.get_full_path %}{% endfor %}
     </tbody>
+    {% for t in mine %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains next=request.get_full_path %}{% endfor %}
     {% endif %}
     {% if others %}
     <tbody>
       <tr class="grp"><th colspan="5" scope="colgroup">{% blocktranslate count n=others|length %}Also matches, decided otherwise · <span class="fig">{{ n }}</span>{% plural %}Also matches, decided otherwise · <span class="fig">{{ n }}</span>{% endblocktranslate %}</th></tr>
-      {% for t in others %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains %}{% endfor %}
     </tbody>
+    {% for t in others %}{% include "ledger/_transaction_row.html" with contains=rule.description_contains %}{% endfor %}
     {% endif %}
   </table>
   {% include "ledger/_outcome_chips.html" %}

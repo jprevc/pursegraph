@@ -378,6 +378,8 @@ button.link[data-change] { margin: 0; padding: .375rem .25rem; }
 .oc-save { height: 2rem; }
 /* With JS, Change opens the chip panel and the select and Save are for no-JS only. */
 .js .oc-form select, .js .oc-save { display: none; }
+/* Split opens the Split editor, a script of its own. */
+html:not(.js) [data-split-group] { display: none; }
 .js [data-change] { display: inline-flex; }
 [data-change] { display: none; }
 @media (pointer: coarse) {
@@ -421,6 +423,24 @@ button.link[data-change] { margin: 0; padding: .375rem .25rem; }
 .chips button[aria-current="true"] .cat-name, .chips button[aria-current="true"] .sep { color: inherit; }
 .pairs button { border-radius: var(--r-ctl); }
 
+/* Each Transaction is a <tbody> of its own, with a Split's Part rows: the hairline goes under its last row. */
+.rows > tbody:not(:last-child) > tr:last-child > td { border-bottom: 1px solid var(--line); }
+
+/* A Split (docs/design/split-editor.md): "Split", a mini bar of its Parts' hues, "by hand". */
+.oc-label .split-name { color: var(--ink); font-weight: 500; }
+.minibar { display: inline-flex; align-self: center; width: 2.5rem; height: .375rem; gap: 1px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.minibar i { background: var(--hue); }
+.rows tr.txn.is-split > td { border-bottom: 0; }
+.rows tr.txn.in-total .amt { color: var(--muted); font-weight: 400; }
+.rows tr.txn.in-total .amt small { display: block; color: var(--muted); font-size: var(--text-label); }
+/* Its Part rows: always shown, the outcome after a rule in its Category's hue. */
+.rows tr.part > td { padding-top: .3125rem; padding-bottom: .3125rem; border-bottom: 0; font-size: var(--text-sm); }
+.rows tr.part:last-child > td { padding-bottom: .625rem; }
+.rows tr.part .oc-label { padding-left: var(--s-3); box-shadow: inset 3px 0 0 var(--hue); }
+.rows tr.part .amt { font-weight: 500; color: var(--ink-2); }
+.rows tr.part.em .amt { font-weight: 600; color: var(--ink); }
+.rows tr.part.dim > td { opacity: .5; }
+
 @media (max-width: 600px) {
   /* Each row is a stacked card: the description and amount, the date and Account, then the outcome with Change. */
   .scroll:has(> .rows) { overflow: visible; }
@@ -429,7 +449,16 @@ button.link[data-change] { margin: 0; padding: .375rem .25rem; }
     display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--s-3);
     padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line);
   }
-  .rows tbody tr.txn:last-child { border-bottom: 0; }
+  .rows > tbody:last-child > tr.txn:last-child { border-bottom: 0; }
+  .rows > tbody:not(:last-child) > tr:last-child > td { border-bottom: 0; }
+  /* A Split's Part rows are lines in its card, under Change, indented; the card's hairline follows the last. */
+  .rows tr.txn.is-split { border-bottom: 0; }
+  .rows tr.part { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s-3); padding: .3125rem var(--s-4) .3125rem 2rem; }
+  .rows tr.part > td { padding: 0; width: auto; }
+  .rows tr.part > td:empty { display: none; }
+  .rows tr.part > .c-out { grid-column: 1; grid-row: 1; padding-top: 0; }
+  .rows tr.part > .amt { grid-column: 2; grid-row: 1; }
+  .rows > tbody:not(:last-child) > tr.part:last-child { padding-bottom: var(--s-3); border-bottom: 1px solid var(--line); }
   .rows tr.txn > td { padding: 0; border: 0; background: none; width: auto; }
   .rows tr.txn:hover > td { background: none; }
   .rows .c-date, .rows .c-acct, .rows .kind { display: none; }
@@ -1397,6 +1426,80 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
   .step .n { width: 1.75rem; height: 1.75rem; }
   .step h2, .step h3 { padding-top: .1875rem; }
   .step > .button { grid-column: 2; justify-self: start; }
+}
+
+/* ---------- Split editor ---------- */
+/* docs/design/split-editor.md: Split's own row under the outcome chips, and the dialog (a bottom sheet on a phone) with
+   a stacked bar, a select and an amount per Part, or for a Review queue group a table of Transactions by Parts. */
+.sp-entry { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-1); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.sp-entry button { height: 2.25rem; }
+.sp-note { color: var(--muted); font-size: var(--text-sm); }
+.part-lines { display: grid; gap: var(--s-1); margin: 0 0 var(--s-3); padding: 0; list-style: none; }
+.part-lines li { display: flex; justify-content: space-between; gap: var(--s-3); padding-left: var(--s-3); box-shadow: inset 3px 0 0 var(--hue); font-size: var(--text-sm); }
+
+.dialog.sp-dialog { max-width: 36rem; max-height: calc(100vh - 2rem); padding: var(--s-5); border-radius: 14px; overflow-y: auto; }
+.dialog.sp-dialog.group { max-width: 44rem; }
+.sp-dialog[open] { display: grid; gap: var(--s-4); }
+.sp-dialog::backdrop { background: rgb(0 0 0 / .35); }
+.sp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-3); }
+.sp-dialog h2 { margin: 0; font-size: 1.125rem; font-weight: 600; }
+.sp-dialog .sp-meta { margin: var(--s-1) 0 0; color: var(--muted); font-size: var(--text-sm); }
+.sp-dialog .sp-total { margin: 0; color: var(--ink); font-size: 1.375rem; font-weight: 600; white-space: nowrap; }
+.sp-bar { display: flex; height: .75rem; gap: 2px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.sp-bar i { min-width: 2px; background: var(--hue); }
+.sp-bar i.awaiting { background: var(--awaiting); }
+.sp-bar i.left { background: repeating-linear-gradient(45deg, var(--line-strong) 0 3px, transparent 3px 6px); }
+.sp-bar i.over { background: var(--ink); }
+.sp-parts { display: grid; gap: var(--s-2); }
+.sp-line { display: grid; grid-template-columns: .5rem minmax(0, 1fr) auto 2rem; align-items: center; gap: var(--s-2); }
+.sp-sel { width: 100%; min-width: 0; }
+.sp-amt { position: relative; display: inline-flex; align-items: center; }
+.sp-amt input { width: 8.5rem; padding-right: 1.75rem; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sp-amt > span { position: absolute; right: .625rem; color: var(--muted); pointer-events: none; }
+.sp-amt input.auto { color: var(--muted); font-style: italic; }
+.sp-x { width: 2rem; height: 2rem; }
+.sp-x .icon { width: .875rem; height: .875rem; }
+.sp-dialog .sp-add { justify-self: start; margin: 0; padding: .375rem .25rem; }
+.sp-table { width: 100%; }
+.sp-table th, .sp-table td { padding: var(--s-2); vertical-align: middle; }
+.sp-table tbody th { font-size: var(--text-sm); font-weight: 400; white-space: nowrap; }
+.sp-table .sp-of { display: block; color: var(--ink); font-weight: 600; }
+.sp-table .sp-amt input { width: 100%; min-width: 6rem; }
+.sp-col { display: grid; grid-template-columns: .5rem minmax(0, 1fr) auto; align-items: center; gap: var(--s-2); }
+.sp-lab { display: none; }
+.sp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.sp-status { display: flex; flex: 1 1 16rem; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin: 0; color: var(--ink-2); font-size: var(--text-sm); }
+.sp-status.bad { color: var(--ink); font-weight: 500; }
+.sp-status .muted { font-weight: 400; }
+.sp-status .icon { width: .875rem; height: .875rem; flex: none; }
+.sp-dialog .sp-one { margin: 0; padding: .25rem; font-size: var(--text-sm); }
+.sp-foot .acts { display: flex; gap: var(--s-2); margin-left: auto; }
+.sp-foot [aria-disabled="true"] { opacity: .35; }
+@media (max-width: 600px) {
+  /* A bottom sheet with a grip; 44px controls and 16px fields, so iOS doesn't zoom; the foot sticks to the bottom. */
+  .dialog.sp-dialog, .dialog.sp-dialog.group {
+    width: 100%; max-width: none; max-height: 92vh; margin: auto 0 0; padding: var(--s-2) var(--s-4) calc(var(--s-4) + env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+  }
+  .sp-dialog::before { content: ""; justify-self: center; width: 2.25rem; height: 4px; border-radius: 4px; background: var(--line-strong); }
+  .sp-line { grid-template-columns: .5rem minmax(0, 1fr) 2.75rem; }
+  .sp-line > .sp-amt { grid-column: 2; }
+  .sp-line > .sp-amt input { width: 100%; }
+  .sp-amt { display: flex; }
+  .sp-sel, .sp-amt input { height: 2.75rem; font-size: 1rem; }
+  .sp-x { width: 2.75rem; height: 2.75rem; }
+  .sp-foot { position: sticky; bottom: calc(var(--s-4) * -1); padding-bottom: var(--s-3); background: var(--card); }
+  .sp-foot .acts { width: 100%; }
+  .sp-foot .acts button { flex: 1; height: 2.75rem; }
+  /* A group: the Subcategories first, one per line, then a block per Transaction with a labelled field per Part. */
+  .sp-table, .sp-table thead, .sp-table tbody, .sp-table tr, .sp-table th, .sp-table td { display: block; padding: 0; border: 0; }
+  .sp-table thead tr { display: grid; gap: var(--s-2); margin-bottom: var(--s-3); }
+  .sp-table thead td { display: none; }
+  .sp-table tbody tr { display: grid; gap: var(--s-2); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+  .sp-table tbody th { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2); }
+  .sp-table .sp-of { display: inline; margin-left: auto; }
+  .sp-table td { display: grid; gap: var(--s-1); }
+  .sp-lab { display: block; color: var(--muted); font-size: var(--text-label); }
 }
 
 /* ---------- Swaps ---------- */
