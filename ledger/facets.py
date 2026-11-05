@@ -20,17 +20,22 @@ from dashboard.queries import VIEWS, Filters, buckets, filter_choices
 from dashboard.templatetags.hues import hue
 from pursegraph import figures
 
-from .models import SOURCE_CAPTIONS, Category, Part, Source, Transaction, counts_in
 from .models import UNRESOLVED as WITHOUT_OUTCOME
+from .models import Category, Part, Source, Transaction, counts_in
 from .transfers import WINDOW
 
 UNRESOLVED = "unresolved"
 TRANSFER = "transfer"
-# What the Decided facet offers, in its order: the ways that decide any outcome, then, under a hairline, those that
-# only find a Transfer. "by import" (a bank fee) is left to Any way.
-ANY_OUTCOME_SOURCES = [Source.RULE, Source.CATEGORIZER, Source.MANUAL]
-TRANSFER_SOURCES = [Source.IBAN, Source.PAIRING]
-SOURCES = ANY_OUTCOME_SOURCES + TRANSFER_SOURCES
+# What the Decided by facet offers, in its order, each read as completing "Decided by". "by import" (a bank fee) is
+# left to Anything.
+SOURCE_LABELS = {
+    Source.RULE: gettext_lazy("Rule"),
+    Source.CATEGORIZER: gettext_lazy("Categorizer"),
+    Source.MANUAL: gettext_lazy("Member"),
+    Source.IBAN: gettext_lazy("IBAN"),
+    Source.PAIRING: gettext_lazy("Pairing"),
+}
+SOURCES = list(SOURCE_LABELS)
 OUT, IN = "out", "in"
 
 
@@ -295,8 +300,7 @@ def counts(choice: Choice) -> dict[str, dict[str, int]]:
 class Option:
     """One facet option: its `label`, its `count` with the other facets held, whether it is `chosen`, and the query
     value picking it submits (`pick`; "" picks nothing, which clears the facet). `dot` is "awaiting", "transfer" or
-    a Category's hue token, `note` a line explaining it, `sub` marks a Subcategory under its Category and `divided`
-    draws a hairline above it, parting it from the options before."""
+    a Category's hue token, `note` a line explaining it and `sub` marks a Subcategory under its Category."""
 
     label: str
     count: int
@@ -305,7 +309,6 @@ class Option:
     dot: str = ""
     note: str = ""
     sub: bool = False
-    divided: bool = False
     # Where focus can find it again after a swap.
     key: str = ""
 
@@ -322,12 +325,17 @@ class Group:
     chosen: bool
 
     @property
+    def noted(self) -> bool:
+        """Whether its options carry notes, which an info toggle shows and hides."""
+        return any(o.note for o in self.options)
+
+    @property
     def chosen_option(self) -> Option | None:
         """The option chosen, unless it is the Any one."""
         return next((o for o in self.options[1:] if o.chosen), None)
 
 
-# The Decided facet's line on each source.
+# The Decided by facet's line on each source.
 SOURCE_NOTES = {
     Source.RULE: gettext_lazy(
         "A Rule matched it. Rules are patterns a Member set up, often from a correction."
@@ -430,9 +438,11 @@ def rail(choice: Choice, counts: dict[str, dict[str, int]], total: int) -> list[
             ]
 
     source_options = [
-        replace(o, note=str(SOURCE_NOTES[Source(o.key)]), divided=o.key == TRANSFER_SOURCES[0])
+        replace(o, note=str(SOURCE_NOTES[Source(o.key)]))
         for o in _options(
-            [(s.value, str(SOURCE_CAPTIONS[s])) for s in SOURCES], choice.source, counts["source"]
+            [(s.value, str(label)) for s, label in SOURCE_LABELS.items()],
+            choice.source,
+            counts["source"],
         )
     ]
 
@@ -447,7 +457,7 @@ def rail(choice: Choice, counts: dict[str, dict[str, int]], total: int) -> list[
         ),
         group("account", _("Account"), _("All Accounts"), account_options, bool(accounts_chosen)),
         group("outcome", _("Outcome"), _("Any outcome"), outcome_options, bool(choice.outcome)),
-        group("source", _("Decided"), _("Any way"), source_options, bool(choice.source)),
+        group("source", _("Decided by"), _("Anything"), source_options, bool(choice.source)),
     ]
 
 
@@ -461,6 +471,8 @@ def named(choice: Choice, groups: list[Group]) -> list[str]:
                 o for o in reversed(group.options[: group.options.index(chosen)]) if not o.sub
             )
             names.append(f"{category.label} › {chosen.label}")
+        elif chosen and group.param == "source":
+            names.append(_("Decided by %(way)s") % {"way": chosen.label})
         elif chosen:
             names.append(chosen.label)
         elif group.param == "account" and choice.filters.accounts:

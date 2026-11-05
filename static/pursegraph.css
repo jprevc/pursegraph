@@ -522,9 +522,15 @@ button.fopt .n { margin-left: auto; padding-top: 1px; padding-left: var(--s-2); 
 button.fopt[aria-pressed="true"] .n { color: var(--accent-text); }
 button.fopt.zero:not([aria-pressed="true"]) { opacity: .45; }
 button.fopt.sub { padding-left: 1.625rem; font-size: var(--text-sm); }
-/* A hairline parting an option from those before, inset like their text; its own element, so a dimmed option leaves it whole. */
-.facet .fdiv { width: auto; margin: var(--s-1) var(--s-2); border: 0; border-top: 1px solid var(--line); }
 button.fopt:focus-visible { outline-offset: -2px; }
+/* Decided by's notes: one info toggle by the heading shows and hides them all; without JS they show and it doesn't. */
+.facet-l { display: inline-flex; align-items: center; gap: 2px; }
+.notes-toggle { display: none; }
+.js .notes-toggle { display: inline-flex; width: 1.75rem; height: 1.75rem; margin: -.375rem 0; }
+.notes-toggle .icon { width: .875rem; height: .875rem; vertical-align: 0; }
+.notes-toggle[aria-expanded="true"] { color: var(--ink); }
+.notes-toggle[aria-expanded="true"] .icon { color: inherit; }
+.js .facet:not(.notes-open) button.fopt small { display: none; }
 /* Amount: a Money segmented control (the theme switch's track), then the range. */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; min-width: 0; margin: 0 var(--s-2); padding: 3px; border: 0; border-radius: var(--r-ctl); background: var(--ground); }
 .seg label { display: grid; place-items: center; min-height: 1.875rem; border-radius: var(--r-inner); color: var(--muted); font-size: var(--text-sm); cursor: pointer; }
@@ -573,6 +579,7 @@ button.fopt:focus-visible { outline-offset: -2px; }
   .clear-all { display: inline-flex; align-items: center; min-height: 2.75rem; }
   button.fopt { padding: .625rem var(--s-2); font-size: var(--text-title); }
   button.fopt.sub { font-size: var(--text-body); }
+  .js .notes-toggle { width: 2.75rem; height: 2.75rem; margin: -.875rem 0; }
   .seg label { min-height: 2.375rem; }
   .between input { height: 2.75rem; font-size: 1rem; }
   .rail .sheet-foot { display: block; position: sticky; bottom: 0; margin-top: var(--s-3); padding: var(--s-3) 0 calc(var(--s-4) + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card); }
