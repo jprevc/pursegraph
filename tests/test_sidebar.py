@@ -91,7 +91,7 @@ def test_only_the_current_page_is_marked_current(admin_client, household, url, c
 
 
 @pytest.mark.parametrize("url", ["/", "/transactions/", "/review/", "/import/"])
-def test_manage_is_closed_away_from_its_pages(admin_client, household, url):
+def test_manage_is_rendered_closed_away_from_its_pages(admin_client, household, url):
     assert " open" not in manage(admin_client.get(url).content.decode())[1]
 
 
@@ -112,14 +112,14 @@ def test_away_from_its_pages_manage_opens_as_this_member_left_it(
     assert f'localStorage.getItem("manage-open:{member.pk}")' in restore[1]
 
 
-@pytest.mark.parametrize("url", ["/rules/", "/categories/", "/members/"])
+@pytest.mark.parametrize("url", ["/rules/", "/categories/", "/suggestions/", "/members/"])
 def test_on_its_pages_manage_stays_open_whatever_was_left(admin_client, household, url):
     assert 'localStorage.getItem("manage-open:' not in sidebar(
         admin_client.get(url).content.decode()
     )
 
 
-def test_opening_or_closing_manage_is_saved_for_this_member(logged_in_client, member, household):
+def test_the_manage_group_names_its_member_for_saving_it(logged_in_client, member, household):
     page = logged_in_client.get("/").content.decode()
 
     assert f'data-member="{member.pk}"' in manage(page)[1]
