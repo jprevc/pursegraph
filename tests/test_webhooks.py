@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.utils import timezone
 
-from ledger import webhooks
+from ledger import categorizers, webhooks
 from ledger.models import Rule, Subcategory, Webhook
 from ledger.suggestions import resuggest_queue
 from tests.conftest import deliveries, page_text
@@ -84,13 +84,19 @@ def test_a_receiver_that_isnt_listening_couldnt_be_reached():
     assert outcome_of(webhook) == ("unreachable", None)
 
 
+@pytest.fixture
+def connected():
+    """A Categorizer is connected, so Ask again can run."""
+    categorizers.create("Qwen on the NAS", None)
+
+
 def suggested(description, confidence=0.4):
     groceries = Subcategory.objects.get(category__name="Food", name="Groceries")
     return make_transaction(description, suggested_subcategory=groceries, confidence=confidence)
 
 
 def test_re_suggest_tells_every_webhook_how_many_wait(
-    admin_client, receiver, two_webhooks, django_capture_on_commit_callbacks
+    connected, admin_client, receiver, two_webhooks, django_capture_on_commit_callbacks
 ):
     suggested("Corner Shop")
     suggested("Hiša kave")
@@ -103,7 +109,7 @@ def test_re_suggest_tells_every_webhook_how_many_wait(
 
 
 def test_re_suggest_with_nothing_waiting_afterwards_calls_no_webhook(
-    admin_client, receiver, two_webhooks, django_capture_on_commit_callbacks
+    connected, admin_client, receiver, two_webhooks, django_capture_on_commit_callbacks
 ):
     make_transaction(
         "Decided",
@@ -200,7 +206,7 @@ def test_an_action_rolled_back_calls_no_webhook(receiver, two_webhooks):
 
 
 @committed
-def test_a_slow_receiver_doesnt_hold_up_the_action(admin_client, receiver, two_webhooks):
+def test_a_slow_receiver_doesnt_hold_up_the_action(connected, admin_client, receiver, two_webhooks):
     receiver.delay = 2
     suggested("Corner Shop")
 
@@ -213,7 +219,7 @@ def test_a_slow_receiver_doesnt_hold_up_the_action(admin_client, receiver, two_w
 
 
 @committed
-def test_a_fired_delivery_records_its_outcome(admin_client, receiver):
+def test_a_fired_delivery_records_its_outcome(connected, admin_client, receiver):
     receiver.status = 500
     failing = Webhook.objects.create(name="Home Assistant", url=receiver.url())
     unreachable = Webhook.objects.create(name="NAS", url=closed_port_url())

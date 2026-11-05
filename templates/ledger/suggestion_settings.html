@@ -55,12 +55,13 @@
 
   <section class="panel suggestions-again" aria-labelledby="again-heading">
     <h2 id="again-heading">{% translate "Ask again" %}</h2>
-    <p class="muted">{% translate "After a Categorizer changes (a new model or prompt, say), clear the queued suggestions so they're suggested again." %}</p>
-    {% if overview.askable_again %}
+    <p class="muted">{% translate "Changed a Categorizer's model or prompt? Ask again throws away the suggestions waiting in the Review queue, and the Categorizers suggest those Transactions afresh. Transactions already categorized aren't touched." %}</p>
+    {% if overview.cant_ask_again %}
+    <button type="button" disabled>{% icon "refresh" %}{% translate "Ask again" %}</button>
+    <p class="reason">{% icon "info" %}<span>{% url 'categorizers' as categorizers_url %}{% if overview.cant_ask_again == "no_categorizer" %}{% blocktranslate %}No Categorizer is connected. Connect one on the <a href="{{ categorizers_url }}">Categorizers page</a>.{% endblocktranslate %}{% elif overview.cant_ask_again == "empty_queue" %}{% translate "The Review queue is empty, so there's nothing to ask about again." %}{% else %}{% blocktranslate count n=overview.queued %}None of the {{ n }} Transaction in the Review queue has a suggestion yet.{% plural %}None of the {{ n }} Transactions in the Review queue has a suggestion yet.{% endblocktranslate %}{% endif %}</span></p>
+    {% else %}
     <a class="button" href="{% url 'resuggest_queue' %}" hx-get="{% url 'resuggest_queue' %}" hx-target="#confirm-again" hx-swap="innerHTML" data-confirm-opener>{% icon "refresh" %}{% blocktranslate count n=overview.askable_again %}Ask again about {{ n }} suggestion{% plural %}Ask again about {{ n }} suggestions{% endblocktranslate %}</a>
     <div id="confirm-again" data-confirm-slot>{% if confirm %}{% include "ledger/_confirm_resuggest.html" with count=overview.askable_again %}{% endif %}</div>
-    {% else %}
-    <p class="reason">{% icon "info" %}<span>{% translate "Nothing in the Review queue has a suggestion yet." %}</span></p>
     {% endif %}
   </section>
 </div>

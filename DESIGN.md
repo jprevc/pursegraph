@@ -415,7 +415,7 @@ Line icons on a 24 grid, 1.5px stroke, round caps and joins, `currentColor`. The
 - **Do** turn motion off under `prefers-reduced-motion`. The donut sweep, the chart entrance, chevron rotation, the More and Filter sheets' slide up (cubic-bezier(.16,1,.3,1)) and the loading line are the whole motion vocabulary. Swaps themselves are instant.
 - **Do** follow the Swap feedback convention on every HTMX swap: focus by kind of swap, one polite announcement of the new state, and a `<title>` from the partial.
 - **Do** give every empty page its reason and the action that fills it.
-- **Do** replace an action that can't run with its reason, and confirm a destructive one inline, naming what it moves or keeps.
+- **Do** keep an action that can't run in place, disabled, with its reason right under it, and confirm a destructive one inline, naming what it moves or keeps. Never disable a control without saying why.
 
 ### Don't:
 - **Don't** save on a `<select>`'s `change` where a keyboard can reach it: Chromium and Firefox fire it on every arrow key.

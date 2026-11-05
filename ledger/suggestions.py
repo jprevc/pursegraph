@@ -14,12 +14,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
 
 from django.db import transaction
 from django.db.models import Min, QuerySet
 from django.db.models.functions import Lower
 from django.utils import timezone
 
+from . import categorizers
 from .models import CategorizerToken, Setting, Source, Subcategory, Transaction
 
 # The `raw` keys whose text helps tell what a Transaction was for, across the parsers.
@@ -120,6 +122,8 @@ BIN_WIDTH = 5
 class Overview:
     """The Suggestions page's figures."""
 
+    queued: int
+    """Transactions in the Review queue."""
     with_suggestion: int
     """Queued Transactions with a suggestion."""
     waiting: int
@@ -132,6 +136,8 @@ class Overview:
     """Transactions dated this month whose outcome a Categorizer set."""
     askable_again: int
     """Queued Transactions with an answer, usable or not, that `resuggest_queue` would clear."""
+    cant_ask_again: "CantAskAgain | None"
+    """Why Ask again can't run, or None when it can."""
     bins: list[int]
     """The queued suggestions by how sure they are, in BIN_WIDTH % bins from 0 to 100 %."""
     clearing: dict[int, int]
@@ -150,6 +156,7 @@ def overview() -> Overview:
         bins[min(int(confidence * 100 + 1e-9) // BIN_WIDTH, len(bins) - 1)] += 1
     today = timezone.localdate()
     return Overview(
+        queued=queued.count(),
         with_suggestion=len(sureness),
         waiting=waiting_count(),
         waiting_since=_awaiting_suggestion().aggregate(since=Min("statements__imported_at"))[
@@ -162,9 +169,32 @@ def overview() -> Overview:
             source=Source.CATEGORIZER, date__year=today.year, date__month=today.month
         ).count(),
         askable_again=queued.filter(confidence__isnull=False).count(),
+        cant_ask_again=cant_ask_again(),
         bins=bins,
         clearing={step: sum(c * 100 + 1e-9 >= step for c in sureness) for step in STEPS},
     )
+
+
+class CantAskAgain(StrEnum):
+    """Why Ask again can't run, in the order the Suggestions page checks them."""
+
+    NO_CATEGORIZER = "no_categorizer"
+    """No token is unrevoked, so nothing would suggest the cleared Transactions again."""
+    EMPTY_QUEUE = "empty_queue"
+    """The Review queue is empty."""
+    NO_SUGGESTION = "no_suggestion"
+    """Nothing in the Review queue has a Categorizer's answer to clear yet."""
+
+
+def cant_ask_again() -> CantAskAgain | None:
+    """Why Ask again can't run now, or None when it can."""
+    if not categorizers.active().exists():
+        return CantAskAgain.NO_CATEGORIZER
+    if not Transaction.objects.unresolved().exists():
+        return CantAskAgain.EMPTY_QUEUE
+    if not Transaction.objects.unresolved().filter(confidence__isnull=False).exists():
+        return CantAskAgain.NO_SUGGESTION
+    return None
 
 
 def _awaiting_suggestion() -> "QuerySet[Transaction]":

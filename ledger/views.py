@@ -12,7 +12,7 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db import transaction as db_transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -1117,7 +1117,12 @@ def accept_clearing_suggestions(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def resuggest_queue(request):
-    """Ask again: clears the queued suggestions after an inline confirmation, so the Categorizers are asked about them again."""
+    """Ask again: clears the queued suggestions after an inline confirmation, so the Categorizers are asked about them again.
+    When it can't run (`suggestions.cant_ask_again`), it confirms and clears nothing: the page says why."""
+    if suggestions.cant_ask_again():
+        if wants_the_fragment_alone(request):
+            return HttpResponse("")
+        return redirect("suggestion_settings")
     if request.method == "GET":
         if wants_the_fragment_alone(request):
             return render(

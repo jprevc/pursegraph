@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from ledger import categorizers
 from ledger.models import Account, Setting, Source, Statement, Subcategory, Transaction
 from tests.conftest import group_caption, page_text, subcategory_id, transaction_id
 from tests.test_categorizer_api import WAITING, create_token
@@ -179,9 +180,10 @@ def test_re_suggesting_asks_again_about_the_queued_transactions_only(admin_clien
 def test_re_suggesting_also_asks_again_after_no_suggestion(admin_client):
     make_transaction("Hiša kave")
     Transaction.objects.update(confidence=0)
+    again = FakeCategorizer()
 
     admin_client.post("/suggestions/resuggest/")
-    again = FakeCategorizer().run()
+    again.run()
 
     assert again.asked() == ["Hiša kave"]
 
@@ -346,8 +348,68 @@ def test_ask_again_is_confirmed_inline(admin_client):
     assert Transaction.objects.filter(confidence__isnull=False).count() == 2
 
 
-def test_with_nothing_suggested_ask_again_says_why_it_cant(admin_client):
-    page = page_text(settings_page(admin_client))
+def ask_again_card(client):
+    """The Ask again card's HTML on the Suggestions page."""
+    page = settings_page(client)
+    return page[
+        page.index('aria-labelledby="again-heading"') : page.index(
+            "</section>", page.index("again-heading")
+        )
+    ]
 
-    assert "Ask again about" not in page
-    assert "Nothing in the Review queue has a suggestion yet." in page
+
+def revoke_every_token():
+    for token in categorizers.active():
+        categorizers.revoke(token.pk)
+
+
+def test_with_no_categorizer_connected_ask_again_is_disabled_even_with_suggestions(admin_client):
+    suggest("Corner Shop", "Hiša kave")
+    revoke_every_token()
+
+    card = ask_again_card(admin_client)
+
+    assert re.search(r"<button[^>]*disabled[^>]*>.*Ask again</button>", card)
+    assert "Ask again about" not in page_text(card)
+    assert "No Categorizer is connected. Connect one on the Categorizers page" in page_text(card)
+    assert 'href="/categorizers/"' in card
+
+
+def test_with_no_categorizer_connected_asking_again_clears_nothing(admin_client):
+    suggest("Corner Shop", "Hiša kave")
+    revoke_every_token()
+
+    confirm = admin_client.get("/suggestions/resuggest/", HTTP_HX_REQUEST="true")
+    response = admin_client.post("/suggestions/resuggest/")
+
+    assert "Clear and ask again" not in confirm.content.decode()
+    assert response.status_code == 302
+    assert Transaction.objects.filter(confidence__isnull=False).count() == 2
+
+
+def test_with_the_review_queue_empty_ask_again_is_disabled(admin_client):
+    FakeCategorizer()
+
+    card = ask_again_card(admin_client)
+
+    assert re.search(r"<button[^>]*disabled[^>]*>.*Ask again</button>", card)
+    assert "The Review queue is empty, so there's nothing to ask about again." in page_text(card)
+
+
+def test_with_nothing_queued_suggested_yet_ask_again_is_disabled(admin_client):
+    FakeCategorizer()
+    make_transaction("Corner Shop")
+    make_transaction("Hiša kave")
+
+    card = ask_again_card(admin_client)
+
+    assert re.search(r"<button[^>]*disabled[^>]*>.*Ask again</button>", card)
+    assert "None of the 2 Transactions in the Review queue has a suggestion yet." in page_text(card)
+
+
+def test_ask_again_says_when_to_use_it(admin_client):
+    assert (
+        "Changed a Categorizer's model or prompt? Ask again throws away the suggestions waiting in the Review "
+        "queue, and the Categorizers suggest those Transactions afresh. Transactions already categorized aren't "
+        "touched." in page_text(ask_again_card(admin_client))
+    )
