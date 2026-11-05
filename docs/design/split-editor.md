@@ -23,7 +23,7 @@ A Member splits one Transaction into Parts, each an exact amount in its own Subc
   - **Remove:** a ghost × ("Remove Part 2"), shown only when there are more than two Parts.
   - **"+ Add a Part"**, a text button under the rows.
 - **Starting Parts.** Two: Part 1 is the current outcome (in the Review queue, the Suggestion), Part 2 is empty. A Split reopens with its own Parts.
-- **The rest.** The last Part fills itself with what's left, in Muted italic, captioned "the rest, until you type here" (12px, Muted). Once the Member types in it, it is an ordinary amount. Adding a Part fixes the old last Part at its current amount, and the new last Part takes the rest.
+- **The rest.** The last Part fills itself with what's left, in Muted italic, with no caption: the italic is the only visual sign it wasn't typed. A screen reader hears it in the field's name ("Amount of Part 2, the rest"). Once the Member types in it, it is an ordinary amount. Adding a Part fixes the old last Part at its current amount, and the new last Part takes the rest.
 
 ## A group in the Review queue
 
