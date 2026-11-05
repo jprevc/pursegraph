@@ -301,3 +301,33 @@ def test_a_rows_source_caption_gives_its_specific_reason_as_a_title(logged_in_cl
     page = logged_in_client.get("/transactions/").content.decode()
 
     assert '<span class="cap" title="A Member chose it.">by hand</span>' in page
+
+
+def decided_facet(page):
+    """The Decided facet's form, inside."""
+    return found(r'<form class="facet"[^>]*aria-labelledby="facet-source">(.*?)</form>', page, 1)
+
+
+def test_decided_lists_the_ways_that_decide_any_outcome_before_the_transfer_only_ones(
+    logged_in_client, household
+):
+    facet = decided_facet(logged_in_client.get("/transactions/").content.decode())
+
+    assert [text(t) for t in re.findall(r'<span class="t">([^<]*)', facet)] == [
+        "Any way",
+        "by Rule",
+        "by Categorizer",
+        "by hand",
+        "by IBAN",
+        "paired",
+    ]
+
+
+def test_a_hairline_parts_the_transfer_only_ways_from_the_rest_and_nothing_else(
+    logged_in_client, household
+):
+    page = logged_in_client.get("/transactions/").content.decode()
+
+    divided = re.findall(r'<hr class="fdiv" aria-hidden="true">\s*<button[^>]*id="([^"]+)"', page)
+    assert divided == ["f-source-iban"]
+    assert page.count('class="fdiv"') == 1

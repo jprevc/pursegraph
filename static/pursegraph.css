@@ -493,6 +493,8 @@ button.fopt .n { margin-left: auto; padding-top: 1px; padding-left: var(--s-2); 
 button.fopt[aria-pressed="true"] .n { color: var(--accent-text); }
 button.fopt.zero:not([aria-pressed="true"]) { opacity: .45; }
 button.fopt.sub { padding-left: 1.625rem; font-size: var(--text-sm); }
+/* A hairline parting an option from those before, inset like their text; its own element, so a dimmed option leaves it whole. */
+.facet .fdiv { width: auto; margin: var(--s-1) var(--s-2); border: 0; border-top: 1px solid var(--line); }
 button.fopt:focus-visible { outline-offset: -2px; }
 /* Amount: a Money segmented control (the theme switch's track), then the range. */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; min-width: 0; margin: 0 var(--s-2); padding: 3px; border: 0; border-radius: var(--r-ctl); background: var(--ground); }

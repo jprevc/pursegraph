@@ -24,8 +24,11 @@ from .models import SOURCE_CAPTIONS, Category, Source, Transaction
 
 UNRESOLVED = "unresolved"
 TRANSFER = "transfer"
-# What the Decided facet offers, in its order; "by import" (a bank fee) is left to Any way.
-SOURCES = [Source.RULE, Source.CATEGORIZER, Source.IBAN, Source.PAIRING, Source.MANUAL]
+# What the Decided facet offers, in its order: the ways that decide any outcome, then, under a hairline, those that
+# only find a Transfer. "by import" (a bank fee) is left to Any way.
+ANY_OUTCOME_SOURCES = [Source.RULE, Source.CATEGORIZER, Source.MANUAL]
+TRANSFER_SOURCES = [Source.IBAN, Source.PAIRING]
+SOURCES = ANY_OUTCOME_SOURCES + TRANSFER_SOURCES
 OUT, IN = "out", "in"
 
 
@@ -256,7 +259,8 @@ def counts(choice: Choice) -> dict[str, dict[str, int]]:
 class Option:
     """One facet option: its `label`, its `count` with the other facets held, whether it is `chosen`, and the query
     value picking it submits (`pick`; "" picks nothing, which clears the facet). `dot` is "awaiting", "transfer" or
-    a Category's hue token, `note` a line explaining it and `sub` marks a Subcategory under its Category."""
+    a Category's hue token, `note` a line explaining it, `sub` marks a Subcategory under its Category and `divided`
+    draws a hairline above it, parting it from the options before."""
 
     label: str
     count: int
@@ -265,6 +269,7 @@ class Option:
     dot: str = ""
     note: str = ""
     sub: bool = False
+    divided: bool = False
     # Where focus can find it again after a swap.
     key: str = ""
 
@@ -384,7 +389,7 @@ def rail(choice: Choice, counts: dict[str, dict[str, int]], total: int) -> list[
             ]
 
     source_options = [
-        replace(o, note=str(SOURCE_NOTES[Source(o.key)]))
+        replace(o, note=str(SOURCE_NOTES[Source(o.key)]), divided=o.key == TRANSFER_SOURCES[0])
         for o in _options(
             [(s.value, str(SOURCE_CAPTIONS[s])) for s in SOURCES], choice.source, counts["source"]
         )
