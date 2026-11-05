@@ -9,7 +9,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.test import Client
 from django.utils import timezone
 
-from tests.conftest import PASSWORD, log_in, make_account
+from tests.conftest import PASSWORD, log_in, make_account, view_table
 
 pytestmark = pytest.mark.django_db
 
@@ -511,6 +511,48 @@ def test_the_rename_dialog_offers_the_current_name(admin_client, member):
     assert 'name="name" value="Luka Novak"' in swapped
     assert re.search(r"<dialog [^>]*open>", page)
     assert 'id="roles"' in page
+
+
+def test_admin_renames_themselves_and_a_deactivated_member(admin_client, admin, member):
+    member.is_active = False
+    member.save()
+
+    rename(admin_client, admin, "Boris Kos")
+    rename(admin_client, member, "Ana Novak")
+
+    shown = groups(admin_client)
+    assert shown["Admins · 1"][0].startswith("Boris Kos You boris")
+    assert shown["Deactivated · 1"][0].startswith("Ana Novak ana")
+
+
+def test_the_new_name_shows_in_per_member(admin_client, household):
+    rename(admin_client, household["marko"], "Marko Horvat")
+
+    page = admin_client.get("/per-member/", {"period": "2026-09"}).content.decode()
+
+    assert [row[0] for row in view_table(page)] == ["ana", "Marko Horvat", "Joint"]
+
+
+def test_the_name_is_saved_without_surrounding_whitespace(admin_client, member):
+    rename(admin_client, member, "  Luka Horvat ")
+
+    member.refresh_from_db()
+    assert member.get_full_name() == "Luka Horvat"
+
+
+def test_renaming_a_member_with_a_last_name_replaces_the_whole_name(admin_client, member):
+    # Made outside the app, such as with createsuperuser: the app itself never splits names.
+    member.first_name, member.last_name = "Bor", "Novak"
+    member.save()
+
+    dialog = admin_client.get(f"/members/{member.pk}/rename/", **HTMX).content.decode()
+    unchanged = rename(admin_client, member, "Bor Novak", **HTMX)
+    rename(admin_client, member, "Bor Kos")
+
+    assert 'name="name" value="Bor Novak"' in dialog
+    assert "announce" not in unchanged.get("HX-Trigger", "")
+    member.refresh_from_db()
+    assert member.get_full_name() == "Bor Kos"
 
 
 def test_the_shell_shows_the_members_name_or_their_username(admin_client, admin):
