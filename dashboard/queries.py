@@ -2,18 +2,29 @@
 The views only render what it returns.
 
 Everywhere: Transfers are left out, Refunds net against spending in their Subcategory, and unresolved
-Transactions form an "Awaiting review" bucket: on the spending side, the unresolved money out."""
+Transactions form an "Awaiting review" bucket: on the spending side, the unresolved money out. A Split Transaction
+counts each Part in the Part's own Subcategory (ADR 0003); it is money in or out as its Parts are."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any
 
-from django.db.models import IntegerField, OuterRef, Q, QuerySet, Subquery, Sum
+from django.db.models import Exists, F, IntegerField, OuterRef, Q, QuerySet, Subquery, Sum
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils.translation import gettext as _
 
-from ledger.models import Account, AccountIBAN, Category, Subcategory, Transaction
+from ledger.models import (
+    UNRESOLVED,
+    Account,
+    AccountIBAN,
+    Category,
+    Part,
+    Subcategory,
+    Transaction,
+    TransactionQuerySet,
+    counts_in,
+)
 from pursegraph.figures import month_short
 
 from . import periods
@@ -122,22 +133,61 @@ class ViewData:
     chart: dict
 
 
+def _of_kind(kind: Category.Kind) -> Q:
+    """A Transaction counted as `kind`: in a Subcategory of that kind, or Split into some (its Parts are all of one
+    kind)."""
+    return Q(subcategory__category__kind=kind) | Q(
+        Exists(Part.objects.filter(transaction=OuterRef("pk"), subcategory__category__kind=kind))
+    )
+
+
 # Money out is spending, Refunds netted in, and unresolved money out; money in is income and unresolved money in.
-MONEY_OUT = Q(subcategory__category__kind=Category.Kind.SPENDING) | Q(
-    subcategory__isnull=True, amount__lt=0
-)
-MONEY_IN = Q(subcategory__category__kind=Category.Kind.INCOME) | Q(
-    subcategory__isnull=True, amount__gt=0
-)
+MONEY_OUT = _of_kind(Category.Kind.SPENDING) | Q(UNRESOLVED, amount__lt=0)
+MONEY_IN = _of_kind(Category.Kind.INCOME) | Q(UNRESOLVED, amount__gt=0)
+
+# What `_counted_by` can group by, as a Transaction's field and as a Part's.
+_GROUPINGS = {
+    "subcategory": (F("subcategory"), F("subcategory")),
+    "category": (F("subcategory__category"), F("subcategory__category")),
+    "account": (F("account"), F("transaction__account")),
+    "month": (TruncMonth("date"), TruncMonth("transaction__date")),
+}
 
 
-def _transactions(period: Period, filters: Filters) -> QuerySet[Transaction]:
+def _counted_by(transactions: QuerySet[Transaction], *by: str) -> dict[tuple, Decimal]:
+    """The money `transactions` count, summed per combination of `by` (names in `_GROUPINGS`, None for an
+    unresolved Transaction's Subcategory or Category): each unsplit Transaction's amount, and each Split's Parts' in
+    their own Subcategories."""
+    whole = transactions.filter(is_split=False)
+    parts = Part.objects.filter(transaction__in=transactions.filter(is_split=True).values("pk"))
+    sums: dict[tuple, Decimal] = {}
+    for rows, side in ((whole, 0), (parts, 1)):
+        grouped = (
+            rows.values(**{f"by_{name}": _GROUPINGS[name][side] for name in by})
+            .annotate(total=Sum("amount"))
+            .values_list(*(f"by_{name}" for name in by), "total")
+            .order_by()
+        )
+        for *key, total in grouped:
+            sums[tuple(key)] = sums.get(tuple(key), Decimal(0)) + total
+    return sums
+
+
+def _marked(transactions: TransactionQuerySet, lines: Q | None = None) -> QuerySet[Transaction]:
+    """A drill-down's Transactions: those of `transactions` with money counted where `lines` says (see
+    `ledger.models.counts_in`), or all of them, each with what it counts there."""
+    if lines:
+        transactions = transactions.filter(counts_in(lines))
+    return transactions.with_counted(lines)
+
+
+def _transactions(period: Period, filters: Filters) -> TransactionQuerySet:
     return Transaction.objects.filter(
         filters.scope(), date__gte=period.start, date__lte=period.end, is_transfer=False
     )
 
 
-def _to_other_members(period: Period, filters: Filters) -> QuerySet[Transaction]:
+def _to_other_members(period: Period, filters: Filters) -> TransactionQuerySet:
     """Under a Member filter, the Transfers between the filtered Accounts and other Members' Accounts: those whose
     other side, the paired counterpart or else the Account of the counterparty IBAN, is outside the Member's
     bucket. A Transfer whose other side isn't known is left out, as it can't be told apart from one of the
@@ -161,7 +211,7 @@ def _to_other_members(period: Period, filters: Filters) -> QuerySet[Transaction]
     )
 
 
-def _all_money(period: Period, filters: Filters) -> QuerySet[Transaction]:
+def _all_money(period: Period, filters: Filters) -> TransactionQuerySet:
     """Money in, money out and, under a Member filter, the Transfers to or from other Members."""
     return Transaction.objects.filter(
         Q(pk__in=_transactions(period, filters).filter(MONEY_IN | MONEY_OUT).values("pk"))
@@ -169,7 +219,7 @@ def _all_money(period: Period, filters: Filters) -> QuerySet[Transaction]:
     )
 
 
-def _spending(period: Period, filters: Filters) -> QuerySet[Transaction]:
+def _spending(period: Period, filters: Filters) -> TransactionQuerySet:
     """What Spending by Category counts: spending Subcategories, Refunds included, and unresolved money out."""
     return _transactions(period, filters).filter(MONEY_OUT)
 
@@ -209,9 +259,11 @@ def _income_key() -> str | None:
 
 def spending_by_category(period: Period, filters: Filters) -> ViewData:
     """Spending per Category, biggest first, each with its Subcategories, then the Awaiting review bucket."""
-    spent = _spending(period, filters).values("subcategory").annotate(total=-Sum("amount"))
     # None is the unresolved money out.
-    by_subcategory: dict[int | None, Decimal] = {s["subcategory"]: s["total"] for s in spent}
+    by_subcategory: dict[int | None, Decimal] = {
+        subcategory: -total
+        for (subcategory,), total in _counted_by(_spending(period, filters), "subcategory").items()
+    }
     rows = []
     for category in Category.objects.filter(kind=Category.Kind.SPENDING).prefetch_related(
         "subcategories"
@@ -253,10 +305,10 @@ def spending_transactions(period: Period, filters: Filters, key: str) -> QuerySe
     """The Transactions behind one Spending by Category mark, as the drill-down lists them."""
     spending = _spending(period, filters)
     if key == AWAITING_REVIEW:
-        return spending & Transaction.objects.unresolved()
+        return _marked(spending.filter(UNRESOLVED))
     if key.isdigit():
-        return spending.filter(subcategory__category=int(key))
-    return spending.none()
+        return _marked(spending, Q(subcategory__category=int(key)))
+    return _marked(spending.none())
 
 
 def cashflow(period: Period, filters: Filters) -> ViewData:
@@ -317,31 +369,26 @@ def cashflow_transactions(period: Period, filters: Filters, key: str) -> QuerySe
     month_key, _sep, side = key.partition(":")
     month = _month_in(period, month_key)
     if month is None or side not in ("", "in", "out", OTHERS):
-        return Transaction.objects.none()
+        return _marked(Transaction.objects.none())
     transactions = _transactions(month, filters)
     if side == "in":
-        return transactions.filter(MONEY_IN)
+        return _marked(transactions.filter(MONEY_IN))
     if side == "out":
-        return transactions.filter(MONEY_OUT)
+        return _marked(transactions.filter(MONEY_OUT))
     if side == OTHERS:
-        return _to_other_members(month, filters)
-    return _all_money(month, filters)
+        return _marked(_to_other_members(month, filters))
+    return _marked(_all_money(month, filters))
 
 
 def category_trends(period: Period, filters: Filters) -> ViewData:
     """Each Category's spending per month, biggest first, then Awaiting review. A line's key is its Category's
     key from Spending by Category; a point's adds ":<month>"."""
-    spent = (
-        _spending(period, filters)
-        .annotate(month=TruncMonth("date"))
-        .values("month", "subcategory__category")
-        .annotate(total=-Sum("amount"))
-    )
     by_line: dict[str, dict[str, Decimal]] = {}
-    for s in spent:
-        category = s["subcategory__category"]
+    for (month, category), total in _counted_by(
+        _spending(period, filters), "month", "category"
+    ).items():
         line = str(category) if category else AWAITING_REVIEW
-        by_line.setdefault(line, {})[f"{s['month']:%Y-%m}"] = s["total"]
+        by_line.setdefault(line, {})[f"{month:%Y-%m}"] = -total
     months = _months_shown(period, {m for line in by_line.values() for m in line})
 
     def trend(label: str, key: str) -> Trend:
@@ -377,7 +424,7 @@ def trends_transactions(period: Period, filters: Filters, key: str) -> QuerySet[
     if month_key:
         month = _month_in(period, month_key)
         if month is None:
-            return Transaction.objects.none()
+            return _marked(Transaction.objects.none())
         period = month
     return spending_transactions(period, filters, line)
 
@@ -422,17 +469,13 @@ def per_member(period: Period, filters: Filters) -> ViewData:
     It compares every Member, so it ignores the Member filter."""
     filters = replace(filters, member=None)
     of_account, labels = buckets()
-    spent = (
-        _spending(period, filters)
-        .values("account", "subcategory__category")
-        .annotate(total=-Sum("amount"))
-    )
     by_bucket: dict[str, dict[str, Decimal]] = {}
-    for s in spent:
-        category = s["subcategory__category"]
+    for (account, category), total in _counted_by(
+        _spending(period, filters), "account", "category"
+    ).items():
         segment = str(category) if category else AWAITING_REVIEW
-        bucket = by_bucket.setdefault(of_account[s["account"]], {})
-        bucket[segment] = bucket.get(segment, Decimal(0)) + s["total"]
+        bucket = by_bucket.setdefault(of_account[account], {})
+        bucket[segment] = bucket.get(segment, Decimal(0)) - total
     segments = [
         (str(c.pk), c.name) for c in Category.objects.filter(kind=Category.Kind.SPENDING)
     ] + [(AWAITING_REVIEW, _("Awaiting review"))]
@@ -471,12 +514,12 @@ def per_member(period: Period, filters: Filters) -> ViewData:
 
 
 def per_member_transactions(period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
-    filters = replace(filters, member=None)
+    # The Member's bucket, as the Member filter narrows to it.
     member, _sep, segment = key.partition(":")
-    spending = _spending(period, filters).filter(account__in=_bucket(member))
+    filters = replace(filters, member=member)
     if not segment:
-        return spending
-    return spending & spending_transactions(period, filters, segment)
+        return _marked(_spending(period, filters))
+    return spending_transactions(period, filters, segment)
 
 
 # Money flow's node keys besides Categories' and income Subcategories'.
@@ -487,7 +530,7 @@ LEFT_OVER = "left_over"
 BEYOND = "beyond"
 
 
-def _income(period: Period, filters: Filters) -> QuerySet[Transaction]:
+def _income(period: Period, filters: Filters) -> TransactionQuerySet:
     return _transactions(period, filters).filter(MONEY_IN)
 
 
@@ -503,8 +546,8 @@ def money_flow(period: Period, filters: Filters) -> ViewData:
     hue it wears (an income Subcategory its own Income Category's), if any."""
     # None is the unresolved money in.
     received: dict[int | None, Decimal] = {
-        r["subcategory"]: r["total"]
-        for r in _income(period, filters).values("subcategory").annotate(total=Sum("amount"))
+        subcategory: total
+        for (subcategory,), total in _counted_by(_income(period, filters), "subcategory").items()
     }
     income = [
         s
@@ -577,22 +620,22 @@ def money_flow_transactions(period: Period, filters: Filters, key: str) -> Query
     by Category, all money in ("in"), all money out ("out"), what Transfers moved to or from other Members
     ("others") or all of it ("household")."""
     if key == HOUSEHOLD:
-        return _all_money(period, filters)
+        return _marked(_all_money(period, filters))
     if key == OTHERS:
-        return _to_other_members(period, filters)
+        return _marked(_to_other_members(period, filters))
     if key == INCOME:
-        return _income(period, filters)
+        return _marked(_income(period, filters))
     if key == "out":
-        return _spending(period, filters)
+        return _marked(_spending(period, filters))
     group, _sep, source = key.partition(":")
     if group != INCOME:
         return spending_transactions(period, filters, key)
     income = _income(period, filters)
     if source == AWAITING_REVIEW:
-        return income & Transaction.objects.unresolved()
+        return _marked(income.filter(UNRESOLVED))
     if source.isdigit():
-        return income.filter(subcategory=int(source))
-    return income.none()
+        return _marked(income, Q(subcategory=int(source)))
+    return _marked(income.none())
 
 
 VIEWS = {
@@ -700,7 +743,7 @@ def _headline(period: Period, filters: Filters) -> tuple[Decimal, Decimal, Decim
 def awaiting_review(period: Period, filters: Filters) -> tuple[Decimal, Decimal | None]:
     """The Period's money out awaiting review, and its share of all money out (None when there is none to share)."""
     totals = _spending(period, filters).aggregate(
-        awaiting=-Sum("amount", filter=Q(subcategory__isnull=True)), spent=-Sum("amount")
+        awaiting=-Sum("amount", filter=UNRESOLVED), spent=-Sum("amount")
     )
     awaiting, spent = totals["awaiting"] or Decimal(0), totals["spent"] or Decimal(0)
     return awaiting, awaiting / spent if spent > 0 else None
@@ -731,6 +774,8 @@ def view_data(view: str, period: Period, filters: Filters) -> ViewData:
 
 
 def drill_down(view: str, period: Period, filters: Filters, key: str) -> QuerySet[Transaction]:
+    """The Transactions behind the mark `key`, each with `counted`, the money it counts in that mark, and its Parts,
+    each with `counted`, whether it is one of those (`TransactionQuerySet.with_counted`)."""
     return DRILL_DOWNS[view](period, filters, key)
 
 

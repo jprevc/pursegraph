@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import cached_property
 
-from django.db.models import Count, Min, Q, QuerySet, Sum
+from django.db.models import Count, Exists, Min, OuterRef, Q, QuerySet, Sum
 from django.db.models.functions import TruncMonth
 from django.utils.http import urlencode
 from django.utils.translation import gettext as _
@@ -20,7 +20,8 @@ from dashboard.queries import VIEWS, Filters, buckets, filter_choices
 from dashboard.templatetags.hues import hue
 from pursegraph import figures
 
-from .models import SOURCE_CAPTIONS, Category, Source, Transaction
+from .models import SOURCE_CAPTIONS, Category, Part, Source, Transaction, counts_in
+from .models import UNRESOLVED as AWAITING_REVIEW
 from .transfers import WINDOW
 
 UNRESOLVED = "unresolved"
@@ -183,23 +184,37 @@ class Choice:
         return q
 
 
-def _outcome_condition(outcome: str) -> Q:
-    """The Transactions with `outcome`, as `Choice.outcome` names it; all of them for none."""
-    if outcome == UNRESOLVED:
-        return Q(subcategory__isnull=True, is_transfer=False)
-    if outcome == TRANSFER:
-        return Q(is_transfer=True)
+def _lines(outcome: str) -> Q | None:
+    """For a Category or Subcategory `outcome`, the condition on a Transaction's or a Part's Subcategory that
+    picks the money counted there (see `ledger.models.counts_in`); None for any other."""
     kind, _sep, pk = outcome.partition("-")
     if kind == "category":
         return Q(subcategory__category=int(pk))
     if kind == "subcategory":
         return Q(subcategory=int(pk))
-    return Q()
+    return None
+
+
+def _outcome_condition(outcome: str) -> Q:
+    """The Transactions with `outcome`, as `Choice.outcome` names it, a Split among those of each Category and
+    Subcategory a Part is in; all of them for none."""
+    if outcome == UNRESOLVED:
+        return AWAITING_REVIEW
+    if outcome == TRANSFER:
+        return Q(is_transfer=True)
+    lines = _lines(outcome)
+    return counts_in(lines) if lines else Q()
 
 
 def rows(choice: Choice) -> QuerySet[Transaction]:
-    """The chosen Transactions, newest first."""
-    return Transaction.objects.filter(choice.condition()).order_by("-date", "-id")
+    """The chosen Transactions, newest first, each with `counted`, the money it counts in the chosen Category or
+    Subcategory, and its Parts, each with `counted`, whether it is one of those
+    (`TransactionQuerySet.with_counted`)."""
+    return (
+        Transaction.objects.filter(choice.condition())
+        .with_counted(_lines(choice.outcome))
+        .order_by("-date", "-id")
+    )
 
 
 def _grouped(choice: Choice, facet: str, *fields, **expressions) -> list[dict]:
@@ -237,13 +252,34 @@ def counts(choice: Choice) -> dict[str, dict[str, int]]:
     result["account"] = by_account
 
     by_outcome = Counter[str]()
-    for group in _grouped(choice, "outcome", "subcategory", "subcategory__category", "is_transfer"):
+    for group in _grouped(
+        choice, "outcome", "subcategory", "subcategory__category", "is_transfer", "is_split"
+    ):
         if group["subcategory"]:
             by_outcome[f"category-{group['subcategory__category']}"] += group["n"]
             by_outcome[f"subcategory-{group['subcategory']}"] += group["n"]
-        else:
+        elif not group["is_split"]:
             by_outcome[TRANSFER if group["is_transfer"] else UNRESOLVED] += group["n"]
         by_outcome[""] += group["n"]
+    # A Split counts once under each Subcategory it has a Part in, and once under each Category: by its first Part
+    # there.
+    earlier_in_category = Part.objects.filter(
+        transaction=OuterRef("transaction"),
+        subcategory__category=OuterRef("subcategory__category"),
+        id__lt=OuterRef("id"),
+    )
+    for parts in (
+        Part.objects.filter(
+            transaction__in=Transaction.objects.filter(
+                choice.condition(without="outcome"), is_split=True
+            ).values("pk")
+        )
+        .values("subcategory", "subcategory__category")
+        .annotate(n=Count("id"), first=Count("id", filter=~Exists(earlier_in_category)))
+        .order_by()
+    ):
+        by_outcome[f"subcategory-{parts['subcategory']}"] += parts["n"]
+        by_outcome[f"category-{parts['subcategory__category']}"] += parts["first"]
     result["outcome"] = by_outcome
 
     by_source = Counter[str]()
