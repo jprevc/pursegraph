@@ -12,7 +12,7 @@ from django.db.models import Count, Min, Q, QuerySet, Sum
 from django.db.models.functions import TruncMonth
 from django.utils.http import urlencode
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy, ngettext
+from django.utils.translation import gettext_lazy, ngettext, ngettext_lazy
 
 from dashboard import periods
 from dashboard.periods import Period
@@ -21,6 +21,7 @@ from dashboard.templatetags.hues import hue
 from pursegraph import figures
 
 from .models import SOURCE_CAPTIONS, Category, Source, Transaction
+from .transfers import WINDOW
 
 UNRESOLVED = "unresolved"
 TRANSFER = "transfer"
@@ -300,11 +301,16 @@ SOURCE_NOTES = {
         "A Categorizer suggested it, sure enough to take it on its own."
     ),
     Source.IBAN: gettext_lazy(
-        "The other side's IBAN is one of the Household's, so it's a Transfer."
+        "It pays to or from another of the Household's own Accounts, so it's a Transfer."
     ),
-    Source.PAIRING: gettext_lazy(
-        "Matched with its other side in another of the Household's Accounts."
-    ),
+    Source.PAIRING: ngettext_lazy(
+        "Paired with its other side in another Account: same amount, the opposite way, "
+        "within %(days)d day.",
+        "Paired with its other side in another Account: same amount, the opposite way, "
+        "within %(days)d days.",
+        "days",
+    )
+    % {"days": WINDOW.days},
     Source.MANUAL: gettext_lazy("A Member chose it."),
 }
 
