@@ -52,6 +52,14 @@ _Avoid_: Expense type, label, tag
 A finer division of a Category, such as Utilities under Home. Categories have exactly two levels, and every Category has a catch-all Subcategory.
 _Avoid_: Child category, sub-type
 
+**Split**:
+A Transaction whose outcome is several Parts instead of one Subcategory, because one payment covered several kinds of spending (or of income). Its Subcategories are all spending or all income. It stays one Transaction: one row on its Statement, one amount. Only a Member splits a Transaction; no Rule or Suggestion does. If a re-parse changes the Transaction's amount, the Split is dropped and the Transaction waits in the Review queue again.
+_Avoid_: Breakdown, allocation, child transactions
+
+**Part**:
+One piece of a Split: an exact amount placed in one Subcategory. A Split has at least two Parts, each in a different Subcategory and in the Transaction's direction (no Part of a purchase is a Refund), and their amounts add up to the Transaction's to the cent. Each Part counts as spending or income in its own Subcategory.
+_Avoid_: Share, portion, line, item
+
 **Rule**:
 A Member-defined pattern that assigns a Category to matching Transactions, or marks them as Transfers, often created from a manual correction.
 _Avoid_: Filter, mapping, auto-label

@@ -12,11 +12,13 @@
     const key = chip.dataset.category;
     for (const step of pick.querySelectorAll('.pick-step')) step.classList.toggle('shown', step.dataset.step === key);
     pick.classList.toggle('stepped', key !== '');
+    // The open Category is `data-open-category`, not `data-category`, which would make the whole box a chip: a click on
+    // an outcome would then focus the first Subcategory, and HTMX would send that one instead.
     if (key) {
-      pick.dataset.category = key;
+      pick.dataset.openCategory = key;
       pick.querySelector(`.pick-step[data-step="${key}"] button[type="submit"]`)?.focus();
     } else {
-      pick.querySelector(`.pick-step[data-step=""] [data-category="${pick.dataset.category}"]`)?.focus();
+      pick.querySelector(`.pick-step[data-step=""] [data-category="${pick.dataset.openCategory}"]`)?.focus();
     }
   });
 
