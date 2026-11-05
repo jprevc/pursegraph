@@ -1268,6 +1268,8 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .thr input[type="range"] { flex: 1 1 12rem; min-width: 0; accent-color: var(--accent); }
 .thr .pct { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .thr input[type="number"] { width: 5.5rem; text-align: right; }
+/* The buttons get a row of their own: Keep coming and going, or Save's label changing, would resize the slider under the pointer. */
+.thr .form-actions { flex-basis: 100%; }
 .thr-note { margin: var(--s-2) 0 0; font-size: var(--text-label); }
 .suggestions .error { margin: var(--s-2) 0 0; }
 .suggestions-again > p { margin: var(--s-2) 0 var(--s-3); }
