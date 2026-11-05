@@ -502,9 +502,9 @@ class Rule(models.Model):
         return _("Anything on %(account)s") % {"account": on}
 
 
-class CategorizerToken(models.Model):
-    """What one Categorizer authenticates with. It can only fetch the Transactions waiting for a Suggestion and send
-    Suggestions back; it can't log in. Only a hash of the secret is stored; the admin sees the secret once."""
+class ApiToken(models.Model):
+    """What one program outside Pursegraph, such as a Categorizer, authenticates with to its API (ledger/api.py). So
+    far it can only fetch the Transactions waiting for a Suggestion and send Suggestions back; it can't log in. Only a hash of the secret is stored; the admin sees the secret once."""
 
     name = models.CharField(_("name"), max_length=100)
     # SHA-256 of the secret, in hex.
@@ -526,16 +526,16 @@ class CategorizerToken(models.Model):
 
     class Meta:
         ordering = ["name", "id"]
-        verbose_name = _("Categorizer token")
-        verbose_name_plural = _("Categorizer tokens")
+        verbose_name = _("API token")
+        verbose_name_plural = _("API tokens")
 
     def __str__(self):
         return self.name
 
 
 class Webhook(models.Model):
-    """A URL Pursegraph POSTs to when an action leaves Transactions waiting for a Suggestion, so a Categorizer knows
-    to fetch them (ledger/webhooks.py). The URL holds the receiver's secret, so pages show it masked."""
+    """A URL Pursegraph POSTs to when an action leaves Transactions waiting for a Suggestion, so whatever listens there
+    knows to fetch them (ledger/webhooks.py). The URL holds the receiver's secret, so pages show it masked."""
 
     class Outcome(models.TextChoices):
         DELIVERED = "delivered", _("delivered")
@@ -567,7 +567,7 @@ class Webhook(models.Model):
 
     @property
     def failure(self) -> str:
-        """Why its latest attempt failed, as the Categorizers page says it: "HTTP 500", "timed out" or "couldn't
+        """Why its latest attempt failed, as the API & Webhooks page says it: "HTTP 500", "timed out" or "couldn't
         connect"; "" if it was delivered or never made."""
         if self.last_outcome == self.Outcome.HTTP_ERROR:
             return f"HTTP {self.last_status}"

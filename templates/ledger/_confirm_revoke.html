@@ -1,9 +1,9 @@
-{% load i18n %}{# Revoking a Categorizer token, confirmed inline under its row (docs/design/admin.md). #}
-<form class="confirm" method="post" action="{% url 'revoke_categorizer' token.pk %}">
+{% load i18n %}{# Revoking an API token, confirmed inline under its row (docs/design/admin.md). #}
+<form class="confirm" method="post" action="{% url 'revoke_token' token.pk %}">
   {% csrf_token %}
-  <p>{% blocktranslate with name=token.name %}Revoke <b>{{ name }}</b>? Its Categorizer can't connect any more. The suggestions it already sent stay.{% endblocktranslate %}</p>
+  <p>{% blocktranslate with name=token.name %}Revoke <b>{{ name }}</b>? What uses it can't connect any more. The suggestions it already sent stay.{% endblocktranslate %}</p>
   <div class="form-actions">
-    <a class="button" href="{% url 'categorizers' %}" data-keep>{% translate "Keep it" %}</a>
+    <a class="button" href="{% url 'api_and_webhooks' %}" data-keep>{% translate "Keep it" %}</a>
     <button type="submit" class="primary" data-focus>{% translate "Revoke" %}</button>
   </div>
 </form>

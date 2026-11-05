@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from ledger import categorizers, webhooks
-from ledger.models import CategorizerToken, Source, Transaction, Webhook
+from ledger import api_tokens, webhooks
+from ledger.models import ApiToken, Source, Transaction, Webhook
 from tests.conftest import finish_deliveries, subcategory_id
 from tests.test_rules import make_transaction
 
@@ -99,7 +99,7 @@ def start(live_server, django_user_model, ollama):
 
     def start():
         admin = django_user_model.objects.create_user(username="bor", is_admin=True)
-        record, token = categorizers.create("Qwen on the NAS", admin)
+        record, token = api_tokens.create("Qwen on the NAS", admin)
         server = example.start(
             {
                 "PURSEGRAPH_URL": live_server.url,
@@ -111,7 +111,7 @@ def start(live_server, django_user_model, ollama):
         )
         servers.append(server)
         threading.Thread(target=server.serve_forever, daemon=True).start()
-        eventually(lambda: CategorizerToken.objects.get(pk=record.pk).last_used_at)
+        eventually(lambda: ApiToken.objects.get(pk=record.pk).last_used_at)
         return f"http://127.0.0.1:{server.server_port}"
 
     yield start

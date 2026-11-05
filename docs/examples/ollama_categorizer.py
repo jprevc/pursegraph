@@ -8,7 +8,7 @@ waiting for a Suggestion through the Categorizer API, asks Ollama about each and
 nothing is waiting. It does that once when it starts too. It reads
 
 - PURSEGRAPH_URL: where it reaches Pursegraph, such as http://192.168.1.20:8000;
-- CATEGORIZER_TOKEN: a token from Pursegraph's Categorizers page;
+- CATEGORIZER_TOKEN: an API token from Pursegraph's API & Webhooks page;
 - OLLAMA_URL: the Ollama server, such as http://localhost:11434;
 - WEBHOOK_SECRET: the secret at the end of the Webhook's URL, http://<this host>:<PORT>/<WEBHOOK_SECRET>;
 - PORT: where it listens, 8765 by default;
@@ -69,7 +69,7 @@ def _call(url: str, body: dict | None, headers: dict[str, str], timeout: float) 
 
 
 class Pursegraph:
-    """The Categorizer API of the Pursegraph at `base_url`, called with the Categorizer token `token`."""
+    """The Categorizer API of the Pursegraph at `base_url`, called with the API token `token`."""
 
     def __init__(self, base_url: str, token: str, *, timeout: float = 30):
         self.base_url = base_url.rstrip("/")

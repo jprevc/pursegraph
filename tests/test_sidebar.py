@@ -63,7 +63,7 @@ def test_admins_find_the_admin_pages_under_manage(admin_client, household):
         "Rules",
         "Categories",
         "Suggestions",
-        "Categorizers",
+        "API & Webhooks",
         "Accounts",
         "Members",
     ]
@@ -82,6 +82,7 @@ def test_admins_find_the_admin_pages_under_manage(admin_client, household):
         ("/rules/new/", "Rules"),
         ("/accounts/new/", "Accounts"),
         ("/members/new/", "Members"),
+        ("/api-and-webhooks/", "API & Webhooks"),
     ],
 )
 def test_only_the_current_page_is_marked_current(admin_client, household, url, current):
@@ -95,7 +96,9 @@ def test_manage_is_rendered_closed_away_from_its_pages(admin_client, household, 
     assert " open" not in manage(admin_client.get(url).content.decode())[1]
 
 
-@pytest.mark.parametrize("url", ["/rules/", "/categories/", "/suggestions/", "/members/"])
+@pytest.mark.parametrize(
+    "url", ["/rules/", "/categories/", "/suggestions/", "/api-and-webhooks/", "/members/"]
+)
 def test_manage_is_open_on_its_pages(admin_client, household, url):
     assert " open" in manage(admin_client.get(url).content.decode())[1]
 
@@ -258,7 +261,7 @@ def test_the_more_sheet_holds_import_manage_the_theme_and_log_out(admin_client, 
         "Rules",
         "Categories",
         "Suggestions",
-        "Categorizers",
+        "API & Webhooks",
         "Accounts",
         "Members",
     ]

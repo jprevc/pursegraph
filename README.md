@@ -14,7 +14,7 @@ The screenshots show a synthetic Household from `manage.py seed_demo`; `scripts/
 
 - **Statement import:** parsers for Sparkasse SI, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
 - **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then Suggestions from a Categorizer you connect (an LLM or any other service). Low-confidence Suggestions wait in a Review queue.
-- **Privacy:** Transaction text leaves Pursegraph only through a Categorizer you connect, which fetches it with a token of its own.
+- **Privacy:** Transaction text leaves Pursegraph only through a Categorizer you connect, which fetches it with an API token of its own.
 - **Dashboard:** spending by Category, cashflow, Category trends, per-Member and money-flow views, with drill-down to the Transactions and warnings for gaps in the imported periods.
 
 Built with Django 5.2, PostgreSQL, HTMX and ECharts, and deployed with Docker Compose. Tested with pytest against a real PostgreSQL, and checked with ruff and mypy.

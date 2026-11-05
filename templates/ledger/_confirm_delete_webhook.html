@@ -3,7 +3,7 @@
   {% csrf_token %}
   <p>{% blocktranslate with name=webhook.name %}Delete <b>{{ name }}</b>? Pursegraph stops calling it.{% endblocktranslate %}</p>
   <div class="form-actions">
-    <a class="button" href="{% url 'categorizers' %}" data-keep>{% translate "Keep it" %}</a>
+    <a class="button" href="{% url 'api_and_webhooks' %}" data-keep>{% translate "Keep it" %}</a>
     <button type="submit" class="primary" data-focus>{% translate "Delete" %}</button>
   </div>
 </form>

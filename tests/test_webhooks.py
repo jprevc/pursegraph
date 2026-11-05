@@ -1,4 +1,4 @@
-"""Webhooks: what Pursegraph POSTs to a real local receiver, when, and what the Categorizers page shows of it."""
+"""Webhooks: what Pursegraph POSTs to a real local receiver, when, and what the API & Webhooks page shows of it."""
 
 import re
 import socket
@@ -228,17 +228,17 @@ def test_a_fired_delivery_records_its_outcome(admin_client, receiver):
 
 
 def webhooks_shown(client):
-    """The Categorizers page's Webhook rows, as text."""
-    page = client.get("/categorizers/").content.decode()
+    """The API & Webhooks page's Webhook rows, as text."""
+    page = client.get("/api-and-webhooks/").content.decode()
     return [page_text(row) for row in re.findall(r'<div class="w-who">(.*?)</div>', page, re.S)]
 
 
 def add_webhook(client, name="Home Assistant", url="https://ha.example:8123/api/webhook/s3cret"):
-    return client.post("/categorizers/webhooks/", {"name": name, "url": url})
+    return client.post("/api-and-webhooks/webhooks/", {"name": name, "url": url})
 
 
 def test_with_no_webhook_the_page_says_categorizers_must_ask(admin_client):
-    text = page_text(admin_client.get("/categorizers/").content.decode())
+    text = page_text(admin_client.get("/api-and-webhooks/").content.decode())
 
     assert "Webhooks · 0" in text
     assert "No Webhook yet" in text
@@ -251,7 +251,7 @@ def test_an_admin_adds_a_webhook_shown_with_its_url_masked(admin_client):
     assert webhooks_shown(admin_client) == [
         "Home Assistant https://ha.example:8123/•••• · Never called"
     ]
-    assert "s3cret" not in admin_client.get("/categorizers/").content.decode()
+    assert "s3cret" not in admin_client.get("/api-and-webhooks/").content.decode()
 
 
 @pytest.mark.parametrize(
@@ -282,8 +282,8 @@ def test_a_webhook_can_be_on_a_host_without_a_domain(admin_client):
 
 def delete_url(client):
     found = re.search(
-        r'href="(/categorizers/webhooks/\d+/delete/)"',
-        client.get("/categorizers/").content.decode(),
+        r'href="(/api-and-webhooks/webhooks/\d+/delete/)"',
+        client.get("/api-and-webhooks/").content.decode(),
     )
     assert found, "no Delete"
     return found[1]
@@ -303,8 +303,8 @@ def test_deleting_is_confirmed_inline_and_removes_the_webhook(admin_client):
 
 
 def notify_now(client, **headers):
-    page = client.get("/categorizers/").content.decode()
-    found = re.search(r'action="(/categorizers/webhooks/\d+/notify/)"', page)
+    page = client.get("/api-and-webhooks/").content.decode()
+    found = re.search(r'action="(/api-and-webhooks/webhooks/\d+/notify/)"', page)
     assert found, "no Notify now"
     return client.post(found[1], headers=headers)
 
@@ -366,13 +366,13 @@ def test_non_admins_cant_reach_webhooks(logged_in_client, admin_client, receiver
 
     assert (
         logged_in_client.post(
-            "/categorizers/webhooks/", {"name": "x", "url": receiver.url()}
+            "/api-and-webhooks/webhooks/", {"name": "x", "url": receiver.url()}
         ).status_code
         == 403
     )
-    assert logged_in_client.get(f"/categorizers/webhooks/{pk}/delete/").status_code == 403
-    assert logged_in_client.post(f"/categorizers/webhooks/{pk}/delete/").status_code == 403
-    assert logged_in_client.post(f"/categorizers/webhooks/{pk}/notify/").status_code == 403
+    assert logged_in_client.get(f"/api-and-webhooks/webhooks/{pk}/delete/").status_code == 403
+    assert logged_in_client.post(f"/api-and-webhooks/webhooks/{pk}/delete/").status_code == 403
+    assert logged_in_client.post(f"/api-and-webhooks/webhooks/{pk}/notify/").status_code == 403
     assert Webhook.objects.count() == 1
     assert receiver.calls() == []
 

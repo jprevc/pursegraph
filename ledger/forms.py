@@ -271,14 +271,14 @@ class ThresholdForm(forms.Form):
     )
 
 
-class CategorizerTokenForm(forms.Form):
-    """A new Categorizer token: what the Categorizers page calls it."""
+class ApiTokenForm(forms.Form):
+    """A new API token: what the API & Webhooks page calls it."""
 
     name = forms.CharField(label=_("Name"), max_length=100)
 
 
 class WebhookForm(forms.Form):
-    """A new Webhook: what the Categorizers page calls it, and the http(s) URL it POSTs to, which may be on a host
+    """A new Webhook: what the API & Webhooks page calls it, and the http(s) URL it POSTs to, which may be on a host
     with no domain, such as a Compose service's name."""
 
     name = forms.CharField(label=_("Name"), max_length=100)
