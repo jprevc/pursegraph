@@ -1,6 +1,6 @@
 # Operations
 
-Installing Pursegraph and keeping it running: Categorizers, backups, restores, re-parsing and admin recovery. Run the commands from the directory with `docker-compose.yml`.
+Installing Pursegraph and keeping it running: API & Webhooks, Categorizers, backups, restores, re-parsing and admin recovery. Run the commands from the directory with `docker-compose.yml`.
 
 ## Installing
 
@@ -27,27 +27,23 @@ Installing Pursegraph and keeping it running: Categorizers, backups, restores, r
    It prompts for the password. Then open `http://<host>:8000/` (or the `PURSEGRAPH_PORT` you set) and log in.
 4. Optionally, connect a Categorizer, so Transactions no Rule categorizes get a suggested Subcategory; see [Categorizers](#categorizers).
 
-## Categorizers
+## API & Webhooks
 
-Transactions that no Rule categorizes wait for a Suggestion. A Categorizer is a program, such as one that asks an LLM or any other service, that fetches them through the [Categorizer API](#the-categorizer-api) and sends back a Subcategory with how sure it is. Pursegraph itself ships no Categorizer and calls none (see [ADR 0002](adr/0002-no-bundled-categorizer-webhooks-say-when-transactions-wait.md)); [Webhooks](#webhooks) tell a Categorizer when there is something to fetch. Without a Categorizer, the Review queue fills without Suggestions.
+Programs outside Pursegraph use its API, each with an API token of its own, and Webhooks tell them when there is something to fetch. Both are set up on the **API & Webhooks** page, which admins open from the sidebar's Manage links. So far the API is the [Categorizer API](#the-categorizer-api) alone, and the only thing a Webhook says is that Transactions are waiting for a Suggestion, so the program is a [Categorizer](#categorizers).
 
-A Suggestion at least as sure as the auto-accept threshold on the Suggestions page (0.90 by default) sets the outcome; the rest wait in the Review queue, preselected. That threshold applies to every Categorizer alike, so a Categorizer must report a confidence that means something.
+### API tokens
 
-**Privacy:** a Categorizer reads each waiting Transaction's description, amount and details, and the Household's earlier choices as examples. Where it sends them is up to it, possibly to a cloud service. Pursegraph can't restrict that, so choose carefully who gets a token: that is the choice of where the Household's Transaction text goes.
+Give each program a token of its own. A token can't log in, and it can only do what the API offers: for now, fetch the waiting Transactions and send Suggestions back.
 
-### Creating a token
-
-Each Categorizer connects with a token of its own, which can only fetch the waiting Transactions and send Suggestions back; it can't log in.
-
-1. As an admin, open **Categorizers** in the sidebar's Manage links, name the token after the Categorizer (such as "Qwen on the NAS") and create it.
+1. On the API & Webhooks page, name the token after the program (such as "Qwen on the NAS") and create it.
 2. Copy the token from the dialog. It starts with `pgc_` and is shown only once; only a hash of it is stored.
-3. Give it to the Categorizer, such as in the example's `CATEGORIZER_TOKEN` ([below](#example-an-ollama-categorizer)).
+3. Give it to the program, such as in the example Categorizer's `CATEGORIZER_TOKEN` ([below](#example-an-ollama-categorizer)), which sends it with each call as `Authorization: Bearer pgc_...`.
 
 A lost or leaked token can't be shown again: revoke it on the same page and create another. Calls made with a revoked token get a 401 at once. The page lists when each token was last used, and the Suggestions page shows how many Transactions are waiting, since when, and which token sent the last Suggestion.
 
 ### Webhooks
 
-A Webhook is a URL Pursegraph calls when Transactions are waiting for a Suggestion, so a Categorizer knows to fetch them without asking all the time. Add one on the **Categorizers** page, with the form at the bottom of the Webhooks card: a name and an `http://` or `https://` URL. Deliveries aren't signed, so put a secret in the URL, such as `http://192.168.1.10:8765/<secret>`; the page shows only the URL's scheme, host and port once it is added.
+A Webhook is a URL Pursegraph calls when Transactions are waiting for a Suggestion, so whatever listens there knows to fetch them without asking all the time. Add one on the API & Webhooks page, with the form at the bottom of the Webhooks card: a name and an `http://` or `https://` URL. Deliveries aren't signed, so put a secret in the URL, such as `http://192.168.1.10:8765/<secret>`; the page shows only the URL's scheme, host and port once it is added.
 
 Every Webhook is called once an action that can leave Transactions waiting is done, if any are waiting then: a Statement import, a re-parse that re-runs outcomes, Ask again on the Suggestions page, or deleting a Subcategory. Each action calls each Webhook once on its own, so importing three Statements calls it three times. A delivery is one `POST` with a JSON body that says how many Transactions are waiting, never which:
 
@@ -57,11 +53,21 @@ Every Webhook is called once an action that can leave Transactions waiting is do
 
 Only a `2xx` reply within 5 seconds counts as delivered. A redirect isn't followed, and a failed delivery isn't retried. Each Webhook's row shows its latest attempt: "Delivered" with when, "Failed" with why (an HTTP status, "timed out" or "couldn't connect"), or "Never called". **Notify now** calls that Webhook right away, even when nothing is waiting, and shows how it went; use it to test a receiver.
 
-The receiver can be the Categorizer itself, as in the [example](#example-an-ollama-categorizer), or something that starts one, such as a Home Assistant automation that turns on the machine the Categorizer runs on. Either way it treats a delivery as "go fetch": it fetches with its own token, whatever the count says, and a repeated delivery does no harm. Because a delivery may be lost, such as while the receiver is down, a Categorizer may also fetch now and then (e.g. hourly) on its own.
+The receiver can be the program itself, as in the [example](#example-an-ollama-categorizer), or something that starts one, such as a Home Assistant automation that turns on the machine the program runs on. Either way it treats a delivery as "go fetch": it fetches with its own token, whatever the count says, and a repeated delivery does no harm. Because a delivery may be lost, such as while the receiver is down, a program may also fetch now and then (e.g. hourly) on its own.
+
+## Categorizers
+
+Transactions that no Rule categorizes wait for a Suggestion. A Categorizer is a program, such as one that asks an LLM or any other service, that fetches them through the [Categorizer API](#the-categorizer-api) and sends back a Subcategory with how sure it is. Pursegraph itself ships no Categorizer and calls none (see [ADR 0002](adr/0002-no-bundled-categorizer-webhooks-say-when-transactions-wait.md)). Without a Categorizer, the Review queue fills without Suggestions.
+
+To connect one, give it an [API token](#api-tokens), and optionally add a [Webhook](#webhooks) that tells it when there is something to fetch; both are on the API & Webhooks page.
+
+A Suggestion at least as sure as the auto-accept threshold on the Suggestions page (0.90 by default) sets the outcome; the rest wait in the Review queue, preselected. That threshold applies to every Categorizer alike, so a Categorizer must report a confidence that means something.
+
+**Privacy:** a Categorizer reads each waiting Transaction's description, amount and details, and the Household's earlier choices as examples. Where it sends them is up to it, possibly to a cloud service. Pursegraph can't restrict that, so choose carefully who gets a token: that is the choice of where the Household's Transaction text goes.
 
 ### The Categorizer API
 
-Every call sends the token as `Authorization: Bearer pgc_...`. The API takes no session or CSRF token, and it answers in JSON.
+API tokens are general, but these endpoints are a group of their own, under `/api/categorizer/v1/`; any other group would get its own path. Every call sends the token as `Authorization: Bearer pgc_...`. The API takes no session or CSRF token, and it answers in JSON.
 
 #### Fetching the waiting Transactions
 
@@ -140,7 +146,7 @@ It reads:
 | Variable | |
 | --- | --- |
 | `PURSEGRAPH_URL` | Where it reaches Pursegraph, such as `http://192.168.1.20:8000`. That host name or IP must be in Pursegraph's `DJANGO_ALLOWED_HOSTS`. |
-| `CATEGORIZER_TOKEN` | Its token, from [Creating a token](#creating-a-token). |
+| `CATEGORIZER_TOKEN` | Its API token, from [API tokens](#api-tokens). |
 | `OLLAMA_URL` | The Ollama server, such as `http://localhost:11434`. |
 | `WEBHOOK_SECRET` | A long random string, such as from `python3 -c 'import secrets; print(secrets.token_urlsafe())'`. |
 | `PORT` | Where it listens; 8765 by default. |
@@ -186,7 +192,7 @@ docker run -d --name ollama-categorizer --restart unless-stopped \
 
 In a container, `localhost` is the container itself, so point `OLLAMA_URL` at the host's address instead.
 
-Then add the Webhook on the Categorizers page, at `http://<categorizer host>:8765/<WEBHOOK_SECRET>`, and press Notify now: it shows "Delivered" if Pursegraph reached the example, and the example's log shows how many waiting Transactions it answered. Pursegraph must reach that port, so open it in the Categorizer host's firewall to the Pursegraph host.
+Then add the Webhook on the API & Webhooks page, at `http://<categorizer host>:8765/<WEBHOOK_SECRET>`, and press Notify now: it shows "Delivered" if Pursegraph reached the example, and the example's log shows how many waiting Transactions it answered. Pursegraph must reach that port, so open it in the Categorizer host's firewall to the Pursegraph host.
 
 
 ## Backups

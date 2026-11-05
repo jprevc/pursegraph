@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -46,5 +46,36 @@ def test_the_llm_source_becomes_categorizer_and_back():
             ("Suggested", "llm"),
             ("Waiting", ""),
         ]
+    finally:
+        migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_a_token_created_before_the_rename_keeps_working(client):
+    from ledger.api_tokens import _digest
+
+    apps = migrate([("ledger", "0013_drop_suggestions_unavailable")])
+    apps.get_model("ledger", "CategorizerToken").objects.create(
+        name="Qwen on the NAS",
+        digest=_digest("pgc_before"),
+        last_used_at=datetime(2026, 10, 1, 9, tzinfo=UTC),
+        last_suggestion_at=datetime(2026, 10, 2, 9, tzinfo=UTC),
+    )
+
+    try:
+        migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+        from ledger.models import ApiToken
+
+        token = ApiToken.objects.get()
+        assert (token.name, token.last_suggestion_at) == (
+            "Qwen on the NAS",
+            datetime(2026, 10, 2, 9, tzinfo=UTC),
+        )
+        assert token.last_used_at == datetime(2026, 10, 1, 9, tzinfo=UTC)
+
+        response = client.get(
+            "/api/categorizer/v1/transactions/", headers={"Authorization": "Bearer pgc_before"}
+        )
+        assert response.status_code == 200
     finally:
         migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())

@@ -23,7 +23,7 @@ from itertools import groupby
 from django.db import transaction
 from django.db.models import Q, Subquery
 
-from .models import AccountIBAN, Source, Transaction, TransactionQuerySet
+from .models import UNRESOLVED, AccountIBAN, Source, Transaction, TransactionQuerySet
 from .rules import OVERWRITABLE
 
 WINDOW = timedelta(days=3)
@@ -138,11 +138,7 @@ def _within_reach_of(t: Transaction) -> Q:
 
 def _counterpart_outcome() -> Q:
     """Outcomes a counterpart may have: a Transfer already, none, or a Category set by a Rule or a Categorizer."""
-    return (
-        Q(is_transfer=True)
-        | Q(subcategory__isnull=True, is_transfer=False)
-        | Q(source__in=OVERWRITABLE)
-    )
+    return Q(is_transfer=True) | UNRESOLVED | Q(source__in=OVERWRITABLE)
 
 
 def _distance(side: Transaction, candidate: Transaction) -> int:

@@ -1,8 +1,8 @@
 """The Categorizer API: how Categorizers fetch the Transactions waiting for a Suggestion and send Suggestions back
 (docs/adr/0002-no-bundled-categorizer-webhooks-say-when-transactions-wait.md).
 
-A Categorizer authenticates with `Authorization: Bearer <token>`, a token an admin created on the Categorizers page.
-It has two calls:
+A Categorizer authenticates with `Authorization: Bearer <token>`, an API token (ledger/api_tokens.py) an admin created
+on the API & Webhooks page. It has two calls:
 
 - `GET /api/categorizer/v1/transactions/?limit=50`: the Transactions waiting for a Suggestion, oldest first, with
   the Subcategories to choose from and, for each, the Household's earlier manual outcomes as examples. Read-only:
@@ -25,7 +25,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import categorizers, suggestions
+from . import api_tokens, suggestions
 from .models import Subcategory, Transaction
 
 # How many waiting Transactions one fetch returns at most, and by default.
@@ -37,26 +37,26 @@ def _error(status: int, why: str) -> JsonResponse:
     return JsonResponse({"error": why}, status=status)
 
 
-def categorizer_token_required(view):
-    """Only a request with an active Categorizer token reaches the view, as `request.categorizer_token`; the
+def api_token_required(view):
+    """Only a request with an active API token reaches the view, as `request.api_token`; the
     session, CSRF token and login requirement of the rest of the app don't apply."""
 
     @login_not_required
     @csrf_exempt
     @wraps(view)
     def wrapper(request, *args, **kwargs):
-        token = categorizers.authenticate(request.headers.get("Authorization", ""))
+        token = api_tokens.authenticate(request.headers.get("Authorization", ""))
         if token is None:
-            response = _error(401, "A valid Categorizer token is required.")
+            response = _error(401, "A valid API token is required.")
             response["WWW-Authenticate"] = "Bearer"
             return response
-        request.categorizer_token = token
+        request.api_token = token
         return view(request, *args, **kwargs)
 
     return wrapper
 
 
-@categorizer_token_required
+@api_token_required
 @require_GET
 def waiting(request):
     limit = request.GET.get("limit", str(DEFAULT_LIMIT))
@@ -90,7 +90,7 @@ def waiting(request):
     )
 
 
-@categorizer_token_required
+@api_token_required
 @require_POST
 def suggestion(request, pk):
     try:
@@ -103,7 +103,7 @@ def suggestion(request, pk):
     if not Transaction.objects.filter(pk=pk).exists():
         return _error(404, "No such Transaction.")
     if subcategory_id is None:
-        result = suggestions.receive(pk, None, request.categorizer_token)
+        result = suggestions.receive(pk, None, request.api_token)
     else:
         confidence = body.get("confidence")
         if type(subcategory_id) is not int:
@@ -121,6 +121,6 @@ def suggestion(request, pk):
                 400, "No such Subcategory; fetch the Transactions again for the current ones."
             )
         result = suggestions.receive(
-            pk, suggestions.Suggestion(subcategory, float(confidence)), request.categorizer_token
+            pk, suggestions.Suggestion(subcategory, float(confidence)), request.api_token
         )
     return JsonResponse({"stored": result.stored, "accepted": result.accepted})

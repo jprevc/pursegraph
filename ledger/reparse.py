@@ -15,7 +15,7 @@ from django.db.models import Q
 
 from . import webhooks
 from .importer import ImportRejected, check_balances_and_totals, run_automatic_steps
-from .models import Source, Statement, Transaction
+from .models import Part, Source, Statement, Transaction
 from .parsers import ParsedRow, ParsedStatement, ParseError, parse
 from .transfers import WINDOW
 
@@ -248,14 +248,19 @@ def apply_changes(result: ReparseResult) -> list[OutcomeChange]:
     there is a `refusal()`.
 
     Those whose change could alter their automatic outcome get it again, as at import; a manual
-    outcome is kept, and the Webhooks are called if Transactions wait for a Suggestion then. Returns the outcomes
-    that changed, of these Transactions and of those they
-    were or are now paired with."""
+    outcome is kept, but a Split whose amount changed is dropped, so the Transaction waits in the Review queue again.
+    The Webhooks are called if Transactions wait for a Suggestion then. Returns the outcomes that changed, of these
+    Transactions and of those they were or are now paired with."""
     rerun = [
         changed.transaction
         for changed in result.changed
         if changed.transaction.source != Source.MANUAL
         and any(change.name in RERUN_FIELDS for change in changed.changes)
+    ]
+    dropped = [
+        changed.transaction
+        for changed in result.changed
+        if changed.transaction.is_split and any(c.name == "amount" for c in changed.changes)
     ]
     reach = Q(pk__in=[])
     for t in rerun:
@@ -265,34 +270,47 @@ def apply_changes(result: ReparseResult) -> list[OutcomeChange]:
     )
     with transaction.atomic():
         before = {t.pk: (_outcome(t), describe_outcome(t)) for t in affected}
+        split_before = {t.pk: describe_outcome(t) for t in dropped}
         for changed in result.changed:
             t = changed.transaction
             for name in (*ROW_FIELDS, "raw"):
                 setattr(t, name, getattr(changed.row, name))
             t.save(update_fields=[*ROW_FIELDS, "raw"])
-        if not rerun:
-            return []
-
-        pks = [t.pk for t in rerun]
-        # Like leaving Transfer in set_outcome(): the counterpart stays a one-sided Transfer.
-        Transaction.objects.filter(counterpart__in=pks).update(counterpart=None)
-        Transaction.objects.filter(pk__in=pks).update(
-            subcategory=None,
-            is_transfer=False,
-            source="",
-            rule=None,
-            counterpart=None,
-            ambiguous_pairing=False,
-            suggested_subcategory=None,
-            confidence=None,
-        )
-        run_automatic_steps(Transaction.objects.filter(pk__in=pks))
-        webhooks.fire_if_waiting()
-        return [
-            OutcomeChange(t, before[t.pk][1], describe_outcome(t))
-            for t in affected.filter(pk__in=before.keys())
-            if _outcome(t) != before[t.pk][0]
+        if dropped:
+            pks = [t.pk for t in dropped]
+            Part.objects.filter(transaction__in=pks).delete()
+            Transaction.objects.filter(pk__in=pks).update(
+                is_split=False, source="", suggested_subcategory=None, confidence=None
+            )
+        outcome_changes = [
+            OutcomeChange(
+                t, split_before[t.pk], f"{describe_outcome(t)} (Split removed: the amount changed)"
+            )
+            for t in Transaction.objects.filter(pk__in=split_before)
         ]
+        if rerun:
+            pks = [t.pk for t in rerun]
+            # Like leaving Transfer in set_outcome(): the counterpart stays a one-sided Transfer.
+            Transaction.objects.filter(counterpart__in=pks).update(counterpart=None)
+            Transaction.objects.filter(pk__in=pks).update(
+                subcategory=None,
+                is_transfer=False,
+                source="",
+                rule=None,
+                counterpart=None,
+                ambiguous_pairing=False,
+                suggested_subcategory=None,
+                confidence=None,
+            )
+            run_automatic_steps(Transaction.objects.filter(pk__in=pks))
+            outcome_changes += [
+                OutcomeChange(t, before[t.pk][1], describe_outcome(t))
+                for t in affected.filter(pk__in=before.keys()).exclude(pk__in=split_before)
+                if _outcome(t) != before[t.pk][0]
+            ]
+        if rerun or dropped:
+            webhooks.fire_if_waiting()
+        return outcome_changes
 
 
 def _outcome(t: Transaction) -> tuple:
@@ -310,4 +328,10 @@ def describe_outcome(t: Transaction) -> str:
     if t.subcategory:
         subcategory = t.subcategory
         return f"{subcategory.category} / {subcategory.name} ({Source(t.source).label})"
+    if t.is_split:
+        parts = ", ".join(
+            f"{p.subcategory.category} / {p.subcategory.name} {abs(p.amount):.2f}"
+            for p in t.parts.select_related("subcategory__category")
+        )
+        return f"Split: {parts} ({Source(t.source).label})"
     return "awaiting review"
