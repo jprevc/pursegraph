@@ -1141,8 +1141,9 @@ def resuggest_queue(request):
 @admin_required
 @require_http_methods(["GET", "POST"])
 def api_and_webhooks(request):
-    """The API & Webhooks page (docs/design/admin.md): the API tokens programs outside Pursegraph connect with. Creating one redirects, so
-    a refresh doesn't create another, and the page after it shows the secret once, in a dialog over the page."""
+    """The API & Webhooks page (docs/design/admin.md): the API tokens programs outside Pursegraph connect with.
+    Creating one redirects, so a refresh doesn't create another, and the page after it shows the secret once, in a
+    dialog over the page."""
     form = ApiTokenForm(request.POST or None)
     if form.is_valid():
         token, secret = api_tokens.create(form.cleaned_data["name"], request.user)

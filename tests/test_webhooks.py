@@ -237,7 +237,7 @@ def add_webhook(client, name="Home Assistant", url="https://ha.example:8123/api/
     return client.post("/api-and-webhooks/webhooks/", {"name": name, "url": url})
 
 
-def test_with_no_webhook_the_page_says_categorizers_must_ask(admin_client):
+def test_with_no_webhook_the_page_says_programs_must_ask(admin_client):
     text = page_text(admin_client.get("/api-and-webhooks/").content.decode())
 
     assert "Webhooks · 0" in text
@@ -397,3 +397,9 @@ def test_importing_several_statements_at_once_calls_each_webhook_for_each(
 
     # Each Statement import is an action of its own: after the first, its 6 wait; after the second, 12.
     assert deliveries(receiver) == [("/ha", 6), ("/ha", 12), ("/nas", 6), ("/nas", 12)]
+
+
+def test_a_refused_webhook_keeps_the_page_current_in_the_sidebar(admin_client, household):
+    page = add_webhook(admin_client, url="not a url").content.decode()
+
+    assert re.search(r'<a[^>]*href="/api-and-webhooks/"[^>]*aria-current="page"', page)

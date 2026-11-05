@@ -16,6 +16,7 @@ ITEMS = {
     "suggestion_settings": "suggestion_settings",
     "api_and_webhooks": "api_and_webhooks",
     "revoke_token": "api_and_webhooks",
+    "add_webhook": "api_and_webhooks",
     "delete_webhook": "api_and_webhooks",
     "accounts": "accounts",
     "new_account": "accounts",

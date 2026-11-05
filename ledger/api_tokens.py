@@ -14,7 +14,8 @@ from django.utils import timezone
 
 from .models import ApiToken
 
-# Marks a secret as a Pursegraph API token, such as in a secret scanner.
+# Marks a secret as a Pursegraph API token, such as in a secret scanner. The "c" is from when tokens were Categorizer
+# tokens; it stays, so tokens already given out and new ones look alike.
 PREFIX = "pgc_"
 
 

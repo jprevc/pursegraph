@@ -28,7 +28,7 @@ docker compose up -d --build
 docker compose exec web python manage.py create_admin <username>
 ```
 
-Then open `http://<host>:8000/` and log in. [Operations](docs/operations.md) covers the full setup, connecting a Categorizer, backups and restores, re-parsing Statements, and recovering a locked-out admin. The [user guide](docs/user-guide.md) describes how importing, categorization and Rules behave.
+Then open `http://<host>:8000/` and log in. [Operations](docs/operations.md) covers the full setup, [connecting a Categorizer](docs/operations.md#categorizers), backups and restores, re-parsing Statements, and recovering a locked-out admin. The [user guide](docs/user-guide.md) describes how importing, categorization and Rules behave.
 
 ## Development
 

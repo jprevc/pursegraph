@@ -503,8 +503,9 @@ class Rule(models.Model):
 
 
 class ApiToken(models.Model):
-    """What one program outside Pursegraph, such as a Categorizer, authenticates with to its API (ledger/api.py). So
-    far it can only fetch the Transactions waiting for a Suggestion and send Suggestions back; it can't log in. Only a hash of the secret is stored; the admin sees the secret once."""
+    """What one program outside Pursegraph, such as a Categorizer, authenticates with to its API (ledger/api.py).
+    So far it can only fetch the Transactions waiting for a Suggestion and send Suggestions back; it can't log in.
+    Only a hash of the secret is stored; the admin sees the secret once."""
 
     name = models.CharField(_("name"), max_length=100)
     # SHA-256 of the secret, in hex.
