@@ -6,7 +6,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from ledger.management.commands.seed_demo import PASSWORD
-from ledger.models import Account, Category, Rule, Subcategory, Transaction
+from ledger.models import Account, Category, Rule, Source, Subcategory, Transaction
 from tests.conftest import log_in
 
 pytestmark = pytest.mark.django_db
@@ -121,3 +121,27 @@ def test_seed_demo_pays_the_rent_from_the_joint_account_on_the_first_of_each_mon
     assert {t.date.day for t in rent} == {1}
     # The Joint Revolut is tracked from ten months back, the running month included.
     assert rent.count() == 11
+
+
+def test_seed_demo_has_two_manual_splits_in_past_months_one_a_supermarket_receipt():
+    call_command("seed_demo")
+
+    splits = Transaction.objects.filter(is_split=True)
+    assert splits.count() == 2
+    this_month = timezone.localdate().replace(day=1)
+    outcomes = []
+    for split in splits:
+        assert split.source == Source.MANUAL
+        assert split.date < this_month
+        parts = list(split.parts.select_related("subcategory__category"))
+        assert len(parts) >= 2
+        assert len({p.subcategory for p in parts}) == len(parts)
+        assert all(p.amount < 0 for p in parts)
+        assert sum(p.amount for p in parts) == split.amount
+        outcomes.append({(p.subcategory.category.name, p.subcategory.name) for p in parts})
+    assert {("Food", "Groceries"), ("Home", "Furniture & household")} in outcomes
+    # The other one counts in two Categories, neither Food nor Home.
+    [other] = [o for o in outcomes if ("Food", "Groceries") not in o]
+    categories = {category for category, _name in other}
+    assert len(categories) == 2
+    assert not categories & {"Food", "Home"}
