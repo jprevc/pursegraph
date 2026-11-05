@@ -10,6 +10,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **Merge a PR**: `gh pr update-branch <n> && gh pr merge <n> --auto --merge`. `main` only takes a branch that is up to date with it and has passed `check`, so GitHub merges it once CI passes. Report the PR as queued, not merged. If another PR lands first, the branch falls behind again; run `update-branch` again.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
