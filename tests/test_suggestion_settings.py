@@ -5,7 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from ledger import categorizers
+from ledger import api_tokens
 from ledger.models import Account, Setting, Source, Statement, Subcategory, Transaction
 from tests.conftest import group_caption, page_text, subcategory_id, transaction_id
 from tests.test_categorizer_api import WAITING, create_token
@@ -355,8 +355,8 @@ def ask_again_card(client):
 
 
 def revoke_every_token():
-    for token in categorizers.active():
-        categorizers.revoke(token.pk)
+    for token in api_tokens.active():
+        api_tokens.revoke(token.pk)
 
 
 def is_disabled(card):
@@ -377,8 +377,11 @@ def test_with_no_categorizer_connected_ask_again_is_disabled_even_with_suggestio
 
     assert is_disabled(card)
     assert "Ask again about" not in page_text(card)
-    assert "No Categorizer is connected. Connect one on the Categorizers page" in page_text(card)
-    assert 'href="/categorizers/"' in card
+    assert (
+        "No Categorizer is connected. Create an API token for one on the API & Webhooks page"
+        in page_text(card)
+    )
+    assert 'href="/api-and-webhooks/"' in card
 
 
 def test_with_no_categorizer_connected_asking_again_clears_nothing(admin_client):

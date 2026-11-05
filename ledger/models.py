@@ -141,10 +141,14 @@ SOURCE_CAPTIONS = {
 }
 
 
+# Neither a Subcategory, a Transfer nor a Split: the Transactions waiting for an outcome.
+UNRESOLVED = models.Q(subcategory__isnull=True, is_transfer=False, is_split=False)
+
+
 class TransactionQuerySet(models.QuerySet):
     def unresolved(self):
-        """Neither a Subcategory nor a Transfer."""
-        return self.filter(subcategory__isnull=True, is_transfer=False)
+        """Neither a Subcategory, a Transfer nor a Split."""
+        return self.filter(UNRESOLVED)
 
     def in_review_queue(self):
         """The Review queue: the unresolved ones, and the Transfer sides with several possible counterparts."""
@@ -174,7 +178,7 @@ class Transaction(models.Model):
         Statement, related_name="transactions", verbose_name=_("statements")
     )
 
-    # The outcome: a Subcategory or a Transfer, never both; neither means unresolved.
+    # The outcome: a Subcategory, a Transfer or a Split into Parts, at most one; none means unresolved.
     subcategory = models.ForeignKey(
         "Subcategory",
         on_delete=models.PROTECT,
@@ -184,6 +188,8 @@ class Transaction(models.Model):
         verbose_name=_("subcategory"),
     )
     is_transfer = models.BooleanField(_("transfer"), default=False)
+    # Its Parts hold the outcome. Only a Member splits a Transaction, so `source` is MANUAL.
+    is_split = models.BooleanField(_("split"), default=False)
     # The other side of a paired Transfer.
     counterpart = models.OneToOneField(
         "self",
@@ -224,8 +230,10 @@ class Transaction(models.Model):
         ordering = ["date", "id"]
         constraints = [
             models.CheckConstraint(
-                condition=~models.Q(subcategory__isnull=False, is_transfer=True),
-                name="subcategory_or_transfer",
+                condition=~models.Q(subcategory__isnull=False, is_transfer=True)
+                & ~models.Q(subcategory__isnull=False, is_split=True)
+                & ~models.Q(is_transfer=True, is_split=True),
+                name="one_outcome",
             ),
         ]
         verbose_name = _("transaction")
@@ -236,7 +244,7 @@ class Transaction(models.Model):
 
     @property
     def is_unresolved(self) -> bool:
-        return self.subcategory_id is None and not self.is_transfer
+        return self.subcategory_id is None and not self.is_transfer and not self.is_split
 
     @property
     def pending_suggestion_id(self) -> int | None:
@@ -245,8 +253,14 @@ class Transaction(models.Model):
 
     @property
     def outcome_label(self) -> str:
-        """The outcome in words, as the Transaction row names it: "Category › Subcategory", "Transfer" or
-        "Awaiting review"."""
+        """The outcome in words, as the Transaction row names it: "Category › Subcategory", "Transfer", "Split: Food ›
+        Groceries 50,00 €, Home › Furniture & household 30,00 €" or "Awaiting review"."""
+        if self.is_split:
+            parts = ", ".join(
+                f"{p.subcategory.category.name} › {p.subcategory.name} {figures.money(abs(p.amount))}"
+                for p in self.parts.select_related("subcategory__category")
+            )
+            return _("Split: %(parts)s") % {"parts": parts}
         if self.subcategory_id:
             assert self.subcategory is not None
             return f"{self.subcategory.category.name} › {self.subcategory.name}"
@@ -300,13 +314,17 @@ class Transaction(models.Model):
     def set_outcome(
         self, subcategory: "Subcategory | None", *, source: str, rule: "Rule | None" = None
     ) -> None:
-        """Sets the outcome to `subcategory`, or to Transfer when it is None. Leaving Transfer unpairs both sides.
+        """Sets the outcome to `subcategory`, or to Transfer when it is None. Leaving Transfer unpairs both sides;
+        a Split's Parts go.
 
         Any change settles an ambiguous pairing: the Transaction stays as it is now set.
 
         `rule` is the Rule that set it; any other change, such as a manual one, clears the link."""
+        if self.is_split:
+            self.parts.all().delete()
         self.subcategory = subcategory
         self.is_transfer = subcategory is None
+        self.is_split = False
         self.source = source
         self.rule = rule
         self.ambiguous_pairing = False
@@ -317,6 +335,7 @@ class Transaction(models.Model):
             update_fields=[
                 "subcategory",
                 "is_transfer",
+                "is_split",
                 "source",
                 "rule",
                 "counterpart",
@@ -377,6 +396,36 @@ class Subcategory(models.Model):
 
     def __str__(self):
         return f"{self.category} → {self.name}"
+
+
+class Part(models.Model):
+    """One piece of a Split: an exact amount of its Transaction placed in one Subcategory. A Split's Parts are at
+    least two, in different Subcategories of one kind, each in the Transaction's direction, and add up to its amount
+    (`ledger.outcomes.split`)."""
+
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.CASCADE, related_name="parts", verbose_name=_("transaction")
+    )
+    subcategory = models.ForeignKey(
+        Subcategory, on_delete=models.PROTECT, related_name="parts", verbose_name=_("subcategory")
+    )
+    # Signed like its Transaction's amount.
+    amount = models.DecimalField(_("amount"), max_digits=12, decimal_places=2)
+
+    class Meta:
+        # The order the Member gave them in.
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["transaction", "subcategory"], name="one_part_per_subcategory"
+            ),
+            models.CheckConstraint(condition=~models.Q(amount=0), name="part_not_zero"),
+        ]
+        verbose_name = _("part")
+        verbose_name_plural = _("parts")
+
+    def __str__(self):
+        return f"{self.subcategory} {self.amount}"
 
 
 class Setting(models.Model):
@@ -502,9 +551,10 @@ class Rule(models.Model):
         return _("Anything on %(account)s") % {"account": on}
 
 
-class CategorizerToken(models.Model):
-    """What one Categorizer authenticates with. It can only fetch the Transactions waiting for a Suggestion and send
-    Suggestions back; it can't log in. Only a hash of the secret is stored; the admin sees the secret once."""
+class ApiToken(models.Model):
+    """What one program outside Pursegraph, such as a Categorizer, authenticates with to its API (ledger/api.py).
+    So far it can only fetch the Transactions waiting for a Suggestion and send Suggestions back; it can't log in.
+    Only a hash of the secret is stored; the admin sees the secret once."""
 
     name = models.CharField(_("name"), max_length=100)
     # SHA-256 of the secret, in hex.
@@ -526,16 +576,16 @@ class CategorizerToken(models.Model):
 
     class Meta:
         ordering = ["name", "id"]
-        verbose_name = _("Categorizer token")
-        verbose_name_plural = _("Categorizer tokens")
+        verbose_name = _("API token")
+        verbose_name_plural = _("API tokens")
 
     def __str__(self):
         return self.name
 
 
 class Webhook(models.Model):
-    """A URL Pursegraph POSTs to when an action leaves Transactions waiting for a Suggestion, so a Categorizer knows
-    to fetch them (ledger/webhooks.py). The URL holds the receiver's secret, so pages show it masked."""
+    """A URL Pursegraph POSTs to when an action leaves Transactions waiting for a Suggestion, so whatever listens there
+    knows to fetch them (ledger/webhooks.py). The URL holds the receiver's secret, so pages show it masked."""
 
     class Outcome(models.TextChoices):
         DELIVERED = "delivered", _("delivered")
@@ -567,7 +617,7 @@ class Webhook(models.Model):
 
     @property
     def failure(self) -> str:
-        """Why its latest attempt failed, as the Categorizers page says it: "HTTP 500", "timed out" or "couldn't
+        """Why its latest attempt failed, as the API & Webhooks page says it: "HTTP 500", "timed out" or "couldn't
         connect"; "" if it was delivered or never made."""
         if self.last_outcome == self.Outcome.HTTP_ERROR:
             return f"HTTP {self.last_status}"

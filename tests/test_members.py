@@ -9,7 +9,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.test import Client
 from django.utils import timezone
 
-from tests.conftest import PASSWORD, log_in, make_account
+from tests.conftest import PASSWORD, log_in, make_account, page_text
 
 pytestmark = pytest.mark.django_db
 
@@ -380,7 +380,7 @@ def test_making_an_admin_is_confirmed_inline(admin_client, member):
     confirm = prose(admin_client.get(f"/members/{member.pk}/admin/", **HTMX).content.decode())
 
     assert confirm == (
-        "Make Vera Novak an admin? Admins manage Members, Accounts, Categories and Categorizers, and can "
+        "Make Vera Novak an admin? Admins manage Members, Accounts, Categories, API tokens and Webhooks, and can "
         "remove another admin's rights. Cancel Make admin"
     )
     member.refresh_from_db()
@@ -423,3 +423,13 @@ def test_the_link_dialog_says_until_when_it_works(admin_client, monkeypatch):
         in text
     )
     assert "Works once, until Tuesday 27 October 2026 at 14:05." in text
+
+
+def test_the_page_says_admins_manage_api_tokens_and_webhooks(admin_client):
+    text = page_text(admin_client.get("/members/").content.decode())
+
+    assert "Admins also manage Members, Accounts, Categories, API tokens and Webhooks." in text
+    assert (
+        "Manage Members, Accounts, Categories, API tokens and Webhooks, and do everything" in text
+    )
+    assert "Categorizers" not in text

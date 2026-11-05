@@ -73,11 +73,15 @@ A Subcategory proposed for a Transaction in the Review queue, with how sure its 
 _Avoid_: Guess, prediction
 
 **Categorizer**:
-A program outside Pursegraph, such as one that asks an LLM, that fetches the Transactions waiting for a Suggestion and sends Suggestions back. Pursegraph ships none; an admin chooses which ones may connect. A Categorizer is connected while its token isn't revoked, whether or not it has used it yet.
+A program outside Pursegraph, such as one that asks an LLM, that uses an API token to fetch the Transactions waiting for a Suggestion and send Suggestions back. Pursegraph ships none. A Categorizer is connected while its API token isn't revoked, whether or not it has used it yet.
 _Avoid_: Suggester, LLM, worker, client
 
+**API token**:
+What an admin gives a program outside Pursegraph so it can use Pursegraph's API, one per program. It can't log in, and an admin can revoke it.
+_Avoid_: Categorizer token, API key, key
+
 **Webhook**:
-A URL Pursegraph calls when Transactions are waiting for a Suggestion, so a Categorizer can fetch them. The call says only how many are waiting.
+A URL Pursegraph calls when Transactions are waiting for a Suggestion, so whatever listens there knows to fetch them. The call says only how many are waiting.
 _Avoid_: Wake hook, callback, notification
 
 **Refund**:

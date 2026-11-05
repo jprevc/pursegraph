@@ -1307,7 +1307,7 @@ button.cat-new:disabled, button.cat-new:disabled:hover { background: none; }
 .dialog-form p { margin: 0; }
 .dialog .form-actions { justify-content: flex-end; }
 .dialog-foot { margin-top: var(--s-5); }
-/* Categorizers: the tokens, each with its last use and Revoke, then the form for a new one; the Webhooks, each with its
+/* API & Webhooks: the API tokens, each with its last use and Revoke, then the form for a new one; the Webhooks, each with its
    latest attempt, Notify now and Delete, then the form for a new one. Each form's info line opens from its toggle. */
 .tokens { display: grid; gap: var(--s-4); max-width: 56.25rem; }
 .tokens h2 { margin: 0 0 var(--s-2); font-size: var(--text-title); }

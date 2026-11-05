@@ -24,8 +24,8 @@ from django.utils.html import format_html
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from . import categorizers
-from .models import CategorizerToken, Setting, Source, Subcategory, Transaction
+from . import api_tokens
+from .models import ApiToken, Setting, Source, Subcategory, Transaction
 
 # The `raw` keys whose text helps tell what a Transaction was for, across the parsers.
 DETAIL_KEYS = ("Type", "n26_category", "purpose", "to", "from", "reference")
@@ -131,7 +131,7 @@ class Overview:
     """Unresolved Transactions waiting for a Suggestion."""
     waiting_since: datetime | None
     """When the Statement of the one waiting longest was imported: the first Statement it was on."""
-    last_suggestion: CategorizerToken | None
+    last_suggestion: ApiToken | None
     """The token that sent the last Suggestion stored, with when (`last_suggestion_at`); it may be revoked since."""
     by_categorizers_this_month: int
     """Transactions dated this month whose outcome a Categorizer set."""
@@ -163,7 +163,7 @@ def overview() -> Overview:
         waiting_since=_awaiting_suggestion().aggregate(since=Min("statements__imported_at"))[
             "since"
         ],
-        last_suggestion=CategorizerToken.objects.filter(last_suggestion_at__isnull=False)
+        last_suggestion=ApiToken.objects.filter(last_suggestion_at__isnull=False)
         .order_by("-last_suggestion_at")
         .first(),
         by_categorizers_this_month=Transaction.objects.filter(
@@ -179,13 +179,14 @@ def overview() -> Overview:
 def _ask_again_refusal(queued: int, askable_again: int) -> str:
     """Why Ask again can't run with `queued` Transactions in the Review queue, `askable_again` of them answered,
     in the Suggestions page's words; "" when it can. The first that applies wins."""
-    if not categorizers.active().exists():
+    if not api_tokens.active().exists():
         # Even with suggestions queued: clearing them would leave nothing to suggest them again.
         return format_html(
             _(
-                'No Categorizer is connected. Connect one on the <a href="{url}">Categorizers page</a>.'
+                'No Categorizer is connected. Create an API token for one on the <a href="{url}">API & Webhooks '
+                "page</a>."
             ),
-            url=reverse("categorizers"),
+            url=reverse("api_and_webhooks"),
         )
     if not queued:
         return _("The Review queue is empty, so there's nothing to ask about again.")
@@ -224,7 +225,7 @@ def waiting(limit: int) -> tuple[list[Subcategory], list[tuple[int, Query]]]:
     ]
 
 
-def receive(pk: int, suggestion: Suggestion | None, token: CategorizerToken) -> Received:
+def receive(pk: int, suggestion: Suggestion | None, token: ApiToken) -> Received:
     """Stores a Categorizer's Suggestion for the Transaction `pk`, or with None that it has none, and records that
     `token` sent it."""
     with transaction.atomic():

@@ -3,7 +3,7 @@ import json
 import pytest
 from django.test import Client
 
-from ledger import categorizers
+from ledger import api_tokens
 from ledger.models import Setting, Source, Subcategory, Transaction
 from tests.conftest import (
     group_caption,
@@ -33,7 +33,7 @@ class FakeCategorizer:
 
     @staticmethod
     def secret():
-        _token, secret = categorizers.create("Fake Categorizer", None)
+        _token, secret = api_tokens.create("Fake Categorizer", None)
         return secret
 
     def run(self):

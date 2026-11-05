@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 from django.test import Client
 
-from ledger import categorizers
+from ledger import api_tokens
 from ledger.models import Account, Subcategory, Transaction, Webhook
 
 USERNAME = "ana"
@@ -102,7 +102,7 @@ def admin_client(django_user_model):
 @pytest.fixture
 def connected():
     """A Categorizer is connected (CONTEXT.md), so Ask again can run."""
-    categorizers.create("Qwen on the NAS", None)
+    api_tokens.create("Qwen on the NAS", None)
 
 
 def transaction_id(description):
