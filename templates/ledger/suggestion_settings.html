@@ -46,8 +46,10 @@
       <label for="threshold-range">{% translate "Auto-accept at" %}</label>
       <input type="range" id="threshold-range" min="50" max="100" step="5" value="{{ form.threshold.value }}" aria-valuetext="{% blocktranslate with percent=form.threshold.value %}{{ percent }} % sure{% endblocktranslate %}" data-range>
       <span class="pct"><input type="number" name="threshold" value="{{ form.threshold.value|default_if_none:'' }}" min="50" max="100" step="5" required aria-label="{% translate 'Auto-accept at, in % sure' %}"{% if form.threshold.errors %} aria-invalid="true" aria-describedby="threshold-error"{% endif %} data-number> <span>{% translate "% sure" %}</span></span>
-      <button type="button" class="ghost" hidden data-keep-threshold>{% blocktranslate %}Keep {{ threshold }} %{% endblocktranslate %}</button>
-      <button type="submit" class="primary" data-save>{% blocktranslate with percent=form.threshold.value %}Save {{ percent }} %{% endblocktranslate %}</button>
+      <div class="form-actions">
+        <button type="button" class="ghost" hidden data-keep-threshold>{% blocktranslate %}Keep {{ threshold }} %{% endblocktranslate %}</button>
+        <button type="submit" class="primary" data-save>{% blocktranslate with percent=form.threshold.value %}Save {{ percent }} %{% endblocktranslate %}</button>
+      </div>
     </form>
     {% if form.threshold.errors %}<p class="error" id="threshold-error">{{ form.threshold.errors|join:" " }}</p>{% endif %}
     <p class="muted thr-note">{% translate "Raising it never undoes what a Categorizer already set. Lowering it offers the queued suggestions past the line." %}</p>
