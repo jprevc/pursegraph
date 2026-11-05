@@ -26,4 +26,9 @@ It uses the app's own `static/pursegraph.css`. Changes stay in memory. The black
 
 ## Findings
 
-_Pending the user's pick._
+**Verdict: C**, with two changes from the user's review:
+
+- The "€" now sits inside the amount field on every row, the auto-filled one included: the "the rest" caption had widened the column and pushed the "€" outside the field.
+- Split is no longer a chip next to the Categories. It has its own row under the outcome chips, past a hairline: a "Split into Parts…" button and "Spread it over two or more Subcategories." The Review queue's decide box has the same row.
+
+Recorded in `docs/design/split-editor.md`.

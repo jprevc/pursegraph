@@ -130,6 +130,10 @@ select.sp-sel { width: 100%; min-width: 0; }
 .sp-crows { display: grid; gap: var(--s-2); }
 .sp-crow { display: grid; grid-template-columns: .5rem minmax(0, 1fr) auto 2rem; align-items: center; gap: var(--s-2); }
 .sp-crow .tag { grid-column: 3; justify-self: end; margin-top: -.25rem; color: var(--muted); font-size: var(--text-label); }
+.sp-crow .sp-amt { justify-self: end; }
+/* Split's way in: its own row under the outcome chips, past a hairline. */
+.sp-entry { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-1); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.sp-entry .p-note { font-size: var(--text-sm); }
 
 /* The phone sheet (B on touch, C on a phone). */
 @media (max-width: 600px) {
@@ -152,7 +156,7 @@ select.sp-sel { width: 100%; min-width: 0; }
   .sp-x { width: 2.75rem; height: 2.75rem; }
   .chips button { min-height: 2.75rem; }
   .sp-crow { grid-template-columns: .5rem minmax(0, 1fr) 2.75rem; }
-  .sp-crow .sp-amt { grid-column: 2; }
+  .sp-crow .sp-amt { grid-column: 2; justify-self: stretch; }
   .sp-crow .sp-amt input { width: 100%; }
   .sp-crow .sp-amt { display: flex; }
   .sp-crow .tag { grid-column: 2; justify-self: start; margin: 0; }
@@ -357,7 +361,7 @@ function chip(id, name, act, marks, disabled, withCat) {
   const label = withCat ? `${dot(id)}${subLabel(id)}` : (m === "pressed" ? ic("check") : "") + esc(name);
   return `<button type="button" data-act="${act}" data-sub="${id}"${m === "current" ? ' aria-current="true"' : ""}${act === "toggle" ? ` aria-pressed="${m === "pressed"}"` : ""}${d ? ` disabled title="${esc(d)}"` : ""}>${label}</button>`;
 }
-const splitChip = (label = "Split into Parts…") => `<button type="button" class="split-chip" data-act="split">${ic("split")}${label}</button>`;
+const splitEntry = () => `<div class="sp-entry"><button type="button" data-act="split">${ic("split")}Split into Parts…</button><span class="p-note">Spread it over two or more Subcategories.</span></div>`;
 const transferChip = `<button type="button" data-act="choose" data-sub="transfer"><i class="dot transfer"></i>Transfer</button>`;
 
 // ===================== Variant editors =====================
@@ -510,7 +514,8 @@ function panelRow(t) {
   else {
     const marks = t.out.type === "sub" ? { [t.out.sub]: "current" } : {};
     inner = `<div class="pick-head"><p class="pick-title">Choose an outcome for <b>${esc(t.desc)}</b></p><button type="button" class="link" data-act="close">Cancel</button></div>
-      ${chipPicker({ kind: kindOf(t.amt), act: "choose", marks, extra: ui.step ? "" : (kindOf(t.amt) === "out" ? transferChip : "") + splitChip() })}`;
+      ${chipPicker({ kind: kindOf(t.amt), act: "choose", marks, extra: ui.step ? "" : (kindOf(t.amt) === "out" ? transferChip : "") })}
+      ${splitEntry()}`;
   }
   return `<tr class="chip-panel"><td colspan="5"><div class="pick" role="group">${inner}</div></td></tr>`;
 }
@@ -576,10 +581,10 @@ function pageReview() {
   } else if (ed) decide = editor(ed);
   else {
     const multi = g.txns.length > 1;
-    const extra = ui.step ? "" : (kind === "out" ? transferChip : "") + (multi ? "" : splitChip());
+    const extra = ui.step ? "" : (kind === "out" ? transferChip : "");
     const marks = {};
     const chips = chipPicker({ kind, act: "rchoose", marks, extra });
-    const multiNote = multi && !ui.step ? `<p class="p-note">Split isn't offered for a group: its Transactions have different amounts. Decide the group here, then split one from Transactions.</p>` : "";
+    const multiNote = multi ? `<div class="sp-entry"><p class="p-note">Split isn't offered for a group: its Transactions have different amounts. Decide the group here, then split one from Transactions.</p></div>` : splitEntry();
     decide = g.sugg ? `<div class="suggested"><p class="sugg-k">Suggested · ${g.sure} % sure</p><span class="oc-label">${dot(g.sugg)}${subLabel(g.sugg)}</span>
         <div class="acts"><button type="button" class="primary" data-act="accept">Accept${multi ? ` for all ${g.txns.length}` : ""}</button></div></div>
       <div class="pick or"><h3>Or choose another outcome</h3>${chips}${multiNote}</div>`
