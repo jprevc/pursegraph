@@ -10,7 +10,9 @@ A Member splits one Transaction into Parts, each an exact amount in its own Subc
   - **Where:** the chip panel on Transactions and the drill-down (see Transaction row), and the Review queue's decide box, under "Or choose another outcome" (see Review queue). The row stays while a Category's Subcategories are shown.
   - **A group of more than one** in the Review queue gets "Split all 3 into Parts…", which opens the group's table (see A group in the Review queue).
 - **On a coarse pointer**, Change's native select ends with a "Split" optgroup holding "Split into Parts…". On a Split Transaction it reads "Edit the Split…", and the select's shown value is "Split into 2 Parts". Picking it opens the dialog as a sheet; the Review queue keeps its chips and the row above.
-- **Editing a Split.** Change on a Split Transaction opens the dialog directly, with its Parts, and no chip panel. Picking any single outcome from the native select replaces the Split.
+- **Editing a Split.** Change on a Split Transaction opens the dialog directly, with its Parts, and no chip panel. To replace the Split with one outcome:
+  - **On a phone**, pick any single outcome from the native select.
+  - **On desktop**, the dialog's foot has a "Choose one outcome instead…" text link (13px, between the status line and Cancel). It closes the dialog and opens the chip panel, as Change does on any other Transaction; picking an outcome there replaces the Split. It is shown only when editing an existing Split, never for a new one or a group, and not on a coarse pointer, where the select already offers the single outcomes.
 
 ## The dialog
 
@@ -41,7 +43,7 @@ A group's Transactions have their own amounts, so a group is split as a table: t
 
 ## Saving
 
-- **The foot.** Over a hairline: the status line, then Cancel and the primary "Save the Split".
+- **The foot.** Over a hairline: the status line, then Cancel and the primary "Save the Split". When editing a Split on desktop, "Choose one outcome instead…" sits before Cancel (see Editing a Split).
 - **Save says why it can't.** It stays in place, dimmed to 35% with `aria-disabled`, and `aria-describedby` the status line. The status line shows the first problem, in Ink 500 with the alert icon, and "(n more)" in Muted. Pressing Save then announces it. The problems, in this order:
   - "31,50 € left to put in a Part." or "The Parts come to 4,20 € more than 127,80 €."
   - "Choose a Subcategory for Part 2."
