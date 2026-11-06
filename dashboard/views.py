@@ -19,7 +19,7 @@ from ledger.setup import in_setup_mode, others_invited
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
 from . import completeness, queries
-from .periods import Period
+from .periods import UNIT_NAMES, Period
 from .templatetags.hues import hue
 
 if TYPE_CHECKING:
@@ -37,6 +37,16 @@ class View:
     # The drill-down's query parameter naming the chart mark.
     mark_param: str = "key"
     default_period: Callable[[], Period] = Period.default
+    # The period units its selector offers.
+    units: tuple[str, ...] = UNIT_NAMES
+
+    def period_in(self, params) -> Period:
+        """The Period a request's query names, or the default one; a unit this view doesn't offer is read as the
+        default's unit holding it, so a month on Category trends is the 12 months ending with it."""
+        period = Period.from_query(params, self.default_period)
+        if period.unit not in self.units:
+            return period.as_unit(self.default_period().unit)
+        return period
 
 
 VIEWS = {
@@ -44,7 +54,14 @@ VIEWS = {
     for v in [
         View("spending", "spending", _("Spending"), "category"),
         View("cashflow", "cashflow", _("Cash flow")),
-        View("trends", "trends", _("Category trends"), default_period=Period.last_12_months),
+        # A month is a single point on each line, which shows no trend.
+        View(
+            "trends",
+            "trends",
+            _("Category trends"),
+            default_period=Period.last_12_months,
+            units=tuple(unit for unit in UNIT_NAMES if unit != "month"),
+        ),
         View("per_member", "per-member", _("Per Member")),
         View("money_flow", "money-flow", _("Money flow")),
     ]
@@ -141,7 +158,7 @@ def show(request, view: str):
     v = _view(view)
     if in_setup_mode():
         return get_started(request)
-    period = Period.from_query(request.GET, v.default_period)
+    period = v.period_in(request.GET)
     filters = queries.Filters.from_query(request.GET)
     filter_query = _filter_query(filters)
     # A period chosen carries to the other views too; otherwise each opens on its own default.
@@ -184,6 +201,7 @@ def show(request, view: str):
         "page_title": f"{v.label} · {period.label}",
         "view_url": reverse(v.name),
         "period": period,
+        "period_units": period.units(v.units),
         # The stepper stops at the period holding the Household's first Coverage day.
         "first_period": bool(household_start and period.start <= household_start),
         "period_chosen": period_chosen,
@@ -191,7 +209,8 @@ def show(request, view: str):
         "filter_query": filter_query,
         "members": members,
         "accounts": accounts,
-        **carried_queries(_carried(period, period_chosen, filters)),
+        # As the query names it, not as this view reads it: a month passed through Category trends stays a month.
+        **carried_queries(carried_params(request.GET)),
         "data": data,
         "tiles": queries.tiles(v.name, period, filters),
         "not_comparable": completeness.not_comparable(period, tracking),
@@ -224,7 +243,7 @@ def show(request, view: str):
 def _drill_query(v: View, query: QueryDict) -> tuple[Period, queries.Filters, str]:
     """What a drill-down's `query` names: its period, its filters and its mark."""
     return (
-        Period.from_query(query, v.default_period),
+        v.period_in(query),
         queries.Filters.from_query(query),
         query.get(v.mark_param, ""),
     )
