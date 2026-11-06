@@ -57,9 +57,23 @@ def test_the_chart_draws_one_line_per_category(logged_in_client, household):
 
 
 def test_an_explicit_period_overrides_the_default(logged_in_client, household):
+    page = logged_in_client.get("/trends/", {"period": "2026-Q3"}).content.decode()
+
+    assert view_table(page)[0] == [
+        "Food",
+        f"0,00{EUR}",
+        f"999,00{EUR}",
+        f"180,00{EUR}",
+        f"1.179,00{EUR}",
+    ]
+
+
+def test_a_month_shows_the_12_months_ending_with_it(logged_in_client, household):
     page = logged_in_client.get("/trends/", {"period": "2026-09"}).content.decode()
 
-    assert view_table(page)[0] == ["Food", f"180,00{EUR}", f"180,00{EUR}"]
+    assert "1 Oct 2025 – 30 Sep 2026" in page
+    assert len(view_chart(page, "trends")["months"]) == 12
+    assert [label for _, selected, label in period_options(page) if selected] == ["Last 12 months"]
 
 
 def table_head(page):
@@ -101,3 +115,34 @@ def test_drill_down_into_a_point_or_a_whole_line(logged_in_client, household):
     assert drill_rows(logged_in_client, url, {**params, "key": "awaiting:2026-09"}) == [
         "Unknown shop"
     ]
+
+
+def period_options(page):
+    select = re.search(r'<select name="period"[^>]*>(.*?)</select>', page, re.S)
+    assert select, "no period selector"
+    return re.findall(r'<option value="([^"]*)"( selected)?>([^<]*)</option>', select[1])
+
+
+@pytest.mark.parametrize("url", ["/spending/", "/cashflow/", "/per-member/", "/money-flow/"])
+def test_the_other_views_still_offer_a_month(logged_in_client, household, url):
+    page = logged_in_client.get(url).content.decode()
+
+    assert "Month" in [label for _, _, label in period_options(page)]
+
+
+def test_the_period_selector_offers_no_month(logged_in_client, household):
+    page = logged_in_client.get("/trends/").content.decode()
+
+    assert [(value, label) for value, _, label in period_options(page)] == [
+        ("2026-Q3", "Quarter"),
+        ("2026", "Year"),
+        ("last12-2026-09", "Last 12 months"),
+        ("2025-10-01..2026-09-30", "Custom range"),
+    ]
+
+
+def test_a_months_drill_down_reaches_beyond_the_month(logged_in_client, household):
+    food = category_key("Food")
+    rows = drill_rows(logged_in_client, "/trends/transactions/", {"period": "2026-09", "key": food})
+
+    assert rows == ["August groceries", "Mercator", "Gostilna", "Spar"]

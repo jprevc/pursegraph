@@ -2,7 +2,7 @@
 `period` token, such as "2026-09", "2026-Q3", "2026", "last12-2026-09" or "2026-09-10..2026-09-19"."""
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -19,6 +19,7 @@ UNITS = [
     ("last12", gettext_lazy("Last 12 months")),
     ("custom", gettext_lazy("Custom range")),
 ]
+UNIT_NAMES = tuple(unit for unit, _label in UNITS)
 
 
 # The years a Period may cover: far enough from the calendar's ends for every Period it links to.
@@ -167,9 +168,14 @@ class Period:
             return Period("custom", self.start, self.end)
         return Period.containing(unit, min(self.end, today()))
 
-    def units(self) -> list[tuple[str, str, bool]]:
-        """The period selector's options: each unit's token, label and whether it is this Period's unit."""
-        return [(self.as_unit(unit).token, str(label), unit == self.unit) for unit, label in UNITS]
+    def units(self, offered: "Collection[str]") -> list[tuple[str, str, bool]]:
+        """The period selector's options, of the `offered` units: each unit's token, label and whether it is this
+        Period's unit."""
+        return [
+            (self.as_unit(unit).token, str(label), unit == self.unit)
+            for unit, label in UNITS
+            if unit in offered
+        ]
 
     def step(self, direction: int) -> "Period":
         """The Period one unit before (-1) or after (+1) this one."""
