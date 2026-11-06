@@ -168,7 +168,7 @@ class Period:
             return Period("custom", self.start, self.end)
         return Period.containing(unit, min(self.end, today()))
 
-    def units(self, offered: "Collection[str]" = UNIT_NAMES) -> list[tuple[str, str, bool]]:
+    def units(self, offered: "Collection[str]") -> list[tuple[str, str, bool]]:
         """The period selector's options, of the `offered` units: each unit's token, label and whether it is this
         Period's unit."""
         return [

@@ -40,10 +40,14 @@ class View:
     # The period units its selector offers.
     units: tuple[str, ...] = UNIT_NAMES
 
+    def named_period(self, params) -> Period:
+        """The Period a request's query names, or the default one: what the view carries to the others."""
+        return Period.from_query(params, self.default_period)
+
     def period_in(self, params) -> Period:
-        """The Period a request's query names, or the default one; a unit this view doesn't offer is read as the
-        default's unit holding it, so a month on Category trends is the 12 months ending with it."""
-        period = Period.from_query(params, self.default_period)
+        """The Period the view shows for a request's query: the one it names, with a unit the view doesn't offer
+        read as the default's unit holding it, so a month on Category trends is the 12 months ending with it."""
+        period = self.named_period(params)
         if period.unit not in self.units:
             return period.as_unit(self.default_period().unit)
         return period
@@ -209,8 +213,8 @@ def show(request, view: str):
         "filter_query": filter_query,
         "members": members,
         "accounts": accounts,
-        # As the query names it, not as this view reads it: a month passed through Category trends stays a month.
-        **carried_queries(carried_params(request.GET)),
+        # As the query names it, not as this view shows it: a month passed through Category trends stays a month.
+        **carried_queries(_carried(v.named_period(request.GET), period_chosen, filters)),
         "data": data,
         "tiles": queries.tiles(v.name, period, filters),
         "not_comparable": completeness.not_comparable(period, tracking),
@@ -279,7 +283,7 @@ def transactions(request, view: str):
         + urlencode(
             [
                 *linked,
-                ("dashboard", urlencode(_carried(period, True, filters))),
+                ("dashboard", urlencode(_carried(v.named_period(request.GET), True, filters))),
                 ("view", v.name),
                 ("mark", key),
             ]

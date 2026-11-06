@@ -69,9 +69,9 @@ def test_an_explicit_period_overrides_the_default(logged_in_client, household):
 
 
 def test_a_month_shows_the_12_months_ending_with_it(logged_in_client, household):
-    page = logged_in_client.get("/trends/", {"period": "2026-08"}).content.decode()
+    page = logged_in_client.get("/trends/", {"period": "2026-09"}).content.decode()
 
-    assert "1 Sep 2025 – 31 Aug 2026" in page
+    assert "1 Oct 2025 – 30 Sep 2026" in page
     assert len(view_chart(page, "trends")["months"]) == 12
     assert [label for _, selected, label in period_options(page) if selected] == ["Last 12 months"]
 
@@ -123,6 +123,13 @@ def period_options(page):
     return re.findall(r'<option value="([^"]*)"( selected)?>([^<]*)</option>', select[1])
 
 
+@pytest.mark.parametrize("url", ["/spending/", "/cashflow/", "/per-member/", "/money-flow/"])
+def test_the_other_views_still_offer_a_month(logged_in_client, household, url):
+    page = logged_in_client.get(url).content.decode()
+
+    assert "Month" in [label for _, _, label in period_options(page)]
+
+
 def test_the_period_selector_offers_no_month(logged_in_client, household):
     page = logged_in_client.get("/trends/").content.decode()
 
@@ -134,7 +141,7 @@ def test_the_period_selector_offers_no_month(logged_in_client, household):
     ]
 
 
-def test_a_months_drill_down_covers_its_12_months(logged_in_client, household):
+def test_a_months_drill_down_reaches_beyond_the_month(logged_in_client, household):
     food = category_key("Food")
     rows = drill_rows(logged_in_client, "/trends/transactions/", {"period": "2026-09", "key": food})
 
