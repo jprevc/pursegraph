@@ -204,3 +204,17 @@ def test_sparkasse_rejects_statement_text_inside_a_row(old, new, row):
         parse_pdf_text(replace(old, new))
 
     assert str(error.value) == f"unsupported row: {row}"
+
+
+def test_sparkasse_reads_a_flik_payment_to_a_phone_number():
+    # A Flik payment to a mobile number prints the number where the IBAN would be.
+    text = replace(
+        "02.09.2026 SI56020100001234582 Flik plačilo",
+        "02.09.2026 0038640123456 Flik plačilo",
+    )
+
+    row = parse_pdf_text(text).rows[2]
+
+    assert (row.counterparty_name, row.counterparty_iban) == ("MARKO K", "")
+    assert row.raw["phone"] == "0038640123456"
+    assert row.raw["purpose"] == "Flik plačilo"
