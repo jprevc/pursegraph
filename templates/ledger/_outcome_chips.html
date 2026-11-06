@@ -37,7 +37,7 @@ under the row, names the Transaction in its title, marks the current outcome's c
           </div>
         </div>
         {% endfor %}
-        {% include "ledger/_split_entry.html" %}
+        {% include "ledger/_split_entry.html" with count=1 %}
       </div>
     </td>
   </tr>
