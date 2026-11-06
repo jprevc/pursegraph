@@ -5,7 +5,7 @@ Everything here runs on a synthetic demo Household from `manage.py seed_demo`, n
 - **Members:** Ana (admin) and Luka, password `demo-pass-123`.
 - **Accounts:** Ana's Sparkasse, Luka's N26, the Joint Revolut, and Ana's savings (Bank "Other", no Statements). Each has a fictional IBAN.
 - **Coverage:** Statement records stand in for files. The Joint Revolut is tracked from two months later than the others; Luka's N26 has a one-month Gap and nothing for the running month.
-- **Transactions:** the last twelve months and the running month up to today, only where the Account has a Statement. Fictional Slovenian merchants, salaries on the 15th, rent, electricity, internet and subscriptions each month, and three Refunds.
+- **Transactions:** the last twelve months and the running month up to today, only where the Account has a Statement. Fictional Slovenian merchants, salaries on the 15th, rent, electricity, internet and subscriptions each month, three Refunds, and two Splits by hand: late last month, a Mercator receipt across Groceries and Furniture & household and a dm one across Personal care and Pharmacy.
 - **Transfers:** a monthly one-sided Transfer into the savings Account, a monthly paired Transfer from each salary Account into the Joint Revolut, and one recent ambiguous pairing.
 - **Rules and the Review queue:** Rules match merchants ("Petrol", "Mercator", …). Recurring merchants await review, most with a Suggestion.
 

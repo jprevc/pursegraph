@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.http import Http404
+from django.db.models import QuerySet
+from django.http import Http404, QueryDict
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
@@ -13,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
 from ledger import outcomes
+from ledger.models import Transaction
 from ledger.setup import in_setup_mode, others_invited
 from pursegraph.htmx import announce, wants_the_fragment_alone
 
@@ -219,13 +221,28 @@ def show(request, view: str):
     return response
 
 
+def _drill_query(v: View, query: QueryDict) -> tuple[Period, queries.Filters, str]:
+    """What a drill-down's `query` names: its period, its filters and its mark."""
+    return (
+        Period.from_query(query, v.default_period),
+        queries.Filters.from_query(query),
+        query.get(v.mark_param, ""),
+    )
+
+
+def drill_rows(view: str, query: QueryDict) -> QuerySet[Transaction]:
+    """The drill-down's Transactions for its `query`, each with what it counts there."""
+    v = _view(view)
+    return queries.drill_down(v.name, *_drill_query(v, query)).select_related(
+        "account", "subcategory__category"
+    )
+
+
 def transactions(request, view: str):
     """The drill-down: the Transactions behind one chart mark, as rows with inline outcome editing, in a card titled
     by the mark and the period."""
     v = _view(view)
-    period = Period.from_query(request.GET, v.default_period)
-    filters = queries.Filters.from_query(request.GET)
-    key = request.GET.get(v.mark_param, "")
+    period, filters, key = _drill_query(v, request.GET)
     rows = queries.drill_down(v.name, period, filters, key).select_related(
         "account", "subcategory__category"
     )

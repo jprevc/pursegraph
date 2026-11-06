@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from ledger import outcomes
 from ledger.models import (
     Account,
     AccountIBAN,
@@ -142,6 +143,19 @@ REFUNDS = {
     4: (21, "RYANAIR REFUND FR8274", "Ryanair DAC", "86.40", ("Leisure", "Travel")),
     1: (12, "IKEA LJUBLJANA VRACILO", "IKEA Slovenija d.o.o.", "39.99", ("Home", "Furniture & household")),
 }  # fmt: skip
+# Splits in Ana's Sparkasse late last month, so the Dashboard's default period and the top of its Transactions show
+# them: the day, the description, the counterparty and the Parts, as (Category, Subcategory, amount). A supermarket
+# receipt, and a drugstore one counted in two other Categories.
+SPLITS = [
+    (26, "MERCATOR CITYPARK", "Mercator d.d.", [
+        ("Food", "Groceries", "-61.12"),
+        ("Home", "Furniture & household", "-23.25"),
+    ]),
+    (27, "DM DROGERIE MARKT", "dm-drogerie markt d.o.o.", [
+        ("Shopping", "Personal care", "-29.90"),
+        ("Health", "Pharmacy", "-16.90"),
+    ]),
+]  # fmt: skip
 
 
 class Command(BaseCommand):
@@ -389,5 +403,22 @@ class Command(BaseCommand):
             Transaction.objects.filter(
                 rule.condition(), subcategory=rule.subcategory, rule=None, date__gte=made
             ).update(source=Source.RULE, rule=rule, suggested_subcategory=None, confidence=None)
+
+        # The Splits, made by hand as a Member makes one.
+        for day, description, counterparty, parts in SPLITS:
+            receipt = book(
+                sparkasse,
+                month_start(1).replace(day=day),
+                sum((Decimal(amount) for *_, amount in parts), Decimal(0)),
+                description,
+                counterparty_name=counterparty,
+            )
+            outcomes.split(
+                receipt,
+                [
+                    (subcategory(category, name), Decimal(amount))
+                    for category, name, amount in parts
+                ],
+            )
 
         self.stdout.write(f"Seeded the demo Household: {Transaction.objects.count()} Transactions.")

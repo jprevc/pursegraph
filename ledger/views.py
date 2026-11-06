@@ -3,6 +3,8 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import wraps
+from typing import NamedTuple
+from urllib.parse import urlsplit
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -11,10 +13,10 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.db import transaction as db_transaction
-from django.db.models import Count, Prefetch, Q
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.db.models import Count, Prefetch, Q, QuerySet
+from django.http import HttpResponse, HttpResponseBadRequest, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from django.utils.formats import date_format, number_format
@@ -24,7 +26,8 @@ from django.utils.translation import ngettext
 from django.views.decorators.http import require_http_methods, require_POST
 
 from dashboard import periods, queries
-from dashboard.views import VIEWS
+from dashboard.views import VIEWS, drill_rows
+from dashboard.views import transactions as drill_down
 from members.permissions import admin_required
 from pursegraph import figures
 from pursegraph.htmx import announce, wants_the_fragment_alone
@@ -69,6 +72,9 @@ from .models import (
 )
 
 TRANSACTIONS_PER_PAGE = 25
+
+# What a Transaction row shows of each Transaction's relations.
+_ROW_RELATED = ("account", "subcategory__category", "rule", "counterpart__account")
 
 
 def import_statements(request):
@@ -406,9 +412,7 @@ def transactions(request):
     band; the sidebar swaps the whole page into the main area."""
     choice = facets.Choice.from_query(request.GET)
     count, money_out, money_in = facets.totals(choice)
-    rows = facets.rows(choice).select_related(
-        "account", "subcategory__category", "rule", "counterpart__account"
-    )
+    rows = facets.rows(choice).select_related(*_ROW_RELATED)
     paginator = Paginator(rows, TRANSACTIONS_PER_PAGE)
     page = paginator.get_page(request.GET.get("page"))
     groups = facets.rail(choice, facets.counts(choice), count)
@@ -798,9 +802,9 @@ def transaction_outcome(request, pk):
     undo[str(pk)] = before
     request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
     if request.headers.get("HX-Request"):
-        transaction = _shown(pk)
+        row, transaction = _transaction_row(request, pk, saved=True)
         return announce(
-            _transaction_row(request, transaction, saved=True),
+            row,
             _("Saved %(description)s as %(outcome)s.")
             % {"description": transaction.description, "outcome": transaction.outcome_saved},
         )
@@ -825,21 +829,36 @@ def transaction_split(request, pk):
     request.session[UNDO_SESSION_KEY] = dict(list(undo.items())[-UNDO_KEPT:])
     if not request.headers.get("HX-Request"):
         return redirect("transactions")
-    transaction = _shown(pk)
+    row, transaction = _transaction_row(request, pk, saved=True)
     return announce(
-        _transaction_row(request, transaction, saved=True),
+        row,
         _("Saved %(description)s as %(outcome)s.")
         % {"description": transaction.description, "outcome": transaction.outcome_saved},
     )
 
 
-def _shown(pk: int) -> Transaction:
-    """A Transaction as its row shows it, with its Parts."""
-    return (
-        Transaction.objects.with_counted()
-        .select_related("account", "subcategory__category", "rule", "counterpart__account")
-        .get(pk=pk)
-    )
+class _List(NamedTuple):
+    """A list of Transaction rows: its Transactions as its rows show them, and whether it is a drill-down."""
+
+    rows: QuerySet[Transaction]
+    drill: bool
+
+
+def _list_at(listed: str) -> _List | None:
+    """The list at the address `listed`, the Transactions page or a drill-down; None for any other address."""
+    address = urlsplit(listed)
+    try:
+        match = resolve(address.path)
+    except Resolver404:
+        return None
+    query = QueryDict(address.query)
+    if match.func is transactions:
+        return _List(
+            facets.rows(facets.Choice.from_query(query)).select_related(*_ROW_RELATED), False
+        )
+    if match.func is drill_down:
+        return _List(drill_rows(match.kwargs["view"], query).select_related(*_ROW_RELATED), True)
+    return None
 
 
 @require_POST
@@ -854,21 +873,36 @@ def undo_outcome(request, pk):
         outcomes.restore(before)
     except outcomes.UndoRefused:
         return HttpResponseBadRequest()
-    transaction = _shown(pk)
+    row, transaction = _transaction_row(request, pk)
     return announce(
-        _transaction_row(request, transaction),
+        row,
         _("Undone. %(description)s is back to %(outcome)s.")
         % {"description": transaction.description, "outcome": transaction.outcome_label},
     )
 
 
-def _transaction_row(request, transaction, *, saved=False):
-    """The shared Transaction row, swapped in for a Transaction just changed."""
-    return render(
+def _transaction_row(request, pk: int, *, saved=False) -> tuple[HttpResponse, Transaction]:
+    """The shared Transaction row, swapped in for a Transaction just changed, and that Transaction. It reads as a load
+    of the list it is shown in (the posted `listed`, that list's address) shows it, with what it counts there, while
+    it is in that list; else with every Part counted."""
+    listed = request.POST.get("listed", "")
+    shown_in = _list_at(listed)
+    transaction = shown_in.rows.filter(pk=pk).first() if shown_in else None
+    if transaction is None:
+        transaction = Transaction.objects.with_counted().select_related(*_ROW_RELATED).get(pk=pk)
+    row = render(
         request,
         "ledger/_transaction_row.html",
-        {"t": transaction, **outcomes.picker(), "saved": saved, "refresh_review_queue_count": True},
+        {
+            "t": transaction,
+            **outcomes.picker(),
+            "saved": saved,
+            "listed": listed,
+            "drill": bool(shown_in and shown_in.drill),
+            "refresh_review_queue_count": True,
+        },
     )
+    return row, transaction
 
 
 @admin_required

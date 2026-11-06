@@ -433,7 +433,8 @@
       first: /^\d+$/.test(row.dataset.outcome) ? row.dataset.outcome : '',
       url: row.dataset.splitUrl,
       target: `#${row.id}-rows`,
-      values: {},
+      // The list the row is in, so that it comes back emphasised as that list shows it.
+      values: { listed: row.querySelector('[name=listed]').value },
       row,
     });
   };
