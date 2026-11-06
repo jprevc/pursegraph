@@ -149,6 +149,15 @@ def test_the_summary_counts_and_totals_and_names_the_filters(logged_in_client, h
     assert "<title>Transactions · September 2026 · Awaiting review · Pursegraph</title>" in page
 
 
+def test_the_summary_names_what_decided_them(logged_in_client, household):
+    page = logged_in_client.get("/transactions/", {"source": "manual"}).content.decode()
+
+    assert text(found(r'<p id="summary".*?</p>', page)).endswith(
+        "· Decided by Member Clear filters"
+    )
+    assert "<title>Transactions · Decided by Member · Pursegraph</title>" in page
+
+
 def test_money_out_and_in_leave_transfers_aside(logged_in_client, household):
     page = logged_in_client.get("/transactions/", {"period": "2026-09"}).content.decode()
 
@@ -308,29 +317,32 @@ def decided_facet(page):
     return found(r'<form class="facet"[^>]*aria-labelledby="facet-source">(.*?)</form>', page, 1)
 
 
-def test_decided_lists_the_ways_that_decide_any_outcome_before_the_transfer_only_ones(
-    logged_in_client, household
-):
-    facet = decided_facet(logged_in_client.get("/transactions/").content.decode())
+def test_decided_by_offers_anything_then_each_way_an_outcome_is_set(logged_in_client, household):
+    page = logged_in_client.get("/transactions/").content.decode()
+    facet = decided_facet(page)
 
+    assert text(found(r'<span id="facet-source">([^<]*)</span>', page, 1)) == "Decided by"
     assert [text(t) for t in re.findall(r'<span class="t">([^<]*)', facet)] == [
-        "Any way",
-        "by Rule",
-        "by Categorizer",
-        "by hand",
-        "by IBAN",
-        "paired",
+        "Anything",
+        "Rule",
+        "Categorizer",
+        "Member",
+        "IBAN",
+        "Pairing",
     ]
 
 
-def test_a_hairline_parts_the_transfer_only_ways_from_the_rest_and_nothing_else(
-    logged_in_client, household
-):
+def test_decided_by_has_one_info_toggle_controlling_its_notes(logged_in_client, household):
     page = logged_in_client.get("/transactions/").content.decode()
+    form = found(r'<form class="facet" id="([^"]+)"[^>]*aria-labelledby="facet-source">', page, 1)
+    toggles = re.findall(r"<button[^>]*data-notes[^>]*>", page)
 
-    divided = re.findall(r'<hr class="fdiv" aria-hidden="true">\s*<button[^>]*id="([^"]+)"', page)
-    assert divided == ["f-source-iban"]
-    assert page.count('class="fdiv"') == 1
+    assert len(toggles) == 1
+    assert 'type="button"' in toggles[0]
+    assert 'aria-expanded="false"' in toggles[0]
+    assert f'aria-controls="{form}"' in toggles[0]
+    assert 'aria-label="About how each was decided"' in toggles[0]
+    assert toggles[0] in found(r'<h3 class="facet-h">(.*?)</h3>', decided_facet(page), 1)
 
 
 def note(page, source):

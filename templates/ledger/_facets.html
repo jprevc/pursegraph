@@ -6,11 +6,10 @@
     {% if names %}<a class="clear-all" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear all" %}</a>{% endif %}
   </div>
   {% for group in groups %}
-  <form class="facet" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" aria-labelledby="facet-{{ group.param }}">
+  <form class="facet" id="facet-form-{{ group.param }}" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" aria-labelledby="facet-{{ group.param }}">
     {% for name, value in group.carry %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
-    <h3 class="facet-h"><span id="facet-{{ group.param }}">{{ group.label }}</span>{% if group.chosen %}<button type="submit" id="clear-{{ group.param }}" class="link" aria-label="{% blocktranslate with facet=group.label %}Clear {{ facet }}{% endblocktranslate %}">{% translate "Clear" %}</button>{% endif %}</h3>
+    <h3 class="facet-h"><span class="facet-l"><span id="facet-{{ group.param }}">{{ group.label }}</span>{% if group.notes_label %}<button type="button" class="ghost icon-button notes-toggle" aria-expanded="false" aria-controls="facet-form-{{ group.param }}" aria-label="{{ group.notes_label }}" title="{{ group.notes_label }}" data-notes>{% icon "info" %}</button>{% endif %}</span>{% if group.chosen %}<button type="submit" id="clear-{{ group.param }}" class="link" aria-label="{% blocktranslate with facet=group.label %}Clear {{ facet }}{% endblocktranslate %}">{% translate "Clear" %}</button>{% endif %}</h3>
     {% for o in group.options %}
-    {% if o.divided %}<hr class="fdiv" aria-hidden="true">{% endif %}
     <button type="submit" id="f-{{ group.param }}-{{ o.key }}" class="fopt{% if o.sub %} sub{% endif %}{% if not o.count %} zero{% endif %}"{% if o.pick %} name="{{ group.param }}" value="{{ o.pick }}"{% endif %} aria-pressed="{% if o.chosen %}true{% else %}false{% endif %}">
       {% if o.dot == "awaiting" or o.dot == "transfer" %}<i class="dot {{ o.dot }}" aria-hidden="true"></i>{% elif o.dot %}<i class="dot" style="--hue: var(--{{ o.dot }})" aria-hidden="true"></i>{% endif %}
       <span class="t">{{ o.label }}{% if o.note %}<small>{{ o.note }}</small>{% endif %}</span>

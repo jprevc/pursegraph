@@ -64,6 +64,10 @@ _Avoid_: Share, portion, line, item
 A Member-defined pattern that assigns a Category to matching Transactions, or marks them as Transfers, often created from a manual correction.
 _Avoid_: Filter, mapping, auto-label
 
+**Decided by**:
+What set a Transaction's outcome: a Rule, a Categorizer's Suggestion, a Member by hand, the Household's IBAN, pairing with its other side, or the import itself (a bank fee). A Transaction with no outcome yet isn't decided by anything.
+_Avoid_: Source, origin
+
 **Review queue**:
 The Transactions that still need a Member to decide their outcome: those with neither a Subcategory nor Transfer status, and the Transfer sides whose pairing is ambiguous because more than one Transaction is equally close to being their other side.
 _Avoid_: Inbox, uncategorized list

@@ -20,17 +20,45 @@ from dashboard.queries import VIEWS, Filters, buckets, filter_choices
 from dashboard.templatetags.hues import hue
 from pursegraph import figures
 
-from .models import SOURCE_CAPTIONS, Category, Part, Source, Transaction, counts_in
 from .models import UNRESOLVED as WITHOUT_OUTCOME
+from .models import Category, Part, Source, Transaction, counts_in
 from .transfers import WINDOW
 
 UNRESOLVED = "unresolved"
 TRANSFER = "transfer"
-# What the Decided facet offers, in its order: the ways that decide any outcome, then, under a hairline, those that
-# only find a Transfer. "by import" (a bank fee) is left to Any way.
-ANY_OUTCOME_SOURCES = [Source.RULE, Source.CATEGORIZER, Source.MANUAL]
-TRANSFER_SOURCES = [Source.IBAN, Source.PAIRING]
-SOURCES = ANY_OUTCOME_SOURCES + TRANSFER_SOURCES
+# What the Decided by facet offers, in its order: each way's label, read as completing "Decided by", and its note.
+# "by import" (a bank fee) is left to Anything.
+DECIDED_BY = {
+    Source.RULE: (
+        gettext_lazy("Rule"),
+        gettext_lazy(
+            "A Rule matched it. Rules are patterns a Member set up, often from a correction."
+        ),
+    ),
+    Source.CATEGORIZER: (
+        gettext_lazy("Categorizer"),
+        gettext_lazy("A Categorizer suggested it, sure enough to take it on its own."),
+    ),
+    Source.MANUAL: (gettext_lazy("Member"), gettext_lazy("A Member chose it.")),
+    Source.IBAN: (
+        gettext_lazy("IBAN"),
+        gettext_lazy(
+            "It pays to or from another of the Household's own Accounts, so it's a Transfer."
+        ),
+    ),
+    Source.PAIRING: (
+        gettext_lazy("Pairing"),
+        ngettext_lazy(
+            "Paired with its other side in another Account: same amount, the opposite way, "
+            "within %(days)d day.",
+            "Paired with its other side in another Account: same amount, the opposite way, "
+            "within %(days)d days.",
+            "days",
+        )
+        % {"days": WINDOW.days},
+    ),
+}
+SOURCES = list(DECIDED_BY)
 OUT, IN = "out", "in"
 
 
@@ -295,8 +323,7 @@ def counts(choice: Choice) -> dict[str, dict[str, int]]:
 class Option:
     """One facet option: its `label`, its `count` with the other facets held, whether it is `chosen`, and the query
     value picking it submits (`pick`; "" picks nothing, which clears the facet). `dot` is "awaiting", "transfer" or
-    a Category's hue token, `note` a line explaining it, `sub` marks a Subcategory under its Category and `divided`
-    draws a hairline above it, parting it from the options before."""
+    a Category's hue token, `note` a line explaining it and `sub` marks a Subcategory under its Category."""
 
     label: str
     count: int
@@ -305,7 +332,6 @@ class Option:
     dot: str = ""
     note: str = ""
     sub: bool = False
-    divided: bool = False
     # Where focus can find it again after a swap.
     key: str = ""
 
@@ -313,41 +339,21 @@ class Option:
 @dataclass(frozen=True)
 class Group:
     """A facet's options, under `label`. `param` is the query parameter its options submit, and `carry` the rest
-    of the choice, which they keep; `chosen` says the facet is set, so it offers Clear."""
+    of the choice, which they keep; `chosen` says the facet is set, so it offers Clear. A facet whose options carry
+    notes names the info toggle that shows and hides them (`notes_label`)."""
 
     param: str
     label: str
     options: list[Option]
     carry: list[tuple[str, str]]
     chosen: bool
+    notes_label: str = ""
 
     @property
     def chosen_option(self) -> Option | None:
         """The option chosen, unless it is the Any one."""
         return next((o for o in self.options[1:] if o.chosen), None)
 
-
-# The Decided facet's line on each source.
-SOURCE_NOTES = {
-    Source.RULE: gettext_lazy(
-        "A Rule matched it. Rules are patterns a Member set up, often from a correction."
-    ),
-    Source.CATEGORIZER: gettext_lazy(
-        "A Categorizer suggested it, sure enough to take it on its own."
-    ),
-    Source.IBAN: gettext_lazy(
-        "It pays to or from another of the Household's own Accounts, so it's a Transfer."
-    ),
-    Source.PAIRING: ngettext_lazy(
-        "Paired with its other side in another Account: same amount, the opposite way, "
-        "within %(days)d day.",
-        "Paired with its other side in another Account: same amount, the opposite way, "
-        "within %(days)d days.",
-        "days",
-    )
-    % {"days": WINDOW.days},
-    Source.MANUAL: gettext_lazy("A Member chose it."),
-}
 
 # What clears each facet, as `Choice.changed` takes it.
 CLEARED = {"period": None, "member": None, "account": None, "outcome": "", "source": ""}
@@ -390,10 +396,17 @@ def rail(choice: Choice, counts: dict[str, dict[str, int]], total: int) -> list[
     members, accounts = filter_choices()
     first = Transaction.objects.aggregate(first=Min("date"))["first"]
 
-    def group(param: str, label: str, any_label: str, options: list[Option], chosen: bool) -> Group:
+    def group(
+        param: str,
+        label: str,
+        any_label: str,
+        options: list[Option],
+        chosen: bool,
+        notes_label: str = "",
+    ) -> Group:
         any_option = Option(any_label, counts[param].get("", 0), not chosen, "", key="any")
         carry = choice.changed(**{param: CLEARED[param]}).params
-        return Group(param, label, [any_option, *options], carry, chosen)
+        return Group(param, label, [any_option, *options], carry, chosen, notes_label)
 
     # Period: All time, then each month newest first, and a chosen period of another unit on top.
     months = _months(first)
@@ -430,9 +443,11 @@ def rail(choice: Choice, counts: dict[str, dict[str, int]], total: int) -> list[
             ]
 
     source_options = [
-        replace(o, note=str(SOURCE_NOTES[Source(o.key)]), divided=o.key == TRANSFER_SOURCES[0])
+        replace(o, note=str(DECIDED_BY[Source(o.key)][1]))
         for o in _options(
-            [(s.value, str(SOURCE_CAPTIONS[s])) for s in SOURCES], choice.source, counts["source"]
+            [(s.value, str(label)) for s, (label, _note) in DECIDED_BY.items()],
+            choice.source,
+            counts["source"],
         )
     ]
 
@@ -447,7 +462,14 @@ def rail(choice: Choice, counts: dict[str, dict[str, int]], total: int) -> list[
         ),
         group("account", _("Account"), _("All Accounts"), account_options, bool(accounts_chosen)),
         group("outcome", _("Outcome"), _("Any outcome"), outcome_options, bool(choice.outcome)),
-        group("source", _("Decided"), _("Any way"), source_options, bool(choice.source)),
+        group(
+            "source",
+            _("Decided by"),
+            _("Anything"),
+            source_options,
+            bool(choice.source),
+            _("About how each was decided"),
+        ),
     ]
 
 
@@ -461,6 +483,8 @@ def named(choice: Choice, groups: list[Group]) -> list[str]:
                 o for o in reversed(group.options[: group.options.index(chosen)]) if not o.sub
             )
             names.append(f"{category.label} › {chosen.label}")
+        elif chosen and group.param == "source":
+            names.append(_("Decided by %(way)s") % {"way": chosen.label})
         elif chosen:
             names.append(chosen.label)
         elif group.param == "account" and choice.filters.accounts:
