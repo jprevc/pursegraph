@@ -27,7 +27,7 @@ template_comments() {
 step "one-line template comments" template_comments
 # Production installs no dev dependencies, so a module importing one at runtime fails only there.
 step "imports without dev dependencies" uv run -q --isolated --no-dev python manage.py check
-[[ "${1:-}" == "--fast" ]] || step "pytest" uv run -q pytest -q
+[[ "${1:-}" == "--fast" ]] || step "pytest" uv run -q pytest -q -n auto
 
 if ((${#failed[@]})); then
     printf 'check: failed: %s\n' "${failed[@]}" >&2
