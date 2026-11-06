@@ -255,6 +255,64 @@ def test_filtered_to_a_category_the_matching_part_is_emphasised_and_the_others_d
     assert [shown for shown, _outcome, _amount in part_rows(page, hypermarket)] == ["em", "dim"]
 
 
+def test_a_split_saved_on_a_filtered_page_comes_back_with_the_matching_part_emphasised(
+    logged_in_client, hypermarket
+):
+    food = groceries().category
+    response = logged_in_client.post(
+        f"/transactions/{hypermarket.pk}/split/",
+        {
+            **split_posted(hypermarket, (groceries(), "40"), (household(), "40")),
+            "listed": f"/transactions/?outcome=category-{food.pk}",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+
+    page = response.content.decode()
+    assert [shown for shown, _outcome, _amount in part_rows(page, hypermarket)] == ["em", "dim"]
+
+
+def test_a_split_saved_in_the_drill_down_comes_back_in_total_with_the_counted_part_emphasised(
+    logged_in_client, hypermarket
+):
+    listed = f"/spending/transactions/?period=2026-09&category={groceries().category.pk}"
+    response = logged_in_client.post(
+        f"/transactions/{hypermarket.pk}/split/",
+        {**split_posted(hypermarket, (groceries(), "40"), (household(), "40")), "listed": listed},
+        HTTP_HX_REQUEST="true",
+    )
+
+    page = response.content.decode()
+    assert re.search(r"−80,00.€<small>in total</small>", rows_of(page, hypermarket))
+    assert [shown for shown, _outcome, _amount in part_rows(page, hypermarket)] == ["em", "dim"]
+    # Its Undo, and a save after it, keep to the same list.
+    assert f'name="listed" value="{listed}"' in html.unescape(rows_of(page, hypermarket))
+
+
+def test_an_undo_that_puts_a_split_back_keeps_its_emphasis(logged_in_client, hypermarket):
+    listed = f"/transactions/?outcome=category-{groceries().category.pk}"
+    logged_in_client.post(
+        f"/transactions/{hypermarket.pk}/outcome/",
+        {"outcome": groceries().pk, "listed": listed},
+        HTTP_HX_REQUEST="true",
+    )
+
+    response = logged_in_client.post(
+        f"/transactions/{hypermarket.pk}/undo/", {"listed": listed}, HTTP_HX_REQUEST="true"
+    )
+
+    page = response.content.decode()
+    assert [shown for shown, _outcome, _amount in part_rows(page, hypermarket)] == ["em", "dim"]
+    assert "in total" not in page
+
+
+def test_a_row_tells_its_saves_the_address_of_the_list_it_is_in(logged_in_client, hypermarket):
+    query = f"outcome=category-{groceries().category.pk}"
+    page = logged_in_client.get(f"/transactions/?{query}").content.decode()
+
+    assert f'name="listed" value="/transactions/?{query}"' in rows_of(page, hypermarket)
+
+
 def test_in_the_drill_down_the_split_is_in_total_and_only_the_counted_part_stands_out(
     logged_in_client, hypermarket
 ):

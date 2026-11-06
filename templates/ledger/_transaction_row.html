@@ -4,7 +4,8 @@ only Change changes it: with a fine pointer it opens the chip panel (static/outc
 _outcome_chips.html), or on a Split the Split editor (static/split.js, from _split_editor.html); with a coarse one it is
 a native select laid over the button, and without JS the select and a Save button. Needs `t`, `categories`,
 `most_used` and `request`; `next` overrides where a plain form post goes back to, `saved` adds the line that says so,
-with Undo, `contains` highlights the text a Rule matched, and `drill` marks a Split's amount as its total.
+with Undo, `contains` highlights the text a Rule matched, and `drill` marks a Split's amount as its total. Saves and
+Undo post `listed`, the address of the list the row is in, so that the row swapped back reads as that list shows it.
 {% endcomment %}
 {% url 'transaction_outcome' t.pk as outcome_url %}
 <tbody id="transaction-{{ t.pk }}-rows" class="txn-rows">
@@ -22,6 +23,7 @@ with Undo, `contains` highlights the text a Rule matched, and `drill` marks a Sp
       <form class="oc-form" data-action data-own-failure data-failed="{% translate "Couldn't save %(outcome)s. Nothing changed." %}" data-retry="{% translate 'Try again' %}" method="post" action="{{ outcome_url }}" hx-post="{{ outcome_url }}" hx-target="closest tbody" hx-swap="outerHTML">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next|default:request.get_full_path }}">
+        <input type="hidden" name="listed" value="{{ listed|default:request.get_full_path }}">
         {% blocktranslate asvar change_label with description=t.description %}Change the outcome of {{ description }}{% endblocktranslate %}
         <span class="change">
           <button type="button" class="link" data-change aria-expanded="false" aria-label="{{ change_label }}">{% translate "Change" %}</button>
@@ -62,7 +64,7 @@ with Undo, `contains` highlights the text a Rule matched, and `drill` marks a Sp
       <p class="oc-saved" data-saved>
         {% icon "check" %}<span>{% blocktranslate with outcome=t.outcome_saved %}Saved as {{ outcome }}{% endblocktranslate %}</span>
         <span aria-hidden="true">·</span>
-        <button type="button" class="link" data-action data-undo data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}" hx-post="{% url 'undo_outcome' t.pk %}" hx-target="closest tbody" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
+        <button type="button" class="link" data-action data-undo data-own-failure data-failed="{% translate "Couldn't undo. Nothing changed." %}" hx-post="{% url 'undo_outcome' t.pk %}" hx-include="previous [name=listed]" hx-target="closest tbody" hx-swap="outerHTML" data-busy-label="{% translate 'Undoing…' %}">{% translate "Undo" %}</button>
         {% if t.source == "manual" and not t.counterpart_id and not t.is_split %}<span aria-hidden="true">·</span>
         <a href="{% url 'new_rule' %}?transaction={{ t.pk }}">{% translate "Make a Rule" %}</a>{% endif %}
       </p>
