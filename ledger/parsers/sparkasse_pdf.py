@@ -13,7 +13,8 @@ amounts. Each row takes two dated lines:
     [<the IBAN's last digits>, on a line of their own] [<rest of the purpose>]
 
 The interest row has no counterparty: its first line has only the amount, and its description
-("Pozitivne obresti") is on the value-date line instead of an IBAN.
+("Pozitivne obresti") is on the value-date line instead of an IBAN. A Flik payment to a mobile
+number has the number, in international form ("00386..."), where the IBAN would be.
 """
 
 import re
@@ -40,6 +41,7 @@ FIRST_LINE = re.compile(rf"^({DATE})(?: (.*?))? ({MONEY})(?: (\S.*))?$")
 SECOND_LINE = re.compile(rf"^({DATE})(?: (.*))?$")
 DATED = re.compile(rf"^{DATE}( |$)")
 IBAN = re.compile(r"^([A-Z]{2}\d{2}[A-Z0-9]{11,30})(?: (.*))?$")
+PHONE = re.compile(r"^(00\d{8,13})(?: (.*))?$")
 IBAN_TAIL = re.compile(r"^[A-Z0-9]{1,4}$")
 # Lines of the Statement's own layout, which never belong inside a row.
 STATEMENT_TEXT = re.compile(
@@ -133,8 +135,10 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
     value_date, rest = second.groups()
     rest, after = rest or "", lines[dated[1] + 1 :]
 
-    iban = ""
-    if match := IBAN.match(rest):
+    iban, phone = "", ""
+    if name and (match := PHONE.match(rest)):
+        phone, rest = match[1], match[2] or ""
+    elif match := IBAN.match(rest):
         iban, rest = match[1], match[2] or ""
         if (
             not valid_iban(iban)
@@ -151,6 +155,9 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
     description = name or rest
     purpose = " ".join([rest, *after]).strip() if name else " ".join(after)
 
+    raw = {"value_date": _date(value_date).isoformat(), "purpose": purpose, "lines": lines}
+    if phone:
+        raw["phone"] = phone
     return ParsedRow(
         date=_date(booking_date),
         amount=sign * _money(amount),
@@ -158,7 +165,7 @@ def _row(lines: list[str], sign: int) -> ParsedRow:
         counterparty_name=name,
         counterparty_iban=iban,
         reference=reference or "",
-        raw={"value_date": _date(value_date).isoformat(), "purpose": purpose, "lines": lines},
+        raw=raw,
     )
 
 
