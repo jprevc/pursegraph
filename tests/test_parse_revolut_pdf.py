@@ -162,3 +162,32 @@ def test_a_revolut_statement_in_another_currency_is_rejected():
         parse_pdf_text(FIXTURE.replace("EUR Statement", "USD Statement"))
 
     assert str(error.value) == "Only Revolut's EUR Statements are supported."
+
+
+def test_revolut_pdf_keeps_a_non_revolut_fee_line_in_raw_without_a_fee_row():
+    # An ATM operator's fee is already in the withdrawal's amount; Revolut prints it for information.
+    text = replace(
+        "To: Mercator Zalec, Zalec\n",
+        "Non-Revolut fee: 5.00 GEL\nTo: Mercator Zalec, Zalec\n",
+    )
+
+    rows = parse_pdf_text(text).rows
+
+    assert rows[7].raw["non_revolut_fee"] == "5.00 GEL"
+    assert rows[7].amount == Decimal("-12.34")
+    assert len(rows) == 8
+
+
+def test_revolut_pdf_skips_the_reverted_transactions_after_the_rows():
+    text = replace(
+        "Zalec\nCard: 123456******7890\nReport lost or stolen card",
+        "Zalec\nCard: 123456******7890\n"
+        "Reverted from June 1, 2026 to June 11, 2026\n"
+        "Start date Description Money out Money in\n"
+        "Jun 9, 2026 Kiosk €0.80\n"
+        "To: Kiosk, Kranj\n"
+        "Card: 123456******7890\n"
+        "Report lost or stolen card",
+    )
+
+    assert parse_pdf_text(text).rows == parse_pdf_text(FIXTURE).rows

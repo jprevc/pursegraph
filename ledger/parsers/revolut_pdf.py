@@ -7,6 +7,7 @@ each starting with a dated line and followed by lines of detail:
     <Mon D, YYYY> <description> €<amount> €<balance after it>
     [Reference: <reference>]
     [Fee: €<fee> €<amount less the fee>]
+    [Non-Revolut fee: <fee in the original currency>]
     [Revolut Rate <rate> <original amount>] or [<original amount>]
     [To: <merchant or payee>[, <IBAN>]] or [From: <payer>[, <IBAN>]]
     [Card: <masked card number>]
@@ -15,6 +16,10 @@ The amount is unsigned and the text doesn't say which column it's in, so its sig
 change in balance. A fee-bearing row's amount and balance include the fee, which becomes a fee
 Transaction of its own after its payment, as the Revolut CSV gives it. Each page ends with a
 footer and the next one starts with a header; both are skipped, even inside a row.
+
+A Non-Revolut fee, such as an ATM operator's, is already in the original amount and the amount, so
+it is kept in `raw` and becomes no Transaction. The rows end where "Reverted from <date> to <date>"
+lists the reverted card payments, which never moved the balance.
 """
 
 import re
@@ -31,6 +36,7 @@ MONEY = r"€(\d{1,3}(?:,\d{3})*\.\d\d)"
 OWN_IBAN = re.compile(r" IBAN ([A-Z]{2}\d{2}[A-Z0-9]{11,30})$", re.M)
 SUMMARY = re.compile(rf"^Account \(Current Account\) {MONEY} {MONEY} {MONEY} {MONEY}$", re.M)
 PERIOD = re.compile(r"^Account transactions from (.+) to (.+)$")
+REVERTED = re.compile(r"^Reverted from .+ to .+$")
 PAGE_HEADER = re.compile(
     r"^(?:EUR Statement|Generated on .*|Revolut Bank UAB|Date Description Money out Money in Balance)$"
 )
@@ -42,6 +48,7 @@ DATED = re.compile(r"^[A-Z][a-z]{2} \d{1,2}, \d{4} ")
 DETAILS = {
     "reference": re.compile(r"^Reference: (.+)$"),
     "fee": re.compile(rf"^Fee: {MONEY} {MONEY}$"),
+    "non_revolut_fee": re.compile(r"^Non-Revolut fee: (.+)$"),
     "rate": re.compile(r"^(Revolut Rate .*\)) (.+)$"),
     "original_amount": re.compile(r"^([^\s\d€]{1,3}[\d,]+\.\d\d|[\d,]+\.\d\d [A-Z]{3})$"),
     "to": re.compile(r"^To: (.+)$"),
@@ -92,6 +99,8 @@ def _rows(text: str, opening: Decimal) -> tuple[tuple[date, date], list[ParsedRo
             row.clear()
 
     for line in lines:
+        if REVERTED.match(line):
+            break
         if FOOTER_START.match(line):
             # Consumes the rest of the footer.
             if not any(FOOTER_END.match(footer) for footer in lines):
