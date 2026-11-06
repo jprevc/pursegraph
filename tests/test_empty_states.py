@@ -67,6 +67,57 @@ def test_members_with_only_the_first_admin_asks_to_invite_the_rest(admin_client)
     assert '<li class="member-row">' in page  # the one row stays
 
 
+def test_members_role_cards_swapped_in_alone_end_with_the_invite_block(admin_client):
+    cards = admin_client.get("/members/", HTTP_HX_REQUEST="true").content.decode()
+
+    heading, _sentence, _actions = empty_block(cards)
+    assert heading == "Invite the rest of the Household"
+    assert cards.index("Deactivated") < cards.index("empty-block")
+
+
+def test_members_page_shows_the_invite_block_once(admin_client):
+    assert admin_client.get("/members/").content.decode().count("empty-block") == 1
+
+
+def test_inviting_a_member_swaps_in_role_cards_without_the_invite_block(admin_client):
+    response = admin_client.post(
+        "/members/new/", {"name": "Luka Novak", "username": "luka"}, HTTP_HX_REQUEST="true"
+    )
+
+    html = response.content.decode()
+    assert 'id="roles"' in html
+    assert "empty-block" not in html
+
+
+def test_reactivating_a_member_swaps_in_role_cards_without_the_invite_block(
+    admin_client, django_user_model
+):
+    luka = django_user_model.objects.create_user(
+        username="luka", password=PASSWORD, is_active=False
+    )
+
+    response = admin_client.post(
+        f"/members/{luka.pk}/active/", {"active": "1"}, HTTP_HX_REQUEST="true"
+    )
+
+    html = response.content.decode()
+    assert 'id="roles"' in html
+    assert "empty-block" not in html
+
+
+def test_deactivating_the_only_other_member_brings_the_invite_block_back(
+    admin_client, django_user_model
+):
+    luka = django_user_model.objects.create_user(username="luka", password=PASSWORD)
+
+    response = admin_client.post(
+        f"/members/{luka.pk}/active/", {"active": "0"}, HTTP_HX_REQUEST="true"
+    )
+
+    heading, _sentence, _actions = empty_block(response.content.decode())
+    assert heading == "Invite the rest of the Household"
+
+
 def test_members_with_a_second_member_has_no_empty_block(admin_client, django_user_model):
     django_user_model.objects.create_user(username="luka", password=PASSWORD)
 
