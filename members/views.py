@@ -39,16 +39,15 @@ def _members_page(request, *, confirm=None, dialog=None):
     if wants_the_fragment_alone(request):
         response = render(request, "members/_roles.html", {**context, "alone": True})
     else:
-        # Only the first admin is active so far: the page asks to invite the rest of the Household.
-        context |= {"alone": False, "only_admin": not others_invited()}
-        response = render(request, "members/members.html", context)
+        response = render(request, "members/members.html", {**context, "alone": False})
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request"])
     return response
 
 
 def _roles() -> dict:
     """The Members grouped by role, the section being their state: active admins, active Members, deactivated. Each
-    Member with the names of the Accounts they own, and `last_admin` on the only active admin."""
+    Member with the names of the Accounts they own, and `last_admin` on the only active admin. `only_active_member`
+    while the first admin is the only active Member, so the cards end by asking to invite the rest of the Household."""
     members = list(
         get_user_model()
         .objects.prefetch_related(Prefetch("accounts", queryset=Account.objects.order_by("name")))
@@ -58,6 +57,7 @@ def _roles() -> dict:
     for m in members:
         m.last_admin = len(admins) == 1 and m in admins  # type: ignore[attr-defined]
     return {
+        "only_active_member": not others_invited(),
         "groups": [
             {
                 "key": "admins",

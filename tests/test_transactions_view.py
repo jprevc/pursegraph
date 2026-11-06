@@ -256,7 +256,7 @@ def test_decided_just_now_is_named_and_cleared_with_the_filters(logged_in_client
 
     summary = text(found(r'<p id="summary".*?</p>', page))
     assert summary.endswith("· Decided just now · 3 Clear filters")
-    assert 'class="clear" href="/transactions/?dashboard=period%3D2026-09"' in page
+    assert 'class="clear-filters" href="/transactions/?dashboard=period%3D2026-09"' in page
 
 
 def test_a_drill_downs_link_opens_transactions_with_a_breadcrumb_back(logged_in_client, household):

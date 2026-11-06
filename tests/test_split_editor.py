@@ -244,6 +244,18 @@ def test_an_unsplit_rows_change_offers_split_into_parts(logged_in_client, accoun
     assert 'class="split-editor"' in page
 
 
+def test_the_chip_panel_splits_one_row_whatever_the_page_counts(logged_in_client, account):
+    # The page's own `count` (Transactions matching the facets) must not reach the chip panel's Split entry.
+    add(account, "-12.00", "Hofer")
+    add(account, "-3.00", "Spar")
+    response = logged_in_client.get("/transactions/")
+    page = response.content.decode()
+
+    assert response.context["count"] == 2
+    assert re.search(r"data-split-open>.*?Split into Parts…</button>", page, re.S)
+    assert "Split all" not in page
+
+
 def test_filtered_to_a_category_the_matching_part_is_emphasised_and_the_others_dimmed(
     logged_in_client, hypermarket
 ):

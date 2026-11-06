@@ -15,7 +15,7 @@
   <b>{% blocktranslate count n=count %}{{ n }} Transaction{% plural %}{{ n }} Transactions{% endblocktranslate %}</b>
   <span class="fig">· {% blocktranslate with amount=money_out|money %}{{ amount }} out{% endblocktranslate %} · {% blocktranslate with amount=money_in|money %}{{ amount }} in{% endblocktranslate %}</span>
   {% if names %}<span class="named">· {{ names|join:", " }}</span>
-  <a class="clear" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear filters" %}</a>{% endif %}
+  <a class="clear-filters" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear filters" %}</a>{% endif %}
 </p>
 <div class="tx-grid">
   <aside id="rail" class="rail panel" popover aria-labelledby="rail-h" {% include "ledger/_facet_swap.html" %}>
