@@ -46,8 +46,8 @@ def _members_page(request, *, confirm=None, dialog=None):
 
 def _roles() -> dict:
     """The Members grouped by role, the section being their state: active admins, active Members, deactivated. Each
-    Member with the names of the Accounts they own, and `last_admin` on the only active admin. `only_admin` while the
-    first admin is the only active Member, so the cards end by asking to invite the rest of the Household."""
+    Member with the names of the Accounts they own, and `last_admin` on the only active admin. `only_active_member`
+    while the first admin is the only active Member, so the cards end by asking to invite the rest of the Household."""
     members = list(
         get_user_model()
         .objects.prefetch_related(Prefetch("accounts", queryset=Account.objects.order_by("name")))
@@ -57,7 +57,7 @@ def _roles() -> dict:
     for m in members:
         m.last_admin = len(admins) == 1 and m in admins  # type: ignore[attr-defined]
     return {
-        "only_admin": not others_invited(),
+        "only_active_member": not others_invited(),
         "groups": [
             {
                 "key": "admins",

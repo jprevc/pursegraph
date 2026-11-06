@@ -67,7 +67,7 @@ def test_members_with_only_the_first_admin_asks_to_invite_the_rest(admin_client)
     assert '<li class="member-row">' in page  # the one row stays
 
 
-def test_members_role_cards_swapped_in_alone_carry_the_invite_block(admin_client):
+def test_members_role_cards_swapped_in_alone_end_with_the_invite_block(admin_client):
     cards = admin_client.get("/members/", HTTP_HX_REQUEST="true").content.decode()
 
     heading, _sentence, _actions = empty_block(cards)
