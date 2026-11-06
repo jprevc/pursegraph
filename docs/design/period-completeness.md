@@ -28,4 +28,4 @@ The bands' text labels are the non-colour cue. The hatch stays reserved for Awai
 
 **Tables** beside the charts carry the same states in text: column headers "Jul (partial)", "Jan (partly tracked)" and "Oct (so far)", and "—" (never 0) in a Not tracked month's cells. A qualifier wraps under the month, in Muted, so it never widens the table.
 
-**Periods.** Every view opens on the last full month, even when that month is Partial (the header line says why), and Category trends opens on the 12 months ending with it. The running month is reached only with ›, as In progress. There is no "this month so far" anywhere else.
+**Periods.** Every view opens on the last full month, even when that month is Partial (the header line says why), and Category trends opens on the 12 months ending with it. Category trends offers no Month unit, as a month is one point on each line: a month carried from another view, or in a link, shows the 12 months ending with it, and the month itself carries on to the other views unless a period is chosen on Category trends. The running month is reached only with ›, as In progress. There is no "this month so far" anywhere else.

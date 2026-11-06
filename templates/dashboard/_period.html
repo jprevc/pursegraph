@@ -1,4 +1,4 @@
-{% load figures i18n icons %}{# The period selector. Needs `period`, `first_period`, `filters`, `filter_query` and `view_url`; every control swaps #view. #}
+{% load figures i18n icons %}{# The period selector. Needs `period`, `period_units`, `first_period`, `filters`, `filter_query` and `view_url`; every control swaps #view. #}
 <div class="period" hx-target="#view" hx-push-url="true">
   <span class="stepper">
   {% if first_period %}<span class="stepper-arrow off">{% icon "left" %}</span>{% else %}<a class="stepper-arrow" href="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" hx-get="{{ view_url }}?period={{ period.previous.token }}{{ filter_query }}" aria-label="{% translate 'Previous period' %}">{% icon "left" %}</a>{% endif %}
@@ -8,7 +8,7 @@
   <form class="unit" method="get" action="{{ view_url }}" hx-get="{{ view_url }}" hx-trigger="change">
     {% for name, value in filters.params %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
     <select name="period" aria-label="{% translate 'Period' %}">
-      {% for token, label, selected in period.units %}<option value="{{ token }}"{% if selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      {% for token, label, selected in period_units %}<option value="{{ token }}"{% if selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
     <noscript><button type="submit">{% translate "Show" %}</button></noscript>
   </form>

@@ -232,7 +232,7 @@ def test_category_trends_leave_transfers_out_under_a_member_filter(logged_in_cli
         "/trends/", {"period": "2026-09", "member": "joint"}
     ).content.decode()
 
-    assert view_table(page) == [["Food", f"60,00{EUR}", f"60,00{EUR}"]]
+    assert [(row[0], row[-1]) for row in view_table(page)] == [("Food", f"60,00{EUR}")]
 
 
 def selected_member(page):
@@ -324,6 +324,48 @@ def test_the_filters_and_a_chosen_period_carry_across_views(logged_in_client, ho
     assert 'hx-swap-oob="true"' in page
     assert nav_links(page)["Money flow"] == "/money-flow/?period=2026-Q3&member=joint"
     assert page_links(page)["Dashboard"] == "/?period=2026-Q3&member=joint"
+
+
+def test_a_month_carried_through_category_trends_comes_back_unchanged(logged_in_client, household):
+    page = logged_in_client.get(
+        "/spending/", {"period": "2026-09", "member": "joint"}
+    ).content.decode()
+    assert nav_links(page)["Category trends"] == "/trends/?period=2026-09&member=joint"
+
+    # Category trends shows the 12 months ending with it, and passes the month itself on.
+    page = logged_in_client.get(
+        "/trends/", {"period": "2026-09", "member": "joint"}
+    ).content.decode()
+    assert nav_links(page)["Spending"] == "/spending/?period=2026-09&member=joint"
+
+    # Its stepper steps the 12 months, and a period chosen there carries as itself.
+    assert 'href="/trends/?period=last12-2026-08&amp;member=joint"' in page
+    assert 'href="/trends/?period=last12-2026-10&amp;member=joint"' in page
+    page = logged_in_client.get(
+        "/trends/", {"period": "last12-2026-08", "member": "joint"}
+    ).content.decode()
+    assert nav_links(page)["Spending"] == "/spending/?period=last12-2026-08&member=joint"
+
+
+def test_category_trends_carry_a_quarter_and_not_their_default(logged_in_client, household):
+    page = logged_in_client.get("/trends/", {"period": "2026-Q3"}).content.decode()
+    assert nav_links(page)["Spending"] == "/spending/?period=2026-Q3"
+
+    page = logged_in_client.get("/trends/").content.decode()
+    assert nav_links(page)["Spending"] == "/spending/"
+
+    # A period it can't read is its own default, the one it shows.
+    page = logged_in_client.get("/trends/", {"period": "garbage"}).content.decode()
+    assert nav_links(page)["Spending"] == "/spending/?period=last12-2026-09"
+
+
+def test_a_month_carried_through_a_trends_drill_down_stays_a_month(logged_in_client, household):
+    food = Category.objects.get(name="Food").pk
+    fragment = logged_in_client.get(
+        "/trends/transactions/", {"period": "2026-09", "key": food}
+    ).content.decode()
+
+    assert "dashboard=period%3D2026-09&amp;view=trends" in fragment
 
 
 def test_per_member_keeps_the_member_filter_for_other_views(logged_in_client, household):
