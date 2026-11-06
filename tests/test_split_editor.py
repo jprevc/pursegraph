@@ -248,8 +248,11 @@ def test_the_chip_panel_splits_one_row_whatever_the_page_counts(logged_in_client
     # The page's own `count` (Transactions matching the facets) must not reach the chip panel's Split entry.
     add(account, "-12.00", "Hofer")
     add(account, "-3.00", "Spar")
-    page = logged_in_client.get("/transactions/").content.decode()
+    response = logged_in_client.get("/transactions/")
+    page = response.content.decode()
 
+    assert response.context["count"] == 2
+    assert re.search(r"data-split-open>.*?Split into Parts…</button>", page, re.S)
     assert "Split all" not in page
 
 
