@@ -494,8 +494,8 @@ html:not(.js) [data-split-group] { display: none; }
 .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-2); margin: 0 0 var(--s-4); color: var(--muted); }
 .summary b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .summary .named { color: var(--ink-2); }
-.summary .clear, .clear-all, a.link { font-weight: 500; text-decoration: none; }
-.summary .clear:hover, .clear-all:hover, a.link:hover { text-decoration: underline; }
+.summary .clear-filters, .clear-all, a.link { font-weight: 500; text-decoration: none; }
+.summary .clear-filters:hover, .clear-all:hover, a.link:hover { text-decoration: underline; }
 
 .tx-grid { display: grid; grid-template-columns: 15.75rem minmax(0, 1fr); gap: var(--s-4); align-items: start; }
 /* The rail: a card that sticks 16px from the top and scrolls on its own when taller than the window. It is a popover
