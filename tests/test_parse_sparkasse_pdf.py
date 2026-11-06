@@ -218,3 +218,17 @@ def test_sparkasse_reads_a_flik_payment_to_a_phone_number():
     assert (row.counterparty_name, row.counterparty_iban) == ("MARKO K", "")
     assert row.raw["phone"] == "0038640123456"
     assert row.raw["purpose"] == "Flik plačilo"
+
+
+def test_sparkasse_dates_a_row_booked_after_the_period_by_its_value_date():
+    # The month's NetStik fee can be booked the day after the period ends, yet the bank counts it
+    # in the Statement's closing balance; its value date is still inside the period.
+    text = replace(
+        "30.09.2026 Banka Sparkasse, d. d. 0,25 1600 12345",
+        "01.10.2026 Banka Sparkasse, d. d. 0,25 1600 12345",
+    )
+
+    row = parse_pdf_text(text).rows[-1]
+
+    assert row.date == date(2026, 9, 30)
+    assert row.raw["booking_date"] == "2026-10-01"
