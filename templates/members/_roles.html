@@ -1,5 +1,6 @@
 {% load i18n %}{% comment %} The Members page's role cards (docs/design/admin.md): the section a Member is in is their state, the
-buttons on their row are the actions. Swapped in alone after a step, or out of band with a dialog. {% endcomment %}
+buttons on their row are the actions. While the first admin is the only active Member, the cards end with the block asking
+to invite the rest of the Household. Swapped in alone after a step, or out of band with a dialog. {% endcomment %}
 {% if alone %}{% include "_title.html" %}{% endif %}
 <div id="roles" class="roles"{% if oob %} hx-swap-oob="true"{% endif %}>
   {% for group in groups %}
@@ -14,4 +15,8 @@ buttons on their row are the actions. Swapped in alone after a step, or out of b
     {% endif %}
   </section>
   {% endfor %}
+  {% if only_admin %}
+  {% url 'new_member' as new_member_url %}{% translate "Invite the rest of the Household" as heading %}{% translate "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." as text %}{% translate "Invite a Member" as primary_label %}
+  {% include "_empty.html" with icon="people" primary_href=new_member_url primary_icon="plus" %}
+  {% endif %}
 </div>

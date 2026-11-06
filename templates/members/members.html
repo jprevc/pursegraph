@@ -10,9 +10,5 @@
 <p class="page-sub muted">{% translate "Everyone in the Household who logs in. Admins also manage Members, Accounts, Categories, API tokens and Webhooks. There is no email here: invite and reset links are passed on by hand." %}</p>
 {% for message in messages %}<p class="panel notice status {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}
 {% include "members/_roles.html" %}
-{% if only_admin %}
-{% url 'new_member' as new_member_url %}{% translate "Invite the rest of the Household" as heading %}{% translate "You're the only Member so far. Invite the others: each gets a one-time link to choose their password, and then imports their own bank Statements." as text %}{% translate "Invite a Member" as primary_label %}
-{% include "_empty.html" with icon="people" primary_href=new_member_url primary_icon="plus" %}
-{% endif %}
 <div id="dialog-slot">{% if dialog_template %}{% include dialog_template with open=True %}{% endif %}</div>
 {% endblock %}
