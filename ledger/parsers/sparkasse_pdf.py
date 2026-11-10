@@ -19,6 +19,9 @@ number has the number, in international form ("00386..."), where the IBAN would 
 A row is dated by its booking date, except one booked after the period ends: the month's NetStik
 fee can be booked the next day, yet the bank counts it in this Statement's closing balance. That
 row is dated by its value date, which falls inside the period, and keeps its booking date in raw.
+Likewise the previous month's interest can be booked on its last day, yet only this Statement
+lists it and counts it in its balances. Its value date is that day too, so that row is dated on
+the period's first day, and keeps its booking date in raw.
 """
 
 import re
@@ -59,16 +62,17 @@ def parse(text: str) -> ParsedStatement:
     if not (iban and period and summary):
         raise ParseError(_("The Sparkasse Statement has no IBAN, period or EUR totals."))
     opening, money_out, count_out, money_in, count_in, closing = summary.groups()
+    # The period runs from the day after the previous Statement.
+    period_start = _date(period[1]) + timedelta(days=1)
     period_end = _date(period[2])
     return ParsedStatement(
         bank="sparkasse_si",
         iban=iban[1].replace(" ", ""),
-        # The period runs from the day after the previous Statement.
-        period_start=_date(period[1]) + timedelta(days=1),
+        period_start=period_start,
         period_end=period_end,
         opening_balance=_money(opening),
         closing_balance=_money(closing),
-        rows=_rows(text, period_end),
+        rows=_rows(text, period_start, period_end),
         skipped_count=0,
         printed_totals=Totals(
             money_in=_money(money_in),
@@ -79,7 +83,7 @@ def parse(text: str) -> ParsedStatement:
     )
 
 
-def _rows(text: str, period_end: date) -> list[ParsedRow]:
+def _rows(text: str, period_start: date, period_end: date) -> list[ParsedRow]:
     lines = iter(text.splitlines())
     # Consumes everything up to the EUR block's heading.
     if not any(EUR_BLOCK.match(line) for line in lines):
@@ -91,7 +95,7 @@ def _rows(text: str, period_end: date) -> list[ParsedRow]:
     def finish_row():
         if row:
             assert sign is not None  # a row is only started inside a PRILIVI/ODLIVI section
-            rows.append(_row(row.copy(), sign, period_end))
+            rows.append(_row(row.copy(), sign, period_start, period_end))
             row.clear()
 
     for line in lines:
@@ -121,7 +125,7 @@ def _has_second_line(row: list[str]) -> bool:
     return sum(1 for line in row if DATED.match(line)) == 2
 
 
-def _row(lines: list[str], sign: int, period_end: date) -> ParsedRow:
+def _row(lines: list[str], sign: int, period_start: date, period_end: date) -> ParsedRow:
     text = " / ".join(lines)
     dated = [i for i, line in enumerate(lines) if DATED.match(line)]
     first = FIRST_LINE.match(lines[0])
@@ -167,6 +171,9 @@ def _row(lines: list[str], sign: int, period_end: date) -> ParsedRow:
     if row_date > period_end:
         raw["booking_date"] = row_date.isoformat()
         row_date = _date(value_date)
+    elif row_date < period_start:
+        raw["booking_date"] = row_date.isoformat()
+        row_date = period_start
     return ParsedRow(
         date=row_date,
         amount=sign * _money(amount),

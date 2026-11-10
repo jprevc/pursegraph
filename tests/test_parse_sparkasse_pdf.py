@@ -232,3 +232,17 @@ def test_sparkasse_dates_a_row_booked_after_the_period_by_its_value_date():
 
     assert row.date == date(2026, 9, 30)
     assert row.raw["booking_date"] == "2026-10-01"
+
+
+def test_sparkasse_dates_a_row_booked_before_the_period_on_its_first_day():
+    # The previous month's interest can be booked on its last day, yet only this Statement lists
+    # it and counts it in its balances; its value date is that last day too.
+    text = replace(
+        "30.09.2026 0,02\n30.09.2026 Pozitivne obresti",
+        "31.08.2026 0,02\n31.08.2026 Pozitivne obresti",
+    )
+
+    row = next(r for r in parse_pdf_text(text).rows if r.description == "Pozitivne obresti")
+
+    assert row.date == date(2026, 9, 1)
+    assert row.raw["booking_date"] == "2026-08-31"
