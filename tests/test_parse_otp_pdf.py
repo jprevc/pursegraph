@@ -19,7 +19,7 @@ def test_otp_statement():
     assert statement.opening_balance == Decimal("2500.00")
     assert statement.closing_balance == Decimal("707.22")
     assert statement.printed_totals == Totals(
-        money_in=Decimal("2449.59"), money_out=Decimal("4242.37")
+        money_in=Decimal("2453.09"), money_out=Decimal("4245.87")
     )
     assert statement.skipped_count == 0
 
@@ -99,6 +99,16 @@ def test_otp_rows():
             "",
             False,
         ),
+        (date(2026, 8, 29), Decimal("3.50"), "vračilo - sladoled", "TINA R.", "", "", False),
+        (
+            date(2026, 8, 30),
+            Decimal("-3.50"),
+            "ZAVOD ZA KAKOVOST;RAČUN ZA JULIJ 2026",
+            "ZAVOD ZA KAKOVOST",
+            "SI56029220022222210",
+            "",
+            False,
+        ),
         (date(2026, 8, 31), Decimal("-41.24"), *["HOFER hvala"] * 2, "", "", False),
         (date(2026, 8, 31), Decimal("-27.98"), *["C & A Kranj Jug 803"] * 2, "", "", False),
         (
@@ -126,10 +136,11 @@ def test_otp_raw_keeps_the_value_date_phone_number_and_purpose():
     assert rows[8].raw["purpose_code"] == "GDSV"
     assert rows[9].raw["purpose"] == "KNJIGA PLAČILO"
     assert rows[10].raw["purpose_code"] == "OTHR"
+    assert rows[12].raw["phone"] == "0038641000004"
 
 
 def test_a_row_booked_after_the_period_is_dated_by_its_value_date():
-    row = parse_pdf_text(FIXTURE).rows[13]
+    row = parse_pdf_text(FIXTURE).rows[15]
 
     assert row.date == date(2026, 8, 31)
     assert row.raw["booking_date"] == "2026-09-02"
