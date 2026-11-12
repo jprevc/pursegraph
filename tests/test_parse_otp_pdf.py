@@ -160,6 +160,23 @@ def test_the_layout_texts_trailing_spaces_are_ignored():
             "       Datum knj transakcije Plačnik/Prejemnik Breme Dobro Stanje Opis\n       28.07",
             "  Prenos\n       28.07",
         ),
+        # A stray line after a Flik payment's empty reference.
+        (
+            "0038641000002\n                      Ref.:\n",
+            "0038641000002\n                      Ref.:\n   X1\n",
+        ),
+        # A description going on past the booking-date line.
+        ("                     342\n", "                     342              DODATEK\n"),
+        # A card payment with a shorter address than the holder's.
+        (
+            "                     GLAVNA ULICA 1\n                     1000 LJUBLJANA\n       02.08",
+            "                     1000 LJUBLJANA\n       02.08",
+        ),
+        # An amount where a card payment's address goes.
+        (
+            "                     1000 LJUBLJANA\n       02.08",
+            "                     1000 LJUBLJANA 3,00\n       02.08",
+        ),
         # A booking-date line missing.
         ("       05.08.2026\n       05.08.2026 2600000005", "       05.08.2026 2600000005"),
     ],
@@ -176,3 +193,21 @@ def test_a_block_in_another_currency_is_rejected():
 
     with pytest.raises(ParseError, match="^unsupported row: VALUTA: USD$"):
         parse_pdf_text(text)
+
+
+def test_the_period_is_the_one_the_statement_prints():
+    text = FIXTURE.replace("Datum pre. izpiska: 31.07.2026", "Datum pre. izpiska: 30.06.2026")
+
+    statement = parse_pdf_text(text)
+
+    assert (statement.period_start, statement.period_end) == (date(2026, 8, 1), date(2026, 8, 31))
+
+
+def test_a_period_across_new_year_starts_in_the_year_before():
+    text = FIXTURE.replace("ZA OBDOBJE OD 01.08-31.08.2026", "ZA OBDOBJE OD 15.12-14.01.2027")
+
+    statement = parse_pdf_text(
+        text.replace("Datum izpiska: 31.08.2026", "Datum izpiska: 14.01.2027")
+    )
+
+    assert (statement.period_start, statement.period_end) == (date(2026, 12, 15), date(2027, 1, 14))

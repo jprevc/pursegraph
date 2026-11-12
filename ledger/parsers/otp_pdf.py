@@ -29,19 +29,20 @@ again. That row is dated by its value date and keeps its booking date in raw.
 """
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date
 from decimal import Decimal
 
 from django.utils.translation import gettext as _
 
+from .formats import comma_money, dotted_date
 from .iban import IBAN_LENGTHS, tidy_iban, valid_iban
 from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
 MONEY = r"\d{1,3}(?:\.\d{3})*,\d\d"
 DATE = r"\d\d\.\d\d\.\d{4}"
 OWN_IBAN = re.compile(r"TRANSAKCIJSKEM RAČUNU ŠTEV\. (SI56(?: \d{4}){3} \d{3}) ZA OBDOBJE")
-STATEMENT_DATE = re.compile(rf"Datum izpiska: ({DATE})$", re.M)
-PREVIOUS_DATE = re.compile(rf"Datum pre\. izpiska: ({DATE})$", re.M)
+# The period prints its year once, at its end: "ZA OBDOBJE OD 01.08-31.08.2026".
+PERIOD = re.compile(rf"ZA OBDOBJE OD (\d\d)\.(\d\d)-({DATE})$", re.M)
 SUMMARY = re.compile(rf"^\s*EUR\s+({MONEY})\s+({MONEY})\s+({MONEY})\s+({MONEY})$", re.M)
 ROWS_START = "Izpis prometa na transakcijskem računu"
 # The legal text after the last row.
@@ -65,6 +66,8 @@ PHONE = re.compile(r"^00\d{8,13}$")
 PAYEE = "Prejemnik:"
 # The layout puts a gap of two or more spaces between the payee column and the description column.
 COLUMN_GAP = re.compile(r" {2,}")
+# An amount, which the payee's further lines never hold.
+AMOUNT = re.compile(rf"(?:^| ){MONEY}(?: |$)")
 FEE = re.compile(r"^(?:PROVIZIJA|MESEČNI STROŠKI VODENJA)\b")
 
 
@@ -76,18 +79,17 @@ def is_statement(text: str) -> bool:
 def parse(text: str) -> ParsedStatement:
     # The layout text pads every line to the page's width.
     text = "\n".join(line.rstrip() for line in text.splitlines())
-    iban, end, previous, summary = (
-        pattern.search(text) for pattern in (OWN_IBAN, STATEMENT_DATE, PREVIOUS_DATE, SUMMARY)
-    )
-    if not (iban and end and previous and summary and valid_iban(tidy_iban(iban[1]))):
+    iban, period, summary = (pattern.search(text) for pattern in (OWN_IBAN, PERIOD, SUMMARY))
+    if not (iban and period and summary and valid_iban(tidy_iban(iban[1]))):
         raise ParseError(_("The OTP banka Statement has no IBAN, period or EUR totals."))
-    opening, money_out, money_in, closing = (_money(amount) for amount in summary.groups())
-    period_end = _date(end[1])
+    opening, money_out, money_in, closing = (comma_money(amount) for amount in summary.groups())
+    start_day, start_month, period_end = int(period[1]), int(period[2]), dotted_date(period[3])
+    # A period across New Year starts in the year before its end.
+    start_year = period_end.year if start_month <= period_end.month else period_end.year - 1
     return ParsedStatement(
         bank="otp_si",
         iban=tidy_iban(iban[1]),
-        # The period runs from the day after the previous Statement.
-        period_start=_date(previous[1]) + timedelta(days=1),
+        period_start=date(start_year, start_month, start_day),
         period_end=period_end,
         opening_balance=opening,
         closing_balance=closing,
@@ -141,19 +143,18 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
         raise ParseError.unsupported_row(text)
     value_date, transaction_id, body, amount, balance, description = first.groups()
     booking_date, rest = second.groups()
-    # Each later line is <payee column>[  <description column>].
-    payee_lines: list[str] = []
-    more_description: list[str] = []
-    for line in [rest or "", *lines[2:]]:
-        payee, *description_part = COLUMN_GAP.split(line, maxsplit=1)
-        payee_lines.append(payee)
-        more_description += description_part
+    # The booking-date line is <payee column>[  <description column>]; the description goes no
+    # further, and the payee's further lines hold neither a description nor an amount.
+    payee, *more_description = COLUMN_GAP.split(rest or "", maxsplit=1)
+    if any(COLUMN_GAP.search(line) or AMOUNT.search(line) for line in lines[2:]):
+        raise ParseError.unsupported_row(text)
+    payee_lines = [payee, *lines[2:]]
     description = " ".join([description or "", *more_description]).strip()
     if not description:
         raise ParseError.unsupported_row(text)
 
     raw: dict = {
-        "value_date": _date(value_date).isoformat(),
+        "value_date": dotted_date(value_date).isoformat(),
         "transaction_id": transaction_id,
         "lines": lines,
     }
@@ -164,8 +165,8 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
             raise ParseError.unsupported_row(text)
     elif OWN_ACCOUNT.match(body) or IBAN.match(body):
         # A card payment or cash withdrawal names the Account holder; a payment with the payee's
-        # IBAN alone (the bank's own fees) names the payee. Both lines go on with its address.
-        if not payee_lines[0] or len(payee_lines) > 3:
+        # IBAN alone (the bank's own fees) names the payee. Both go on with its two-line address.
+        if not payee_lines[0] or len(payee_lines) != 3:
             raise ParseError.unsupported_row(text)
         if IBAN.match(body):
             if not valid_iban(body):
@@ -180,14 +181,14 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
     else:
         raise ParseError.unsupported_row(text)
 
-    signed = _signed(_money(amount), previous_balance, _money(balance))
+    signed = _signed(comma_money(amount), previous_balance, comma_money(balance))
     if signed is None:
         raise ParseError.unsupported_row(text)
-    row_date = _date(booking_date)
+    row_date = dotted_date(booking_date)
     if row_date > period_end:
         # Booked after the period, yet in this Statement's closing balance.
         raw["booking_date"] = row_date.isoformat()
-        row_date = _date(value_date)
+        row_date = dotted_date(value_date)
     return ParsedRow(
         date=row_date,
         amount=signed,
@@ -195,7 +196,7 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
         counterparty_name=name,
         counterparty_iban=iban,
         reference=reference,
-        running_balance=_money(balance),
+        running_balance=comma_money(balance),
         raw=raw,
         is_fee=bool(FEE.match(description)),
     )
@@ -238,6 +239,9 @@ def _payee(lines: list[str]) -> tuple[str, str, str, dict] | None:
             return None
     if state not in ("reference", "code") or not name or (iban and not valid_iban(iban)):
         return None
+    # A Flik payment has nothing after the mobile number but an empty "Ref.:".
+    if "phone" in raw and (purpose or reference or code or state != "reference"):
+        return None
     if purpose:
         raw["purpose"] = " ".join(purpose)
     if code:
@@ -253,12 +257,3 @@ def _signed(amount: Decimal, previous_balance: Decimal, balance: Decimal) -> Dec
     if previous_balance + amount == balance:
         return amount
     return None
-
-
-def _date(text: str) -> date:
-    return datetime.strptime(text, "%d.%m.%Y").date()
-
-
-def _money(text: str) -> Decimal:
-    """ "1.234,56" -> Decimal("1234.56")."""
-    return Decimal(text.replace(".", "").replace(",", "."))
