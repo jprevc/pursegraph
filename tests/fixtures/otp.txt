@@ -7,7 +7,7 @@
       ZBIRNI PODATKI NA TRANSAKCIJSKEM RAČUNU ŠTEV. SI56 0400 1001 2345 664 ZA OBDOBJE OD 01.08-31.08.2026
       Poslovna enota: 3412 Poslovalnica Center
       Valuta           Začetno stanje  Breme         Dobro           Končno stanje
-      EUR                 2.500,00     4.225,37      2.432,59          707,22
+      EUR                 2.500,00     4.242,37      2.449,59          707,22
       Znesek dovoljene prekoračitve 400,00 EUR velja do preklica
       Obrestovanje v domači valuti:
       Banka je v navedenem obdobju obrestovala pozitivno stanje na računu po 0,00 % letni obrestni meri.
@@ -57,6 +57,16 @@
                      1234 5678 90
                       PLAČILO Ref.: Koda namena:
                      GDSV
+       28.08.2026 2600000013 Prejemnik: ZAVOD KNJIGARNA 12,00 770,44 ZAVOD KNJIGARNA
+       28.08.2026    CELJE SI56 6100 0001 2345 634            CELJE;KNJIGA PLAČILO
+                     KNJIGA PLAČILO Ref.:
+                     SI00282026 Koda namena: GDSV
+       29.08.2026 2600000014 Prejemnik: KOVAČ MAJA SI56 17,00 787,44 Nakazilo
+       29.08.2026    6100 0009 8765 456
+                     Ref.: Koda namena: OTHR
+       29.08.2026 2600000015 Prejemnik: Društvo Primer, d.d. 5,00 782,44 Plačilo na račun
+       29.08.2026    SI56 0400 1001 1111 145                  člana društva.
+                      Ref.:
     D8008 RA-002                                                         Stran 2
     OTP banka d.d.; Slovenska cesta 58; 1000 Ljubljana; vpisana v sodni register okrožnega sodišča v Ljubljani; matična številka: 5860580000; osnovni kapital: 150.000.000,00
     EUR; identifikacijska številka za DDV: SI94314527; www.otpbanka.si; info@otpbanka.si

@@ -20,11 +20,12 @@ The payee is one of:
   counterparty's IBAN in groups of four, possibly wrapped, then "Ref.: [<reference>]" and, for an
   IBAN, an optional purpose before it and "Koda namena: <purpose code>" after it;
 - an IBAN alone, with the payee's name and address on the next lines: the bank's monthly fee;
-- nothing: a fee for a cash withdrawal, or a card payment listed before it is booked.
+- nothing: a fee for a cash withdrawal, or a card payment booked after the period.
 
 A row is dated by its booking date, except one booked after the period ends: card payments of the
 period's last day can be booked days later, yet the bank lists them and counts them in this
-Statement's closing balance. That row is dated by its value date and keeps its booking date in raw.
+Statement's closing balance; the next Statement starts from that balance and doesn't list them
+again. That row is dated by its value date and keeps its booking date in raw.
 """
 
 import re
@@ -158,7 +159,7 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
     }
     name, iban, reference = description, "", ""
     if body is None:
-        # A bank fee, or a card payment the bank lists before booking it.
+        # A bank fee, or a card payment booked days after its value date (see the module docstring).
         if any(payee_lines):
             raise ParseError.unsupported_row(text)
     elif OWN_ACCOUNT.match(body) or IBAN.match(body):
