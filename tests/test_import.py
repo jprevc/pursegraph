@@ -69,7 +69,10 @@ def test_imported_transactions_appear_in_the_transactions_view(logged_in_client)
 def test_the_import_page_names_every_supported_format(logged_in_client):
     page = logged_in_client.get("/import/").content.decode()
 
-    assert "PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports" in page
+    assert (
+        "PDF Statements from Sparkasse SI, OTP banka, N26 and Revolut, and Revolut CSV exports"
+        in page
+    )
 
 
 def test_sidebar_links_to_transactions(logged_in_client):

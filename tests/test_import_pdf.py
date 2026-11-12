@@ -251,3 +251,33 @@ def test_n26_rows_that_dont_match_the_printed_totals_are_rejected(
     # N26 prints no row counts.
     assert f"Printed on the Statement 1.251,00{EUR} — 1.078,73{EUR} —" in said
     assert_nothing_stored(logged_in_client, statement_files)
+
+
+OTP = (Path(__file__).parent / "fixtures" / "otp.txt").read_text()
+OTP_IBAN = "SI56040010012345664"
+
+
+def test_an_otp_statement_imports_into_the_account_of_its_iban(
+    logged_in_client, member, otp_pdf_text
+):
+    make_account("Ana's OTP", "otp_si", member, ibans=[OTP_IBAN])
+
+    response = upload(logged_in_client, OTP, filename="izpisek_20260831.pdf")
+
+    row = board_row(response.content.decode(), "Ana's OTP")
+    assert "New: 1–31 Aug 2026 · 12 Transactions" in row
+    page = logged_in_client.get("/transactions/").content.decode()
+    assert (
+        "31 Aug 2026",
+        "Ana's OTP",
+        "MESEČNI STROŠKI VODENJA OSEBNEGA RAČUNA",
+        f"−6,00{EUR}",
+    ) in transaction_rows(page)
+
+
+def test_an_otp_statement_of_an_unknown_iban_asks_for_the_account(logged_in_client, otp_pdf_text):
+    page = upload(logged_in_client, OTP, filename="izpisek_20260831.pdf").content.decode()
+
+    assert "Choose the Account" in page
+    assert OTP_IBAN in page
+    assert 'value="OTP banka"' in page

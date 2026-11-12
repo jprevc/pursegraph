@@ -9,6 +9,8 @@ from django.core.management import CommandError, call_command
 from ledger.models import Rule, Source, Statement, Subcategory, Transaction
 from tests.conftest import deliveries, make_account, page_text, transaction_id
 from tests.test_import import upload
+from tests.test_import_pdf import OTP, OTP_IBAN
+from tests.test_import_pdf import upload as upload_pdf
 
 pytestmark = pytest.mark.django_db
 
@@ -467,3 +469,13 @@ def test_apply_that_reruns_no_outcome_calls_no_webhook(
         reparse("--apply")
 
     assert deliveries(receiver) == []
+
+
+def test_an_otp_statement_is_reparsed_from_its_layout_text(logged_in_client, member, otp_pdf_text):
+    make_account("Ana's OTP", "otp_si", member, ibans=[OTP_IBAN])
+    upload_pdf(logged_in_client, OTP, filename="izpisek_20260831.pdf")
+
+    output = reparse()
+
+    assert "Ana's OTP 2026-08-01–2026-08-31" in output
+    assert "1 Statement re-parsed: 1 unchanged, 0 with differences, 0 failed." in output
