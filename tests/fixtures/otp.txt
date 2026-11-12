@@ -7,7 +7,7 @@
       ZBIRNI PODATKI NA TRANSAKCIJSKEM RAČUNU ŠTEV. SI56 0400 1001 2345 664 ZA OBDOBJE OD 01.08-31.08.2026
       Poslovna enota: 3412 Poslovalnica Center
       Valuta           Začetno stanje  Breme         Dobro           Končno stanje
-      EUR                 2.500,00     4.245,87      2.453,09          707,22
+      EUR                 2.500,00     4.245,87      2.483,75          737,88
       Znesek dovoljene prekoračitve 400,00 EUR velja do preklica
       Obrestovanje v domači valuti:
       Banka je v navedenem obdobju obrestovala pozitivno stanje na računu po 0,00 % letni obrestni meri.
@@ -24,7 +24,7 @@
                      1000 LJUBLJANA
        02.08.2026 2600000002 Prejemnik: MARKO K. 11,49    2.470,60 knjiga za šolo
        02.08.2026    0038641000001
-                      Ref.:
+                      Ref.: Koda namena: OTHR
        03.08.2026 2600000003 04001-0012345664 20,00       2.450,60 1616000011/GLAVNA ULICA
        05.08.2026    NOVAK ANA
                      GLAVNA ULICA 1
@@ -51,7 +51,7 @@
                       Ref.: SI0014082026-20801 Koda
                      namena: SALA
        23.08.2026 2600000008 Prejemnik: Luka P. 0038641000003 100,00 4.782,44 :/
-       23.08.2026     Ref.:
+       23.08.2026     Ref.: Koda namena: OTHR
        27.08.2026 2600000009 Prejemnik: BROKER EUROPE 4.000,00 782,44 BROKER EUROPE IRELAND
        27.08.2026    IRELAND LIMITED DE30 5011 0800           LIMITED;PLAČILO
                      1234 5678 90
@@ -97,6 +97,11 @@
        31.08.2026 2600000012 SI56040007000012313 6,00     707,22 MESEČNI STROŠKI VODENJA
        31.08.2026    OTP BANKA D.D.                           OSEBNEGA RAČUNA
                      SLOVENSKA CESTA 58
+                     1000 LJUBLJANA
+       31.08.2026 2600000020 SI56029220022222210   30,66 737,88 PRILIV NA RAČUN
+       31.08.2026    INŠTITUT ZA MERJENJE
+                     IN KAKOVOST
+                     KRATKA ULICA 3
                      1000 LJUBLJANA
       Pozitivno stanje na transakcijskem računu SI56 0400 1001 2345 664 je v skladu z ZSJV upravičeno do jamstva v okviru sistema
       jamstva za vloge. Več informacij o sistemu jamstva za vloge na www.otpbanka.si.
