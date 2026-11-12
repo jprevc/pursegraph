@@ -265,7 +265,7 @@ def test_an_otp_statement_imports_into_the_account_of_its_iban(
     response = upload(logged_in_client, OTP, filename="izpisek_20260831.pdf")
 
     row = board_row(response.content.decode(), "Ana's OTP")
-    assert "New: 1–31 Aug 2026 · 17 Transactions" in row
+    assert "New: 1–31 Aug 2026 · 19 Transactions" in row
     page = logged_in_client.get("/transactions/").content.decode()
     assert (
         "31 Aug 2026",

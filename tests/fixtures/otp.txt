@@ -74,6 +74,14 @@
        30.08.2026 2600000017 SI56029220022222210   3,50 782,44 ZAVOD ZA KAKOVOST;RAČUN ZA JULIJ
        30.08.2026    ZAVOD ZA KAKOVOST                            2026
                      TRŽAŠKA CESTA 2
+       30.08.2026 2600000018 04001-0012345664 3,74        778,70 SPLETNA TRGOVINA
+       30.08.2026    NOVAK ANA
+                     GLAVNA ULICA 1
+                     1000 LJUBLJANA
+       30.08.2026 2600000019 04001-0012345664 -3,74       782,44 SPLETNA TRGOVINA
+       31.08.2026    NOVAK ANA
+                     GLAVNA ULICA 1
+                     1000 LJUBLJANA
     D8008 RA-002                                                         Stran 2
     OTP banka d.d.; Slovenska cesta 58; 1000 Ljubljana; vpisana v sodni register okrožnega sodišča v Ljubljani; matična številka: 5860580000; osnovni kapital: 150.000.000,00
     EUR; identifikacijska številka za DDV: SI94314527; www.otpbanka.si; info@otpbanka.si

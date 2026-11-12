@@ -18,8 +18,9 @@ def test_otp_statement():
     assert statement.period_end == date(2026, 8, 31)
     assert statement.opening_balance == Decimal("2500.00")
     assert statement.closing_balance == Decimal("707.22")
+    # The printed Breme total, 4.245,87, nets out the 3,74 refund that the rows read as money in.
     assert statement.printed_totals == Totals(
-        money_in=Decimal("2453.09"), money_out=Decimal("4245.87")
+        money_in=Decimal("2456.83"), money_out=Decimal("4249.61")
     )
     assert statement.skipped_count == 0
 
@@ -109,6 +110,9 @@ def test_otp_rows():
             "",
             False,
         ),
+        (date(2026, 8, 30), Decimal("-3.74"), *["SPLETNA TRGOVINA"] * 2, "", "", False),
+        # A refund, printed as a negative amount out.
+        (date(2026, 8, 31), Decimal("3.74"), *["SPLETNA TRGOVINA"] * 2, "", "", False),
         (date(2026, 8, 31), Decimal("-41.24"), *["HOFER hvala"] * 2, "", "", False),
         (date(2026, 8, 31), Decimal("-27.98"), *["C & A Kranj Jug 803"] * 2, "", "", False),
         (
@@ -140,7 +144,7 @@ def test_otp_raw_keeps_the_value_date_phone_number_and_purpose():
 
 
 def test_a_row_booked_after_the_period_is_dated_by_its_value_date():
-    row = parse_pdf_text(FIXTURE).rows[15]
+    row = parse_pdf_text(FIXTURE).rows[17]
 
     assert row.date == date(2026, 8, 31)
     assert row.raw["booking_date"] == "2026-09-02"
