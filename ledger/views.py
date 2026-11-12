@@ -430,7 +430,6 @@ def transactions(request):
         {
             "choice": choice,
             "groups": groups,
-            "sort_group": facets.sort_group(choice),
             "columns": facets.columns(choice),
             "names": names,
             "count": count,

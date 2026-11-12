@@ -366,49 +366,62 @@ def test_the_decided_facet_says_which_transfers_by_iban_and_paired_cover(logged_
 
 
 def header(page, label):
-    """A table header's sort link and its `aria-sort`, "" if it has none."""
+    """A table header's `aria-sort` ("" if it has none), and each of its arrows as (link, label, chosen)."""
     thead = found(r"<thead>.*?</thead>", page)
     th = next(th for th in re.findall(r"<th.*?</th>", thead, re.S) if text(th) == label)
-    link = re.search(r'<a class="sort-h" href="([^"]*)"', th)
     aria_sort = re.search(r'aria-sort="(\w+)"', th)
-    return (html.unescape(link[1]) if link else None, aria_sort[1] if aria_sort else "")
+    arrows = [
+        (html.unescape(href), html.unescape(name), bool(current))
+        for href, name, current in re.findall(
+            r'<a href="([^"]*)"[^>]*aria-label="([^"]*)"[^>]*?( aria-current="true")?>', th
+        )
+    ]
+    return (aria_sort[1] if aria_sort else ""), arrows
 
 
-def test_the_date_transaction_and_amount_headers_sort_and_a_second_click_flips(
+def test_the_date_transaction_and_amount_headers_have_an_up_and_a_down_arrow(
     logged_in_client, household
 ):
-    first = logged_in_client.get(
-        "/transactions/", {"period": "2026-09", "page": 2}
-    ).content.decode()
-    by_amount = logged_in_client.get(
-        "/transactions/", {"period": "2026-09", "sort": "largest"}
-    ).content.decode()
+    page = logged_in_client.get("/transactions/", {"period": "2026-09", "page": 2}).content.decode()
 
-    # Newest first sorts by Date; each header keeps the filters and goes back to the first page.
-    assert header(first, "Date") == ("/transactions/?period=2026-09&sort=oldest", "descending")
-    assert header(first, "Transaction") == ("/transactions/?period=2026-09&sort=a-z", "")
-    assert header(first, "Amount") == ("/transactions/?period=2026-09&sort=largest", "")
-    assert header(first, "Account") == (None, "")
-    assert header(first, "Outcome") == (None, "")
-    assert header(by_amount, "Amount") == (
-        "/transactions/?period=2026-09&sort=smallest",
+    # Each arrow keeps the filters and goes back to the first page; Newest first is chosen.
+    assert header(page, "Date") == (
         "descending",
+        [
+            ("/transactions/?period=2026-09&sort=oldest", "Sort by Date, Oldest first", False),
+            ("/transactions/?period=2026-09", "Sort by Date, Newest first", True),
+        ],
     )
-    assert header(by_amount, "Date") == ("/transactions/?period=2026-09", "")
+    assert header(page, "Transaction") == (
+        "",
+        [
+            ("/transactions/?period=2026-09&sort=a-z", "Sort by Transaction, A–Z", False),
+            ("/transactions/?period=2026-09&sort=z-a", "Sort by Transaction, Z–A", False),
+        ],
+    )
+    assert header(page, "Amount") == (
+        "",
+        [
+            (
+                "/transactions/?period=2026-09&sort=smallest",
+                "Sort by Amount, Smallest first",
+                False,
+            ),
+            ("/transactions/?period=2026-09&sort=largest", "Sort by Amount, Largest first", False),
+        ],
+    )
+    assert header(page, "Account") == ("", [])
+    assert header(page, "Outcome") == ("", [])
 
 
-def test_the_filter_sheet_sorts_with_the_chosen_order_pressed(logged_in_client, household):
-    page = logged_in_client.get(
-        "/transactions/", {"period": "2026-09", "sort": "a-z"}
-    ).content.decode()
+def test_the_header_sorting_the_rows_has_its_arrow_chosen(logged_in_client, household):
+    page = logged_in_client.get("/transactions/", {"sort": "smallest"}).content.decode()
 
-    sort = found(r'<form class="facet sort".*?</form>', page)
-    pressed = re.findall(r'aria-pressed="true"><span class="t">([^<]*)<', sort)
-    assert pressed == ["A–Z"]
-    assert '<input type="hidden" name="period" value="2026-09">' in sort
-    assert '<input type="hidden" name="sort"' not in sort
-    assert 'id="f-sort-newest" class="fopt" aria-pressed="false"' in sort
-    assert 'name="sort" value="z-a"' in sort
+    aria_sort, arrows = header(page, "Amount")
+    assert aria_sort == "ascending"
+    assert [chosen for _link, _label, chosen in arrows] == [True, False]
+    assert header(page, "Date")[0] == ""
+    assert 'id="f-sort-' not in page
 
 
 def test_the_sort_order_is_kept_by_the_filters_and_isnt_one(logged_in_client, household):

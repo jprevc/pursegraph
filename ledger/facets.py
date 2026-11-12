@@ -376,47 +376,50 @@ class Group:
         return next((o for o in self.options[1:] if o.chosen), None)
 
 
-def sort_group(choice: Choice) -> Group:
-    """The Filter sheet's Sort group: each sort order, the chosen one pressed. One is always chosen, so picking it
-    again keeps it, and the group has no Clear."""
-    sort = choice.sort or NEWEST
-    options = [
-        Option(str(label), 0, name == sort, "" if name == NEWEST else name, key=name)
-        for name, (label, _ordering) in SORTS.items()
-    ]
-    return Group("sort", _("Sort"), options, choice.changed(sort="").params, False)
+@dataclass(frozen=True)
+class Arrow:
+    """One of a column header's two arrows: the sort order it gives (its `label` says which, "Oldest first"), the
+    query string it links to, and whether that order sorts the rows (`chosen`)."""
+
+    label: str
+    query: str
+    chosen: bool
 
 
 @dataclass(frozen=True)
 class Column:
-    """A sortable column header: its `label`, the query string its link goes to, and `aria_sort`, how it sorts
-    the rows ("ascending" or "descending"), or "" while another column does."""
+    """A sortable column header: its `label`, its `up` (ascending) and `down` (descending) arrows, and
+    `aria_sort`, how it sorts the rows ("ascending" or "descending"), or "" while another column does."""
 
     label: str
-    query: str
+    up: Arrow
+    down: Arrow
     aria_sort: str
 
 
-# Each sortable column's two sort orders, the one its first click gives first, each with how it sorts the column.
+# Each sortable column's ascending and descending sort orders.
 _COLUMNS = {
-    "date": ((NEWEST, "descending"), ("oldest", "ascending")),
-    "transaction": (("a-z", "ascending"), ("z-a", "descending")),
-    "amount": (("largest", "descending"), ("smallest", "ascending")),
+    "date": ("oldest", NEWEST),
+    "transaction": ("a-z", "z-a"),
+    "amount": ("smallest", "largest"),
 }
 
 
 def columns(choice: Choice) -> dict[str, Column]:
-    """The Date, Transaction and Amount headers, by those keys. A header's link gives its first sort order, or the
-    other one while that order sorts the rows; it keeps the rest of the choice and goes back to the first page."""
+    """The Date, Transaction and Amount headers, by those keys. Each arrow links to its sort order, keeping the rest
+    of the choice and going back to the first page."""
     labels = {"date": _("Date"), "transaction": _("Transaction"), "amount": _("Amount")}
     sort = choice.sort or NEWEST
-    result = {}
-    for key, ((first, first_way), (second, second_way)) in _COLUMNS.items():
-        aria_sort = {first: first_way, second: second_way}.get(sort, "")
-        picked = second if sort == first else first
-        result[key] = Column(
-            labels[key], choice.query(sort="" if picked == NEWEST else picked), aria_sort
+
+    def arrow(name: str) -> Arrow:
+        return Arrow(
+            str(SORTS[name][0]), choice.query(sort="" if name == NEWEST else name), name == sort
         )
+
+    result = {}
+    for key, (up, down) in _COLUMNS.items():
+        aria_sort = "ascending" if sort == up else "descending" if sort == down else ""
+        result[key] = Column(labels[key], arrow(up), arrow(down), aria_sort)
     return result
 
 
