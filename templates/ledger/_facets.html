@@ -5,6 +5,13 @@
     <h2 id="rail-h">{% translate "Filter" %}</h2>
     {% if names %}<a class="clear-all" href="{{ clear_url }}" hx-get="{{ clear_url }}">{% translate "Clear all" %}</a>{% endif %}
   </div>
+  <form class="facet sort" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" aria-labelledby="facet-sort">
+    {% for name, value in sort_group.carry %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <h3 class="facet-h"><span id="facet-sort">{{ sort_group.label }}</span></h3>
+    {% for o in sort_group.options %}
+    <button type="submit" id="f-sort-{{ o.key }}" class="fopt"{% if o.pick %} name="sort" value="{{ o.pick }}"{% endif %} aria-pressed="{% if o.chosen %}true{% else %}false{% endif %}"><span class="t">{{ o.label }}</span></button>
+    {% endfor %}
+  </form>
   {% for group in groups %}
   <form class="facet" id="facet-form-{{ group.param }}" method="get" action="{% url 'transactions' %}" hx-get="{% url 'transactions' %}" aria-labelledby="facet-{{ group.param }}">
     {% for name, value in group.carry %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}

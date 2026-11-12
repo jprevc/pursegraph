@@ -116,7 +116,7 @@ def test_long_lists_are_paged_25_at_a_time_newest_first(logged_in_client):
     assert 'aria-current="page" href="/transactions/?q=row&amp;page=3"' in third
     assert "51–75 of 120" in third
     assert last.count('<tr id="transaction-') == 20
-    assert re.search(r'aria-disabled="true">.*Older', last)
+    assert re.search(r'aria-disabled="true">.*Next', last)
 
 
 def page_numbers(page):
@@ -363,3 +363,93 @@ def test_the_decided_facet_says_which_transfers_by_iban_and_paired_cover(logged_
         "Paired with its other side in another Account: same amount, the opposite way, "
         "within 3 days."
     )
+
+
+def header(page, label):
+    """A table header's sort link and its `aria-sort`, "" if it has none."""
+    thead = found(r"<thead>.*?</thead>", page)
+    th = next(th for th in re.findall(r"<th.*?</th>", thead, re.S) if text(th) == label)
+    link = re.search(r'<a class="sort-h" href="([^"]*)"', th)
+    aria_sort = re.search(r'aria-sort="(\w+)"', th)
+    return (html.unescape(link[1]) if link else None, aria_sort[1] if aria_sort else "")
+
+
+def test_the_date_transaction_and_amount_headers_sort_and_a_second_click_flips(
+    logged_in_client, household
+):
+    first = logged_in_client.get(
+        "/transactions/", {"period": "2026-09", "page": 2}
+    ).content.decode()
+    by_amount = logged_in_client.get(
+        "/transactions/", {"period": "2026-09", "sort": "largest"}
+    ).content.decode()
+
+    # Newest first sorts by Date; each header keeps the filters and goes back to the first page.
+    assert header(first, "Date") == ("/transactions/?period=2026-09&sort=oldest", "descending")
+    assert header(first, "Transaction") == ("/transactions/?period=2026-09&sort=a-z", "")
+    assert header(first, "Amount") == ("/transactions/?period=2026-09&sort=largest", "")
+    assert header(first, "Account") == (None, "")
+    assert header(first, "Outcome") == (None, "")
+    assert header(by_amount, "Amount") == (
+        "/transactions/?period=2026-09&sort=smallest",
+        "descending",
+    )
+    assert header(by_amount, "Date") == ("/transactions/?period=2026-09", "")
+
+
+def test_the_filter_sheet_sorts_with_the_chosen_order_pressed(logged_in_client, household):
+    page = logged_in_client.get(
+        "/transactions/", {"period": "2026-09", "sort": "a-z"}
+    ).content.decode()
+
+    sort = found(r'<form class="facet sort".*?</form>', page)
+    pressed = re.findall(r'aria-pressed="true"><span class="t">([^<]*)<', sort)
+    assert pressed == ["A–Z"]
+    assert '<input type="hidden" name="period" value="2026-09">' in sort
+    assert '<input type="hidden" name="sort"' not in sort
+    assert 'id="f-sort-newest" class="fopt" aria-pressed="false"' in sort
+    assert 'name="sort" value="z-a"' in sort
+
+
+def test_the_sort_order_is_kept_by_the_filters_and_isnt_one(logged_in_client, household):
+    page = logged_in_client.get(
+        "/transactions/", {"period": "2026-09", "sort": "largest"}
+    ).content.decode()
+
+    summary = text(found(r'<p id="summary".*?</p>', page))
+    assert summary.endswith("· September 2026 Clear filters")
+    assert 'class="clear-filters" href="/transactions/?sort=largest"' in page
+    assert '<span class="badge">1</span>' in page
+    period = found(r'<form class="facet" id="facet-form-period".*?</form>', page)
+    assert '<input type="hidden" name="sort" value="largest">' in period
+    assert '<input type="hidden" name="sort" value="largest">' in found(
+        r'<span id="search-carry">.*?</span>', page
+    )
+    assert "<title>Transactions · September 2026 · Pursegraph</title>" in page
+
+
+def test_the_pager_keeps_the_sort_order(logged_in_client):
+    account = Account.objects.create(name="Joint N26", bank="n26")
+    Transaction.objects.bulk_create(
+        Transaction(account=account, date=date(2026, 1, 1), amount=-1 - i, description=f"Row {i}")
+        for i in range(30)
+    )
+
+    page = logged_in_client.get("/transactions/", {"sort": "largest"}).content.decode()
+
+    assert ">Row 29<" in page and ">Row 0<" not in page
+    assert 'href="/transactions/?sort=largest&amp;page=2"' in page
+    assert re.search(r'aria-disabled="true">.*Previous', page)
+
+
+def test_a_row_changed_on_a_sorted_page_keeps_to_that_list(logged_in_client):
+    upload(logged_in_client)
+    listed = "/transactions/?sort=largest"
+
+    response = logged_in_client.post(
+        f"/transactions/{transaction_id('Čevljar')}/outcome/",
+        {"outcome": "transfer", "listed": listed},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert f'name="listed" value="{html.escape(listed)}"' in response.content.decode()

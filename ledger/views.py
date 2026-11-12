@@ -418,7 +418,8 @@ def transactions(request):
     groups = facets.rail(choice, facets.counts(choice), count)
     names = facets.named(choice, groups)
     query = choice.query()
-    cleared = facets.Choice(dashboard=choice.dashboard).query()
+    # Clearing the filters keeps the sort order, which isn't one.
+    cleared = facets.Choice(dashboard=choice.dashboard, sort=choice.sort).query()
     page_url = f"{request.path}?{query}&page=" if query else f"{request.path}?page="
     alone = wants_the_fragment_alone(request)
     in_place = alone and request.headers.get("HX-Target") == "results"
@@ -429,6 +430,8 @@ def transactions(request):
         {
             "choice": choice,
             "groups": groups,
+            "sort_group": facets.sort_group(choice),
+            "columns": facets.columns(choice),
             "names": names,
             "count": count,
             "money_out": money_out,

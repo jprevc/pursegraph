@@ -26,15 +26,15 @@
     {% if page.object_list %}
     <div class="scroll">
     <table class="rows">
-      <thead><tr><th>{% translate "Date" %}</th><th>{% translate "Transaction" %}</th><th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th><th class="num">{% translate "Amount" %}</th></tr></thead>
+      <thead><tr>{% include "ledger/_sort_header.html" with column=columns.date %}{% include "ledger/_sort_header.html" with column=columns.transaction %}<th>{% translate "Account" %}</th><th>{% translate "Outcome" %}</th>{% include "ledger/_sort_header.html" with column=columns.amount num=True %}</tr></thead>
       {% for t in page.object_list %}{% include "ledger/_transaction_row.html" %}{% endfor %}
     </table>
     {% include "ledger/_outcome_chips.html" %}
     </div>
     {% if page.has_other_pages %}
     <nav class="pager" aria-label="{% translate 'Pages' %}" data-scroll-top hx-headers='{"X-Pager": "true"}' {% include "ledger/_facet_swap.html" %}>
-      {% if page.has_previous %}<a class="button" href="{{ page_url }}{{ page.previous_page_number }}" hx-get="{{ page_url }}{{ page.previous_page_number }}">{% icon "left" %}{% translate "Newer" %}</a>
-      {% else %}<a class="button" role="link" aria-disabled="true">{% icon "left" %}{% translate "Newer" %}</a>{% endif %}
+      {% if page.has_previous %}<a class="button" href="{{ page_url }}{{ page.previous_page_number }}" hx-get="{{ page_url }}{{ page.previous_page_number }}">{% icon "left" %}{% translate "Previous" %}</a>
+      {% else %}<a class="button" role="link" aria-disabled="true">{% icon "left" %}{% translate "Previous" %}</a>{% endif %}
       <span class="nums">
         {% for n in page_range %}{% if n == ellipsis %}<span class="gap" aria-hidden="true">…</span>
         {% elif n == page.number %}<a aria-current="page" href="{{ page_url }}{{ n }}" hx-get="{{ page_url }}{{ n }}" aria-label="{% blocktranslate %}Page {{ n }}{% endblocktranslate %}">{{ n }}</a>
@@ -42,8 +42,8 @@
         {% endfor %}
       </span>
       <span class="range fig">{% blocktranslate with first=page.start_index last=page.end_index %}{{ first }}–{{ last }} of {{ count }}{% endblocktranslate %}</span>
-      {% if page.has_next %}<a class="button" href="{{ page_url }}{{ page.next_page_number }}" hx-get="{{ page_url }}{{ page.next_page_number }}">{% translate "Older" %}{% icon "right" %}</a>
-      {% else %}<a class="button" role="link" aria-disabled="true">{% translate "Older" %}{% icon "right" %}</a>{% endif %}
+      {% if page.has_next %}<a class="button" href="{{ page_url }}{{ page.next_page_number }}" hx-get="{{ page_url }}{{ page.next_page_number }}">{% translate "Next" %}{% icon "right" %}</a>
+      {% else %}<a class="button" role="link" aria-disabled="true">{% translate "Next" %}{% icon "right" %}</a>{% endif %}
     </nav>
     {% endif %}
     {% else %}
