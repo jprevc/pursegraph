@@ -544,13 +544,14 @@ button.fopt:focus-visible { outline-offset: -2px; }
 .between input { width: 100%; min-width: 0; }
 
 .results { padding: 0; overflow: hidden; scroll-margin-top: var(--s-4); }
-/* Date, Transaction and Amount sort the rows from an up and a down arrow by their names; the chosen one is Indigo. */
-.sort-h { display: inline-flex; align-items: center; gap: 2px; }
+/* Date, Transaction and Amount sort the rows from their names: a faint ↕ until one sorts them, then its ↑ or ↓ in
+   Indigo. */
+.sort-h { display: inline-flex; align-items: center; gap: 2px; color: inherit; text-decoration: none; }
+.sort-h:hover { color: var(--ink); }
+.sort-h .icon { width: .875rem; height: .875rem; color: var(--faint); }
+.sort-h:hover .icon { color: inherit; }
 th[aria-sort] .sort-h { color: var(--ink); }
-.sort-h a { display: grid; place-items: center; width: 1.375rem; height: 1.375rem; border-radius: var(--r-inner); color: var(--faint); }
-.sort-h a:hover { background: var(--hover); color: var(--ink); }
-.sort-h a[aria-current] { background: var(--accent-soft); color: var(--accent-text); }
-.sort-h .icon { width: .875rem; height: .875rem; }
+th[aria-sort] .sort-h .icon { color: var(--accent-text); }
 .results .rows th:first-child, .results .rows td:first-child { padding-left: var(--s-4); }
 .results .rows th:last-child, .results .rows td:last-child { padding-right: var(--s-4); }
 .none { display: grid; justify-items: center; gap: var(--s-2); padding: var(--s-8) var(--s-5); text-align: center; color: var(--muted); }
@@ -605,16 +606,7 @@ th[aria-sort] .sort-h { color: var(--ink); }
   .results .rows thead th { padding: 0; border: 0; }
   .results .rows thead th:not([data-sorts]) { display: none; }
   .results .rows thead th:first-child, .results .rows thead th:last-child { padding: 0; }
-  .sort-h { gap: 0; }
-  .sort-h a { width: 1.625rem; height: 2.75rem; }
-}
-@media (max-width: 379px) {
-  /* Too narrow for the arrows side by side: each pair stacks, up over down. */
-  .sort-h { display: inline-grid; grid-template-columns: auto auto; grid-template-rows: auto auto; align-items: center; column-gap: 2px; }
-  .sort-h a { grid-column: 2; width: 1.75rem; height: 1.375rem; }
-  .sort-h a:first-of-type { grid-row: 1; }
-  .sort-h a:last-of-type { grid-row: 2; }
-  .sort-h > .label { grid-row: 1 / 3; }
+  .sort-h { min-height: 2.75rem; }
 }
 
 /* ---------- Review queue ---------- */

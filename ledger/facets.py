@@ -377,49 +377,43 @@ class Group:
 
 
 @dataclass(frozen=True)
-class Arrow:
-    """One of a column header's two arrows: the sort order it gives (its `label` says which, "Oldest first"), the
-    query string it links to, and whether that order sorts the rows (`chosen`)."""
+class Column:
+    """A sortable column header: its `label`, the query string its link goes to and the sort order that gives
+    (`gives`, "Largest first"), and `aria_sort`, how it sorts the rows ("ascending" or "descending"), or "" while
+    another column does."""
 
     label: str
     query: str
-    chosen: bool
-
-
-@dataclass(frozen=True)
-class Column:
-    """A sortable column header: its `label`, its `up` (ascending) and `down` (descending) arrows, and
-    `aria_sort`, how it sorts the rows ("ascending" or "descending"), or "" while another column does."""
-
-    label: str
-    up: Arrow
-    down: Arrow
+    gives: str
     aria_sort: str
 
 
-# Each sortable column's ascending and descending sort orders.
+ASCENDING = {"oldest", "a-z", "smallest"}
+# Each sortable column's two sort orders, the one its first click gives first.
 _COLUMNS = {
-    "date": ("oldest", NEWEST),
+    "date": (NEWEST, "oldest"),
     "transaction": ("a-z", "z-a"),
-    "amount": ("smallest", "largest"),
+    "amount": ("largest", "smallest"),
 }
 
 
 def columns(choice: Choice) -> dict[str, Column]:
-    """The Date, Transaction and Amount headers, by those keys. Each arrow links to its sort order, keeping the rest
-    of the choice and going back to the first page."""
+    """The Date, Transaction and Amount headers, by those keys. A header's link gives its first sort order, or the
+    other one while that order sorts the rows; it keeps the rest of the choice and goes back to the first page."""
     labels = {"date": _("Date"), "transaction": _("Transaction"), "amount": _("Amount")}
     sort = choice.sort or NEWEST
-
-    def arrow(name: str) -> Arrow:
-        return Arrow(
-            str(SORTS[name][0]), choice.query(sort="" if name == NEWEST else name), name == sort
-        )
-
     result = {}
-    for key, (up, down) in _COLUMNS.items():
-        aria_sort = "ascending" if sort == up else "descending" if sort == down else ""
-        result[key] = Column(labels[key], arrow(up), arrow(down), aria_sort)
+    for key, (first, second) in _COLUMNS.items():
+        picked = second if sort == first else first
+        aria_sort = (
+            ("ascending" if sort in ASCENDING else "descending") if sort in (first, second) else ""
+        )
+        result[key] = Column(
+            labels[key],
+            choice.query(sort="" if picked == NEWEST else picked),
+            str(SORTS[picked][0]),
+            aria_sort,
+        )
     return result
 
 
