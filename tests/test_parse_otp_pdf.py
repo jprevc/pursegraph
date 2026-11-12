@@ -17,10 +17,10 @@ def test_otp_statement():
     assert statement.period_start == date(2026, 8, 1)
     assert statement.period_end == date(2026, 8, 31)
     assert statement.opening_balance == Decimal("2500.00")
-    assert statement.closing_balance == Decimal("707.22")
+    assert statement.closing_balance == Decimal("737.88")
     # The printed Breme total, 4.245,87, nets out the 3,74 refund that the rows read as money in.
     assert statement.printed_totals == Totals(
-        money_in=Decimal("2456.83"), money_out=Decimal("4249.61")
+        money_in=Decimal("2487.49"), money_out=Decimal("4249.61")
     )
     assert statement.skipped_count == 0
 
@@ -124,6 +124,16 @@ def test_otp_rows():
             "",
             True,
         ),
+        # The payee's name wraps onto a second line, above its two-line address.
+        (
+            date(2026, 8, 31),
+            Decimal("30.66"),
+            "PRILIV NA RAČUN",
+            "INŠTITUT ZA MERJENJE IN KAKOVOST",
+            "SI56029220022222210",
+            "",
+            False,
+        ),
     ]
     assert [r.running_balance for r in rows[:2]] == [Decimal("2482.09"), Decimal("2470.60")]
 
@@ -135,6 +145,8 @@ def test_otp_raw_keeps_the_value_date_phone_number_and_purpose():
     assert rows[0].raw["transaction_id"] == "2600000001"
     assert rows[1].raw["phone"] == "0038641000001"
     assert rows[7].raw["phone"] == "0038641000003"
+    # A Flik payment may carry a purpose code after its empty reference.
+    assert rows[1].raw["purpose_code"] == rows[7].raw["purpose_code"] == "OTHR"
     assert rows[5].raw["purpose_code"] == "BECH"
     assert rows[8].raw["purpose"] == "PLAČILO"
     assert rows[8].raw["purpose_code"] == "GDSV"

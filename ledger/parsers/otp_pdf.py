@@ -18,10 +18,11 @@ The payee is one of:
   withdrawal, with the holder's name and address on the next lines. The description names the
   merchant, so it is the counterparty too;
 - "Prejemnik: <name>", whichever way the money went, then a mobile number (a Flik payment) or the
-  counterparty's IBAN in groups of four, possibly wrapped, then "Ref.: [<reference>]" and, for an
-  IBAN, an optional purpose before it and "Koda namena: <purpose code>" after it;
+  counterparty's IBAN in groups of four, possibly wrapped, then "Ref.: [<reference>]" and
+  "Koda namena: <purpose code>" after it (optional for a Flik payment). An IBAN can also have a
+  purpose before the "Ref.:"; a Flik payment has no purpose or reference;
 - an IBAN alone, with the payee's name and a one- or two-line address on the next lines, such as
-  the bank's monthly fee;
+  the bank's monthly fee. A name that wraps onto a second line is followed by a two-line address;
 - a mobile number alone, with the payee's name on the next line and two lines of "/" after it: a
   Flik payment, as 2025's Statements print one;
 - nothing: a fee for a cash withdrawal, or a card payment booked after the period.
@@ -179,10 +180,11 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
         if not payee_lines[0] or len(payee_lines) != 3:
             raise ParseError.unsupported_row(text)
     elif IBAN.match(body):
-        # A payment with the payee's IBAN alone names the payee, with a one- or two-line address.
-        if not payee_lines[0] or len(payee_lines) not in (2, 3) or not valid_iban(body):
+        # A payment with the payee's IBAN alone names the payee, with a one- or two-line address;
+        # four lines are a name wrapped onto a second line, then the address.
+        if not payee_lines[0] or len(payee_lines) not in (2, 3, 4) or not valid_iban(body):
             raise ParseError.unsupported_row(text)
-        name, iban = payee_lines[0], body
+        name, iban = " ".join(payee_lines[: max(len(payee_lines) - 2, 1)]), body
     elif PHONE.match(body):
         # A Flik payment with the mobile number alone names the payee, then two lines of "/".
         if not payee_lines[0] or payee_lines[1:] != ["/", "/"]:
@@ -257,8 +259,8 @@ def _payee(lines: list[str]) -> tuple[str, str, str, dict] | None:
             return None
     if state not in ("reference", "code") or not name or (iban and not valid_iban(iban)):
         return None
-    # A Flik payment has nothing after the mobile number but an empty "Ref.:".
-    if "phone" in raw and (purpose or reference or code or state != "reference"):
+    # A Flik payment has nothing after the mobile number but an empty "Ref.:", and maybe a code.
+    if "phone" in raw and (purpose or reference):
         return None
     if purpose:
         raw["purpose"] = " ".join(purpose)
