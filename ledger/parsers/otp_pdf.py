@@ -19,7 +19,10 @@ The payee is one of:
 - "Prejemnik: <name>", whichever way the money went, then a mobile number (a Flik payment) or the
   counterparty's IBAN in groups of four, possibly wrapped, then "Ref.: [<reference>]" and, for an
   IBAN, an optional purpose before it and "Koda namena: <purpose code>" after it;
-- an IBAN alone, with the payee's name and address on the next lines: the bank's monthly fee;
+- an IBAN alone, with the payee's name and a one- or two-line address on the next lines, such as
+  the bank's monthly fee;
+- a mobile number alone, with the payee's name on the next line and two lines of "/" after it: a
+  Flik payment, as 2025's Statements print one;
 - nothing: a fee for a cash withdrawal, or a card payment booked after the period.
 
 A row is dated by its booking date, except one booked after the period ends: card payments of the
@@ -163,15 +166,20 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
         # A bank fee, or a card payment booked days after its value date (see the module docstring).
         if any(payee_lines):
             raise ParseError.unsupported_row(text)
-    elif OWN_ACCOUNT.match(body) or IBAN.match(body):
-        # A card payment or cash withdrawal names the Account holder; a payment with the payee's
-        # IBAN alone (the bank's own fees) names the payee. Both go on with its two-line address.
+    elif OWN_ACCOUNT.match(body):
+        # A card payment or cash withdrawal names the Account holder, with their two-line address.
         if not payee_lines[0] or len(payee_lines) != 3:
             raise ParseError.unsupported_row(text)
-        if IBAN.match(body):
-            if not valid_iban(body):
-                raise ParseError.unsupported_row(text)
-            name, iban = payee_lines[0], body
+    elif IBAN.match(body):
+        # A payment with the payee's IBAN alone names the payee, with a one- or two-line address.
+        if not payee_lines[0] or len(payee_lines) not in (2, 3) or not valid_iban(body):
+            raise ParseError.unsupported_row(text)
+        name, iban = payee_lines[0], body
+    elif PHONE.match(body):
+        # A Flik payment with the mobile number alone names the payee, then two lines of "/".
+        if not payee_lines[0] or payee_lines[1:] != ["/", "/"]:
+            raise ParseError.unsupported_row(text)
+        name, raw["phone"] = payee_lines[0], body
     elif body.startswith(PAYEE + " "):
         payee = _payee([body.removeprefix(PAYEE + " "), *payee_lines])
         if payee is None:
