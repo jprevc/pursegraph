@@ -8,8 +8,9 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import cached_property
 
-from django.db.models import Count, Exists, Min, OuterRef, Q, QuerySet, Sum
-from django.db.models.functions import TruncMonth
+from django.contrib.postgres.lookups import Unaccent
+from django.db.models import Count, Exists, F, Min, OuterRef, Q, QuerySet, Sum
+from django.db.models.functions import Abs, Lower, TruncMonth
 from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext, ngettext_lazy
@@ -61,6 +62,21 @@ DECIDED_BY = {
 SOURCES = list(DECIDED_BY)
 OUT, IN = "out", "in"
 
+NEWEST = "newest"
+_SIZE = Abs("amount")
+_WORDING = Lower(Unaccent(F("description")))
+_NEWEST_FIRST = (F("date").desc(), F("id").desc())
+# Each sort order, by the name `sort` gives it: its label and what it orders by. An amount sorts by its size,
+# whichever way it went, and a description ignoring case and accents; ties go newest first.
+SORTS = {
+    NEWEST: (gettext_lazy("Newest first"), _NEWEST_FIRST),
+    "oldest": (gettext_lazy("Oldest first"), (F("date").asc(), F("id").asc())),
+    "largest": (gettext_lazy("Largest first"), (_SIZE.desc(), *_NEWEST_FIRST)),
+    "smallest": (gettext_lazy("Smallest first"), (_SIZE.asc(), *_NEWEST_FIRST)),
+    "a-z": (gettext_lazy("A–Z"), (_WORDING.asc(), *_NEWEST_FIRST)),
+    "z-a": (gettext_lazy("Z–A"), (_WORDING.desc(), *_NEWEST_FIRST)),
+}
+
 
 def _outcome(value: str) -> str:
     """`outcome` as the query names it, "unresolved", "transfer", "category-<id>" or "subcategory-<id>"; "" for
@@ -91,7 +107,8 @@ def _ids(value: str) -> tuple[int, ...]:
 class Choice:
     """What is chosen: a `period` (None for all time), the Dashboard's `filters` (a Member's bucket, Accounts), an
     `outcome`, a `source` (what decided it), a direction (`out` or `in`), an amount range of sizes, a search `q`,
-    and the Transactions the Review queue `decided` just now ("See them in Transactions")."""
+    and the Transactions the Review queue `decided` just now ("See them in Transactions"). `sort` names the sort
+    order ("" for Newest first); it orders the Transactions without narrowing them, so it isn't a filter."""
 
     period: Period | None = None
     filters: Filters = Filters()
@@ -102,6 +119,7 @@ class Choice:
     most: Decimal | None = None
     q: str = ""
     decided: tuple[int, ...] = ()
+    sort: str = ""
     # Carried along untouched: the Dashboard's period and filters for the sidebar's links (`dashboard`), and the
     # Dashboard view and chart mark a drill-down's link came from, for the breadcrumb back (`view`, `mark`).
     dashboard: str = ""
@@ -118,6 +136,7 @@ class Choice:
         source = params.get("source", "")
         view = params.get("view", "")
         direction = params.get("dir", "")
+        sort = params.get("sort", "")
         of_account, _labels = buckets()
         return cls(
             period=Period.named_in(params),
@@ -129,6 +148,7 @@ class Choice:
             most=_amount(params.get("max", "")),
             q=params.get("q", "").strip(),
             decided=_ids(params.get("decided", "")),
+            sort=sort if sort in SORTS and sort != NEWEST else "",
             dashboard=params.get("dashboard", ""),
             view=view if view in VIEWS else "",
             mark=params.get("mark", "") if view in VIEWS else "",
@@ -148,6 +168,7 @@ class Choice:
             ("max", "" if self.most is None else str(self.most)),
             ("q", self.q),
             ("decided", ",".join(map(str, self.decided))),
+            ("sort", self.sort),
             ("dashboard", self.dashboard),
             ("view", self.view),
             ("mark", self.mark if self.view else ""),
@@ -235,12 +256,12 @@ def _outcome_condition(outcome: str) -> Q:
 
 
 def rows(choice: Choice) -> QuerySet[Transaction]:
-    """The chosen Transactions, newest first, each with what it counts in the chosen Category or Subcategory
-    (`TransactionQuerySet.with_counted`)."""
+    """The chosen Transactions in the chosen sort order, each with what it counts in the chosen Category or
+    Subcategory (`TransactionQuerySet.with_counted`)."""
     return (
         Transaction.objects.filter(choice.condition())
         .with_counted(_subcategories(choice.outcome))
-        .order_by("-date", "-id")
+        .order_by(*SORTS[choice.sort or NEWEST][1])
     )
 
 
@@ -353,6 +374,47 @@ class Group:
     def chosen_option(self) -> Option | None:
         """The option chosen, unless it is the Any one."""
         return next((o for o in self.options[1:] if o.chosen), None)
+
+
+@dataclass(frozen=True)
+class Column:
+    """A sortable column header: its `label`, the query string its link goes to and the sort order that gives
+    (`gives`, "Largest first"), and `aria_sort`, how it sorts the rows ("ascending" or "descending"), or "" while
+    another column does."""
+
+    label: str
+    query: str
+    gives: str
+    aria_sort: str
+
+
+ASCENDING = {"oldest", "a-z", "smallest"}
+# Each sortable column's two sort orders, the one its first click gives first.
+_COLUMNS = {
+    "date": (NEWEST, "oldest"),
+    "transaction": ("a-z", "z-a"),
+    "amount": ("largest", "smallest"),
+}
+
+
+def columns(choice: Choice) -> dict[str, Column]:
+    """The Date, Transaction and Amount headers, by those keys. A header's link gives its first sort order, or the
+    other one while that order sorts the rows; it keeps the rest of the choice and goes back to the first page."""
+    labels = {"date": _("Date"), "transaction": _("Transaction"), "amount": _("Amount")}
+    sort = choice.sort or NEWEST
+    result = {}
+    for key, (first, second) in _COLUMNS.items():
+        picked = second if sort == first else first
+        aria_sort = (
+            ("ascending" if sort in ASCENDING else "descending") if sort in (first, second) else ""
+        )
+        result[key] = Column(
+            labels[key],
+            choice.query(sort="" if picked == NEWEST else picked),
+            str(SORTS[picked][0]),
+            aria_sort,
+        )
+    return result
 
 
 # What clears each facet, as `Choice.changed` takes it.

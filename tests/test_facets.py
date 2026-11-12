@@ -255,3 +255,48 @@ def test_without_a_readable_period_it_is_all_time(homes):
 
     assert shown(choice(view="spending", mark="awaiting")) == ["Long ago"]
     assert shown(choice(period="nonsense")) == ["Long ago"]
+
+
+@pytest.fixture
+def sortable(homes):
+    """Four Transactions whose dates, sizes and descriptions each sort them differently."""
+    account = homes["ana_account"]
+    add(account, date(2026, 9, 1), "-800", "rent")
+    add(account, date(2026, 9, 2), "2400", "Špar refund")
+    add(account, date(2026, 9, 3), "-5", "SPAR")
+    add(account, date(2026, 9, 4), "-5", "bakery")
+
+
+@pytest.mark.parametrize(
+    ("sort", "order"),
+    [
+        ("", ["bakery", "SPAR", "Špar refund", "rent"]),
+        ("newest", ["bakery", "SPAR", "Špar refund", "rent"]),
+        ("oldest", ["rent", "Špar refund", "SPAR", "bakery"]),
+        # By size, whichever way the money went; the two of 5,00 € newest first.
+        ("largest", ["Špar refund", "rent", "bakery", "SPAR"]),
+        ("smallest", ["bakery", "SPAR", "rent", "Špar refund"]),
+        # Ignoring case and accents.
+        ("a-z", ["bakery", "rent", "SPAR", "Špar refund"]),
+        ("z-a", ["Špar refund", "SPAR", "rent", "bakery"]),
+        ("biggest", ["bakery", "SPAR", "Špar refund", "rent"]),
+    ],
+)
+def test_each_sort_order_orders_the_rows_and_any_other_is_newest_first(sortable, sort, order):
+    assert shown(choice(sort=sort)) == order
+
+
+def test_descriptions_that_differ_only_in_case_and_accents_sort_newest_first(homes):
+    account = homes["ana_account"]
+    add(account, date(2026, 9, 1), "-1", "Špar")
+    add(account, date(2026, 9, 2), "-1", "SPAR")
+    add(account, date(2026, 9, 3), "-1", "spar")
+    add(account, date(2026, 9, 4), "-1", "Tuš")
+
+    assert shown(choice(sort="a-z")) == ["spar", "SPAR", "Špar", "Tuš"]
+
+
+def test_the_sort_order_is_named_unless_newest_first(homes):
+    assert choice(sort="largest").query() == "sort=largest"
+    assert choice(sort="newest").query() == ""
+    assert choice(sort="largest", q="spar").changed(q="").params == [("sort", "largest")]

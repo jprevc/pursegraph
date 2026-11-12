@@ -558,6 +558,14 @@ button.fopt:focus-visible { outline-offset: -2px; }
 .between input { width: 100%; min-width: 0; }
 
 .results { padding: 0; overflow: hidden; scroll-margin-top: var(--s-4); }
+/* Date, Transaction and Amount sort the rows from their names: a faint ↕ until one sorts them, then its ↑ or ↓ in
+   Indigo. */
+.sort-h { display: inline-flex; align-items: center; gap: 2px; color: inherit; text-decoration: none; }
+.sort-h:hover { color: var(--ink); }
+.sort-h .icon { width: .875rem; height: .875rem; color: var(--faint); }
+.sort-h:hover .icon { color: inherit; }
+th[aria-sort] .sort-h { color: var(--ink); }
+th[aria-sort] .sort-h .icon { color: var(--accent-text); }
 .results .rows th:first-child, .results .rows td:first-child { padding-left: var(--s-4); }
 .results .rows th:last-child, .results .rows td:last-child { padding-right: var(--s-4); }
 .none { display: grid; justify-items: center; gap: var(--s-2); padding: var(--s-8) var(--s-5); text-align: center; color: var(--muted); }
@@ -606,6 +614,13 @@ button.fopt:focus-visible { outline-offset: -2px; }
 }
 @media (max-width: 600px) {
   .pager .button { padding: 0 var(--s-2); }
+  /* The header row stays above the stacked rows as a bar of the three sortable names. */
+  .results .rows thead { display: block; border-bottom: 1px solid var(--line); }
+  .results .rows thead tr { display: flex; justify-content: space-between; gap: var(--s-1); padding: 0 var(--s-3) 0 var(--s-4); }
+  .results .rows thead th { padding: 0; border: 0; }
+  .results .rows thead th:not([data-sorts]) { display: none; }
+  .results .rows thead th:first-child, .results .rows thead th:last-child { padding: 0; }
+  .sort-h { min-height: 2.75rem; }
 }
 
 /* ---------- Review queue ---------- */
