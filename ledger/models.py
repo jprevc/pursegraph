@@ -14,6 +14,7 @@ class Bank(models.TextChoices):
     SPARKASSE_SI = "sparkasse_si", _("Sparkasse SI")
     N26 = "n26", _("N26")
     REVOLUT = "revolut", _("Revolut")
+    OTP_SI = "otp_si", _("OTP banka")
     # An Account with no Statements, known only so that money moved to it is a Transfer.
     OTHER = "other", _("Other")
 

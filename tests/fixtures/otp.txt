@@ -1,0 +1,98 @@
+                                                            Štev. izpiska: 08
+                                                           Datum izpiska: 31.08.2026
+         NOVAK ANA                                       Datum pre. izpiska: 31.07.2026
+                                                           BIC koda banke: KBMASI2X
+         GLAVNA ULICA 1
+         1000 LJUBLJANA
+      ZBIRNI PODATKI NA TRANSAKCIJSKEM RAČUNU ŠTEV. SI56 0400 1001 2345 664 ZA OBDOBJE OD 01.08-31.08.2026
+      Poslovna enota: 3412 Poslovalnica Center
+      Valuta           Začetno stanje  Breme         Dobro           Končno stanje
+      EUR                 2.500,00     4.245,87      2.453,09          707,22
+      Znesek dovoljene prekoračitve 400,00 EUR velja do preklica
+      Obrestovanje v domači valuti:
+      Banka je v navedenem obdobju obrestovala pozitivno stanje na računu po 0,00 % letni obrestni meri.
+      Banka je v navedenem obdobju obrestovala dovoljeno prekoračitev sredstev po 10,35 % letni obrestni meri.
+      Banka obrestuje nedovoljeno negativno stanje po zakonski zamudni obrestni meri, ki je v navedenem obdobju znašala 10,40 %
+      letno.
+      Izpis prometa na transakcijskem računu
+      VALUTA: EUR
+      Datum val. ID
+       Datum knj transakcije Plačnik/Prejemnik Breme Dobro Stanje Opis
+       28.07.2026 2600000001 04001-0012345664 17,91       2.482,09 INTERSPAR KRANJ
+       03.08.2026    NOVAK ANA
+                     GLAVNA ULICA 1
+                     1000 LJUBLJANA
+       02.08.2026 2600000002 Prejemnik: MARKO K. 11,49    2.470,60 knjiga za šolo
+       02.08.2026    0038641000001
+                      Ref.:
+       03.08.2026 2600000003 04001-0012345664 20,00       2.450,60 1616000011/GLAVNA ULICA
+       05.08.2026    NOVAK ANA
+                     GLAVNA ULICA 1
+                     1000 LJUBLJANA
+       03.08.2026 2600000004                0,75          2.449,85 PROVIZIJA ZA DVIG GOTOVINE
+       05.08.2026
+       05.08.2026 2600000005 Prejemnik: PETRA S.    108,00 2.557,85 AMAZON - PLOŠČA
+       05.08.2026    0038641000002
+                      Ref.:
+    D8008 RA-002                                                         Stran 1
+    OTP banka d.d.; Slovenska cesta 58; 1000 Ljubljana; vpisana v sodni register okrožnega sodišča v Ljubljani; matična številka: 5860580000; osnovni kapital: 150.000.000,00
+    EUR; identifikacijska številka za DDV: SI94314527; www.otpbanka.si; info@otpbanka.si
+      VALUTA: EUR
+      Datum val. ID
+       Datum knj transakcije Plačnik/Prejemnik Breme Dobro Stanje Opis
+       13.08.2026 2600000006 Prejemnik: ZAVOD ZA - OTROSKI 61,23 2.619,08 OTROŠKI DODATEK
+       13.08.2026    DODATEK 2 SI56 0110 0600 0012
+                     342
+                      Ref.: SI0011692433-63888 Koda
+                     namena: BECH
+       14.08.2026 2600000007 Prejemnik: ACME-NEPOSREDNA 2.263,36 4.882,44 PLAČA
+       14.08.2026    PLACILA IZ NASL.-SN SI56 0110
+                     0600 0045 613
+                      Ref.: SI0014082026-20801 Koda
+                     namena: SALA
+       23.08.2026 2600000008 Prejemnik: Luka P. 0038641000003 100,00 4.782,44 :/
+       23.08.2026     Ref.:
+       27.08.2026 2600000009 Prejemnik: BROKER EUROPE 4.000,00 782,44 BROKER EUROPE IRELAND
+       27.08.2026    IRELAND LIMITED DE30 5011 0800           LIMITED;PLAČILO
+                     1234 5678 90
+                      PLAČILO Ref.: Koda namena:
+                     GDSV
+       28.08.2026 2600000013 Prejemnik: ZAVOD KNJIGARNA 12,00 770,44 ZAVOD KNJIGARNA
+       28.08.2026    CELJE SI56 6100 0001 2345 634            CELJE;KNJIGA PLAČILO
+                     KNJIGA PLAČILO Ref.:
+                     SI00282026 Koda namena: GDSV
+       29.08.2026 2600000014 Prejemnik: KOVAČ MAJA SI56 17,00 787,44 Nakazilo
+       29.08.2026    6100 0009 8765 456
+                     Ref.: Koda namena: OTHR
+       29.08.2026 2600000015 Prejemnik: Društvo Primer, d.d. 5,00 782,44 Plačilo na račun
+       29.08.2026    SI56 0400 1001 1111 145                  člana društva.
+                      Ref.:
+       29.08.2026 2600000016 0038641000004           3,50 785,94 vračilo - sladoled
+       29.08.2026    TINA R.
+                     /
+                     /
+       30.08.2026 2600000017 SI56029220022222210   3,50 782,44 ZAVOD ZA KAKOVOST;RAČUN ZA JULIJ
+       30.08.2026    ZAVOD ZA KAKOVOST                            2026
+                     TRŽAŠKA CESTA 2
+    D8008 RA-002                                                         Stran 2
+    OTP banka d.d.; Slovenska cesta 58; 1000 Ljubljana; vpisana v sodni register okrožnega sodišča v Ljubljani; matična številka: 5860580000; osnovni kapital: 150.000.000,00
+    EUR; identifikacijska številka za DDV: SI94314527; www.otpbanka.si; info@otpbanka.si
+      VALUTA: EUR
+      Datum val. ID
+       Datum knj transakcije Plačnik/Prejemnik Breme Dobro Stanje Opis
+       29.08.2026 2600000010 04001-0012345664 41,24       741,20 HOFER hvala
+       31.08.2026    NOVAK ANA
+                     GLAVNA ULICA 1
+                     1000 LJUBLJANA
+       31.08.2026 2600000011                27,98         713,22 C & A Kranj Jug 803
+       02.09.2026
+       31.08.2026 2600000012 SI56040007000012313 6,00     707,22 MESEČNI STROŠKI VODENJA
+       31.08.2026    OTP BANKA D.D.                           OSEBNEGA RAČUNA
+                     SLOVENSKA CESTA 58
+                     1000 LJUBLJANA
+      Pozitivno stanje na transakcijskem računu SI56 0400 1001 2345 664 je v skladu z ZSJV upravičeno do jamstva v okviru sistema
+      jamstva za vloge. Več informacij o sistemu jamstva za vloge na www.otpbanka.si.
+      Storitev je oproščena plačila DDV v skladu s 4. c. tč. 44. člena ZDDV-1. Samofakturiranje ( velja le za pasivne obresti).
+    D8008 RA-002                                                         Stran 3
+    OTP banka d.d.; Slovenska cesta 58; 1000 Ljubljana; vpisana v sodni register okrožnega sodišča v Ljubljani; matična številka: 5860580000; osnovni kapital: 150.000.000,00
+    EUR; identifikacijska številka za DDV: SI94314527; www.otpbanka.si; info@otpbanka.si

@@ -5,8 +5,8 @@ A surface section of the design system. Tokens, type, components and Named Rules
 One row is shared by Transactions and the drill-down. The Review queue decides outcomes in its own detail pane (see Review queue), with the same outcome text, chips and save feedback. The row's columns are Date, Transaction (500, with a muted caption for the kind), Account (pill), Outcome, and Amount (right-aligned, 600, tabular). Only the Transactions page sorts by its headers (see Transactions page); the drill-down's are plain, newest first. Rows have hairline dividers and a Raised hover. Every Member can change an outcome on every surface, always through an explicit action.
 - **The outcome is text, not a control.** It reads as the Category's hue dot, then "Category › Subcategory", with the Category in Muted, the › in Faint and the Subcategory in Ink at 500. It always names its Category, so the eight "Other" catch-alls never read alike. A Transfer gets a hollow Muted ring, and Awaiting review gets the hatched dot. A muted source caption follows ("by Rule", "by Categorizer", "by hand", "by IBAN", "paired").
 - **A Split.** Its outcome reads "Split" with a mini bar, its Part rows sit under it, and the chip panel and the native select both lead to the Split editor: see Split editor and Part rows.
-- **Actions on reading surfaces.** Transactions and the drill-down show a "Change" text button in Indigo Ink.
-- **Action layout.** The actions keep a fixed place at the end of the cell. A long outcome ("Leisure › Subscriptions & digital services") wraps its own label and never pushes the actions onto a new line.
+- **Actions on reading surfaces.** Transactions and the drill-down show Change as a 16px pencil, a 32px icon-only button named "Change the outcome of *description*", with a "Change" tooltip. It is always shown: Muted at rest, Indigo Ink on the row's hover, on its own hover and on focus. Under a coarse pointer, its tap target is 44px.
+- **Action layout.** Change sits right after the outcome, its source caption included, for every kind of outcome. A long outcome ("Leisure › Subscriptions & digital services") wraps its own label, and Change stays beside it, never on a new line. Without JS, the select and Save take its place.
 - **Picking with a fine pointer: the chip panel.** Change opens a panel in a full-width row under the Transaction, on the Raised fill.
   - **Title row:** "Choose an outcome for *description*", with a Cancel text button.
   - **Chips:** "Most used" chips (the Household's five most-used outcomes, each "Category › Subcategory"), then one chip per Category (hue dot and name), then Transfer. A Category chip swaps the chips for its Subcategories, with "‹ All Categories" to go back.
@@ -22,4 +22,4 @@ One row is shared by Transactions and the drill-down. The Review queue decides o
 - **Phone (≤600px).** Each row is a stacked card:
   - description and amount on the first line;
   - date, kind and Account in a muted caption;
-  - the outcome, with Change under it at 44px.
+  - the outcome, with Change under it as a full-width 44px "Change" text button.

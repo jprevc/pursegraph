@@ -12,7 +12,7 @@ Pursegraph is meant to be reached only on the LAN or over a VPN. Never expose it
 
 The screenshots show a synthetic Household from `manage.py seed_demo`; `scripts/readme-shots` retakes them.
 
-- **Statement import:** parsers for Sparkasse SI, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
+- **Statement import:** parsers for Sparkasse SI, OTP banka, N26 and Revolut PDFs and Revolut CSV exports. Every Statement is balance-checked and de-duplicated against what was already imported.
 - **Categorization:** ordered Rules, Transfer detection by IBAN and pairing, then Suggestions from a Categorizer you connect (an LLM or any other service). Low-confidence Suggestions wait in a Review queue.
 - **Privacy:** Transaction text leaves Pursegraph only through a Categorizer you connect, which fetches it with an API token of its own.
 - **Dashboard:** spending by Category, cashflow, Category trends, per-Member and money-flow views, with drill-down to the Transactions and warnings for gaps in the imported periods.

@@ -25,11 +25,11 @@ the period's first day, and keeps its booking date in raw.
 """
 
 import re
-from datetime import date, datetime, timedelta
-from decimal import Decimal
+from datetime import date, timedelta
 
 from django.utils.translation import gettext as _
 
+from .formats import comma_money, dotted_date
 from .iban import valid_iban
 from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
@@ -63,20 +63,20 @@ def parse(text: str) -> ParsedStatement:
         raise ParseError(_("The Sparkasse Statement has no IBAN, period or EUR totals."))
     opening, money_out, count_out, money_in, count_in, closing = summary.groups()
     # The period runs from the day after the previous Statement.
-    period_start = _date(period[1]) + timedelta(days=1)
-    period_end = _date(period[2])
+    period_start = dotted_date(period[1]) + timedelta(days=1)
+    period_end = dotted_date(period[2])
     return ParsedStatement(
         bank="sparkasse_si",
         iban=iban[1].replace(" ", ""),
         period_start=period_start,
         period_end=period_end,
-        opening_balance=_money(opening),
-        closing_balance=_money(closing),
+        opening_balance=comma_money(opening),
+        closing_balance=comma_money(closing),
         rows=_rows(text, period_start, period_end),
         skipped_count=0,
         printed_totals=Totals(
-            money_in=_money(money_in),
-            money_out=_money(money_out),
+            money_in=comma_money(money_in),
+            money_out=comma_money(money_out),
             count_in=int(count_in),
             count_out=int(count_out),
         ),
@@ -164,31 +164,22 @@ def _row(lines: list[str], sign: int, period_start: date, period_end: date) -> P
     description = name or rest
     purpose = " ".join([rest, *after]).strip() if name else " ".join(after)
 
-    raw = {"value_date": _date(value_date).isoformat(), "purpose": purpose, "lines": lines}
+    raw = {"value_date": dotted_date(value_date).isoformat(), "purpose": purpose, "lines": lines}
     if phone:
         raw["phone"] = phone
-    row_date = _date(booking_date)
+    row_date = dotted_date(booking_date)
     if row_date > period_end:
         raw["booking_date"] = row_date.isoformat()
-        row_date = _date(value_date)
+        row_date = dotted_date(value_date)
     elif row_date < period_start:
         raw["booking_date"] = row_date.isoformat()
         row_date = period_start
     return ParsedRow(
         date=row_date,
-        amount=sign * _money(amount),
+        amount=sign * comma_money(amount),
         description=description,
         counterparty_name=name,
         counterparty_iban=iban,
         reference=reference or "",
         raw=raw,
     )
-
-
-def _date(text: str) -> date:
-    return datetime.strptime(text, "%d.%m.%Y").date()
-
-
-def _money(text: str) -> Decimal:
-    """ "1.234,56" -> Decimal("1234.56")."""
-    return Decimal(text.replace(".", "").replace(",", "."))

@@ -57,7 +57,7 @@ def test_a_row_is_changed_only_through_change_never_by_a_select_on_change(logged
     page = logged_in_client.get("/transactions/").content.decode()
 
     assert 'hx-trigger="change' not in page
-    assert "Change</button>" in page
+    assert 'data-change aria-expanded="false" aria-label="Change the outcome of' in page
 
 
 def undo(client, description):
