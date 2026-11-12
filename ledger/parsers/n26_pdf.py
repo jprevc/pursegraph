@@ -15,11 +15,10 @@ Statement's own IBAN.
 """
 
 import re
-from datetime import datetime
-from decimal import Decimal
 
 from django.utils.translation import gettext as _
 
+from .formats import comma_money, dotted_date
 from .types import ParsedRow, ParsedStatement, ParseError, Totals
 
 UNSIGNED = r"\d{1,3}(?:\.\d{3})*,\d\d"
@@ -55,14 +54,16 @@ def parse(text: str) -> ParsedStatement:
     return ParsedStatement(
         bank="n26",
         iban=iban[1],
-        period_start=_date(period[1]),
-        period_end=_date(period[2]),
-        opening_balance=_money(opening[1]),
-        closing_balance=_money(closing[1]),
+        period_start=dotted_date(period[1]),
+        period_end=dotted_date(period[2]),
+        opening_balance=comma_money(opening[1]),
+        closing_balance=comma_money(closing[1]),
         rows=_rows(text),
         skipped_count=0,
         # The overview prints money out as negative, or unsigned when it's zero.
-        printed_totals=Totals(money_in=_money(money_in[1]), money_out=-_money(money_out[1])),
+        printed_totals=Totals(
+            money_in=comma_money(money_in[1]), money_out=-comma_money(money_out[1])
+        ),
     )
 
 
@@ -105,24 +106,15 @@ def _row(lines: list[str]) -> ParsedRow:
     description, booking_date, amount = first.groups()
     category, *rest = details
     return ParsedRow(
-        date=_date(booking_date),
-        amount=_money(amount),
+        date=dotted_date(booking_date),
+        amount=comma_money(amount),
         description=description,
         counterparty_name=description,
         counterparty_iban=ibans[0] if ibans else "",
         raw={
             "n26_category": category,
             "purpose": " ".join(line for line in rest if not IBAN.match(line)),
-            "value_date": _date(value_date[1]).isoformat(),
+            "value_date": dotted_date(value_date[1]).isoformat(),
             "lines": lines,
         },
     )
-
-
-def _date(text: str):
-    return datetime.strptime(text, "%d.%m.%Y").date()
-
-
-def _money(text: str) -> Decimal:
-    """ "-1.234,56" -> Decimal("-1234.56")."""
-    return Decimal(text.replace(".", "").replace(",", "."))

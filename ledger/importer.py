@@ -193,7 +193,9 @@ def check_statement(*, content: bytes, filename: str) -> CheckedStatement:
         parsed = parse(content, format)
     except ParseError as error:
         raise ImportRejected(
-            _("Pursegraph couldn't read it as a Statement from Sparkasse SI, N26 or Revolut."),
+            _(
+                "Pursegraph couldn't read it as a Statement from Sparkasse SI, OTP banka, N26 or Revolut."
+            ),
             heading=_("Not a Statement Pursegraph can read"),
             next_step=_(
                 "Download the Statement from your bank's website or app; scans and photos can't be read. "

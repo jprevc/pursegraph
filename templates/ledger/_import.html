@@ -14,7 +14,7 @@
   {% csrf_token %}
   <div class="drop-idle">
     {% icon "upload" %}
-    <p><span class="drop-lead">{% translate "Drop Statements anywhere on this page." %}</span> <span class="muted">{% translate "PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports. Several at once." %}</span></p>
+    <p><span class="drop-lead">{% translate "Drop Statements anywhere on this page." %}</span> <span class="muted">{% translate "PDF Statements from Sparkasse SI, OTP banka, N26 and Revolut, and Revolut CSV exports. Several at once." %}</span></p>
   </div>
   {% if form.errors %}<div class="drop-errors">{{ form.file.errors }}{{ form.non_field_errors }}</div>{% endif %}
   <div class="drop-pick">

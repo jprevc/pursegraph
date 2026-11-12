@@ -25,7 +25,7 @@ It looks back and does not tell people what to do. There are no budgets, goals, 
 
 ## Positioning
 
-Pursegraph is **the whole Household's money in one private picture**. It brings every Member's Accounts together across banks (Sparkasse SI, N26, Revolut, plus statement-less Accounts such as savings elsewhere). It understands **Transfers** between the Household's own Accounts, so money moving between Members or into savings is never counted as spending or income. It is self-hosted and reachable only on the LAN or over a VPN, so the data never leaves the home.
+Pursegraph is **the whole Household's money in one private picture**. It brings every Member's Accounts together across banks (Sparkasse SI, OTP banka, N26, Revolut, plus statement-less Accounts such as savings elsewhere). It understands **Transfers** between the Household's own Accounts, so money moving between Members or into savings is never counted as spending or income. It is self-hosted and reachable only on the LAN or over a VPN, so the data never leaves the home.
 
 A bank's app sees only one bank. A single-user budgeting tool sees only one person.
 
