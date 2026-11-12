@@ -26,8 +26,9 @@ Undo post `listed`, the address of the list the row is in, so that the row swapp
         <input type="hidden" name="listed" value="{{ listed|default:request.get_full_path }}">
         {% blocktranslate asvar change_label with description=t.description %}Change the outcome of {{ description }}{% endblocktranslate %}
         <span class="change">
-          <button type="button" class="link" data-change aria-expanded="false" aria-label="{{ change_label }}">{% translate "Change" %}</button>
-          <span class="change-label" aria-hidden="true">{% translate "Change" %}</span>
+          {# A pencil beside the outcome; on a phone, the word under it. #}
+          <button type="button" class="link" data-change aria-expanded="false" aria-label="{{ change_label }}" title="{% translate 'Change' %}">{% icon "edit" %}<span class="change-text">{% translate "Change" %}</span></button>
+          <span class="change-label" aria-hidden="true" title="{% translate 'Change' %}">{% icon "edit" %}<span class="change-text">{% translate "Change" %}</span></span>
           <select name="outcome" aria-label="{{ change_label }}">
             {% if t.ambiguous_pairing %}<option value="" selected disabled>{% translate "Pick the other side" %}</option>
             {% elif t.is_unresolved %}<option value="" selected disabled>{% translate "Awaiting review" %}</option>

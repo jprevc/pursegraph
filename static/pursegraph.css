@@ -363,8 +363,8 @@ details summary { cursor: pointer; color: var(--ink-2); font-weight: 500; margin
 tr.txn:hover .pill { background: var(--hover); }
 .dot.transfer { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }
 
-/* The outcome, then its actions at a fixed place at the end: a long outcome wraps its own label. */
-.oc { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .375rem var(--s-3); }
+/* The outcome, then its actions right beside it: a long outcome wraps its own label, and Change stays at its side. */
+.oc { display: grid; grid-template-columns: minmax(0, max-content) auto; justify-content: start; align-items: center; gap: .375rem var(--s-1); }
 .oc-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); min-width: 0; font-weight: 500; }
 .oc-label .dot { align-self: center; margin-right: calc(var(--s-1) * -1); }
 .oc-label .cat-name { color: var(--muted); font-weight: 400; }
@@ -372,7 +372,15 @@ tr.txn:hover .pill { background: var(--hover); }
 .oc-label .cap { color: var(--muted); font-size: var(--text-label); font-weight: 400; }
 .oc-form { display: flex; align-items: center; gap: var(--s-2); }
 .change { position: relative; display: inline-flex; }
-button.link[data-change] { margin: 0; padding: .375rem .25rem; }
+/* Change is a pencil: Muted, Indigo Ink on the row's hover and on focus. The word is for the phone's button. */
+button.link[data-change] {
+  justify-content: center; align-items: center; width: 2rem; height: 2rem; margin: 0; padding: 0;
+  border-radius: var(--r-inner); color: var(--muted);
+}
+button.link[data-change]:hover, tr.txn:hover button.link[data-change], button.link[data-change]:focus-visible,
+button.link[data-change][aria-expanded="true"] { color: var(--accent-text); text-decoration: none; }
+.change .icon { color: inherit; vertical-align: 0; }
+.change-text { display: none; }
 .change-label { display: none; }
 .oc-form select { height: 2rem; max-width: 16rem; font-size: var(--text-sm); }
 .oc-save { height: 2rem; }
@@ -385,7 +393,11 @@ html:not(.js) [data-split-group] { display: none; }
 @media (pointer: coarse) {
   /* A tap on Change opens the OS picker: the select lies transparent over the label. 16px, so iOS doesn't zoom. */
   .js [data-change] { display: none; }
-  .js .change-label { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 .25rem; color: var(--accent-text); font-weight: 500; }
+  .js .change-label {
+    display: inline-flex; justify-content: center; align-items: center; width: 2.75rem; height: 2.75rem;
+    color: var(--muted); font-weight: 500;
+  }
+  tr.txn:hover .change-label, .change:focus-within .change-label { color: var(--accent-text); }
   .js .oc-form select { display: block; position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; opacity: 0; font-size: 1rem; cursor: pointer; }
   .js .change:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-inner); }
 }
@@ -470,9 +482,11 @@ html:not(.js) [data-split-group] { display: none; }
   .oc-form, .change { display: flex; }
   .change, button.link[data-change], .js .change-label { width: 100%; }
   button.link[data-change], .js .change-label {
-    justify-content: center; min-height: 2.75rem; border: 1px solid var(--line-strong); border-radius: var(--r-ctl);
-    background: var(--card);
+    justify-content: center; height: auto; min-height: 2.75rem; border: 1px solid var(--line-strong); border-radius: var(--r-ctl);
+    background: var(--card); color: var(--accent-text);
   }
+  .change .icon { display: none; }
+  .change-text { display: inline; }
   .rows tr.chip-panel, .rows tr.chip-panel > td { display: block; }
   .chips button, .pairs button { min-height: 2.75rem; }
 }
