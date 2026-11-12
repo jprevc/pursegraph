@@ -6,7 +6,8 @@ parsed from pdfplumber's layout text, which keeps a gap of two or more spaces be
 The summary prints the EUR opening balance, money out (Breme), money in (Dobro) and the closing
 balance, but no row counts. The rows follow, page after page, with unsigned amounts whose column
 (Breme or Dobro) doesn't survive as text: each is signed by which way it moves the running balance
-printed beside it. Each row takes two dated lines and the payee's further lines:
+printed beside it. A refund of a card payment prints in Breme as a negative amount, which the Breme
+total nets out. Each row takes two dated lines and the payee's further lines:
 
     <value date> <transaction ID> [<payee>] <amount> <running balance> <description>
     <booking date> [<payee, continued>]  [<description, continued>]
@@ -58,7 +59,7 @@ NOISE = re.compile(
     r"^(?:Datum val\. ID|Datum knj transakcije .*|\S+ \S+ +Stran \d+|OTP banka d\.d\.; .*"
     r"|EUR; identifikacijska številka za DDV: .*)$"
 )
-FIRST_LINE = re.compile(rf"^({DATE}) (\d+)(?: +(\S.*?))? +({MONEY}) +(-?{MONEY})(?: +(\S.*))?$")
+FIRST_LINE = re.compile(rf"^({DATE}) (\d+)(?: +(\S.*?))? +(-?{MONEY}) +(-?{MONEY})(?: +(\S.*))?$")
 SECOND_LINE = re.compile(rf"^({DATE})(?: +(\S.*))?$")
 # The Account holder's own account, in its domestic form: a card payment or cash withdrawal.
 OWN_ACCOUNT = re.compile(r"^\d{5}-\d{10}$")
@@ -89,6 +90,11 @@ def parse(text: str) -> ParsedStatement:
     start_day, start_month, period_end = int(period[1]), int(period[2]), dotted_date(period[3])
     # A period across New Year starts in the year before its end.
     start_year = period_end.year if start_month <= period_end.month else period_end.year - 1
+    rows = _rows(text, opening, period_end)
+    netted = sum(
+        (-comma_money(r.raw["printed_amount"]) for r in rows if "printed_amount" in r.raw),
+        Decimal(0),
+    )
     return ParsedStatement(
         bank="otp_si",
         iban=tidy_iban(iban[1]),
@@ -96,9 +102,11 @@ def parse(text: str) -> ParsedStatement:
         period_end=period_end,
         opening_balance=opening,
         closing_balance=closing,
-        rows=_rows(text, opening, period_end),
+        rows=rows,
         skipped_count=0,
-        printed_totals=Totals(money_in=money_in, money_out=money_out),
+        # A negative amount, such as a refund in the Breme column, is netted out of its column's
+        # total, while its row counts on the other side: both totals gain it back.
+        printed_totals=Totals(money_in=money_in + netted, money_out=money_out + netted),
     )
 
 
@@ -192,6 +200,8 @@ def _row(lines: list[str], previous_balance: Decimal, period_end: date) -> Parse
     signed = _signed(comma_money(amount), previous_balance, comma_money(balance))
     if signed is None:
         raise ParseError.unsupported_row(text)
+    if amount.startswith("-"):
+        raw["printed_amount"] = amount
     row_date = dotted_date(booking_date)
     if row_date > period_end:
         # Booked after the period, yet in this Statement's closing balance.
