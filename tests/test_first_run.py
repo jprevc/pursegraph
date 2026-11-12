@@ -172,7 +172,7 @@ def test_a_member_without_a_bucket_sees_their_first_steps_above_the_tiles(luka_c
     assert card
     assert page.index('class="panel first-steps"') < page.index('class="tiles')
     assert "Your first steps, Luka" in page_text(card)
-    assert "1 Import your own Statements Sparkasse, N26 or Revolut." in page_text(card)
+    assert "1 Import your own Statements Sparkasse, OTP banka, N26 or Revolut." in page_text(card)
     assert "you get your own bucket in Per Member." in page_text(card)
     assert (
         "2 Help with the Review queue 2 Transactions wait for a Member to decide. Open"

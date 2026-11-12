@@ -6,7 +6,7 @@ Import is the Household's Accounts on one shared time axis, with Statements drop
 
 **Choosing files.**
 - **Header:** the title row reads "Import", with "Choose files" (an upload icon plus text) as its primary action.
-- **Drop strip:** a slim card under the header with a 1.5px dashed Line Strong border. It holds an upload icon, "Drop Statements anywhere on this page." in Ink 600, and the supported formats in Muted ("PDF Statements from Sparkasse SI, N26 and Revolut, and Revolut CSV exports. Several at once.").
+- **Drop strip:** a slim card under the header with a 1.5px dashed Line Strong border. It holds an upload icon, "Drop Statements anywhere on this page." in Ink 600, and the supported formats in Muted ("PDF Statements from Sparkasse SI, OTP banka, N26 and Revolut, and Revolut CSV exports. Several at once.").
 - **Drop target:** the whole page.
 - **Without JS:** the input stays a real `<input type="file" multiple>` in a form with `method` and `action`, so it posts as today.
 - **Staging:** once files are chosen, the strip lists one row per file: a file icon, the name, the size, "Ready" and a ghost × to remove it. Below the list: "Each file lands on its Account's row below.", Cancel, and the primary "Import N files".

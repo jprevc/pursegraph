@@ -17,9 +17,13 @@ def parse(content: bytes, format: str) -> ParsedStatement:
         from . import revolut_csv
 
         return revolut_csv.parse(content)
-    from . import pdf_text
+    from . import otp_pdf, pdf_text
 
-    return parse_pdf_text(pdf_text.extract_text(content))
+    text = pdf_text.extract_text(content)
+    if otp_pdf.is_statement(text):
+        # Only the layout text keeps OTP's payee and description columns apart.
+        text = pdf_text.extract_text(content, layout=True)
+    return parse_pdf_text(text)
 
 
 def parse_pdf_text(text: str) -> ParsedStatement:
@@ -28,6 +32,10 @@ def parse_pdf_text(text: str) -> ParsedStatement:
         from . import sparkasse_pdf
 
         return sparkasse_pdf.parse(text)
+    from . import otp_pdf
+
+    if otp_pdf.is_statement(text):
+        return otp_pdf.parse(text)
     if "Bank Statement Nr." in text and "• BIC: NTSBDEB1" in text:
         from . import n26_pdf
 

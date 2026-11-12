@@ -301,3 +301,14 @@ def two_webhooks(receiver):
 def deliveries(receiver):
     """Each delivery received, as (path, waiting)."""
     return sorted((call["path"], call["body"]["waiting"]) for call in receiver.calls())
+
+
+@pytest.fixture
+def otp_pdf_text(monkeypatch):
+    """The uploaded "PDF" is the OTP fixture's layout text; without layout mode, its columns run together."""
+
+    def extract_text(content, layout=False):
+        text = content.decode()
+        return text if layout else "\n".join(" ".join(line.split()) for line in text.splitlines())
+
+    monkeypatch.setattr("ledger.parsers.pdf_text.extract_text", extract_text)
