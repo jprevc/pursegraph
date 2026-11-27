@@ -38,12 +38,7 @@ urlpatterns = [
     path("api-and-webhooks/webhooks/", views.add_webhook, name="add_webhook"),
     path("api-and-webhooks/webhooks/<int:pk>/delete/", views.delete_webhook, name="delete_webhook"),
     path("api-and-webhooks/webhooks/<int:pk>/notify/", views.notify_webhook, name="notify_webhook"),
-    path("api/categorizer/v1/transactions/", api.waiting, name="api_waiting"),
-    path(
-        "api/categorizer/v1/transactions/<int:pk>/suggestion/",
-        api.suggestion,
-        name="api_suggestion",
-    ),
+    path("api/categorizer/v1/", api.urls()),
     path("rules/", views.rules, name="rules"),
     path("rules/new/", views.new_rule, name="new_rule"),
     path("rules/preview/", views.rule_preview, name="rule_preview"),

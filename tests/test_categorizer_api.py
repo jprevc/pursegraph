@@ -287,3 +287,50 @@ def test_the_oldest_transactions_come_first(api):
     Transaction.objects.filter(pk=older.pk).update(date=date(2026, 1, 1))
 
     assert [t["description"] for t in api.fetch().json()["transactions"]] == ["Older", "Newer"]
+
+
+@pytest.mark.parametrize(
+    ("params", "body", "field"),
+    [
+        ({"limit": "ten"}, None, '"limit"'),
+        (None, {"subcategory": 1, "confidence": 1.5}, '"confidence"'),
+        (None, {"subcategory": 1}, '"confidence"'),
+        (None, {"confidence": 0.5}, '"subcategory"'),
+    ],
+)
+def test_a_400_names_the_field_at_fault(api, params, body, field):
+    make_transaction("Corner Shop")
+
+    response = api.fetch(**params) if params else api.send("Corner Shop", body)
+
+    assert response.status_code == 400
+    assert response.json()["error"].startswith(f"{field}: ")
+
+
+def test_a_wrong_method_is_a_405(api, client, secret):
+    make_transaction("Corner Shop")
+    headers = {"Authorization": f"Bearer {secret}"}
+
+    assert client.post(WAITING, headers=headers).status_code == 405
+    assert client.get(suggestion_url("Corner Shop"), headers=headers).status_code == 405
+
+
+@pytest.mark.parametrize("path", ["docs", "openapi.json"])
+def test_the_api_docs_are_for_logged_in_members(client, member, path):
+    url = f"/api/categorizer/v1/{path}"
+
+    anonymous = client.get(url)
+    client.force_login(member)
+
+    assert anonymous.status_code == 302
+    assert anonymous["Location"].startswith("/login/")
+    assert client.get(url).status_code == 200
+
+
+def test_the_openapi_description_names_both_operations(logged_in_client):
+    paths = logged_in_client.get("/api/categorizer/v1/openapi.json").json()["paths"]
+
+    assert set(paths) == {
+        "/api/categorizer/v1/transactions/",
+        "/api/categorizer/v1/transactions/{pk}/suggestion/",
+    }

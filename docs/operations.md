@@ -67,7 +67,7 @@ A Suggestion at least as sure as the auto-accept threshold on the Suggestions pa
 
 ### The Categorizer API
 
-API tokens are general, but these endpoints are a group of their own, under `/api/categorizer/v1/`; any other group would get its own path. Every call sends the token as `Authorization: Bearer pgc_...`. The API takes no session or CSRF token, and it answers in JSON.
+API tokens are general, but these endpoints are a group of their own, under `/api/categorizer/v1/`; any other group would get its own path. Every call sends the token as `Authorization: Bearer pgc_...`. The API takes no session or CSRF token, and it answers in JSON. A logged-in Member can read its OpenAPI description at `/api/categorizer/v1/openapi.json`, and try it out at `/api/categorizer/v1/docs`.
 
 #### Fetching the waiting Transactions
 
@@ -129,11 +129,11 @@ Content-Type: application/json
 | 400 | A malformed request: a `limit` that isn't a whole number from 1 to 200, a body that isn't a JSON object with `"subcategory"`, a `subcategory` that isn't an id or `null`, or a missing or out-of-range `confidence`. Also an unknown Subcategory; fetch again for the current ones. |
 | 401 | A missing, wrong or revoked token. The answer has `WWW-Authenticate: Bearer`. |
 | 404 | No Transaction with that id. |
-| 405 | The wrong method, with an empty body and an `Allow` header. |
+| 405 | The wrong method, with an `Allow` header. |
 
-The token is checked first, so a request without a valid one gets a 401 whatever else is wrong with it, even the method.
+The method is checked first, then the token, so a request without a valid token gets a 401 whatever else is wrong with it, except the method.
 
-All but the 405 answer `{"error": "<why>"}`, such as `{"error": "limit must be a whole number from 1 to 200."}`.
+All but the 405 answer `{"error": "<why>"}`, which names the field at fault, such as `{"error": "\"limit\": Input should be less than or equal to 200."}`.
 
 ### Example: an Ollama Categorizer
 
