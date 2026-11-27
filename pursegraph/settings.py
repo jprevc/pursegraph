@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "django.contrib.postgres",
     "axes",
+    # for the Categorizer API docs' Swagger UI, served from static files rather than a CDN
+    "ninja",
     "members",
     "dashboard",
     "ledger",

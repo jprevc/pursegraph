@@ -39,11 +39,10 @@ def revoke(pk: int) -> ApiToken | None:
     return token
 
 
-def authenticate(authorization: str) -> ApiToken | None:
-    """The active token an `Authorization: Bearer <secret>` header names, marked as used now; None for any other
-    header."""
-    scheme, _, secret = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not secret.strip():
+def authenticate(secret: str) -> ApiToken | None:
+    """The active token whose secret is `secret`, the part of an `Authorization: Bearer <secret>` header after the
+    scheme, marked as used now; None for any other secret."""
+    if not secret.strip():
         return None
     token = active().filter(digest=_digest(secret.strip())).first()
     if token:
